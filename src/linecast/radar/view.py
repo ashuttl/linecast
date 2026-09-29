@@ -36,22 +36,17 @@ from linecast.radar import frames as _frames
 from linecast.radar import layers as _layers
 from linecast.radar import warnings as _warnings
 from linecast.terminal.live import overlay
-from linecast.radar.basemap import DotLayer, _point_in_rings  # noqa: F401 — re-exported
+from linecast.radar.basemap import DotLayer
 from linecast.radar.i18n import rs
 from linecast.radar.render import bbox_for, _bbox_key, compose
-# the frame cache and prefetcher; the benches reach the rest through here too
-from linecast.radar.frames import (  # noqa: F401
-    MAX_REWIND_MIN, N_FRAMES, PLAY_READY, _cached_frame, _ensure_prefetch,
-    _frame_cache, _frame_key, _load_frame, _loaded_mask, _nearest_cached,
-    _nudge, _play_gate, _safe_load, _sat_timeline, _view_key,
+from linecast.radar.frames import (
+    _cached_frame, _ensure_prefetch, _load_frame, _nearest_cached, _play_gate, _sat_timeline,
 )
 from linecast.radar.sources import has_radar
 from linecast.terminal.scenes import Memo, SceneCache
-# the tests reach the view helpers through this module
-from linecast.radar.ui import (  # noqa: F401
-    CROSSHAIR, DIM, MARKER, MUTED, _ShiftedBasemap, _build_warning_tooltip,
-    _fmt_expire, _fmt_local, _get_basemap, _panned_place, _shift_grid,
-    _theme_menu_overlay, _timeline_bar,
+from linecast.radar.ui import (
+    CROSSHAIR, DIM, MARKER, MUTED, _ShiftedBasemap, _build_warning_tooltip, _fmt_local,
+    _get_basemap, _panned_place, _shift_grid, _theme_menu_overlay, _timeline_bar,
 )
 from linecast._runtime import log_failure, use_metric
 from linecast.terminal.textwidth import visible_len

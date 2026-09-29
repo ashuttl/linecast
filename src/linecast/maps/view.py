@@ -56,22 +56,13 @@ from linecast.terminal.textwidth import visible_len
 from linecast.terminal.live import overlay
 from linecast.maps.i18n import ms
 from linecast.maps.motion import lon_delta
-from linecast.maps.paint import (  # noqa: F401 — the inks and composers
-    BATHY_STOPS, BORDER_STROKE, COAST_STROKE, HYPSO_FAMILIES, LABEL_DARK,
-    LABEL_LIGHT, LAKE_FILL, MARKER, build_terrain_buffer,
-    compact_colors, compose_map, compose_terrain,
+from linecast.maps.paint import MARKER, compact_colors, compose_map, compose_terrain
+from linecast.maps.views import (
+    SHORE_LAND, SHORE_WATER, TerrainView, _EMPTY_TERRAIN, _get_clouds, _get_elevation,
+    _get_globe, _get_street_tiles, _sphere, _terrain_buffer, _terrain_cache, _view_key,
+    fetch_destination, take_street, take_terrain,
 )
-from linecast.maps.views import (  # noqa: F401 — the loaders and caches
-    SHORE_LAND, SHORE_WATER,
-    TerrainView, _EMPTY_TERRAIN, _coast_dots, _elev_cache,
-    _get_clouds, _get_elevation, _get_globe, _get_street_tiles,
-    _globe_cache, _sphere, _street_cache, _terrain_buffer, _terrain_cache,
-    _view_key, _water_subpixels, fetch_destination, take_street,
-    take_terrain,
-)
-from linecast.radar.basemap import (  # noqa: F401 — _edge_dots is re-exported
-    _BITS, BORDER, DotLayer, _edge_dots,
-)
+from linecast.radar.basemap import _BITS, DotLayer, _edge_dots
 from linecast.terminal import theme as _theme
 from linecast.radar.i18n import rs
 from linecast.radar.render import bbox_for

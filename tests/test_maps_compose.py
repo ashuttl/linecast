@@ -14,9 +14,9 @@ from linecast.maps import globe
 from linecast.maps import style
 from linecast.terminal.framebuffer import HALF_BLOCK
 from linecast.radar.render import bbox_for
+from linecast.maps.paint import LABEL_DARK, LABEL_LIGHT
 from linecast.maps.view import (
-    LABEL_DARK, LABEL_LIGHT, MAX_ZOOM_DEG, MIN_ZOOM_DEG, ZOOM_STEP,
-    _view_key, compose_map, fit_view, max_zoom,
+    MAX_ZOOM_DEG, MIN_ZOOM_DEG, ZOOM_STEP, _view_key, compose_map, fit_view, max_zoom,
 )
 
 GREEN = (40, 60, 40)

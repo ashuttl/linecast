@@ -493,6 +493,7 @@ class TestLabelToggle:
         assert not any("•" in line for line in off)
 
     def test_globe_render_hides_linework_when_toggled(self, monkeypatch):
+        from linecast.maps import paint as _paint
         from linecast.maps import view as maps
         gw, hc = 40, 12
         lls, zs, rhos = _globe.geometry(20.0, -30.0, 125.0, gw, hc * 2)
@@ -500,7 +501,7 @@ class TestLabelToggle:
                 for row in lls]
         borders = maps.DotLayer((0.0, 0.0, 1.0, 1.0), gw, hc)
         # near the disk centre, but clear of the centre crosshair's cell
-        borders._set_dot(gw + 4, hc * 2, maps.BORDER_STROKE)
+        borders._set_dot(gw + 4, hc * 2, _paint.BORDER_STROKE)
         coast = [[0] * gw for _ in range(hc)]
         coast[hc // 2][gw // 2 - 3] = 0x10
         view = _globe.GlobeView(elev, coast, zs,

@@ -1,8 +1,7 @@
 """Tests for the radar warning hover tooltip (hit-test + rendering)."""
 
-from linecast.radar.view import (
-    _point_in_rings, _fmt_expire, _build_warning_tooltip,
-)
+from linecast.radar.basemap import _point_in_rings
+from linecast.radar.ui import _build_warning_tooltip, _fmt_expire
 
 # a square warning polygon inside the view
 _RING = [[-70.7, 43.3], [-70.3, 43.3], [-70.3, 43.7], [-70.7, 43.7],

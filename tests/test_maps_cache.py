@@ -44,13 +44,6 @@ class TestMapScenes:
         finally:
             views._zoom_hold._deadline = 0.0
 
-    def test_maps_reaches_the_same_caches(self):
-        # the bench scripts clear them through linecast.maps.view
-        assert maps._elev_cache is views._elev_cache
-        assert maps._street_cache is views._street_cache
-        assert maps._globe_cache is views._globe_cache
-        assert maps._terrain_cache is views._terrain_cache
-
 
 @pytest.fixture
 def motion(monkeypatch):

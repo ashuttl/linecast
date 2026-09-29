@@ -702,6 +702,7 @@ def _(ctx):
 def _maps(ctx, view, zoom, **kw):
     from unittest import mock
     from linecast.maps import globe as _globe
+    from linecast.maps import paint, views
     from linecast.maps import view as maps
     _mirror(False)
     lat, lon = 43.66, -70.26
@@ -709,7 +710,7 @@ def _maps(ctx, view, zoom, **kw):
     def elevation(bbox, gw, hc, block, window=None):
         fine = [[(x - gw * 1.4) * 2.0 for x in range(gw * 2)] for _ in range(hc * 4)]
         grid = [[(x - gw * 0.7) * 4.0 for x in range(gw)] for _ in range(hc * 2)]
-        return maps.TerrainView(grid, maps._coast_dots(fine, gw, hc), None, None, None)
+        return maps.TerrainView(grid, views._coast_dots(fine, gw, hc), None, None, None)
 
     def synth(lls):
         return [[None if ll is None else (1200.0 if ll[1] > lon else -3200.0)
@@ -718,10 +719,10 @@ def _maps(ctx, view, zoom, **kw):
     def get_globe(lat0, lon0, zoom, gw, hc, block, street=False):
         lls, zs, rhos = _globe.geometry(lat0, lon0, zoom, gw, hc * 2)
         flls, _fz, _fr = _globe.geometry(lat0, lon0, zoom, gw * 2, hc * 4)
-        return _globe.GlobeView(synth(lls), maps._coast_dots(synth(flls), gw, hc), zs,
+        return _globe.GlobeView(synth(lls), views._coast_dots(synth(flls), gw, hc), zs,
                                 _globe.atmosphere(rhos, zoom, hc * 2), None,
                                 _globe.border_layer(lat0, lon0, zoom, gw, hc,
-                                                    maps.BORDER_STROKE))
+                                                    paint.BORDER_STROKE))
 
     with mock.patch.object(maps, "_get_elevation", elevation), \
             mock.patch.object(maps, "_get_globe", get_globe):

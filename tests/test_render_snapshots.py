@@ -20,6 +20,8 @@ from pathlib import Path
 from unittest.mock import patch
 
 from conftest import assert_snapshot
+from linecast.maps import paint as _paint
+from linecast.maps import views as _views
 
 
 FIXTURES = Path(__file__).parent / "fixtures"
@@ -821,7 +823,7 @@ class TestMapsSnapshot:
             grid = [[(x - gw * 0.7) * 4.0 for x in range(gw)]
                     for _ in range(hc * 2)]
             # no tile water: the snapshot is the elevation-only map
-            return maps.TerrainView(grid, maps._coast_dots(fine, gw, hc),
+            return maps.TerrainView(grid, _views._coast_dots(fine, gw, hc),
                                     None, None, None)
 
         output = self._render(
@@ -847,10 +849,10 @@ class TestMapsSnapshot:
             flls, _fz, _fr = _globe.geometry(lat0, lon0, zoom,
                                              gw * 2, hc * 4)
             return _globe.GlobeView(
-                synth(lls), maps._coast_dots(synth(flls), gw, hc), zs,
+                synth(lls), _views._coast_dots(synth(flls), gw, hc), zs,
                 _globe.atmosphere(rhos, zoom, hc * 2), None,
                 _globe.border_layer(lat0, lon0, zoom, gw, hc,
-                                    maps.BORDER_STROKE))
+                                    _paint.BORDER_STROKE))
 
         output = self._render(
             "terrain", patch.object(maps, "_get_globe", get_globe),

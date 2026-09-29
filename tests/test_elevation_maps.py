@@ -14,12 +14,11 @@ from linecast.terminal import color as _color
 from linecast.maps import elevation as _elevation
 from linecast.terminal.color import BG_PRIMARY
 from linecast.maps.elevation import decode_meters, elevation_grid
-from linecast.radar.basemap import BORDER, COAST
-from linecast.maps.view import (
-    COAST_STROKE, BORDER_STROKE, LAKE_FILL,
-    _coast_dots, _edge_dots, _water_subpixels, build_terrain_buffer,
-    compose_terrain,
+from linecast.radar.basemap import BORDER, COAST, _edge_dots
+from linecast.maps.paint import (
+    BORDER_STROKE, COAST_STROKE, LAKE_FILL, build_terrain_buffer, compose_terrain,
 )
+from linecast.maps.views import _coast_dots, _water_subpixels
 
 _SIG = b"\x89PNG\r\n\x1a\n"
 
@@ -333,7 +332,7 @@ class TestComposeTerrain:
         bm = self.FakeBasemap([[0]], [[None]])
         on_light = compose_terrain(bm, light, {(0, 0): ("X", None)}, 1, 1)[0]
         on_dark = compose_terrain(bm, dark, {(0, 0): ("X", None)}, 1, 1)[0]
-        from linecast.maps.view import LABEL_DARK, LABEL_LIGHT
+        from linecast.maps.paint import LABEL_DARK, LABEL_LIGHT
         assert f"38;2;{LABEL_DARK[0]};{LABEL_DARK[1]};{LABEL_DARK[2]}" in on_light
         assert f"38;2;{LABEL_LIGHT[0]};{LABEL_LIGHT[1]};{LABEL_LIGHT[2]}" in on_dark
 
