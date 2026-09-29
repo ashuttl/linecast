@@ -167,6 +167,61 @@ class TestLightThemeInk:
             alerts.TEXT_RGB, alerts.MODAL_BG_RGB) >= 4.5
 
 
+def _copied_names():
+    """Every name a linecast module took by value from another with a
+    module-level `from linecast... import`, as (module, local name,
+    source module, source name); functions, classes and modules left out,
+    since a theme change never replaces those."""
+    import ast
+    import importlib
+    import pkgutil
+    import types
+
+    import linecast
+    copies = []
+    for info in pkgutil.walk_packages(linecast.__path__, "linecast."):
+        if ".locales." in info.name or info.name.endswith("__main__"):
+            continue
+        module = importlib.import_module(info.name)
+        with open(module.__file__, encoding="utf-8") as f:
+            tree = ast.parse(f.read())
+        for node in tree.body:
+            if not (isinstance(node, ast.ImportFrom) and node.level == 0
+                    and (node.module or "").startswith("linecast")):
+                continue
+            source = importlib.import_module(node.module)
+            for alias in node.names:
+                value = getattr(source, alias.name, None)
+                if value is None or callable(value) or isinstance(value, types.ModuleType):
+                    continue
+                copies.append((module, alias.asname or alias.name, source, alias.name))
+    return copies
+
+
+@pytest.mark.skipif(_theme.theme_legacy_mode, reason="legacy palette is fixed")
+def test_no_module_keeps_a_copy_of_the_old_theme():
+    # A name taken with `from x import INK` is a copy: when the theme
+    # changes, x rebuilds INK and the copy keeps the old colour unless
+    # the module asked to follow it (_theme.track_imports at its tail).
+    # In truecolor, so that an escape string is more than "" to compare;
+    # the theme and the mode are put back by hand, in that order, since
+    # the palettes rebuilt in truecolor must be rebuilt again without it.
+    copies = _copied_names()
+    saved = (_theme.theme_fg, _theme.theme_bg, _theme.theme_ansi, _theme.theme_available)
+    mode, _color._COLOR_MODE = _color._COLOR_MODE, "truecolor"
+    try:
+        for theme in (LIGHT, DARK):
+            _theme._apply(*theme)
+            stale = [f"{module.__name__}.{local} (from {source.__name__})"
+                     for module, local, source, name in copies
+                     if getattr(module, local) != getattr(source, name)]
+            assert not stale, "not re-imported after a theme change: " + ", ".join(stale)
+    finally:
+        _color._COLOR_MODE = mode
+        _theme._apply(*saved[:3])
+        _theme.theme_available = saved[3]
+
+
 @pytest.mark.skipif(_theme.theme_legacy_mode, reason="legacy palette is fixed")
 class TestExtremeColors:
     """Below freezing the temperature colors deepen from the theme's

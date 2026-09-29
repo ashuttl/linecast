@@ -1411,3 +1411,5 @@ def _main():
         )
         _live.print_frame(output)
 
+
+_theme.track_imports(globals(), "linecast.weather.render")

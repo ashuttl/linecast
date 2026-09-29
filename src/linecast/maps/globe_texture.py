@@ -892,3 +892,6 @@ def clear():
         _held.clear()
     with _sampler_lock:
         _sampler_cache.clear()
+
+
+_theme.track_imports(globals(), "linecast.terminal.color")

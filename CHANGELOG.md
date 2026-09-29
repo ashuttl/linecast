@@ -42,6 +42,7 @@ Fixes:
   - Fixed the year view, when the year's past days could not be fetched, drawing each month as though no rain had fallen, and comparing one day's rain in the header with the average for the whole year so far. It leaves both out until the days come.
   - Fixed the year view's label for the average in Thai, "ค่าปกติ", losing its tone mark.
   - `--oneline` no longer shows "Wind 0mph" when the air is all but still; it leaves the wind out, as it does when there is none.
+  - Fixed the live view's hover chips, cloud shading, credit line, and alert hint keeping the old colors after the terminal's theme changed; they follow it, as the rest of the view does.
 - Moon:
   - Fixed Blue Moons being missed, or named where there was none, when the two full moons of a month fell close to 29½ days apart, as in March 2029 in East Asia.
   - Fixed the wait for a moonrise or moonset after the clocks change being an hour out, such as "in 15h 00m" for a moonset sixteen hours off on the night the clocks go back.
@@ -85,6 +86,7 @@ Fixes:
   - Fixed directions whose ends lie either side of the 180th meridian, as on Taveuni in Fiji, opening on the whole planet centred on Africa. On a street map that crosses the meridian, the route, your marker, and the destination on its far side are drawn where they are.
   - Fixed elevations in languages that write a decimal comma, where "5,094 m" read as five metres; they are grouped with a space, "5 094 m". A distance just short of a kilometre reads "1.0 km" rather than "1,000 m".
   - Fixed the names of neighbourhoods, parks, and water in Persian, and in other right-to-left scripts, being drawn letter by letter with their words in the wrong order.
+  - Fixed the space around the globe keeping the old background after the terminal's theme changed.
 - Radar, maps:
   - `--zoom` with zero, a negative number, or anything not a number of degrees now says so rather than ending in a Python traceback.
   - `--help` no longer offers `--oneline`, which printed the whole frame; neither view has a single line to give.
