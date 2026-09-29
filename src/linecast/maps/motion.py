@@ -20,6 +20,7 @@ says how far in it is — so a test can walk a flight a step at a time.
 
 import math
 
+from linecast._geo import angle_delta
 from linecast.radar.render import bbox_for
 
 RHO = 1.42          # van Wijk's trade-off between zooming and panning
@@ -31,16 +32,6 @@ FLIGHT_MAX = 2.8    # seconds, so a long one does not outstay itself
 def ease_in_out(s):
     """Smoothstep: 0 at 0, 1 at 1, and flat at both ends."""
     return s * s * (3.0 - 2.0 * s)
-
-
-def lon_delta(a, b):
-    """The signed shortest turn from longitude a to b, in (-180, 180].
-
-    Every longitude the camera interpolates goes through here, so a
-    pan from 170 to -170 crosses the antimeridian rather than taking
-    the long way round the planet.
-    """
-    return (b - a + 180.0) % 360.0 - 180.0
 
 
 def lon_span(lat, zoom, gw, hc):
@@ -77,7 +68,7 @@ class Flight:
         self.lat0, self.lon0, self.w0 = lat0, lon0, w0
         self.lat1, self.lon1, self.w1 = lat1, lon1, w1
         dlat = lat1 - lat0
-        dlon = lon_delta(lon0, lon1) * math.cos(math.radians((lat0 + lat1) / 2))
+        dlon = angle_delta(lon0, lon1) * math.cos(math.radians((lat0 + lat1) / 2))
         self.u1 = math.hypot(dlat, dlon)
         rho = RHO
         if self.u1 < 1e-6:
@@ -117,5 +108,5 @@ class Flight:
             w = self.w0 * math.cosh(r0) / math.cosh(rho * s + r0)
             frac = max(0.0, min(1.0, u / self.u1))
         lat = self.lat0 + (self.lat1 - self.lat0) * frac
-        lon = self.lon0 + lon_delta(self.lon0, self.lon1) * frac
+        lon = self.lon0 + angle_delta(self.lon0, self.lon1) * frac
         return lat, (lon + 180.0) % 360.0 - 180.0, w

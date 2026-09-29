@@ -18,6 +18,7 @@ from linecast.astro.ephemeris import (
     mat_mul, moon_axis_deg, moon_bright_limb_deg, moon_horizontal_parallax_deg,
     moon_illuminated_fraction, precession_at,
 )
+from linecast._geo import angle_delta
 from linecast._i18n import lang_of
 from linecast.radar.i18n import rs
 from linecast.sky.planets import planet_positions
@@ -153,7 +154,7 @@ def compass_point(az_deg, runtime, culture=None, quadrant=False):
     with its quadrant when *quadrant* is asked for ("Manu Koʻolau")."""
     if culture == "hawaiian":
         az, name, quad, _cardinal = min(star_compass(),
-                                        key=lambda h: abs((az_deg - h[0] + 180.0) % 360.0 - 180.0))
+                                        key=lambda h: abs(angle_delta(h[0], az_deg)))
         return f"{name} {quad}" if quadrant and quad else name
     points = rs("compass", lang_of(runtime)).split()
     return points[round(az_deg / 45.0) % 8]

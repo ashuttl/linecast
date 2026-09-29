@@ -5,6 +5,7 @@ import math
 
 import pytest
 
+from linecast._geo import angle_delta
 from linecast.maps import motion as mm
 from linecast.radar.render import bbox_for
 
@@ -27,9 +28,9 @@ class TestEase:
 
 class TestLongitude:
     def test_the_short_way_round(self):
-        assert mm.lon_delta(170.0, -170.0) == pytest.approx(20.0)
-        assert mm.lon_delta(-170.0, 170.0) == pytest.approx(-20.0)
-        assert mm.lon_delta(0.0, 10.0) == pytest.approx(10.0)
+        assert angle_delta(170.0, -170.0) == pytest.approx(20.0)
+        assert angle_delta(-170.0, 170.0) == pytest.approx(-20.0)
+        assert angle_delta(0.0, 10.0) == pytest.approx(10.0)
 
     def test_the_span_is_the_renderers_own(self):
         # not a 2:1 cell assumed here and a bbox computed there: the

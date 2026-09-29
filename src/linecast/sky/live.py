@@ -19,6 +19,9 @@ import math
 import threading
 import time
 
+from linecast._geo import angle_delta
+from linecast.maps.motion import ease_in_out
+from linecast.moon.disc import ease_out_back
 from linecast.terminal import live as _live
 from linecast.terminal.live import LiveApp
 from linecast.sky.scene import (
@@ -47,22 +50,8 @@ ALT_MIN, ALT_MAX = -12.0, 90.0    # how far a drag may pull past the edges
 SPEEDS = (3600.0, 86400.0, 7 * 86400.0)   # p cycles through, then off
 
 
-def _ease_out_back(s):
-    c1 = 1.2
-    return 1.0 + (c1 + 1.0) * (s - 1.0) ** 3 + c1 * (s - 1.0) ** 2
-
-
-def _ease_in_out(s):
-    return s * s * (3.0 - 2.0 * s)
-
-
 def _wrap(az):
     return az % 360.0
-
-
-def _az_delta(a, b):
-    """The signed shortest turn from azimuth a to b, in (-180, 180]."""
-    return (b - a + 180.0) % 360.0 - 180.0
 
 
 class Camera:
@@ -101,7 +90,7 @@ class Camera:
             az0, alt0, az1, alt1, started = self._pan
             s = min(1.0, (now - started) / PAN_EASE)
             e = 1.0 - (1.0 - s) ** 3
-            self.az = _wrap(az0 + _az_delta(az0, az1) * e)
+            self.az = _wrap(az0 + angle_delta(az0, az1) * e)
             self.alt = alt0 + (alt1 - alt0) * e
             if s >= 1.0:
                 self._pan = None
@@ -112,8 +101,8 @@ class Camera:
                 self.az, self.alt = _wrap(az1), alt1
                 self._fly = None
             else:
-                e = _ease_in_out(s)
-                self.az = _wrap(az0 + _az_delta(az0, az1) * e)
+                e = ease_in_out(s)
+                self.az = _wrap(az0 + angle_delta(az0, az1) * e)
                 self.alt = alt0 + (alt1 - alt0) * e
         if self._coast is not None:
             vaz, valt, last = self._coast
@@ -136,7 +125,7 @@ class Camera:
                 self.alt = to_alt
                 self._settle = None
             else:
-                self.alt = to_alt + (from_alt - to_alt) * (1.0 - _ease_out_back(s))
+                self.alt = to_alt + (from_alt - to_alt) * (1.0 - ease_out_back(s))
         if self._zoom is not None:
             from_fov, to_fov, started = self._zoom
             s = (now - started) / ZOOM_EASE
@@ -145,7 +134,7 @@ class Camera:
                 self._zoom = None
             else:
                 # Zoom eases in log space, so each step feels the same.
-                e = _ease_in_out(s)
+                e = ease_in_out(s)
                 self.fov = math.exp(math.log(from_fov)
                                     + (math.log(to_fov) - math.log(from_fov)) * e)
         return View(self.az, self.alt, self.fov, self.figures)
@@ -186,7 +175,7 @@ class Camera:
             (t0, az0, alt0), (t1, az1, alt1) = trail[0], trail[-1]
             dt = t1 - t0
             if dt >= 0.03:
-                vaz, valt = _az_delta(az0, az1) / dt, (alt1 - alt0) / dt
+                vaz, valt = angle_delta(az0, az1) / dt, (alt1 - alt0) / dt
                 speed = math.hypot(vaz, valt)
                 if speed > COAST_CEILING:
                     vaz, valt = (vaz * COAST_CEILING / speed, valt * COAST_CEILING / speed)
@@ -234,7 +223,7 @@ class Camera:
         step = self.fov * PAN_FRACTION
         az, alt = self.az, self.alt
         if self._pan is not None:
-            daz = _az_delta(self.az, self._pan[2])
+            daz = angle_delta(self.az, self._pan[2])
             dalt = self._pan[3] - self.alt
             az += max(-step, min(step, daz)) if daz * horizontal >= 0 else 0
             alt += max(-step, min(step, dalt)) if dalt * vertical >= 0 else 0

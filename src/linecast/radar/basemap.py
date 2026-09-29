@@ -126,12 +126,13 @@ def nearest_city(lat, lon, lang="en"):
     Natural Earth populated-places list, so it needs no network.  ``lang``
     localizes the returned name when a translation is available.
     """
+    from linecast._geo import angle_delta, haversine_nm
     best = None
     coslat = math.cos(math.radians(lat))
     for entry in _load_data()["cities"]:
         clon, clat = entry[0], entry[1]
         # equirectangular approximation is plenty for ranking candidates
-        dx = ((lon - clon + 180.0) % 360.0 - 180.0) * coslat
+        dx = angle_delta(clon, lon) * coslat
         dy = lat - clat
         d2 = dx * dx + dy * dy
         if best is None or d2 < best[0]:
@@ -139,7 +140,6 @@ def nearest_city(lat, lon, lang="en"):
     if best is None:
         return None
     _, name, clat, clon = best
-    from linecast._geo import haversine_nm
     dist_km = haversine_nm(clat, clon, lat, lon) * 1.852
     dlon = math.radians(lon - clon)
     y = math.sin(dlon) * math.cos(math.radians(lat))

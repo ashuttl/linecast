@@ -16,6 +16,18 @@ def wrap_lon(lon):
     return lon
 
 
+def angle_delta(a, b):
+    """The signed shortest turn from angle `a` to `b`, in degrees, in
+    [-180, 180).
+
+    The map's camera turns longitudes through it, so a pan from 170 to
+    -170 crosses the antimeridian rather than taking the long way round
+    the planet, and the sky's camera turns azimuths through it across
+    north the same way.
+    """
+    return (b - a + 180.0) % 360.0 - 180.0
+
+
 def haversine_nm(lat1, lon1, lat2, lon2):
     """Distance in nautical miles between two points."""
     earth_radius_nm = 3440.065

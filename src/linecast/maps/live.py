@@ -22,11 +22,11 @@ from linecast.maps import route as _route
 from linecast.maps import style
 from linecast.maps import ui
 from linecast.maps import loaders as _loaders
-from linecast._geo import wrap_lon
+from linecast._geo import angle_delta, wrap_lon
 from linecast.terminal.live import LiveApp, nudge as _nudge_repaint, print_frame
 from linecast._location import country_for_defaults, resolve_location
 from linecast.maps.i18n import ms
-from linecast.maps.motion import Flight, ease_in_out, lon_delta, lon_span
+from linecast.maps.motion import Flight, ease_in_out, lon_span
 from linecast.maps.search import (
     SearchUnavailable, fly_to_zoom, resolve_place,
 )
@@ -133,10 +133,10 @@ class Camera:
             vlat, vlon, _last = self._coast
         elif self._drag_base is not None and len(self._trail) >= 2:
             (_t0, lat0, lon0), (_t1, lat1, lon1) = self._trail[0], self._trail[-1]
-            vlat, vlon = lat1 - lat0, lon_delta(lon0, lon1)
+            vlat, vlon = lat1 - lat0, angle_delta(lon0, lon1)
         elif self._pan is not None:
             _from, (to_lat, to_lon), _started = self._pan
-            vlat, vlon = to_lat - self.lat, lon_delta(self.lon, to_lon)
+            vlat, vlon = to_lat - self.lat, angle_delta(self.lon, to_lon)
         else:
             return (0, 0)
         cell_lat = self.zoom / self.hc
@@ -184,7 +184,7 @@ class Camera:
             else:
                 e = ease_in_out(s)
                 self.lat = from_lat + (to_lat - from_lat) * e
-                self.lon = wrap_lon(from_lon + lon_delta(from_lon, to_lon) * e)
+                self.lon = wrap_lon(from_lon + angle_delta(from_lon, to_lon) * e)
         if self._zoom is not None:
             from_zoom, to_zoom, anchor, started = self._zoom
             s = (now - started) / ZOOM_EASE
@@ -305,7 +305,7 @@ class Camera:
             dt = t1 - t0
             if dt >= 0.03:
                 vlat = (lat1 - lat0) / dt
-                vlon = lon_delta(lon0, lon1) / dt
+                vlon = angle_delta(lon0, lon1) / dt
                 cos_lat = math.cos(math.radians(self.lat))
                 speed = math.hypot(vlat, vlon * cos_lat)
                 # a hand leaves the trackpad faster than any map should
@@ -373,7 +373,7 @@ class Camera:
         lon = wrap_lon(lon)
         self._coast = self._zoom = self._pan = None
         self.spinning = False
-        if (abs(lat - self.lat) < 1e-9 and abs(lon_delta(self.lon, lon)) < 1e-9
+        if (abs(lat - self.lat) < 1e-9 and abs(angle_delta(self.lon, lon)) < 1e-9
                 and abs(zoom - self.zoom) < 1e-12):
             return False
         self._flight = (Flight(self.lat, self.lon, self.zoom, lat, lon, zoom),

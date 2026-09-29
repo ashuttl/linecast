@@ -55,7 +55,6 @@ from linecast.terminal.framebuffer import cell_aspect, get_terminal_size
 from linecast.terminal.textwidth import visible_len
 from linecast.terminal.live import overlay
 from linecast.maps.i18n import ms
-from linecast.maps.motion import lon_delta
 from linecast.maps.paint import MARKER, compact_colors, compose_map, compose_terrain
 from linecast.maps.loaders import (
     SHORE_LAND, SHORE_WATER, TerrainView, _EMPTY_TERRAIN, _get_clouds, _get_elevation,
@@ -69,7 +68,7 @@ from linecast.radar.render import bbox_for
 from linecast.radar.ui import (
     CROSSHAIR, DIM, MUTED, _panned_place, _shift_grid,
 )
-from linecast._geo import wrap_lon
+from linecast._geo import angle_delta, wrap_lon
 from linecast._log import log_failure
 from linecast.terminal.scenes import Memo
 
@@ -137,7 +136,7 @@ def fit_view(points, gw, hc, margin=0.15):
     # either side of the antimeridian are a few degrees apart and not
     # the width of the planet
     first = points[0][1]
-    lons = [first + lon_delta(first, p[1]) for p in points]
+    lons = [first + angle_delta(first, p[1]) for p in points]
     lat_c = max(-80.0, min(80.0, (min(lats) + max(lats)) / 2))
     lon_c = wrap_lon((min(lons) + max(lons)) / 2)
     lat_span = max(lats) - min(lats)
@@ -172,7 +171,7 @@ def _get_route_layer(route, bbox, gw, hc, project=None):
         # measured the short way round from the view's middle, so a
         # route across the antimeridian stays on the view it crosses
         mid = (bbox[0] + bbox[2]) / 2
-        coords = [(mid + lon_delta(mid, lon), lat)
+        coords = [(mid + angle_delta(mid, lon), lat)
                   for lon, lat in route.coords]
         layer._draw_lines([coords], ink, width=2, rank=rank,
                           project=project)
@@ -1192,7 +1191,7 @@ def _marker_cell(bbox, graph_w, height_cells, m_lat, m_lon):
     minlon, minlat, maxlon, maxlat = bbox
     # a bbox across the antimeridian runs past 180; so does the mark
     mid = (minlon + maxlon) / 2
-    m_lon = mid + lon_delta(mid, m_lon)
+    m_lon = mid + angle_delta(mid, m_lon)
     mcol = int((m_lon - minlon) / (maxlon - minlon) * graph_w)
     mrow = int((maxlat - m_lat) / (maxlat - minlat) * height_cells)
     if 0 <= mcol < graph_w and 0 <= mrow < height_cells:

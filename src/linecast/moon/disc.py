@@ -167,7 +167,7 @@ class Turn:
         if s >= 1.0:
             self._settle = None
             return None
-        return _rotation(axis, angle * (1.0 - _ease_out_back(s)))
+        return _rotation(axis, angle * (1.0 - ease_out_back(s)))
 
     def _tick(self):
         while True:
@@ -189,7 +189,7 @@ _IDENTITY = (1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0)
 SUNLIT_GAMMA = 0.65
 
 
-def _ease_out_back(s):
+def ease_out_back(s):
     """0→1 with a small overshoot near the end, so the settle bounces."""
     c1 = 1.2
     return 1.0 + (c1 + 1.0) * (s - 1.0) ** 3 + c1 * (s - 1.0) ** 2
