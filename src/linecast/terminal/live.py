@@ -194,20 +194,31 @@ def pointer_chip(lines, col, mouse_row, cols, rows, pad_bg="", flip_at=None):
     """
     if not lines:
         return ""
+    from linecast.terminal.textwidth import visible_len
+    width = max(visible_len(line) for line in lines)
+    height = len(lines)
+    row = mouse_row + 2
+    if row + height - 1 > rows:
+        row = mouse_row - height
+    if row < 1:
+        row = max(1, rows - height + 1)
+    if flip_at is not None and col + width - 1 > cols:
+        col = max(1, flip_at - width)
+    return chip_at(lines, row, col, cols, pad_bg)
+
+
+def chip_at(lines, row, col, cols, pad_bg=""):
+    """A floating chip with its top-left cell at *row*, *col*, pushed
+    left of the right edge if it would pass it.  `lines` are padded to
+    one visible width, with `pad_bg` re-asserted under the padding."""
     from linecast.terminal.box import place
     from linecast.terminal.color import RESET
     from linecast.terminal.textwidth import visible_len
     width = max(visible_len(line) for line in lines)
     padded = [f"{line}{pad_bg}{' ' * (width - visible_len(line))}{RESET}"
               for line in lines]
-    height = len(padded)
-    row = mouse_row + 2
-    if row + height - 1 > rows:
-        row = mouse_row - height
-    if row < 1:
-        row = max(1, rows - height + 1)
     if col + width - 1 > cols:
-        col = max(1, (cols - width + 1) if flip_at is None else flip_at - width)
+        col = max(1, cols - width + 1)
     return place(padded, row, col)
 
 

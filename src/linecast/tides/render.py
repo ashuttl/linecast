@@ -315,26 +315,10 @@ def build_now_tooltip(now_col, now_info, chart_start, cols):
         f"{tip_bg}{tip_fg} {time_str} ",
         f"{tip_bg}{tip_fg} {height}{unit} ",
     ]
-
-    max_w = max(visible_len(line) for line in tip_lines)
-    padded = []
-    for line in tip_lines:
-        pad = max_w - visible_len(line)
-        padded.append(f"{line}{' ' * pad}{RESET}")
-
-    # Position: just to the right of the now column, at the top of the chart
-    # +1 for 1-based terminal coords, +1 to sit beside the column
-    snap_col = now_col + 1 + 1
-    tooltip_col = snap_col
-    tooltip_row = chart_start + 1  # 0-based line index -> 1-based terminal row
-    tooltip_w = max_w
-    if tooltip_col + tooltip_w - 1 > cols:
-        tooltip_col = max(1, cols - tooltip_w + 1)
-
-    result = ""
-    for i, line in enumerate(padded):
-        result += f"\033[{tooltip_row + i};{tooltip_col}H{line}"
-    return result
+    # At the top of the chart (a 0-based line, so +1 for the terminal's
+    # row), just right of the now column (+1 for 1-based columns, +1 to
+    # sit beside it).
+    return _live.chip_at(tip_lines, chart_start + 1, now_col + 2, cols)
 
 
 def build_tide_hover_tooltip(window, graph_col, mouse_row, chart_start, chart_end,
