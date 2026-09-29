@@ -355,3 +355,17 @@ class TestTidesOneline:
         ja = tides_oneline("東京", [], now, self._runtime(lang="ja"))
         assert _strip_ansi(de) == "Cuxhaven Keine Gezeitendaten"
         assert _strip_ansi(ja) == "東京 潮汐データなし"
+
+
+class TestSunshineOnelineMoon:
+    def test_the_moon_is_read_at_the_moment_shown_as_an_instant(self, monkeypatch):
+        # the phase is found from an instant; a naive local time handed to
+        # moon_phase is read as UTC, hours off anywhere but Greenwich
+        from linecast.sunshine import oneline
+        seen = []
+        monkeypatch.setattr("linecast.moon.phase.moon_phase", lambda dt, runtime=None:
+                            (seen.append(dt), (0, "", "🌑"))[1])
+        now = datetime(2026, 3, 5, 14, 30, tzinfo=timezone(timedelta(hours=-10)))
+        oneline.sunshine_oneline(21.3, -157.8, 64, RuntimeConfig(
+            live=False, icons="emoji", lang="en", oneline=True), tz_offset_h=-10, now=now)
+        assert seen and seen[0].tzinfo is not None and seen[0] == now

@@ -32,9 +32,10 @@ def sunshine_oneline(lat, lng, doy, runtime, tz_offset_h=None, hours=None, now=N
     d_m = int(d_abs) // 60
     d_s = int(d_abs) % 60
 
-    # Moon phase
-    now_dt = datetime.now()
-    _idx, _name, moon_icon = moon_phase(now_dt, runtime)
+    # The Moon's phase at the moment shown, as an instant: moon_phase
+    # reads a naive time as UTC, which a local clock is not.
+    moment = (now if now is not None else datetime.now()).astimezone()
+    _idx, _name, moon_icon = moon_phase(moment, runtime)
 
     # Format sunrise/sunset times compactly
     def _fmt(h):

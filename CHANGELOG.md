@@ -57,6 +57,7 @@ Fixes:
   - Fixed `sunshine --json` giving tomorrow's sunrise and sunset an hour off on the evening before the clocks change.
   - Fixed `--oneline` giving a sunrise and sunset through the polar night and the midnight sun; it now shows dashes and names the season, as the full view does. Fixed a sunrise just before midnight, in the far north in summer, showing as just after midnight.
   - Fixed `--oneline` in Persian giving the day's length in Latin letters, as "10h52m"; it is written in words, as the change beside it is.
+  - Fixed the Moon on `--oneline` being worked out for a moment hours from now wherever the clock is not UTC, so that near a new or full moon it could show the phase before or after.
   - Fixed a change in the day's length under a minute reading "−0m 15s", as it does every day near the equator and for weeks around each solstice; it reads "−15s".
   - Fixed the year view in Chinese, Japanese, and Korean drawing a row a column too long or too short near midnight, when the sun sat on a month's or the place's name.
 - Tides:
