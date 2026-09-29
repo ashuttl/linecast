@@ -27,7 +27,9 @@ from datetime import datetime
 from linecast.terminal import live as _live
 from linecast.terminal import theme as _theme
 from linecast._i18n import GEOCODER_UNTRANSLATED, fmt_percent, sentence_24h, setting, table_for
-from linecast.terminal.graphics import bg, fg, get_terminal_size, visible_len
+from linecast.terminal.graphics import (
+    RESET, bg, fg, fmt_time_dt, get_terminal_size, visible_len,
+)
 from linecast._location import country_for_defaults, resolve_location
 from linecast._runtime import (
     WeatherRuntime, install_banner, log_failure, set_current, weather_parser,
@@ -40,34 +42,18 @@ from linecast.weather.i18n import (
     _s,
     _wmo_icons,
 )
-from linecast.weather.hourly import _precip_bar_full, _present, label_rows
-from linecast.weather.render import (
-    ALERT_AMBER,
-    CLOUD_RGB,
-    DIM,
-    MUTED,
-    RESET,
-    TEXT,
-    TOOLTIP_BG_RGB,
-    TOOLTIP_TEXT_RGB,
-    WIND_ARROWS,
-    _colored_temp,
-    _PRECIP_CODES,
-    _fmt_time,
-    _precip_rgb,
-    _precip_type,
-    _prepare_hourly_window,
-    build_alert_modal,
-    fmt_precip_amount,
-    fmt_snow_amount,
-    mostly_snow,
-    narrative_lines,
-    render_alerts_mapped,
-    render_daily_mapped,
-    render_header,
-    render_hourly,
+from linecast.weather.alerts import alerts_notice, build_alert_modal, render_alerts_mapped
+from linecast.weather.daily import (
+    fmt_precip_amount, fmt_snow_amount, mostly_snow, render_daily_mapped,
 )
-from linecast.weather.alerts import alerts_notice
+from linecast.weather.hourly import (
+    _precip_bar_full, _prepare_hourly_window, _present, label_rows, render_hourly,
+)
+from linecast.weather.sections import _PRECIP_CODES, narrative_lines, render_header
+from linecast.weather.style import (
+    ALERT_AMBER, CLOUD_RGB, DIM, MUTED, TEXT, TOOLTIP_BG_RGB, TOOLTIP_TEXT_RGB,
+    WIND_ARROWS, _colored_temp, _precip_rgb, _precip_type,
+)
 from linecast.weather.historical import fetch_historical
 from linecast.weather.sources import (
     ALERTS_UNAVAILABLE,
@@ -197,7 +183,7 @@ def _build_hover_tooltip(data, mouse_col, mouse_row, hourly_start, hourly_end, c
 
     # Time
     if dt:
-        time_str = _fmt_time(dt, use_24h=runtime.use_24h)
+        time_str = fmt_time_dt(dt, use_24h=runtime.use_24h)
         lines.append(f"{TBG}{TFG} {time_str} ")
 
     # Temperature + feels like
@@ -335,7 +321,7 @@ def _build_daily_tooltip(data, mouse_col, mouse_row, daily_start, daily_spans, c
             dt = datetime.fromisoformat(hourly["time"][j])
         except (KeyError, IndexError, TypeError, ValueError):
             return None
-        return _fmt_time(dt, use_24h=runtime.use_24h)
+        return fmt_time_dt(dt, use_24h=runtime.use_24h)
 
     TBG = bg(*TOOLTIP_BG_RGB)
     TFG = fg(*TOOLTIP_TEXT_RGB)
@@ -463,7 +449,7 @@ def forecast_notice(data, runtime, live=False, fetching=False, failed_at=None):
         day = made.isoformat()
     if failed_at is not None:
         text = _s("forecast_stale_at", runtime, day=day,
-                  time=_fmt_time(failed_at, sentence_24h(runtime)))
+                  time=fmt_time_dt(failed_at, sentence_24h(runtime)))
     else:
         text = _s("forecast_stale", runtime, day=day)
     hint = _s("retry_key" if live else "retry_run", runtime)
@@ -1412,4 +1398,4 @@ def _main():
         _live.print_frame(output)
 
 
-_theme.track_imports(globals(), "linecast.weather.render")
+_theme.track_imports(globals(), "linecast.weather.style")

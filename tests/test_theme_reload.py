@@ -30,7 +30,7 @@ from linecast.radar import basemap
 from linecast.radar import render as _radar_render
 from linecast.maps import style as _maps_style
 from linecast.weather import alerts
-from linecast.weather import render as _weather_render
+from linecast.weather import view as _weather_view
 from linecast.weather import style
 from linecast.terminal.live import _read_key
 from conftest import SRC
@@ -121,8 +121,8 @@ class TestApply:
         assert _color.BG_PRIMARY == (250, 250, 248)
         assert _radar_render.BG_PRIMARY == (250, 250, 248)
         assert _framebuffer.Framebuffer(2, 1).bg == (250, 250, 248)
-        assert _weather_render.TEXT == style.TEXT
-        assert _weather_render.TOOLTIP_BG_RGB == style.TOOLTIP_BG_RGB
+        assert _weather_view.TEXT == style.TEXT
+        assert _weather_view.TOOLTIP_BG_RGB == style.TOOLTIP_BG_RGB
         assert moon_palette.INFO_TEXT_RGB == palette.INFO_TEXT_RGB
         assert moon.PANEL_TEXT_RGB == moon_palette.PANEL_TEXT_RGB
         assert _radar_render.SEA_FILL == basemap.SEA_FILL
