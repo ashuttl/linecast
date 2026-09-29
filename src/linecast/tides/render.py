@@ -2,6 +2,7 @@
 
 from datetime import timedelta, timezone
 
+from linecast.terminal.chart import tick_canvas, tick_interval
 from linecast.terminal.color import RESET, bg, fg
 from linecast.terminal.textwidth import cells as text_cells, visible_len
 from linecast._timefmt import fmt_hour, fmt_time_dt
@@ -169,14 +170,7 @@ def compute_moon_labels(window_start, total_hours, graph_w, station_meta, runtim
 def render_tide_ticks(window_start, total_hours, graph_w, runtime, now_col=None, hover_col=None):
     """Render time axis labels under the chart."""
     use_24h = runtime.use_24h
-    if graph_w < 40:
-        interval = 6
-    elif graph_w < 80:
-        interval = 4
-    elif graph_w < 140:
-        interval = 3
-    else:
-        interval = 2
+    interval = tick_interval(graph_w)
 
     window_secs = total_hours * 3600
     label_items = []
@@ -201,24 +195,7 @@ def render_tide_ticks(window_start, total_hours, graph_w, runtime, now_col=None,
                 )
             tick_dt += timedelta(seconds=interval_secs)
 
-    canvas = [" "] * graph_w
-    last_end = 0
-    for x, label, is_midnight in label_items:
-        tick = "\u2502" if is_midnight else "\u2575"
-        tick_label = f"{tick}{label}"
-        if x < last_end or x + len(tick_label) > graph_w:
-            continue
-        for j, c in enumerate(tick_label):
-            if x + j < graph_w:
-                canvas[x + j] = c
-        last_end = x + len(tick_label) + 1
-
-    if hover_col is not None and 0 <= hover_col < graph_w and canvas[hover_col] == " ":
-        canvas[hover_col] = "\u2502"
-    elif now_col is not None and 0 <= now_col < graph_w and canvas[now_col] == " ":
-        canvas[now_col] = "\u2502"
-
-    return f"{DIM}{''.join(canvas)}{RESET}"
+    return f"{DIM}{tick_canvas(label_items, graph_w, hover_col, now_col)}{RESET}"
 
 
 def render_day_label_line(midnight_day_names, graph_w, moon_labels=None):

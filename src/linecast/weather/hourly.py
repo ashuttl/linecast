@@ -5,6 +5,7 @@ from datetime import datetime, timedelta
 
 from linecast.terminal import theme as _theme
 from linecast.terminal.braille import BLANK, build_braille_curve, interpolate
+from linecast.terminal.chart import tick_canvas, tick_interval
 from linecast.terminal.color import bg, color_mode, fg, RESET
 from linecast.terminal.textwidth import cells as text_cells, visible_len
 from linecast._timefmt import fmt_hour, fmt_time_dt
@@ -930,14 +931,7 @@ def _render_tick_labels(window_dts, graph_w, runtime=None, hover_col=None, now_c
     if not window_dts:
         return None
     use_24h = runtime.use_24h if runtime else False
-    if graph_w < 40:
-        interval = 6
-    elif graph_w < 80:
-        interval = 4
-    elif graph_w < 140:
-        interval = 3
-    else:
-        interval = 2
+    interval = tick_interval(graph_w)
 
     # Each label is one of the samples, at the column the curve draws
     # it: the hour the clocks skip has no label, the hour they repeat
@@ -951,22 +945,7 @@ def _render_tick_labels(window_dts, graph_w, runtime=None, hover_col=None, now_c
         if 0 <= x < graph_w:
             label_items.append((x, fmt_hour(dt.hour, use_24h), dt.hour == 0))
 
-    canvas = [" "] * graph_w
-    last_end = 0
-    for x, label, is_midnight in label_items:
-        tick = "\u2502" if is_midnight else "\u2575"
-        tick_label = f"{tick}{label}"
-        if x < last_end or x + len(tick_label) > graph_w:
-            continue
-        for j, c in enumerate(tick_label):
-            if x + j < graph_w:
-                canvas[x + j] = c
-        last_end = x + len(tick_label) + 1
-    if hover_col is not None and 0 <= hover_col < graph_w and canvas[hover_col] == " ":
-        canvas[hover_col] = "\u2502"
-    elif now_col is not None and 0 <= now_col < graph_w and canvas[now_col] == " ":
-        canvas[now_col] = "\u2502"
-    return f"{DIM}{''.join(canvas)}{RESET}"
+    return f"{DIM}{tick_canvas(label_items, graph_w, hover_col, now_col)}{RESET}"
 
 
 def _place_labels(items, graph_w):
