@@ -29,6 +29,7 @@ Notable changes, by release. Notes for the next release collect under **Unreleas
 - Radar, maps: `--help` no longer offers `--oneline`, which printed the whole frame; neither view has a single line to give.
 - Weather: Fixed alert times on the 12-hour clock leaving out the minutes, so that a warning in force until 3:45pm read "until 3pm". In Greek they are written in words, as in the forecast.
 - Weather: Fixed alerts in Canada showing no times with Python 3.10.
+- Weather: Fixed blowing or drifting snow at a nearby weather station being shown as falling snow, in the conditions and in the forecast in words.
 
 ## 2.9.2 — 2026-09-27
 

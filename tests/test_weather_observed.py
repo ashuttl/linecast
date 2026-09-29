@@ -75,6 +75,11 @@ class TestWeatherCode:
         assert named(metar("", "SCT", wx="RESHRA")) == 2
         assert named(metar("", "FEW", wx="BCFG")) == 1
 
+    def test_blowing_snow_is_not_snowfall(self):
+        assert named(metar("", "SCT", wx="BLSN")) == 2
+        assert named(metar("", "CLR", wx="DRSN")) == 0
+        assert metar_weather_code(metar("", "OVC", wx="-SN BLSN")) == 71
+
     def test_nothing_to_go_on(self):
         assert metar_weather_code(metar("", None)) is None
 

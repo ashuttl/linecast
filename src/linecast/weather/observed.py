@@ -80,8 +80,10 @@ def _intensity(token, light, moderate, heavy):
 def _weather_token_code(token):
     """The weather code for one METAR present-weather group, or None."""
     core = token.lstrip("+-")
-    if core.startswith("VC") or core.startswith("RE"):
+    if core.startswith(("VC", "RE")):
         return None   # in the vicinity, or recent: not overhead now
+    if core.startswith(("BL", "DR")):
+        return None   # snow the wind has lifted off the ground: not falling
     if "TS" in core:
         return 96 if ("GR" in core or "GS" in core) else 95
     if core.startswith("FZ"):
