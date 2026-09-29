@@ -54,15 +54,16 @@ def zoom_degrees(text):
 
 
 def _base_parser(prog, description, units=None, clock=False, json=False,
-                 temperature_scale=False, oneline=True):
+                 temperature_scale=False, oneline=True,
+                 location_help="location as 'lat,lng' or place name"):
     """A view command's parser, with its help page in sections.
 
-    The command adds its own flags straight to the parser, and they
-    print first, under "options".  The flags every view shares follow
-    in sections of their own, made here because argparse prints
-    sections in the order they are made.  *units* is the pair of help
-    strings for --metric and --imperial; *temperature_scale* adds
-    --celsius and --fahrenheit beside them; *clock* adds --24h and
+    --location opens the first section, "options", with *location_help*
+    under it, and the command adds its own flags after it.  The flags
+    every view shares follow in sections of their own, made here because
+    argparse prints sections in the order they are made.  *units* is the
+    pair of help strings for --metric and --imperial; *temperature_scale*
+    adds --celsius and --fahrenheit beside them; *clock* adds --24h and
     --12h; *json* adds --json to the output section; *oneline* offers
     --oneline, for the views that have a line to give.
     """
@@ -123,12 +124,17 @@ def _base_parser(prog, description, units=None, clock=False, json=False,
     if json:
         output.add_argument("--json", dest="json_mode", action="store_true",
                             help="machine-readable JSON output (implies --print)")
+    else:
+        p.set_defaults(json_mode=False)
     other = p.add_argument_group("other")
     other.add_argument("-h", "--help", action="help", default=argparse.SUPPRESS,
                        help="show this help message and exit")
     other.add_argument("--version", action=VersionAction)
     other.add_argument("--debug", action="store_true",
                        help="show diagnostic info on stderr")
+    # Last to be added, so the completions list it where they always
+    # have; first in "options", which is where the help prints it.
+    p.add_argument("--location", metavar="PLACE", default=None, help=location_help)
     return p
 
 
@@ -142,8 +148,6 @@ def weather_parser():
                              "that use it), mm",
                              "imperial units: fahrenheit, mph, inches"),
                       temperature_scale=True, clock=True, json=True)
-    p.add_argument("--location", metavar="PLACE", default=None,
-                    help="location as 'lat,lng' or place name")
     p.add_argument("--search", metavar="QUERY", default=None,
                     help="search for a location and exit")
     p.add_argument("--temp-range", dest="temp_range",
@@ -164,10 +168,9 @@ def weather_parser():
 def tides_parser():
     p = _base_parser("linecast tides", BLURB["tides"],
                       units=("heights in meters", "heights in feet"),
-                      clock=True, json=True)
-    p.add_argument("--location", metavar="PLACE", default=None,
-                    help="find the nearest station to 'lat,lng' or a "
-                         "place name instead of your location")
+                      clock=True, json=True,
+                      location_help="find the nearest station to 'lat,lng' or a "
+                                    "place name instead of your location")
     p.add_argument("--station", default=None,
                     help="station ID or name (any provider)")
     p.add_argument("--search", metavar="QUERY", nargs="?", const="", default=None,
@@ -180,8 +183,6 @@ def tides_parser():
 
 def sunshine_parser():
     p = _base_parser("linecast sunshine", BLURB["sunshine"], clock=True, json=True)
-    p.add_argument("--location", metavar="PLACE", default=None,
-                    help="location as 'lat,lng' or place name")
     p.add_argument("--year", action="store_true",
                     help="open on the year view: each day of the year as "
                          "a column of day and night sky (v flips between "
@@ -203,8 +204,6 @@ def sunshine_parser():
 
 def moon_parser():
     p = _base_parser("linecast moon", BLURB["moon"], clock=True, json=True)
-    p.add_argument("--location", metavar="PLACE", default=None,
-                    help="location as 'lat,lng' or place name")
     p.add_argument("--month", action="store_true",
                     help="open on the month view: a calendar of the "
                          "month's phases (v flips between the views)")
@@ -226,8 +225,6 @@ def moon_parser():
 
 def sky_parser():
     p = _base_parser("linecast sky", BLURB["sky"], clock=True, json=True)
-    p.add_argument("--location", metavar="PLACE", default=None,
-                    help="location as 'lat,lng' or place name")
     p.add_argument("--facing", metavar="DIRECTION", default=None,
                     help="which way to look: a compass point (N, NE, E, …) "
                          "or a bearing in degrees (default: the Moon if it "
@@ -253,8 +250,6 @@ def radar_parser():
                       units=("metric units: celsius, kilometres",
                              "imperial units: fahrenheit, miles"),
                       clock=True, oneline=False)
-    p.add_argument("--location", metavar="PLACE", default=None,
-                    help="location as 'lat,lng' or place name")
     p.add_argument("--search", metavar="QUERY", default=None,
                     help="search for a location and exit")
     p.add_argument("--zoom", metavar="DEGREES", type=zoom_degrees, default=6.0,
@@ -284,8 +279,6 @@ def maps_parser():
                       units=("metric units: kilometres and metres",
                              "imperial units: miles and feet"),
                       oneline=False)
-    p.add_argument("--location", metavar="PLACE", default=None,
-                    help="location as 'lat,lng' or place name")
     p.add_argument("--search", metavar="QUERY", default=None,
                     help="search for a location and exit")
     # the default is per view and resolved in maps.main(): a street map

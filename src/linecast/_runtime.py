@@ -302,8 +302,7 @@ def _resolve_live(ns):
     --print, --oneline and --json force static single-shot output.
     --live is accepted for backwards compatibility but is no longer needed.
     """
-    # Not every command's parser defines --json (radar/maps), so getattr.
-    if ns.print_mode or ns.oneline or getattr(ns, "json_mode", False):
+    if ns.print_mode or ns.oneline or ns.json_mode:
         return False
     if ns.live:
         return True
@@ -434,7 +433,7 @@ class RuntimeConfig:
             icons=_resolve_icons(namespace, env),
             lang=lang,
             oneline=namespace.oneline,
-            json_mode=getattr(namespace, "json_mode", False),
+            json_mode=namespace.json_mode,
             metric=units == "metric",
             use_24h=clock == "24",
             week_start=week_start,
