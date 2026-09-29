@@ -1199,3 +1199,43 @@ class TestStartupPrune:
         _maps_live.main()
 
         assert calls == ["search"]
+
+
+class TestPrintedRoute:
+    """--print with --from and --to frames the route, as the live view
+    opens on it, and keeps the reader's home where it is."""
+
+    def test_the_home_marker_stays_home(self, monkeypatch):
+        from linecast.maps import tile_cache
+        from linecast.terminal import textwidth
+
+        monkeypatch.setattr(sys, "argv", [
+            "linecast-maps", "--print", "--from", "Portland Head Light",
+            "--to", "Portland Jetport"])
+        monkeypatch.setattr(tile_cache, "prune_maps_cache", lambda: 0)
+        monkeypatch.setattr(textwidth, "calibrate_from_terminal",
+                            lambda: None)
+        home = (43.677, -70.371)
+        monkeypatch.setattr(_maps_live, "resolve_location",
+                            lambda *a, **k: (*home, "US", "Westbrook"))
+        ends = {"Portland Head Light": Result("Head Light", "", 43.6231,
+                                              -70.2078, "point"),
+                "Portland Jetport": Result("Jetport", "", 43.6462,
+                                           -70.3093, "point")}
+        monkeypatch.setattr(_maps_live, "resolve_place",
+                            lambda query, *a, **k: ends[query])
+        route = _maps_route.Route([(-70.2078, 43.6231), (-70.3093, 43.6462)],
+                                  1000.0, 600.0, [], "car")
+        monkeypatch.setattr(_maps_live._maps_route, "route",
+                            lambda *a, **k: route)
+        drawn = []
+        monkeypatch.setattr(_maps_live, "render_map",
+                            lambda *a, **k: drawn.append((a, k)) or [])
+        monkeypatch.setattr(_maps_live, "print_frame", lambda lines: None)
+
+        _maps_live.main()
+
+        (lat, lon, _name, _zoom), kwargs = drawn[0]
+        # the view is the route's; the marker is still Westbrook
+        assert (lat, lon) != home
+        assert kwargs["marker"] == home

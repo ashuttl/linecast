@@ -1019,7 +1019,8 @@ def main():
                args.profile, origin=origin, dest=dest, fit=fit).run()
     else:
         found = note = None
-        start = (origin.lat, origin.lon) if origin else (lat, lon)
+        home = (lat, lon)   # the marker stays home when the route is framed
+        start = (origin.lat, origin.lon) if origin else home
         if dest is not None:
             try:
                 found = _maps_route.route(args.profile, start,
@@ -1033,7 +1034,8 @@ def main():
                       else [start, (dest.lat, dest.lon)])
             lat, lon, args.zoom = fit_view(points, *map_cells())
         print_frame(render_map(lat, lon, location_name, args.zoom,
-                               runtime=runtime, view=args.view, route=found,
+                               marker=home, runtime=runtime,
+                               view=args.view, route=found,
                                dest=(dest.lat, dest.lon) if dest else None,
                                origin=((origin.lat, origin.lon, origin.name)
                                        if origin else None),

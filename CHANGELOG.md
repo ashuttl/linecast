@@ -60,6 +60,7 @@ Notable changes, by release. Notes for the next release collect under **Unreleas
 - Moon: In a window too short to draw the month view's discs, each day's phase sits beside its own date; it sat just before the next day's and read as that day's.
 - Maps: Fixed a map tile that failed to load on a slow or dropped connection leaving a gap in the street or terrain view for as long as the view stayed put; the tile is asked for again a few seconds later.
 - Maps: Names set in capitals follow Greek and Turkish spelling: Greek capitals drop their accents, "ΑΘΗΝΑ" rather than "ΑΘΉΝΑ", and in Turkish i becomes İ, "İZMİR" rather than "İZMIR".
+- Maps: Fixed `--print` with `--from` and `--to` drawing your location's marker in the middle of the route and naming the map after your location. The marker stays where you are, and the header names the place the map is centred on, as the live view does.
 
 ## 2.9.2 — 2026-09-27
 
