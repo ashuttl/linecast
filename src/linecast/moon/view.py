@@ -287,6 +287,58 @@ def keeps_israel_days(country, lat, lng):
     return (country or "").upper() == "IL"
 
 
+class _Facts(NamedTuple):
+    """The Moon at one moment, seen from one place: what the sky says
+    about it, before the panel puts any of it into words."""
+    moment_utc: datetime
+    phase: int              # moon_phase's index: 0 new, 2 first quarter, 4 full
+    icon: str
+    illum: float            # the lit fraction of the disc
+    age: float              # days since the new moon
+    alt: float              # degrees above the horizon
+    up: bool
+    bearing: str            # the compass point it stands over, in the display language
+    limb: float             # where the bright limb and the Moon's north
+    axis: float             # pole point on screen, in degrees
+    sky: tuple              # (ra, dec, parallactic), placing it among the stars
+    rise: datetime | None   # the next moonrise and moonset
+    sset: datetime | None
+    full: datetime          # the next full and new moons
+    new: datetime
+    season: str             # the next equinox or solstice, and when it falls
+    season_at: datetime
+
+
+def _moon_facts(now_local, lat, lng, runtime):
+    """The Moon's _Facts at *now_local*, seen from *lat*, *lng*, its
+    times in *now_local*'s zone."""
+    idx, _name, icon = moon_phase(now_local, runtime)
+    moment_utc = now_local.astimezone(timezone.utc)
+    alt = _moon_altitude_deg(moment_utc, lat, lng)
+    # Where the bright limb and the Moon's north pole fall on screen.
+    # Position angles run from celestial north through east, which is
+    # anticlockwise with north up; the parallactic angle then says how
+    # far celestial north itself is turned from the observer's vertical.
+    parallactic = _moon_parallactic_deg(moment_utc, lat, lng)
+    rise, sset = upcoming_moon_events(now_local, lat, lng)
+    season, season_utc = next_season_event(now_local)
+    return _Facts(
+        moment_utc=moment_utc, phase=idx, icon=icon,
+        illum=moon_illumination(now_local),
+        age=moon_age_days(moment_utc),
+        alt=alt, up=alt > HORIZON_THRESHOLD_DEG,
+        bearing=compass_point(_moon_azimuth_deg(moment_utc, lat, lng), lang_of(runtime)),
+        limb=parallactic - moon_bright_limb_deg(moment_utc),
+        axis=parallactic - moon_axis_deg(moment_utc),
+        # The stars about the Moon, the Moon put in the catalogue's J2000 frame.
+        sky=(*precess_to_j2000(*_moon_ra_dec(moment_utc), moment_utc), parallactic),
+        rise=rise, sset=sset,
+        full=next_phase_local(moment_utc, 0.5, now_local),
+        new=next_phase_local(moment_utc, 0.0, now_local),
+        season=season, season_at=season_utc.astimezone(now_local.tzinfo),
+    )
+
+
 def render(now_local, lat, lng, runtime, fullscreen=False, offset_minutes=0,
            calendar_name=None, israel=False, turn=None, show_text=True):
     """Build the full-screen moon display: disc plus info lines.
@@ -300,24 +352,8 @@ def render(now_local, lat, lng, runtime, fullscreen=False, offset_minutes=0,
     *calendar_name* is the traditional calendar main() resolved, or
     None for none.
     """
-    idx, _name, icon = moon_phase(now_local, runtime)
-    name = moon_name(idx, runtime)
-    illum = moon_illumination(now_local)
-    moment_utc = now_local.astimezone(timezone.utc)
-    age = moon_age_days(moment_utc)
-    alt = _moon_altitude_deg(moment_utc, lat, lng)
-    up = alt > HORIZON_THRESHOLD_DEG
-    bearing = compass_point(_moon_azimuth_deg(moment_utc, lat, lng), lang_of(runtime))
-    # Where the bright limb and the Moon's north pole fall on screen.
-    # Position angles run from celestial north through east, which is
-    # anticlockwise with north up; the parallactic angle then says how
-    # far celestial north itself is turned from the observer's vertical.
-    parallactic = _moon_parallactic_deg(moment_utc, lat, lng)
-    limb = parallactic - moon_bright_limb_deg(moment_utc)
-    axis = parallactic - moon_axis_deg(moment_utc)
-    # The stars about the Moon, the Moon put in the catalogue's J2000 frame.
-    sky = (*precess_to_j2000(*_moon_ra_dec(moment_utc), moment_utc), parallactic)
-    rise, sset = upcoming_moon_events(now_local, lat, lng)
+    moon = _moon_facts(now_local, lat, lng, runtime)
+    name = moon_name(moon.phase, runtime)
 
     rotation = turn.matrix() if turn is not None else None
 
@@ -326,14 +362,10 @@ def render(now_local, lat, lng, runtime, fullscreen=False, offset_minutes=0,
             turn.radius = radius   # so a drag knows how far a radian is
             turn.aspect = aspect
         fb.draw_radial(cx, cy, MOON_GLOW_RGB, int(radius * 1.7), aspect=aspect,
-                       peak_alpha=0.10 + 0.20 * illum)
-        _draw_moon_disc(fb, cx, cy, radius, illum, limb, axis, rotation,
+                       peak_alpha=0.10 + 0.20 * moon.illum)
+        _draw_moon_disc(fb, cx, cy, radius, moon.illum, moon.limb, moon.axis, rotation,
                         night=MOON_NIGHT_RGB, aspect=aspect)
 
-    full_dt = next_phase_local(moment_utc, 0.5, now_local)
-    new_dt = next_phase_local(moment_utc, 0.0, now_local)
-    event, event_utc = next_season_event(now_local)
-    event_local = event_utc.astimezone(now_local.tzinfo)
     year_len = 366 if calendar.isleap(now_local.year) else 365
     year_n = now_local.timetuple().tm_yday
 
@@ -353,7 +385,7 @@ def render(now_local, lat, lng, runtime, fullscreen=False, offset_minutes=0,
         name = cal_name
     full_label = moon_name(4, runtime)
     if lang == "en" and (found is None or found.full_moon_names):
-        folk_name = full_moon_name(full_dt, SYNODIC_MONTH)
+        folk_name = full_moon_name(moon.full, SYNODIC_MONTH)
         full_label = ("Blue Moon" if folk_name == "Blue"
                       else f"Full {folk_name} Moon")
 
@@ -365,22 +397,22 @@ def render(now_local, lat, lng, runtime, fullscreen=False, offset_minutes=0,
     def in_days(days):
         return _ms('in_days', runtime, days=fmt_decimal(days, 1, runtime))
 
-    illum_txt = _ms('illuminated', runtime, pct=f'{illum * 100:.0f}')
+    illum_txt = _ms('illuminated', runtime, pct=f'{moon.illum * 100:.0f}')
     # Out of this month's own length, from the new moon before to the one
     # after: months run 29.3 to 29.8 days, and a mean 29.5 under an age
     # of 29.8 is a day past the end
-    lunation = age + (new_dt - moment_utc).total_seconds() / 86400.0
-    age_txt = _ms('age', runtime, age=fmt_decimal(age, 1, runtime),
+    lunation = moon.age + (moon.new - moon.moment_utc).total_seconds() / 86400.0
+    age_txt = _ms('age', runtime, age=fmt_decimal(moon.age, 1, runtime),
                   total=fmt_decimal(lunation, 1, runtime))
-    alt_txt = _ms('above_horizon', runtime, alt=f'{alt:.0f}')
+    alt_txt = _ms('above_horizon', runtime, alt=f'{moon.alt:.0f}')
     # After "Up now" the long phrase is redundant — being up is the whole
     # claim — so the altitude goes short and spends the room on where to
     # actually look.
-    alt_dir_txt = f"{alt:.0f}° · {bearing}"
+    alt_dir_txt = f"{moon.alt:.0f}° · {moon.bearing}"
     below_txt = _ms('below_horizon', runtime)
     # The Icelandic almanac prints a named moon's name at the new moon
     # that lights it, as the English almanacs name the full moons.
-    new_label = (found.new_moon_name(new_dt) if found else None) or moon_name(0, runtime)
+    new_label = (found.new_moon_name(moon.new) if found else None) or moon_name(0, runtime)
     year_txt = _ms('year_day', runtime, n=year_n, total=year_len)
     when_txt = (f"{_day_abbrev(now_local, runtime)} "
                 f"{_fmt_month_day(now_local, runtime)} "
@@ -401,7 +433,7 @@ def render(now_local, lat, lng, runtime, fullscreen=False, offset_minutes=0,
         return datetime.combine(day, datetime.min.time(), now_local.tzinfo)
 
     def ink_for(at):
-        return T if at - moment_utc < timedelta(days=1) else M
+        return T if at - moon.moment_utc < timedelta(days=1) else M
 
     def timed_row(label, dt, mark):
         """An instant within a day or two: the clock time, the weekday
@@ -411,7 +443,7 @@ def render(now_local, lat, lng, runtime, fullscreen=False, offset_minutes=0,
         when = fmt_time_dt(dt, use_24h=runtime.use_24h)
         if dt.date() != today:
             when = f"{when} {_day_abbrev(dt, runtime)}"
-        wait = _ms('in_time', runtime, dur=_fmt_countdown(dt - moment_utc, lang))
+        wait = _ms('in_time', runtime, dur=_fmt_countdown(dt - moon.moment_utc, lang))
         return _Row(dt, label, when, wait, T, mark)
 
     def instant_row(label, dt):
@@ -419,7 +451,7 @@ def render(now_local, lat, lng, runtime, fullscreen=False, offset_minutes=0,
         tenth, which says roughly when in the day.  Within the day the
         wait is to the minute, as the day's rows give it: the last hour
         before a full moon is not "in 0.0d"."""
-        wait = dt - moment_utc
+        wait = dt - moon.moment_utc
         if wait < timedelta(days=1):
             wait_txt = _ms('in_time', runtime, dur=_fmt_countdown(wait, lang))
         else:
@@ -434,10 +466,10 @@ def render(now_local, lat, lng, runtime, fullscreen=False, offset_minutes=0,
                     wait or _ms('in_days', runtime, days=str(gap)),
                     ink_for(at_day(day)))
 
-    day_rows = [timed_row(_ms('moonrise', runtime), rise, ("↑", A)),
-                timed_row(_ms('moonset', runtime), sset, ("↓", P))]
-    month_rows = [instant_row(full_label, full_dt), instant_row(new_label, new_dt)]
-    year_rows = [instant_row(_season_label(event, lat, runtime), event_local)]
+    day_rows = [timed_row(_ms('moonrise', runtime), moon.rise, ("↑", A)),
+                timed_row(_ms('moonset', runtime), moon.sset, ("↓", P))]
+    month_rows = [instant_row(full_label, moon.full), instant_row(new_label, moon.new)]
+    year_rows = [instant_row(_season_label(moon.season, lat, runtime), moon.season_at)]
     month_now, year_now = [], []    # (text, rgb): what the calendar keeps today
 
     # Where the dates are Solar Hijri the day of the year is too, and the
@@ -459,7 +491,7 @@ def render(now_local, lat, lng, runtime, fullscreen=False, offset_minutes=0,
     # Farmer's for the garden.
     extra = found.panel(ctx) if found else Panel()
     if found and found.plain_age:
-        age_txt = _ms('lunar_age', runtime, age=fmt_decimal(age, 1, runtime))
+        age_txt = _ms('lunar_age', runtime, age=fmt_decimal(moon.age, 1, runtime))
     for items, stands, rows in ((extra.month, month_now, month_rows),
                                 (extra.year, year_now, year_rows)):
         for item in items:
@@ -484,9 +516,9 @@ def render(now_local, lat, lng, runtime, fullscreen=False, offset_minutes=0,
         # Scrubbed away from the present: lead with the simulated moment
         # ("Up now" would lie), and show how to get back.
         day_head = [[(when_txt, A, False)],
-                    [(f"{alt_txt} · {bearing}", T, False)] if up
+                    [(f"{alt_txt} · {moon.bearing}", T, False)] if moon.up
                     else [(below_txt, M, False)]]
-    elif up:
+    elif moon.up:
         day_head = [[(_ms('up_now', runtime), A, False),
                      (f" · {alt_dir_txt}", T, False)]]
     else:
@@ -517,7 +549,7 @@ def render(now_local, lat, lng, runtime, fullscreen=False, offset_minutes=0,
     def block_w(block):
         return max(map(seg_w, block), default=0)
 
-    headline = [(f"{icon} {name}", T, True)] + (
+    headline = [(f"{moon.icon} {name}", T, True)] + (
         [(f" · {head_extra}", T, False)] if head_extra else [])
 
     def what_block(short):
@@ -656,7 +688,7 @@ def render(now_local, lat, lng, runtime, fullscreen=False, offset_minutes=0,
                                   for c in range(x - air, x + width + air)):
                 overlays.update(_panel_overlays([[(label, D, False)]], x, row, graph_w))
                 break
-    stars = star_overlays(fb, cx, cy, radius, sky, taken=overlays.keys(),
+    stars = star_overlays(fb, cx, cy, radius, moon.sky, taken=overlays.keys(),
                           turn=rotation, aspect=aspect)
     from linecast.terminal import bidi as _bidi
     if _bidi.mirrored():
