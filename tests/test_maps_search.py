@@ -159,6 +159,26 @@ class TestPhotonParse:
         assert [r.name for r in results] == ["Portland"]
 
 
+    def test_a_place_and_its_boundary_are_one_result(self, monkeypatch):
+        # Photon's answer for "Paris": the city, then its district, both
+        # "Paris, Île-de-France, France"; two cafés of one name are two
+        def feature(kind, name, lon, lat, city=None):
+            return {"properties": {"type": kind, "name": name, "city": city,
+                                   "state": "Île-de-France",
+                                   "country": "France"},
+                    "geometry": {"coordinates": [lon, lat]}}
+        payload = {"type": "FeatureCollection", "features": [
+            feature("city", "Paris", 2.348, 48.853),
+            feature("district", "Paris", 2.320, 48.859),
+            feature("house", "Café Oz", 2.35, 48.86, "Paris"),
+            feature("house", "Café Oz", 2.30, 48.87, "Paris"),
+        ]}
+        _stub(monkeypatch, payload)
+        results = ms.photon_search("paris", 48.85, 2.35, 12)
+        assert [(r.name, r.kind) for r in results] == [
+            ("Paris", "city"), ("Café Oz", "house"), ("Café Oz", "house")]
+
+
 class TestPhotonRequest:
     def test_url_carries_the_bias_parameters(self, monkeypatch):
         fetch = _stub(monkeypatch, PHOTON)

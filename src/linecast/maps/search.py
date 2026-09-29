@@ -121,7 +121,7 @@ def photon_search(query: str, lat: float, lon: float, zoom: float, lang: str = "
         raise SearchUnavailable(str(exc)) from exc
     try:
         features = data.get("features") or []
-        return [r for r in (_photon_result(f) for f in features) if r]
+        return _distinct(r for r in (_photon_result(f) for f in features) if r)
     except (AttributeError, TypeError, ValueError, KeyError) as exc:
         log_failure("maps/search", "photon parse", exc, url=PHOTON_URL,
                     fallback="SearchUnavailable")
@@ -152,6 +152,22 @@ def _photon_result(feature):
                      name)
     return Result(name, detail, float(lat), float(lon),
                   props.get("type") or "", _photon_extent(props.get("extent")))
+
+
+def _distinct(results):
+    """The results less an area listed again under the same name and
+    context.  Photon gives a city both as the place and as its boundary,
+    so "Paris, Île-de-France, France" came twice.  Houses and streets are
+    kept, since two cafés of one name in one city are two places."""
+    seen = set()
+    out = []
+    for r in results:
+        if r.kind not in ("house", "street"):
+            if (r.name, r.detail) in seen:
+                continue
+            seen.add((r.name, r.detail))
+        out.append(r)
+    return out
 
 
 def _photon_extent(extent):
