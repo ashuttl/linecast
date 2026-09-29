@@ -19,6 +19,7 @@ import pytest
 from conftest import answering
 from linecast.weather import alert_feeds
 from linecast.weather.alert_feeds import cma, eccc
+from linecast.weather import live as _weather_live
 from linecast.weather import view as weather
 from linecast.weather.oneline import weather_oneline
 from linecast._runtime import WeatherRuntime
@@ -257,12 +258,12 @@ class TestGather:
     """A provider that raises costs only its own entry."""
 
     def test_an_alert_parser_that_raises_keeps_the_air_quality_and_climate(self):
-        with patch.object(weather, "reverse_geocode", return_value=("Westbrook", "US", {})), \
-             patch.object(weather, "fetch_forecast", return_value={"v": 1}), \
-             patch.object(weather, "fetch_aqi", return_value={"aqi": 1}), \
-             patch.object(weather, "fetch_historical", return_value=HIST), \
-             patch.object(weather, "fetch_alerts", side_effect=TypeError("null")):
-            result = weather.gather(43.0, -70.0, "", _runtime())
+        with patch.object(_weather_live, "reverse_geocode", return_value=("Westbrook", "US", {})), \
+             patch.object(_weather_live, "fetch_forecast", return_value={"v": 1}), \
+             patch.object(_weather_live, "fetch_aqi", return_value={"aqi": 1}), \
+             patch.object(_weather_live, "fetch_historical", return_value=HIST), \
+             patch.object(_weather_live, "fetch_alerts", side_effect=TypeError("null")):
+            result = _weather_live.gather(43.0, -70.0, "", _runtime())
         assert result["data"] == {"v": 1}
         assert result["aqi"] == {"aqi": 1}
         assert result["historical"] is HIST
@@ -270,13 +271,13 @@ class TestGather:
         assert result["name"] == "Westbrook" and result["country_code"] == "US"
 
     def _gather(self, geocode, lang, geo_label=""):
-        with patch.object(weather, "reverse_geocode", side_effect=geocode), \
-             patch.object(weather, "fetch_forecast", return_value={"v": 1}), \
-             patch.object(weather, "fetch_aqi", return_value=None), \
-             patch.object(weather, "fetch_historical", return_value=None), \
-             patch.object(weather, "fetch_alerts", return_value=[]) as alerts:
-            result = weather.gather(52.23, 21.01, "", _runtime("--lang", lang),
-                                    geo_label=geo_label)
+        with patch.object(_weather_live, "reverse_geocode", side_effect=geocode), \
+             patch.object(_weather_live, "fetch_forecast", return_value={"v": 1}), \
+             patch.object(_weather_live, "fetch_aqi", return_value=None), \
+             patch.object(_weather_live, "fetch_historical", return_value=None), \
+             patch.object(_weather_live, "fetch_alerts", return_value=[]) as alerts:
+            result = _weather_live.gather(52.23, 21.01, "", _runtime("--lang", lang),
+                                          geo_label=geo_label)
         return result, alerts
 
     @staticmethod
@@ -320,12 +321,12 @@ class TestGather:
         assert result["name"] == "Warsaw, Mazovia"
 
     def test_a_geocoder_that_raises_keeps_the_forecast_and_the_typed_name(self):
-        with patch.object(weather, "reverse_geocode", side_effect=OSError("down")), \
-             patch.object(weather, "fetch_forecast", return_value={"v": 1}), \
-             patch.object(weather, "fetch_aqi", return_value=None), \
-             patch.object(weather, "fetch_historical", return_value=None), \
-             patch.object(weather, "fetch_alerts", return_value=[]) as alerts:
-            result = weather.gather(43.0, -70.0, "US", _runtime(), geo_label="Home")
+        with patch.object(_weather_live, "reverse_geocode", side_effect=OSError("down")), \
+             patch.object(_weather_live, "fetch_forecast", return_value={"v": 1}), \
+             patch.object(_weather_live, "fetch_aqi", return_value=None), \
+             patch.object(_weather_live, "fetch_historical", return_value=None), \
+             patch.object(_weather_live, "fetch_alerts", return_value=[]) as alerts:
+            result = _weather_live.gather(43.0, -70.0, "US", _runtime(), geo_label="Home")
         assert result["data"] == {"v": 1}
         assert result["name"] == "Home"
         alerts.assert_called_once_with(43.0, -70.0, "US", lang="en", address={})

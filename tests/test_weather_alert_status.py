@@ -253,15 +253,15 @@ class TestView:
 
 class TestGather:
     def test_a_feed_that_raises_is_unavailable(self):
-        from linecast.weather import view as weather
+        from linecast.weather import live
         runtime = WeatherRuntime(live=False, icons="emoji", lang="en", oneline=False,
                                  celsius=False, metric=False, shading=False)
-        with patch.object(weather, "reverse_geocode", return_value=("Portland", "US", {})), \
-             patch.object(weather, "fetch_forecast", return_value=None), \
-             patch.object(weather, "fetch_aqi", return_value=None), \
-             patch.object(weather, "fetch_observation", return_value=None), \
-             patch.object(weather, "fetch_historical", return_value=None), \
-             patch.object(weather, "fetch_alerts", side_effect=TypeError("null")):
-            result = weather.gather(*PORTLAND, "US", runtime, geo_label="Portland")
+        with patch.object(live, "reverse_geocode", return_value=("Portland", "US", {})), \
+             patch.object(live, "fetch_forecast", return_value=None), \
+             patch.object(live, "fetch_aqi", return_value=None), \
+             patch.object(live, "fetch_observation", return_value=None), \
+             patch.object(live, "fetch_historical", return_value=None), \
+             patch.object(live, "fetch_alerts", side_effect=TypeError("null")):
+            result = live.gather(*PORTLAND, "US", runtime, geo_label="Portland")
         assert result["alerts"] == []
         assert alerts_status(result["alerts"])["status"] == "unavailable"

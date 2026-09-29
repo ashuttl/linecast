@@ -394,14 +394,14 @@ def _(ctx):
 
 @scene("weather-app", size=(100, 30))
 def _(ctx):
-    from linecast.weather import view as weather
+    from linecast.weather.live import WeatherApp
     _mirror(True)
     runtime = ctx.runtime("WeatherRuntime", live=True, **_units(ctx))
     for name in ("_start_climate", "_start_year", "_start_refresh"):
-        setattr(weather.WeatherApp, name, lambda self, *a, **k: None)
-    app = weather.WeatherApp(_fixture("open_meteo_forecast.json"), ALERTS, None,
-                             LAT, LNG, runtime, location_name=PLACE,
-                             historical=_history(), country="CA")
+        setattr(WeatherApp, name, lambda self, *a, **k: None)
+    app = WeatherApp(_fixture("open_meteo_forecast.json"), ALERTS, None,
+                     LAT, LNG, runtime, location_name=PLACE,
+                     historical=_history(), country="CA")
     app.fetched = time.monotonic()
     frames = [ctx.live(app.render()), ctx.live(app.render(), app.help_panel())]
     app.locations.start()

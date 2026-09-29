@@ -399,7 +399,7 @@ def _run_main(module, argv, monkeypatch):
 class TestWeatherFetchThread:
     @pytest.fixture
     def stubs(self, monkeypatch):
-        weather = _mod("weather.view")
+        weather = _mod("weather.live")
         monkeypatch.setattr(weather, "reverse_geocode",
                             lambda lat, lng, lang=None: ("Here", "US", {}))
         monkeypatch.setattr(weather, "fetch_aqi", lambda lat, lng: None)

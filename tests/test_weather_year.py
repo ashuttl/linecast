@@ -13,7 +13,7 @@ from unittest.mock import patch
 from linecast._runtime import WeatherRuntime
 from linecast.weather import historical as hist
 from linecast.weather import year
-from linecast.weather.view import WeatherApp
+from linecast.weather.live import WeatherApp
 
 TODAY = date(2026, 9, 26)
 SPAN = (2016, 2025)
@@ -571,13 +571,13 @@ class TestLive:
     def _move(self, app, gathered):
         """Choose London, and hand back the Event that lets it arrive."""
         from linecast.maps.search import Result
-        from linecast.weather import view
+        from linecast.weather import live
 
         def gather(lat, lng, cc, runtime, geo_label="", stale=None):
             gathered.wait(2)
             return {"data": {"timezone": "Europe/London"}, "name": geo_label}
 
-        with patch.object(view, "gather", side_effect=gather):
+        with patch.object(live, "gather", side_effect=gather):
             app._choose_location(Result("London", "", 51.5, -0.1, "point"))
 
     def test_a_new_place_brings_its_own_year(self):

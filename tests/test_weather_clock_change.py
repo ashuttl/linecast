@@ -13,7 +13,7 @@ from datetime import date, datetime, timedelta, timezone
 from unittest.mock import patch
 from zoneinfo import ZoneInfo
 
-from linecast.weather import view as weather
+from linecast.weather import live as _weather_live
 from linecast._timefmt import fmt_hour
 from linecast._runtime import WeatherRuntime
 from linecast.weather.historical import HistoricalAverages
@@ -218,15 +218,16 @@ class TestArchiveDay:
     """The climate archive is read for the day it is at the location."""
 
     def _gather(self, there):
-        with patch.object(weather, "reverse_geocode", return_value=("Kiritimati", "KI", {})), \
-             patch.object(weather, "fetch_forecast",
+        with patch.object(_weather_live, "reverse_geocode",
+                          return_value=("Kiritimati", "KI", {})), \
+             patch.object(_weather_live, "fetch_forecast",
                           return_value={"timezone": "Pacific/Kiritimati"}), \
-             patch.object(weather, "fetch_aqi", return_value=None), \
-             patch.object(weather, "fetch_alerts", return_value=[]), \
-             patch.object(weather, "local_now", return_value=there), \
-             patch.object(weather, "fetch_historical", return_value=HIST) as hist:
+             patch.object(_weather_live, "fetch_aqi", return_value=None), \
+             patch.object(_weather_live, "fetch_alerts", return_value=[]), \
+             patch.object(_weather_live, "local_now", return_value=there), \
+             patch.object(_weather_live, "fetch_historical", return_value=HIST) as hist:
             runtime = WeatherRuntime(live=False, icons="emoji", lang="en", oneline=False)
-            result = weather.gather(1.87, -157.4, "KI", runtime)
+            result = _weather_live.gather(1.87, -157.4, "KI", runtime)
         return result, hist
 
     def test_across_the_date_line_the_archive_is_asked_for_the_day_there(self):

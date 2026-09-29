@@ -11,13 +11,16 @@ from unittest.mock import patch
 
 import pytest
 
+from linecast.weather import live as _weather_live
 from linecast.weather import view as weather
 from linecast.weather import forecast as _forecast
 from linecast.weather.forecast import forecast_date, forecast_is_todays
 from linecast.weather.header import render_header
 from linecast.weather.narrative import comparative_sentence
 from linecast.weather.historical import HistoricalAverages
-from linecast.weather.view import WeatherApp, forecast_notice
+from linecast._runtime import WeatherRuntime
+from linecast.weather.live import WeatherApp
+from linecast.weather.view import forecast_notice
 
 FIXTURE = json.loads(
     (Path(__file__).parent / "fixtures" / "open_meteo_forecast.json").read_text())
@@ -118,7 +121,7 @@ class TestForecastNotice:
         assert "prévision" in line and "Relancez" in line   # one-shot: run again
 
     def test_the_line_sits_under_the_header(self):
-        runtime = weather.WeatherRuntime.defaults()
+        runtime = WeatherRuntime.defaults()
         with patch("linecast.weather.view.get_terminal_size", return_value=(100, 30)), \
              patch("linecast.weather.view.local_now", return_value=LATER), \
              patch("linecast.weather.hourly.local_now", return_value=LATER):
@@ -133,7 +136,7 @@ class TestForecastNotice:
 class TestDailyLabels:
     def _rows(self, now):
         from linecast.weather.daily import render_daily
-        runtime = weather.WeatherRuntime.defaults()
+        runtime = WeatherRuntime.defaults()
         lines = render_daily(FIXTURE, 100, runtime, now=now)
         return [_strip(line).split()[0] for line in lines]
 
@@ -153,17 +156,17 @@ class TestComparisonDates:
         # March 7 is warmer than March 6; March 8 is cooler than March 7.
         expected = ("Today's high will be 20° warmer than yesterday's" if hour == 9
                     else "Tomorrow's high will be 20° cooler than today's")
-        assert expected in comparative_sentence(daily, now, weather.WeatherRuntime.defaults())
+        assert expected in comparative_sentence(daily, now, WeatherRuntime.defaults())
 
     @pytest.mark.parametrize("hour", [9, 15])
     def test_expired_forecast_has_no_comparison(self, hour):
         assert comparative_sentence(FIXTURE["daily"], datetime(2026, 3, 12, hour),
-                                    weather.WeatherRuntime.defaults()) == ""
+                                    WeatherRuntime.defaults()) == ""
 
     def test_missing_comparison_day_does_not_use_a_neighbour(self):
         daily = {"time": ["2026-03-05", "2026-03-07", "2026-03-08"],
                  "temperature_2m_max": [20, 60, 40]}
-        assert comparative_sentence(daily, LATER, weather.WeatherRuntime.defaults()) == ""
+        assert comparative_sentence(daily, LATER, WeatherRuntime.defaults()) == ""
 
 
 class TestHistoricalComparisonDates:
@@ -178,7 +181,7 @@ class TestHistoricalComparisonDates:
         hist = HistoricalAverages(avg_high=40, avg_low=20, avg_precip=0, years=10)
         with patch.object(_forecast, "datetime") as clock:
             clock.now.return_value = now
-            header = _strip(render_header(data, 200, runtime=weather.WeatherRuntime.defaults(),
+            header = _strip(render_header(data, 200, runtime=WeatherRuntime.defaults(),
                                           historical=hist))
         if expected is None:
             assert "avg" not in header
@@ -195,10 +198,10 @@ def _app(clock=lambda: 1000.0):
 class TestRetryKey:
     def test_r_asks_for_a_newer_forecast_now(self):
         app = _app()
-        with patch.object(weather, "fetch_forecast", return_value={"v": 2}) as forecast, \
-             patch.object(weather, "fetch_alerts", return_value=[]), \
-             patch.object(weather, "reverse_geocode", return_value=("", "US", {})), \
-             patch.object(weather, "fetch_aqi", return_value=None), \
+        with patch.object(_weather_live, "fetch_forecast", return_value={"v": 2}) as forecast, \
+             patch.object(_weather_live, "fetch_alerts", return_value=[]), \
+             patch.object(_weather_live, "reverse_geocode", return_value=("", "US", {})), \
+             patch.object(_weather_live, "fetch_aqi", return_value=None), \
              patch("time.monotonic", return_value=1001.0):
             assert app.on_action("r")     # well inside the interval
             app._worker.join(1.0)
@@ -207,10 +210,10 @@ class TestRetryKey:
 
     def test_a_refresh_that_still_gets_an_old_forecast_records_when(self):
         app = _app()
-        with patch.object(weather, "fetch_forecast", return_value=FIXTURE), \
-             patch.object(weather, "fetch_alerts", return_value=[]), \
-             patch.object(weather, "reverse_geocode", return_value=("", "US", {})), \
-             patch.object(weather, "fetch_aqi", return_value=None), \
+        with patch.object(_weather_live, "fetch_forecast", return_value=FIXTURE), \
+             patch.object(_weather_live, "fetch_alerts", return_value=[]), \
+             patch.object(_weather_live, "reverse_geocode", return_value=("", "US", {})), \
+             patch.object(_weather_live, "fetch_aqi", return_value=None), \
              patch.object(_forecast, "datetime") as dt:
             dt.now.return_value = LATER
             app.on_action("r")
@@ -221,10 +224,10 @@ class TestRetryKey:
         # At midnight the forecast stops being today's; the line must not
         # then report the fetch that got it, which succeeded, as a failed one.
         app = _app()
-        with patch.object(weather, "fetch_forecast", return_value=FIXTURE), \
-             patch.object(weather, "fetch_alerts", return_value=[]), \
-             patch.object(weather, "reverse_geocode", return_value=("", "US", {})), \
-             patch.object(weather, "fetch_aqi", return_value=None), \
+        with patch.object(_weather_live, "fetch_forecast", return_value=FIXTURE), \
+             patch.object(_weather_live, "fetch_alerts", return_value=[]), \
+             patch.object(_weather_live, "reverse_geocode", return_value=("", "US", {})), \
+             patch.object(_weather_live, "fetch_aqi", return_value=None), \
              patch.object(_forecast, "datetime") as dt:
             dt.now.return_value = MADE
             app.on_action("r")
@@ -244,10 +247,10 @@ class TestRetryKey:
             release.wait(1.0)
             return {"v": 2}
 
-        with patch.object(weather, "fetch_forecast", side_effect=slow_forecast), \
-             patch.object(weather, "fetch_alerts", return_value=[]), \
-             patch.object(weather, "reverse_geocode", return_value=("", "US", {})), \
-             patch.object(weather, "fetch_aqi", return_value=None):
+        with patch.object(_weather_live, "fetch_forecast", side_effect=slow_forecast), \
+             patch.object(_weather_live, "fetch_alerts", return_value=[]), \
+             patch.object(_weather_live, "reverse_geocode", return_value=("", "US", {})), \
+             patch.object(_weather_live, "fetch_aqi", return_value=None):
             app.on_action("r")
             worker = app._worker
             app.on_action("r")
@@ -258,7 +261,7 @@ class TestRetryKey:
     def test_render_passes_the_notice(self):
         app = _app()
         app.data = FIXTURE
-        with patch.object(weather, "render_from_data",
+        with patch.object(_weather_live, "render_from_data",
                           return_value=("out", {})) as render, \
              patch.object(weather, "local_now", return_value=LATER), \
              patch("time.monotonic", return_value=1001.0):

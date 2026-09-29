@@ -102,7 +102,7 @@ class TestAutoTemperatureScale:
 class TestFlash:
     def test_a_note_comes_down_when_its_time_is_up(self, monkeypatch):
         from linecast.terminal import live as _live
-        from linecast.weather.view import WeatherApp
+        from linecast.weather.live import WeatherApp
         view = WeatherApp({}, [], None, 43.7, -79.4, _runtime())
         view.flash(["hello"], seconds=0.0)
         monkeypatch.setattr(_live._time, "monotonic", lambda: 10 ** 9)
@@ -110,7 +110,7 @@ class TestFlash:
         assert view._flash is None
 
     def test_a_note_is_boxed_while_it_is_up(self):
-        from linecast.weather.view import WeatherApp
+        from linecast.weather.live import WeatherApp
         view = WeatherApp({}, [], None, 43.7, -79.4, _runtime())
         view.flash(["hello there"], seconds=60.0)
         box = view.flash_overlay(80, 24)

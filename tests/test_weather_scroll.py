@@ -6,7 +6,7 @@ from types import SimpleNamespace
 import pytest
 
 from test_live_hover import run_loop
-from linecast.weather import view as weather
+from linecast.weather import live as _weather_live
 from linecast.weather.hourly import _prepare_hourly_window
 
 
@@ -17,10 +17,10 @@ def make_app(monkeypatch, count=120, width=80):
         "time": [(start + timedelta(hours=i)).isoformat() for i in range(count)],
         "temperature_2m": list(range(count)),
     }
-    monkeypatch.setattr(weather, "local_now", lambda data: now)
-    monkeypatch.setattr(weather, "get_terminal_size", lambda: (width, 24))
-    app = weather.WeatherApp({"hourly": hourly}, [], None, 43, -70,
-                             SimpleNamespace(lang="en"))
+    monkeypatch.setattr(_weather_live, "local_now", lambda data: now)
+    monkeypatch.setattr(_weather_live, "get_terminal_size", lambda: (width, 24))
+    app = _weather_live.WeatherApp({"hourly": hourly}, [], None, 43, -70,
+                                   SimpleNamespace(lang="en"))
     return app, hourly, now
 
 
@@ -64,10 +64,10 @@ def test_resize_reclamps_before_reversing(monkeypatch):
     frames = []
 
     def render(offset_minutes=0, **_):
-        width = weather.get_terminal_size()[0]
+        width = _weather_live.get_terminal_size()[0]
         frames.append(_prepare_hourly_window(hourly, now, width, offset_minutes)['start_idx'])
         if len(frames) == 2:
-            monkeypatch.setattr(weather, 'get_terminal_size', lambda: (120, 24))
+            monkeypatch.setattr(_weather_live, 'get_terminal_size', lambda: (120, 24))
         return '.'
 
     script = [(0, 'fwd')] * 150 + [(0.01, 'back'), (0.01, 'quit')]

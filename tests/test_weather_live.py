@@ -5,8 +5,9 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
 
+from linecast.weather import live as _weather_live
 from linecast.weather import view as weather
-from linecast.weather.view import WeatherApp
+from linecast.weather.live import WeatherApp
 
 
 def _app(clock, alerts=None):
@@ -21,10 +22,10 @@ def _app(clock, alerts=None):
 class TestRender:
     def test_render_inside_the_interval_uses_the_cached_data(self):
         app = _app(lambda: 1000.0)
-        with patch.object(weather, "fetch_forecast") as forecast, \
-             patch.object(weather, "fetch_alerts") as alerts, \
-             patch.object(weather, "fetch_aqi") as aqi, \
-             patch.object(weather, "render_from_data",
+        with patch.object(_weather_live, "fetch_forecast") as forecast, \
+             patch.object(_weather_live, "fetch_alerts") as alerts, \
+             patch.object(_weather_live, "fetch_aqi") as aqi, \
+             patch.object(_weather_live, "render_from_data",
                           return_value=("out", {})) as render, \
              patch("time.monotonic", return_value=1299.0):
             assert app.render(offset_minutes=30, mouse_pos=(2, 3)) == ("out", {})
@@ -47,14 +48,14 @@ class TestRender:
             release.wait(1.0)
             return {"v": 2}
 
-        with patch.object(weather, "fetch_forecast",
+        with patch.object(_weather_live, "fetch_forecast",
                           side_effect=slow_forecast) as forecast, \
-             patch.object(weather, "fetch_alerts",
+             patch.object(_weather_live, "fetch_alerts",
                           return_value=[{"url": "u"}]) as alerts, \
-             patch.object(weather, "fetch_aqi", return_value={"aqi": 2}) as aqi, \
-             patch.object(weather, "reverse_geocode",
+             patch.object(_weather_live, "fetch_aqi", return_value={"aqi": 2}) as aqi, \
+             patch.object(_weather_live, "reverse_geocode",
                           return_value=("Westbrook", "US", {"state": "Maine"})), \
-             patch.object(weather, "render_from_data",
+             patch.object(_weather_live, "render_from_data",
                           return_value=("out", {})) as render, \
              patch("time.monotonic", return_value=1300.0):
             app.render()
@@ -80,11 +81,11 @@ class TestRender:
             release.wait(1.0)
             return {"v": 2}
 
-        with patch.object(weather, "fetch_forecast", side_effect=slow_forecast), \
-             patch.object(weather, "fetch_alerts", return_value=[]), \
-             patch.object(weather, "fetch_aqi", return_value=None), \
-             patch.object(weather, "reverse_geocode", return_value=("", "US", {})), \
-             patch.object(weather, "render_from_data",
+        with patch.object(_weather_live, "fetch_forecast", side_effect=slow_forecast), \
+             patch.object(_weather_live, "fetch_alerts", return_value=[]), \
+             patch.object(_weather_live, "fetch_aqi", return_value=None), \
+             patch.object(_weather_live, "reverse_geocode", return_value=("", "US", {})), \
+             patch.object(_weather_live, "render_from_data",
                           return_value=("out", {})), \
              patch("time.monotonic", return_value=1300.0):
             app.render()
@@ -97,11 +98,11 @@ class TestRender:
 
     def test_a_failed_forecast_refresh_keeps_the_old_data(self):
         app = _app(lambda: 1000.0)
-        with patch.object(weather, "fetch_forecast", return_value=None), \
-             patch.object(weather, "fetch_alerts", return_value=[]), \
-             patch.object(weather, "fetch_aqi", return_value=None), \
-             patch.object(weather, "reverse_geocode", return_value=("", "US", {})), \
-             patch.object(weather, "render_from_data",
+        with patch.object(_weather_live, "fetch_forecast", return_value=None), \
+             patch.object(_weather_live, "fetch_alerts", return_value=[]), \
+             patch.object(_weather_live, "fetch_aqi", return_value=None), \
+             patch.object(_weather_live, "reverse_geocode", return_value=("", "US", {})), \
+             patch.object(_weather_live, "render_from_data",
                           return_value=("out", {})) as render, \
              patch("time.monotonic", return_value=2000.0):
             app.render()
@@ -119,10 +120,10 @@ class TestRefreshAddress:
     def _refresh(self, geocode, country="NL", lat=52.1, lng=5.2):
         app = _app(lambda: 0.0)
         app.lat, app.lng, app.country = lat, lng, country
-        with patch.object(weather, "fetch_forecast", return_value={"v": 2}), \
-             patch.object(weather, "fetch_alerts", return_value=[]) as alerts, \
-             patch.object(weather, "fetch_aqi", return_value=None), \
-             patch.object(weather, "reverse_geocode", **geocode) as geocoded:
+        with patch.object(_weather_live, "fetch_forecast", return_value={"v": 2}), \
+             patch.object(_weather_live, "fetch_alerts", return_value=[]) as alerts, \
+             patch.object(_weather_live, "fetch_aqi", return_value=None), \
+             patch.object(_weather_live, "reverse_geocode", **geocode) as geocoded:
             app._refresh(app._generation, app.lat, app.lng, app.country)
         return app, alerts, geocoded
 

@@ -13,6 +13,7 @@ import pytest
 from linecast.terminal import help as _help
 
 from linecast.weather import view as weather
+from linecast.weather.live import WeatherApp
 from linecast.terminal.textwidth import visible_len
 from linecast._runtime import WeatherRuntime
 from linecast.weather.json import build_payload
@@ -135,7 +136,6 @@ class TestPanel:
         assert rows[-1] == ('', ATTRIBUTION) and rows[-2] is None
 
     def test_live_weather_panel_shows_the_credits(self):
-        app = WeatherApp = weather.WeatherApp
         with patch("time.monotonic", return_value=0.0):
             app = WeatherApp({"v": 1}, [], None, 53.3, -6.3, SimpleNamespace(lang="en"),
                              location_name="Dublin", country="IE")
@@ -144,8 +144,8 @@ class TestPanel:
 
     def test_the_panel_speaks_the_display_language_in_both_columns(self):
         with patch("time.monotonic", return_value=0.0):
-            app = weather.WeatherApp({"v": 1}, [], None, 35.7, 139.7, SimpleNamespace(lang="ja"),
-                                     location_name="新宿区", country="JP")
+            app = WeatherApp({"v": 1}, [], None, 35.7, 139.7, SimpleNamespace(lang="ja"),
+                             location_name="新宿区", country="JP")
         rows = lines_of(app.help_panel().render(160, 50))
         assert any(row.startswith('│ ホイール / ←→  ') for row in rows)
         assert any('クリック' in row for row in rows)

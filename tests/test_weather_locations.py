@@ -8,7 +8,7 @@ from unittest.mock import patch
 
 import pytest
 
-from linecast.weather import view as weather
+from linecast.weather import live as _weather_live
 from linecast.terminal.textwidth import visible_len
 from linecast.maps.search import Result
 from linecast._runtime import WeatherRuntime
@@ -21,9 +21,9 @@ def place(name='Paris', lat=48.85, lon=2.35):
 
 
 def app():
-    return weather.WeatherApp({'old': 1}, [{'old': 1}], {'old': 1}, 43, -70,
-                              SimpleNamespace(lang='en'), location_name='Portland',
-                              country='US', historical={'old': 1})
+    return _weather_live.WeatherApp({'old': 1}, [{'old': 1}], {'old': 1}, 43, -70,
+                                    SimpleNamespace(lang='en'), location_name='Portland',
+                                    country='US', historical={'old': 1})
 
 
 def finish(view):
@@ -197,7 +197,7 @@ def test_switch_commits_all_location_data_and_remembers_departure():
     view = app()
     result = dict(data={'new': 1}, alerts=[{'new': 1}], aqi={'new': 1},
                   historical={'new': 1}, name='Paris', country_code='FR')
-    with patch.object(weather, 'gather', return_value=result) as gather:
+    with patch.object(_weather_live, 'gather', return_value=result) as gather:
         view._choose_location(place())
         finish(view)
     gather.assert_called_once()
@@ -216,7 +216,7 @@ def test_a_departure_with_no_name_is_remembered_by_its_coordinates():
     view = app()
     view.location_name = ''
     result = dict(data={'new': 1}, name='Paris', country_code='FR')
-    with patch.object(weather, 'gather', return_value=result):
+    with patch.object(_weather_live, 'gather', return_value=result):
         view._choose_location(place())
         finish(view)
     assert [p.name for p in RecentLocations().places] == ['Paris', '43.00, -70.00']
@@ -224,7 +224,7 @@ def test_a_departure_with_no_name_is_remembered_by_its_coordinates():
 
 def test_failed_switch_keeps_entire_current_location_and_history():
     view = app()
-    with patch.object(weather, 'gather', return_value={'data': None}), \
+    with patch.object(_weather_live, 'gather', return_value={'data': None}), \
          patch.object(view, 'flash') as flash:
         view._choose_location(place())
         finish(view)
@@ -246,7 +246,7 @@ def test_slow_first_choice_cannot_overwrite_second_choice():
             assert release.wait(2)
         return dict(data={'lat': lat}, name=str(lat), country_code='FR')
 
-    with patch.object(weather, 'gather', side_effect=gather):
+    with patch.object(_weather_live, 'gather', side_effect=gather):
         view._choose_location(place('first', 1, 1))
         first = view._location_worker
         assert entered.wait(1)
@@ -268,11 +268,12 @@ def test_refresh_from_departure_cannot_overwrite_new_location():
         assert release.wait(2)
         return {'wrong': 1}
 
-    with patch.object(weather, 'fetch_forecast', side_effect=forecast), \
-         patch.object(weather, 'fetch_alerts', return_value=[{'wrong': 1}]), \
-         patch.object(weather, 'fetch_aqi', return_value={'wrong': 1}), \
-         patch.object(weather, 'reverse_geocode', return_value=('', 'FR', {})), \
-         patch.object(weather, 'gather', return_value=dict(data={'new': 1}, country_code='FR')):
+    with patch.object(_weather_live, 'fetch_forecast', side_effect=forecast), \
+         patch.object(_weather_live, 'fetch_alerts', return_value=[{'wrong': 1}]), \
+         patch.object(_weather_live, 'fetch_aqi', return_value={'wrong': 1}), \
+         patch.object(_weather_live, 'reverse_geocode', return_value=('', 'FR', {})), \
+         patch.object(_weather_live, 'gather',
+                      return_value=dict(data={'new': 1}, country_code='FR')):
         view._start_refresh()
         old = view._worker
         assert entered.wait(1)
@@ -285,7 +286,7 @@ def test_refresh_from_departure_cannot_overwrite_new_location():
 
 def test_location_click_search_keys_and_panel_block_forecast_interactions():
     view = app()
-    with patch.object(weather, 'render_from_data',
+    with patch.object(_weather_live, 'render_from_data',
                       return_value=('out', {2: [(0, 50, 0)]})) as render:
         view.render()
         assert view.on_click(80, 1)
@@ -325,8 +326,8 @@ def test_loading_is_a_toast_without_changing_forecast_layout():
         assert release.wait(2)
         return {'data': {'new': 1}, 'name': 'Paris'}
 
-    with patch.object(weather, 'gather', side_effect=gather), \
-         patch.object(weather, 'render_from_data', return_value=('forecast', {})) as render:
+    with patch.object(_weather_live, 'gather', side_effect=gather), \
+         patch.object(_weather_live, 'render_from_data', return_value=('forecast', {})) as render:
         view._choose_location(place())
         try:
             output, _ = view.render()
@@ -389,7 +390,7 @@ def test_save_default_uses_displayed_place_and_preserves_other_settings():
     view.on_action('l')
     view.locations.sel = next(i for i, (key, _) in enumerate(view.locations.items())
                               if key == 'save')
-    with patch.object(weather, 'gather') as gather:
+    with patch.object(_weather_live, 'gather') as gather:
         assert view.intercept('key:enter')
     assert not gather.called and not view.locations.active
     assert _config.saved_location() == dict(lat=43, lng=-70, label='Portland', country='US')
@@ -421,7 +422,7 @@ def test_save_default_click_and_write_failure_leave_old_default_intact():
 def test_save_action_tracks_successful_location_changes():
     from linecast import _config
     view = app()
-    with patch.object(weather, 'gather', return_value=dict(
+    with patch.object(_weather_live, 'gather', return_value=dict(
             data={'new': 1}, name='Ulaanbaatar', country_code='MN')):
         view._choose_location(place('Ulaanbaatar', 47.92, 106.92))
         finish(view)

@@ -9,8 +9,9 @@ from unittest.mock import patch
 import pytest
 
 from linecast.weather import historical as hist
-from linecast.weather import view as weather
+from linecast.weather import live as _weather_live
 from linecast._http import HTTPError
+from linecast._runtime import WeatherRuntime
 from linecast.maps.search import Result
 from linecast.weather.historical import Superseded, _fetch_archive
 
@@ -24,7 +25,7 @@ def refused(code):
 @pytest.fixture(autouse=True)
 def no_sleep():
     # One mock: the archive's pauses and the view's delay are both time.sleep.
-    assert weather._t is hist.time
+    assert _weather_live._t is hist.time
     with patch.object(hist.time, "sleep") as sleep:
         sleep.view = sleep
         yield sleep
@@ -162,14 +163,14 @@ def test_a_missed_second_ask_keeps_the_first_answer():
     def fetch_historical(lat, lng, day, **kwargs):
         return "history" if day == date.today() else None
 
-    with patch.object(weather, "reverse_geocode", return_value=("Tokyo", "JP", {})), \
-         patch.object(weather, "fetch_forecast", return_value={"v": 1}), \
-         patch.object(weather, "fetch_aqi", return_value=None), \
-         patch.object(weather, "fetch_alerts", return_value=[]), \
-         patch.object(weather, "local_now", return_value=tomorrow), \
-         patch.object(weather, "fetch_historical", side_effect=fetch_historical) as fh:
-        result = weather.gather(35.68, 139.69, "JP", weather.WeatherRuntime.defaults(),
-                                geo_label="Tokyo", stale=lambda: False)
+    with patch.object(_weather_live, "reverse_geocode", return_value=("Tokyo", "JP", {})), \
+         patch.object(_weather_live, "fetch_forecast", return_value={"v": 1}), \
+         patch.object(_weather_live, "fetch_aqi", return_value=None), \
+         patch.object(_weather_live, "fetch_alerts", return_value=[]), \
+         patch.object(_weather_live, "local_now", return_value=tomorrow), \
+         patch.object(_weather_live, "fetch_historical", side_effect=fetch_historical) as fh:
+        result = _weather_live.gather(35.68, 139.69, "JP", WeatherRuntime.defaults(),
+                                      geo_label="Tokyo", stale=lambda: False)
     assert result["historical"] == "history"
     assert fh.call_count == 2
     assert all("stale" in c.kwargs for c in fh.call_args_list)
@@ -182,22 +183,22 @@ def _gather_with_a_hung_archive(runtime):
         started.set()
         threading.Event().wait()
 
-    with patch.object(weather, "reverse_geocode", return_value=("Tokyo", "JP", {})), \
-         patch.object(weather, "fetch_forecast", return_value={"v": 1}), \
-         patch.object(weather, "fetch_aqi", return_value=None), \
-         patch.object(weather, "fetch_alerts", return_value=[]), \
-         patch.object(weather, "local_now", return_value=datetime.now()), \
-         patch.object(weather, "fetch_historical", side_effect=stuck), \
-         patch.object(weather, "_CLIMATE_PATIENCE", 0.1), \
-         patch.object(weather, "_FETCH_CEILING", 1.0):
+    with patch.object(_weather_live, "reverse_geocode", return_value=("Tokyo", "JP", {})), \
+         patch.object(_weather_live, "fetch_forecast", return_value={"v": 1}), \
+         patch.object(_weather_live, "fetch_aqi", return_value=None), \
+         patch.object(_weather_live, "fetch_alerts", return_value=[]), \
+         patch.object(_weather_live, "local_now", return_value=datetime.now()), \
+         patch.object(_weather_live, "fetch_historical", side_effect=stuck), \
+         patch.object(_weather_live, "_CLIMATE_PATIENCE", 0.1), \
+         patch.object(_weather_live, "_FETCH_CEILING", 1.0):
         began = datetime.now()
-        result = weather.gather(35.68, 139.69, "JP", runtime, geo_label="Tokyo")
+        result = _weather_live.gather(35.68, 139.69, "JP", runtime, geo_label="Tokyo")
     assert started.is_set()
     return result, (datetime.now() - began).total_seconds()
 
 
 def test_the_live_view_does_not_wait_out_a_hung_archive():
-    runtime = weather.WeatherRuntime.defaults()
+    runtime = WeatherRuntime.defaults()
     result, took = _gather_with_a_hung_archive(SimpleNamespace(
         live=True, lang=runtime.lang, celsius=False, metric=False))
     assert result["data"] == {"v": 1} and result["historical"] is None
@@ -205,7 +206,7 @@ def test_the_live_view_does_not_wait_out_a_hung_archive():
 
 
 def test_a_one_shot_run_waits_the_deadline_for_the_archive():
-    result, took = _gather_with_a_hung_archive(weather.WeatherRuntime.defaults())
+    result, took = _gather_with_a_hung_archive(WeatherRuntime.defaults())
     assert result["data"] == {"v": 1} and result["historical"] is None
     assert took >= 0.9
 
@@ -219,9 +220,9 @@ def place(name="Paris", lat=48.85, lon=2.35):
 
 
 def app(historical="old"):
-    return weather.WeatherApp({"old": 1}, [], None, 43, -70,
-                              SimpleNamespace(lang="en", celsius=False, metric=False),
-                              location_name="Portland", country="US", historical=historical)
+    return _weather_live.WeatherApp({"old": 1}, [], None, 43, -70,
+                                    SimpleNamespace(lang="en", celsius=False, metric=False),
+                                    location_name="Portland", country="US", historical=historical)
 
 
 def join_climate(view):
@@ -234,10 +235,10 @@ def join_climate(view):
 def test_a_location_that_arrives_without_its_climate_gets_it_afterwards(no_sleep):
     view = app()
     result = dict(data={"new": 1}, name="Paris", country_code="FR")
-    with patch.object(weather, "gather", return_value=result), \
-         patch.object(weather, "local_now", return_value=datetime(2026, 9, 19, 12)), \
-         patch.object(weather, "fetch_historical", return_value="later") as fh, \
-         patch.object(weather._live, "nudge") as nudge:
+    with patch.object(_weather_live, "gather", return_value=result), \
+         patch.object(_weather_live, "local_now", return_value=datetime(2026, 9, 19, 12)), \
+         patch.object(_weather_live, "fetch_historical", return_value="later") as fh, \
+         patch.object(_weather_live._live, "nudge") as nudge:
         view._choose_location(place())
         view._location_worker.join(2)
         with view._state_lock:
@@ -249,7 +250,7 @@ def test_a_location_that_arrives_without_its_climate_gets_it_afterwards(no_sleep
     assert fh.call_args.kwargs["celsius"] is False
     assert nudge.called
     # A little after, not on the heels of the attempt that just failed.
-    no_sleep.view.assert_called_once_with(weather._CLIMATE_RETRY_DELAY)
+    no_sleep.view.assert_called_once_with(_weather_live._CLIMATE_RETRY_DELAY)
 
 
 def test_a_late_climate_for_a_place_the_user_has_left_is_dropped():
@@ -263,8 +264,8 @@ def test_a_late_climate_for_a_place_the_user_has_left_is_dropped():
         assert stale()
         return "stale answer"
 
-    with patch.object(weather, "local_now", return_value=datetime(2026, 9, 18)), \
-         patch.object(weather, "fetch_historical", side_effect=fetch_historical):
+    with patch.object(_weather_live, "local_now", return_value=datetime(2026, 9, 18)), \
+         patch.object(_weather_live, "fetch_historical", side_effect=fetch_historical):
         with view._state_lock:
             view._start_climate()
         assert entered.wait(1)
@@ -277,13 +278,13 @@ def test_a_late_climate_for_a_place_the_user_has_left_is_dropped():
 def test_the_refresh_asks_again_until_the_climate_arrives(no_sleep):
     view = app()
     view.historical = None
-    with patch.object(weather, "fetch_forecast", return_value={"v": 2}), \
-         patch.object(weather, "fetch_alerts", return_value=[]), \
-         patch.object(weather, "fetch_aqi", return_value=None), \
-         patch.object(weather, "reverse_geocode", return_value=("", "US", {})), \
-         patch.object(weather, "forecast_is_todays", return_value=True), \
-         patch.object(weather, "local_now", return_value=datetime(2026, 9, 18)), \
-         patch.object(weather, "fetch_historical", return_value="at last"):
+    with patch.object(_weather_live, "fetch_forecast", return_value={"v": 2}), \
+         patch.object(_weather_live, "fetch_alerts", return_value=[]), \
+         patch.object(_weather_live, "fetch_aqi", return_value=None), \
+         patch.object(_weather_live, "reverse_geocode", return_value=("", "US", {})), \
+         patch.object(_weather_live, "forecast_is_todays", return_value=True), \
+         patch.object(_weather_live, "local_now", return_value=datetime(2026, 9, 18)), \
+         patch.object(_weather_live, "fetch_historical", return_value="at last"):
         view._start_refresh()
         view._worker.join(2)
         join_climate(view)
@@ -292,15 +293,15 @@ def test_the_refresh_asks_again_until_the_climate_arrives(no_sleep):
 
 
 def test_a_view_that_starts_without_its_climate_asks_at_once():
-    with patch.object(weather, "local_now", return_value=datetime(2026, 9, 18)), \
-         patch.object(weather, "fetch_historical", return_value="soon"):
+    with patch.object(_weather_live, "local_now", return_value=datetime(2026, 9, 18)), \
+         patch.object(_weather_live, "fetch_historical", return_value="soon"):
         view = app(historical=None)
         join_climate(view)
     assert view.historical == "soon"
 
 
 def test_a_view_with_its_climate_does_not_ask_the_archive():
-    with patch.object(weather, "fetch_historical") as fh:
+    with patch.object(_weather_live, "fetch_historical") as fh:
         view = app(historical="have")
         with view._state_lock:
             view._start_climate()
