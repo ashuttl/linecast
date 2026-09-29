@@ -198,6 +198,73 @@ def _scale_bar(bbox, graph_w):
             f"{fg(*MUTED)}{label}{RESET}  ")
 
 
+def _credits(view, globe, sun, clouds):
+    """Who the ground on screen is drawn from, as the footer's rungs.
+
+    The longest comes first, and each after it is what a narrower
+    footer keeps; the last is the least that is owed.
+    """
+    # the Köppen credit is owed only where the climate grid is
+    # colouring the ground: the terrain register, flat or globe
+    kg = (_climate.ATTRIBUTION
+          if view != "street" and _climate.available() else None)
+    if globe:
+        # either register's globe draws from the elevation tiles
+        # (borders and cities are vendored Natural Earth); terrain's
+        # adds the climate grid, this hour's clouds add theirs
+        base = f"{ATTRIBUTION} · {kg}" if kg else ATTRIBUTION
+        attribs = ((f"{base} · {globe_now.ATTRIBUTION}",
+                    base, ATTRIBUTION) if clouds
+                   else (base, ATTRIBUTION))
+    elif view == "street":
+        from linecast.maps.vtiles import attribution_long
+        tiles_long = attribution_long()
+        if _builtup.enabled():
+            # the settlement raster tints street ground too, and its
+            # CC-BY credit rides the long rung as it does on terrain
+            tiles_long = f"{tiles_long} · {_builtup.ATTRIBUTION}"
+        attribs = ((f"{tiles_long} · {globe_now.ATTRIBUTION}",
+                    tiles_long,
+                    style.ATTRIB_TILES_SHORT) if clouds
+                   else (tiles_long, style.ATTRIB_TILES_SHORT))
+    else:
+        # terrain's lakes and rivers come from the tiles too, so the
+        # first rung credits both sources and the fallbacks shorten;
+        # the settlement raster earns its CC-BY credit when in use
+        both = f"{ATTRIBUTION} · {style.ATTRIB_TILES_SHORT}"
+        long = f"{both} · {kg}" if kg else both
+        if clouds:
+            attribs = (f"{long} · {globe_now.ATTRIBUTION}", both,
+                       ATTRIBUTION)
+        elif _builtup.enabled():
+            attribs = (f"{long} · {_builtup.ATTRIBUTION}", both,
+                       ATTRIBUTION)
+        else:
+            attribs = (long, both, ATTRIBUTION)
+    # the night lights are terrain's, flat or globe, and only the
+    # sun puts them on screen; the rung above the ladder credits
+    # them and every shorter rung stays as it was
+    if sun and view != "street" and _night_lights.load():
+        attribs = (f"{attribs[0]} · {_night_lights.ATTRIBUTION}",
+                   *attribs)
+    return attribs
+
+
+def _footer(credits, scale, hint_key, width, lang):
+    """The footer's line within `width`: the scale bar, the credits and
+    the keys' hint, as much of them as fits."""
+    hint = (f"{fg(*DIM)}{ms(hint_key, lang).split(' · ?')[0]}{RESET}"
+            if sys.stdout.isatty() else "")
+    # first rung that fits wins: long+hint, short+hint, short, bare
+    ladder = [f"{scale}{fg(*DIM)}{a}{RESET}  {hint}" for a in credits]
+    ladder += [f"{scale}{fg(*DIM)}{credits[-1]}{RESET}",
+               f"{fg(*DIM)}{credits[-1]}{RESET}", ""]
+    for foot in ladder:
+        if visible_len(foot) <= width:
+            break
+    return foot
+
+
 class _ShiftedLayer:
     """Duck-typed stand-in for a ranked DotLayer during a drag preview."""
     __slots__ = ("dots", "color", "ribbon")
@@ -1490,61 +1557,11 @@ def render_map(lat, lon, location_name, zoom, marker=None, runtime=None,
         foot = f"{fg(*DIM)}{ms(key, lang, err=err[:40])}{RESET}"
     else:
         # once a route stands, the footer teaches the route keys instead
-        hint_key = 'hint_route' if route is not None else 'hint'
-        hint = (f"{fg(*DIM)}{ms(hint_key, lang).split(' · ?')[0]}{RESET}"
-                if sys.stdout.isatty() else "")
-        # the Köppen credit is owed only where the climate grid is
-        # colouring the ground: the terrain register, flat or globe
-        kg = (_climate.ATTRIBUTION
-              if view != "street" and _climate.available() else None)
-        if globe:
-            # either register's globe draws from the elevation tiles
-            # (borders and cities are vendored Natural Earth); terrain's
-            # adds the climate grid, this hour's clouds add theirs
-            base = f"{ATTRIBUTION} · {kg}" if kg else ATTRIBUTION
-            attribs = ((f"{base} · {globe_now.ATTRIBUTION}",
-                        base, ATTRIBUTION) if clouds
-                       else (base, ATTRIBUTION))
-        elif view == "street":
-            from linecast.maps.vtiles import attribution_long
-            tiles_long = attribution_long()
-            if _builtup.enabled():
-                # the settlement raster tints street ground too, and its
-                # CC-BY credit rides the long rung as it does on terrain
-                tiles_long = f"{tiles_long} · {_builtup.ATTRIBUTION}"
-            attribs = ((f"{tiles_long} · {globe_now.ATTRIBUTION}",
-                        tiles_long,
-                        style.ATTRIB_TILES_SHORT) if clouds
-                       else (tiles_long, style.ATTRIB_TILES_SHORT))
-        else:
-            # terrain's lakes and rivers come from the tiles too, so the
-            # first rung credits both sources and the fallbacks shorten;
-            # the settlement raster earns its CC-BY credit when in use
-            both = f"{ATTRIBUTION} · {style.ATTRIB_TILES_SHORT}"
-            long = f"{both} · {kg}" if kg else both
-            if clouds:
-                attribs = (f"{long} · {globe_now.ATTRIBUTION}", both,
-                           ATTRIBUTION)
-            elif _builtup.enabled():
-                attribs = (f"{long} · {_builtup.ATTRIBUTION}", both,
-                           ATTRIBUTION)
-            else:
-                attribs = (long, both, ATTRIBUTION)
-        # the night lights are terrain's, flat or globe, and only the
-        # sun puts them on screen; the rung above the ladder credits
-        # them and every shorter rung stays as it was
-        if sun and view != "street" and _night_lights.load():
-            attribs = (f"{attribs[0]} · {_night_lights.ATTRIBUTION}",
-                       *attribs)
-        scale = (_scale_bar(bbox, graph_w)
-                 if view == "street" and not globe else "")
-        # first rung that fits wins: long+hint, short+hint, short, bare
-        ladder = [f"{scale}{fg(*DIM)}{a}{RESET}  {hint}" for a in attribs]
-        ladder += [f"{scale}{fg(*DIM)}{attribs[-1]}{RESET}",
-                   f"{fg(*DIM)}{attribs[-1]}{RESET}", ""]
-        for foot in ladder:
-            if visible_len(foot) <= foot_width:
-                break
+        foot = _footer(_credits(view, globe, sun, clouds),
+                       (_scale_bar(bbox, graph_w)
+                        if view == "street" and not globe else ""),
+                       'hint_route' if route is not None else 'hint',
+                       foot_width, lang)
     if live:
         foot = _help.footer(foot, cols, lang)
     foot = pad(foot, cols)
