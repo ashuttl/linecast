@@ -13,6 +13,7 @@ import types
 
 import pytest
 
+from linecast import _location
 from linecast.maps import view as maps
 from linecast.maps import globe as _globe
 from linecast.maps import globe_texture
@@ -1186,7 +1187,7 @@ class TestStartupPrune:
         self._argv(monkeypatch)
         monkeypatch.setattr(tile_cache, "prune_maps_cache",
                             lambda *a, **k: calls.append("prune"))
-        monkeypatch.setattr(_maps_live, "resolve_location", bail)
+        monkeypatch.setattr(_location, "resolve_location", bail)
 
         with pytest.raises(Bail):
             _maps_live.main()
@@ -1224,7 +1225,7 @@ class TestPrintedRoute:
         monkeypatch.setattr(textwidth, "calibrate_from_terminal",
                             lambda: None)
         home = (43.677, -70.371)
-        monkeypatch.setattr(_maps_live, "resolve_location",
+        monkeypatch.setattr(_location, "resolve_location",
                             lambda *a, **k: (*home, "US", "Westbrook"))
         ends = {"Portland Head Light": Result("Head Light", "", 43.6231,
                                               -70.2078, "point"),
@@ -1259,7 +1260,7 @@ class TestPrintedRoute:
         monkeypatch.setattr(tile_cache, "prune_maps_cache", lambda: 0)
         monkeypatch.setattr(textwidth, "calibrate_from_terminal", lambda: None)
         home = (43.677, -70.371)
-        monkeypatch.setattr(_maps_live, "resolve_location",
+        monkeypatch.setattr(_location, "resolve_location",
                             lambda *a, **k: (*home, "US", "Westbrook"))
         ends = {"a": Result("Head Light", "", 43.6231, -70.2078, "point"),
                 "b": Result("Jetport", "", 43.6462, -70.3093, "point")}

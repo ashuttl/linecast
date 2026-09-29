@@ -40,7 +40,6 @@ arcminutes, which is finer than a cell at the closest zoom.
 """
 
 import math
-import sys
 from collections import namedtuple
 from datetime import datetime, timezone
 
@@ -56,10 +55,9 @@ from linecast.terminal.theme import (
 from linecast.astro.ephemeris import mat_apply, mat_mul, mat_transpose
 from linecast._i18n import fmt_decimal, fmt_percent, lang_of, setting, upper
 from linecast._location import (
-    country_for_defaults, location_is_pinned, location_tzinfo, machine_tzinfo,
-    resolve_location,
+    location_is_pinned, location_tzinfo, machine_tzinfo,
 )
-from linecast._runtime import RuntimeConfig, install_banner, set_current
+from linecast._runtime import RuntimeConfig, install_banner, place_for, set_current
 from linecast._parsers import sky_parser
 from linecast.sky.catalogue import (
     MILKY_WAY_H, MILKY_WAY_W, constellations, culture_title, figures_for,
@@ -995,15 +993,7 @@ def main():
     runtime = RuntimeConfig.from_sources(args)
     set_current(runtime)
 
-    lat, lng, country, label = resolve_location(args.location, lang=runtime.lang,
-                                                return_label=True)
-    if lat is None:
-        print("Could not determine location.", file=sys.stderr)
-        sys.exit(1)
-    own = country_for_defaults(args.location, country, lat, lng)
-    if own:
-        runtime = RuntimeConfig.from_sources(args, country=own)
-        set_current(runtime)
+    lat, lng, _country, label, runtime = place_for(args, runtime)
 
     tz = location_tzinfo(lat, lng) if location_is_pinned(args.location) else machine_tzinfo()
 

@@ -33,8 +33,7 @@ from linecast.terminal.color import RESET, bg, fg
 from linecast.terminal.textwidth import visible_len
 from linecast.terminal.framebuffer import get_terminal_size
 from linecast._timefmt import fmt_time_dt
-from linecast._location import country_for_defaults, resolve_location
-from linecast._runtime import WeatherRuntime, install_banner, set_current
+from linecast._runtime import WeatherRuntime, install_banner, place_for, set_current
 from linecast._parsers import weather_parser
 from linecast._log import log_failure
 from linecast.weather.i18n import fmt_wind, felt_index, wmo_label, _s, _wmo_icons
@@ -1218,19 +1217,7 @@ def _main():
         return
 
     # country_code is "" for an override; the reverse geocode fills it in
-    lat, lng, country_code, geo_label = resolve_location(
-        args.location, lang=runtime.lang, return_label=True)
-    if lat is None:
-        print("Could not determine location.", file=sys.stderr)
-        sys.exit(1)
-
-    # With no override the resolved location is the user's own, so the
-    # units default can follow its country -- re-resolve the runtime,
-    # which a cold cache made countryless, before anything is fetched.
-    own = country_for_defaults(args.location, country_code, lat, lng)
-    if own:
-        runtime = WeatherRuntime.from_sources(args, country=own)
-        set_current(runtime)
+    lat, lng, country_code, geo_label, runtime = place_for(args, runtime)
 
     # JSON stdout must contain only the payload; Spinner clears its line
     # on cancellation. gather bounds all providers with one deadline.

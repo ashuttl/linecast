@@ -15,7 +15,6 @@ from linecast.radar import sources as _sources
 from linecast.terminal.framebuffer import get_terminal_size
 from linecast._geo import wrap_lon
 from linecast.terminal.live import LiveApp, nudge, print_frame
-from linecast._location import country_for_defaults, resolve_location
 from linecast.radar.frames import N_FRAMES, _sat_timeline
 from linecast.radar.i18n import rs
 from linecast._xyz import bbox_for
@@ -24,7 +23,7 @@ from linecast.radar.sources import (
     DEFAULT_THEME, THEMES, _in_conus, get_source, theme_id,
 )
 from linecast.radar.ui import ThemePicker
-from linecast._runtime import RuntimeConfig, set_current
+from linecast._runtime import RuntimeConfig, place_for, set_current
 from linecast._parsers import radar_parser
 from linecast.terminal.spinner import Spinner
 from linecast.radar.view import LAYERS, parse_layers, render_radar
@@ -231,20 +230,7 @@ def main():
     spin = Spinner(rs("loading", runtime.lang))
     spin.start()
     try:
-        lat, lon, country, location_name = resolve_location(
-            args.location, lang=runtime.lang, return_label=True)
-        if lat is None:
-            spin.stop()
-            print("Could not determine location.", file=sys.stderr)
-            sys.exit(1)
-
-        # Re-resolve a countryless first-run runtime consistently with the
-        # other views. An explicit location only stands in when the user's
-        # own country is not known yet.
-        own = country_for_defaults(args.location, country, lat, lon)
-        if own:
-            runtime = RuntimeConfig.from_sources(args, country=own)
-            set_current(runtime)
+        lat, lon, _country, location_name, runtime = place_for(args, runtime)
 
         from linecast._geocode import place_label
         location_name = place_label(lat, lon, location_name, runtime.lang)

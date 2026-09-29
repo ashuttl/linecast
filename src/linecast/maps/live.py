@@ -24,7 +24,6 @@ from linecast.maps import ui
 from linecast.maps import loaders as _loaders
 from linecast._geo import angle_delta, wrap_lon
 from linecast.terminal.live import LiveApp, Ticker, nudge as _nudge_repaint, print_frame
-from linecast._location import country_for_defaults, resolve_location
 from linecast.maps.i18n import ms
 from linecast.maps.motion import Flight, ease_in_out, lon_span
 from linecast.maps.search import (
@@ -35,7 +34,7 @@ from linecast.maps.loaders import (
     _zoom_hold, globe_warm, recentres, warm_globe_texture,
 )
 from linecast._xyz import bbox_for
-from linecast._runtime import RuntimeConfig, set_current
+from linecast._runtime import RuntimeConfig, place_for, set_current
 from linecast._parsers import maps_parser
 from linecast._log import log_failure
 from linecast.maps.view import (
@@ -956,19 +955,7 @@ def main():
     from linecast.maps.tile_cache import prune_maps_cache
     prune_maps_cache()
 
-    lat, lon, country, location_name = resolve_location(
-        args.location, lang=runtime.lang, return_label=True)
-    if lat is None:
-        print("Could not determine location.", file=sys.stderr)
-        sys.exit(1)
-
-    # Re-resolve a countryless first-run runtime consistently with the
-    # other views. An explicit location only stands in when the user's own
-    # country is not known yet; country_for_defaults keeps that distinction.
-    own = country_for_defaults(args.location, country, lat, lon)
-    if own:
-        runtime = RuntimeConfig.from_sources(args, country=own)
-        set_current(runtime)
+    lat, lon, _country, location_name, runtime = place_for(args, runtime)
 
     from linecast._geocode import place_label
     location_name = place_label(lat, lon, location_name, runtime.lang)

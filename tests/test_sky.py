@@ -11,6 +11,7 @@ import pytest
 
 from conftest import assert_snapshot
 
+from linecast import _location
 from linecast.astro.ephemeris import mat_apply
 from linecast.sky import view as sky
 from linecast.sky.planets import PLANETS, planet_position, planet_positions
@@ -460,7 +461,7 @@ class TestPrinted:
         monkeypatch.setattr(_geocode, "geocode_first",
                             lambda query, lang="en": asked.append(query)
                             or (43.66, -70.26, "Portland, Maine"))
-        monkeypatch.setattr(sky, "country_for_defaults", lambda *a: None)
+        monkeypatch.setattr(_location, "country_for_defaults", lambda *a: None)
         monkeypatch.setattr(sky, "location_tzinfo", lambda lat, lng: ZoneInfo("America/New_York"))
         monkeypatch.setattr(textwidth, "calibrate_from_terminal", lambda: None)
         monkeypatch.setattr(sky, "render", lambda *a, **k: drawn.append(k) or "frame")

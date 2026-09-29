@@ -3,6 +3,7 @@ no terminal and no network behind them."""
 
 import pytest
 
+from linecast import _location
 from linecast.radar import frames as rf
 from linecast.radar import live as _radar_live
 from linecast.radar.live import RadarApp
@@ -329,7 +330,7 @@ class TestPrinted:
                                           "--location", "43.68,-70.35"])
         monkeypatch.setattr(textwidth, "calibrate_from_terminal", lambda: calls.append("measure"))
         monkeypatch.setattr(_radar_live, "Spinner", QuietSpinner)
-        monkeypatch.setattr(_radar_live, "country_for_defaults", lambda *a: None)
+        monkeypatch.setattr(_location, "country_for_defaults", lambda *a: None)
         monkeypatch.setattr(_geocode, "place_label", lambda lat, lon, name, lang: "Westbrook")
         monkeypatch.setattr(_radar_live, "get_source", lambda *a: FakeSource())
         monkeypatch.setattr(rf, "use", lambda source: None)

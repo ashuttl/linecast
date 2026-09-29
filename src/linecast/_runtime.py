@@ -536,6 +536,29 @@ def set_current(runtime):
     _bidi.configure(getattr(runtime, "lang", "en"))
 
 
+def place_for(args, runtime, unknown="Could not determine location."):
+    """The place a view is for, as (lat, lng, country, label, runtime).
+
+    It is the place --location names, else the user's own: the one
+    saved, WEATHER_LOCATION, or the network's guess.  *label* is the
+    geocoder's name for a place named with --location, else "".  With
+    no --location the place is the user's own, so the units and the
+    clock can follow its country: a runtime that a cold cache left
+    without one is resolved again for it, and made current, before
+    anything is fetched.  A place that cannot be found ends the run with
+    *unknown* on stderr, after any spinner's finally has cleared it."""
+    from linecast._location import country_for_defaults, resolve_location
+    lat, lng, country, label = resolve_location(
+        args.location, lang=runtime.lang, return_label=True)
+    if lat is None:
+        sys.exit(unknown)
+    own = country_for_defaults(args.location, country, lat, lng)
+    if own:
+        runtime = type(runtime).from_sources(args, country=own)
+        set_current(runtime)
+    return lat, lng, country, label, runtime
+
+
 def current_runtime(cls=RuntimeConfig):
     """The runtime the running command resolved in main(), for render
     helpers called without one.  Before a main() has run -- the tests, or
