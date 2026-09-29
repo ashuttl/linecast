@@ -6,7 +6,7 @@ from datetime import datetime, timedelta
 from linecast.terminal import theme as _theme
 from linecast.terminal.braille import BLANK, build_braille_curve, interpolate
 from linecast.terminal.color import bg, color_mode, fg, RESET
-from linecast.terminal.textwidth import visible_len
+from linecast.terminal.textwidth import cells as text_cells, visible_len
 from linecast._timefmt import fmt_hour, fmt_time_dt
 from linecast._runtime import WeatherRuntime, current_runtime
 from linecast._log import log_skipped
@@ -714,22 +714,8 @@ def _render_today_line(width, chart_lo, chart_hi, midnight_day_names, sun_labels
         pos = col - label_start
         name_w = visible_len(name)
         if pos >= left_gap and pos + name_w <= fit_w:
-            cx = pos
-            base = None
-            for c in name:
-                cw = visible_len(c)
-                if cw == 0:
-                    # A combining mark (a Thai vowel sign, say) shares
-                    # its base's cell rather than claiming the next one.
-                    if base is not None:
-                        mid_canvas[base] += c
-                    continue
-                mid_canvas[cx] = c
-                base = cx
-                for k in range(1, cw):
-                    if cx + k < mid_w:
-                        mid_canvas[cx + k] = ""
-                cx += cw
+            for c, glyph in text_cells(name)[0]:
+                mid_canvas[pos + c] = glyph
 
     for col, (lbl, is_rise) in sorted(sun_labels.items()):
         pos = max(left_gap, col - label_start)
@@ -738,22 +724,9 @@ def _render_today_line(width, chart_lo, chart_hi, midnight_day_names, sun_labels
             continue
         if all(mid_canvas[pos + j] == " " for j in range(lbl_w)):
             color = SUNRISE_LABEL_RGB if is_rise else SUNSET_LABEL_RGB
-            cx = pos
-            base = None
-            for c in lbl:
-                cw = visible_len(c)
-                if cw == 0:
-                    if base is not None:
-                        mid_canvas[base] += c
-                    continue
-                mid_canvas[cx] = c
-                mid_colors[cx] = color
-                base = cx
-                for k in range(1, cw):
-                    if cx + k < mid_w:
-                        mid_canvas[cx + k] = ""
-                        mid_colors[cx + k] = color
-                cx += cw
+            for c, glyph in text_cells(lbl)[0]:
+                mid_canvas[pos + c] = glyph
+                mid_colors[pos + c] = color
 
     mid_str = ""
     cur_color = None

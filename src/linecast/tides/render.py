@@ -3,7 +3,7 @@
 from datetime import timedelta, timezone
 
 from linecast.terminal.color import RESET, bg, fg
-from linecast.terminal.textwidth import visible_len
+from linecast.terminal.textwidth import cells as text_cells, visible_len
 from linecast._timefmt import fmt_hour, fmt_time_dt
 from linecast.terminal import live as _live
 from linecast.terminal import theme as _theme
@@ -258,31 +258,14 @@ def render_day_label_line(midnight_day_names, graph_w, moon_labels=None):
     canvas_colors = [None] * graph_w
 
     def _draw_label(start, text, color=None, allow_overlap=False):
-        width = visible_len(text)
+        laid, width = text_cells(text)
         if start < 0 or start + width > graph_w:
             return False
         if not allow_overlap and any(canvas[start + i] != " " for i in range(width)):
             return False
-        x = start
-        base = None
-        for ch in text:
-            if x >= graph_w:
-                break
-            ch_w = visible_len(ch)
-            if ch_w == 0:
-                # A combining mark (a Thai vowel sign, say) shares its
-                # base's cell rather than claiming the next one.
-                if base is not None:
-                    canvas[base] += ch
-                continue
-            canvas[x] = ch
-            canvas_colors[x] = color
-            base = x
-            for k in range(1, ch_w):
-                if x + k < graph_w:
-                    canvas[x + k] = ""
-                    canvas_colors[x + k] = color
-            x += ch_w
+        for c, glyph in laid:
+            canvas[start + c] = glyph
+            canvas_colors[start + c] = color
         return True
 
     def _find_open_slot(
