@@ -619,6 +619,34 @@ def _(ctx):
                    for cal in CALENDARS)
 
 
+@scene("moon-readings", size=(100, 32), themes=("stock",),
+       langs=("en", "zh", "ja", "ko", "vi", "is"))
+def _(ctx):
+    """The calendars the other moon scenes leave out, and each lunar
+    calendar in its own language: the --json block, the one-line
+    summary, the month with a day hovered, and the disc view."""
+    from linecast.moon.calendar import render_calendar
+    from linecast.moon.json import build_payload
+    from linecast.moon.oneline import moon_oneline
+    from linecast.moon.view import render
+    _mirror(True)
+    runtime = ctx.runtime(live=True)
+    out = []
+    for cal in ("chinese", "japanese", "korean", "vietnamese", "samoan", "chamorro",
+                "refaluwasch", "icelandic"):
+        name = _calendar(ctx, cal)
+        out += [
+            _json(build_payload(_now(), LAT, LNG, runtime, location=PLACE,
+                                calendar=cal)["calendar"]),
+            ctx.printed(moon_oneline(_now(), LAT, LNG, runtime, calendar=cal)),
+            ctx.live(render_calendar(_now(), LAT, LNG, runtime, fullscreen=True,
+                                     mouse_pos=(44, 16), calendar_name=name)),
+            ctx.live(render(_now(), LAT, LNG, runtime, fullscreen=True,
+                            calendar_name=name)),
+        ]
+    return "\n----\n".join(out)
+
+
 @scene("moon-main", size=(100, 30), themes=("stock",))
 def _(ctx):
     """moon as it is run: each output of main(), and the live views' keys,
