@@ -8,7 +8,7 @@ feet for compatibility with the NOAA-based rendering pipeline.
 from datetime import date, datetime, timezone, timedelta, tzinfo
 from typing import Any
 
-from linecast._cache import location_cache_key, read_cache, write_cache
+from linecast._cache import location_cache_key, read_cache, read_stale, write_cache
 from linecast._http import fetch_json, fetch_json_cached
 from linecast._log import log_failure, log_skipped
 from linecast.tides.common import (
@@ -124,6 +124,20 @@ def _utc_range_for_dates(start_date, end_date, station_tz):
 # ---------------------------------------------------------------------------
 # Prediction fetching
 # ---------------------------------------------------------------------------
+def _stale_rows(cache_file, operation, exc, url):
+    """The rows cached from an earlier answer, for when CHS cannot be reached.
+
+    The cache holds the rows parsed from CHS's answer, never the answer
+    itself, which is a list too; read as though it were, every row
+    would fail and the last good predictions be written over with none.
+    """
+    stale = read_stale(cache_file)
+    log_failure("tides/chs", operation, exc, url=url,
+                fallback=(f"stale cache {cache_file.name}"
+                          if stale is not None else "no data"))
+    return stale or []
+
+
 def fetch_tides_range_chs(station_id: str, start_date: date, end_date: date,
                           station_tz: tzinfo | None) -> list[tuple[datetime, float]]:
     """Fetch CHS interval predictions across a date range.
@@ -158,10 +172,11 @@ def _fetch_pred_chunk(station_id, start_date, end_date, station_tz):
         f"?time-series-code=wlp&from={utc_from}&to={utc_to}"
         f"&resolution=FIVE_MINUTES"
     )
-    data = fetch_json_cached(
-        cache_file, 0, url,
-        timeout=20, fallback=None,
-    )
+    try:
+        data = fetch_json(url, timeout=20)
+    except Exception as exc:
+        stale = _stale_rows(cache_file, "predictions fetch", exc, url)
+        return [(parse_cached_dt(r["dt"], station_tz), r["v"]) for r in stale]
     if not data or not isinstance(data, list):
         return []
 
@@ -203,10 +218,11 @@ def fetch_hilo_range_chs(station_id: str, start_date: date, end_date: date,
         f"{CHS_BASE}/stations/{station_id}/data"
         f"?time-series-code=wlp-hilo&from={utc_from}&to={utc_to}"
     )
-    data = fetch_json_cached(
-        cache_file, 0, url,
-        timeout=15, fallback=None,
-    )
+    try:
+        data = fetch_json(url, timeout=15)
+    except Exception as exc:
+        stale = _stale_rows(cache_file, "hilo fetch", exc, url)
+        return [(parse_cached_dt(r["dt"], station_tz), r["v"], r["t"]) for r in stale]
     if not data or not isinstance(data, list):
         return []
 

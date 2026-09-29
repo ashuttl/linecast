@@ -1,6 +1,11 @@
+import json
+import os
+import time
 import unittest
-from datetime import date
+from datetime import date, datetime, timezone
 from unittest.mock import patch
+
+import pytest
 
 from linecast.tides import chs
 from linecast.tides import common
@@ -52,6 +57,47 @@ class NearestStationTests(unittest.TestCase):
              patch.object(common, "write_cache"):
             self.assertEqual(chs.find_nearest_station_chs(49.30, -123.02),
                              ("b" * 24, "Vancouver"))
+
+
+class TestOffline:
+    """With CHS out of reach (the tests have no network), an expired
+    file's rows stand in for the answer: the file holds rows parsed from
+    CHS's list, never the list."""
+
+    ROWS = [{"dt": "2026-09-01T00:00:00+00:00", "v": 1.0, "t": "H"},
+            {"dt": "2026-09-01T06:05:00+00:00", "v": 0.1, "t": "L"}]
+
+    @pytest.fixture(autouse=True)
+    def cache(self, tmp_path):
+        with patch.dict(os.environ, {"LINECAST_CACHE_DIR": str(tmp_path)}):
+            yield tmp_path
+
+    def _expired(self, kind):
+        path = common.cache_dir() / f"chs_{kind}_X_20260901_20260902.json"
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps(self.ROWS))
+        then = time.time() - 3 * 86400
+        os.utime(path, (then, then))
+        return path
+
+    def test_predictions_keep_the_last_rows(self):
+        path = self._expired("pred")
+        points = chs._fetch_pred_chunk("X", date(2026, 9, 1), date(2026, 9, 2), timezone.utc)
+        assert points == [(datetime(2026, 9, 1, 0, 0, tzinfo=timezone.utc), 1.0),
+                          (datetime(2026, 9, 1, 6, 5, tzinfo=timezone.utc), 0.1)]
+        # and the stale copy is left as it was, not written over as fresh
+        assert json.loads(path.read_text()) == self.ROWS
+        assert time.time() - path.stat().st_mtime > 86400
+
+    def test_extremes_keep_the_last_rows(self):
+        path = self._expired("hilo")
+        points = chs.fetch_hilo_range_chs("X", date(2026, 9, 1), date(2026, 9, 2), timezone.utc)
+        assert points == [(datetime(2026, 9, 1, 0, 0, tzinfo=timezone.utc), 1.0, "H"),
+                          (datetime(2026, 9, 1, 6, 5, tzinfo=timezone.utc), 0.1, "L")]
+        assert json.loads(path.read_text()) == self.ROWS
+
+    def test_nothing_cached_is_nothing(self):
+        assert chs._fetch_pred_chunk("X", date(2026, 9, 1), date(2026, 9, 2), timezone.utc) == []
 
 
 if __name__ == "__main__":

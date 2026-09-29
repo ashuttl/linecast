@@ -69,6 +69,7 @@ Fixes:
   - Fixed a low tide just below the datum, such as -0.01 ft, showing as "-0.0′".
   - Fixed `--oneline` naming high and low tide in English in every language.
   - Fixed the waves and swell running past the edge of a narrow window, as they did in Thai. Where both do not fit, the swell is left out.
+  - Fixed Canadian stations showing no tides for a day after a run without a connection; offline, they keep the last predictions fetched.
 - Sky:
   - Fixed dawn and dusk being named the wrong way round south of the equator, in the languages that name the morning and evening twilight apart, such as Polish and Swedish.
   - Fixed the names on the chart in Thai losing their vowel and tone marks, so that "ตะวันออก" read "ตะวนออก".
