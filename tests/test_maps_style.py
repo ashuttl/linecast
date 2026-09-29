@@ -682,7 +682,8 @@ def test_nice_tables_are_ascending():
 
 
 def test_use_metric():
-    from linecast._runtime import RuntimeConfig, maps_parser, set_current
+    from linecast._runtime import RuntimeConfig, set_current
+    from linecast._parsers import maps_parser
     try:
         set_current(RuntimeConfig.from_sources(
             maps_parser().parse_args(["--print", "--metric"]), environ={}))

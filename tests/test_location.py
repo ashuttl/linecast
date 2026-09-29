@@ -357,7 +357,7 @@ class LocationCommandTests(unittest.TestCase):
 
 class NegativeCoordinateFlagTests(unittest.TestCase):
     def test_the_view_flags_take_coordinates_that_start_with_a_minus(self):
-        from linecast._runtime import maps_parser, weather_parser
+        from linecast._parsers import maps_parser, weather_parser
         args = weather_parser().parse_args(["--location", "-33.87,151.21", "--imperial"])
         self.assertEqual(args.location, "-33.87,151.21")
         args = maps_parser().parse_args(["--to", "-.5,-70", "--from", "-33.87,151.21"])

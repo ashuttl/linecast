@@ -9,7 +9,8 @@ from unittest.mock import patch
 from linecast import _config
 from linecast.settings import language
 from linecast._i18n import LANGUAGE_CODES, VARIANTS
-from linecast._runtime import RuntimeConfig, resolve_lang, weather_parser
+from linecast._runtime import RuntimeConfig, resolve_lang
+from linecast._parsers import weather_parser
 
 
 class ConfigDirMixin(unittest.TestCase):

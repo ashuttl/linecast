@@ -19,7 +19,7 @@ import sys
 
 from linecast import _runtime
 from linecast._commands import VIEW_NAMES, formatter_class
-from linecast._runtime import VersionAction
+from linecast._parsers import VersionAction
 
 SHORT_NAMES = VIEW_NAMES
 

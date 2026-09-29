@@ -129,21 +129,21 @@ class Argv0DispatchTests(unittest.TestCase):
     def test_help_shares_the_commands_own_blurbs(self):
         # `linecast --help` and `linecast weather --help` open with the
         # same line, so the two pages cannot drift
-        from linecast._runtime import weather_parser, maps_parser
+        from linecast._parsers import weather_parser, maps_parser
         for parser in (weather_parser(), maps_parser()):
             with self.subTest(prog=parser.prog):
                 self.assertIn(parser.description, self._unwrapped_help("/usr/bin/linecast"))
 
     def test_oneline_is_offered_only_by_the_views_that_have_a_line(self):
-        from linecast import _runtime
+        from linecast import _parsers
         for name in ("weather", "sunshine", "moon", "sky", "tides", "radar", "maps"):
-            help_page = getattr(_runtime, f"{name}_parser")().format_help()
+            help_page = getattr(_parsers, f"{name}_parser")().format_help()
             with self.subTest(view=name):
                 self.assertEqual("--oneline" in help_page, name not in ("radar", "maps"))
 
     def test_zoom_is_degrees_above_zero(self):
         # the views divide by it: 0 was a ZeroDivisionError, nan a ValueError
-        from linecast._runtime import maps_parser, radar_parser
+        from linecast._parsers import maps_parser, radar_parser
         for parser in (maps_parser(), radar_parser()):
             self.assertEqual(parser.parse_args(["--zoom", "0.5"]).zoom, 0.5)
             for bad in ("0", "-1", "nan", "inf", "abc"):

@@ -7,10 +7,8 @@ from unittest.mock import patch
 
 from linecast import _config
 from linecast.settings import week
-from linecast._runtime import (
-    RuntimeConfig, default_week_start, moon_parser, resolve_week_start,
-    sunshine_parser,
-)
+from linecast._runtime import RuntimeConfig, default_week_start, resolve_week_start
+from linecast._parsers import moon_parser, sunshine_parser
 
 
 class ConfigDirMixin(unittest.TestCase):

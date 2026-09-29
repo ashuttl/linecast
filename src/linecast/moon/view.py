@@ -90,9 +90,8 @@ from linecast.astro.calendars.thai_lunar import (
 from linecast.astro.seasons import full_moon_name, next_season_event
 from linecast.terminal.textwidth import char_width
 from linecast.tides.i18n import _ts  # shared "space to return to now" hint
-from linecast._runtime import (
-    RuntimeConfig, install_banner, moon_parser, set_current,
-)
+from linecast._runtime import RuntimeConfig, install_banner, set_current
+from linecast._parsers import moon_parser
 from linecast.terminal import theme as _theme
 from linecast.radar.i18n import rs
 from linecast.astro.ephemeris import (

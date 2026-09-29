@@ -10,7 +10,7 @@ import unittest
 from contextlib import redirect_stderr, redirect_stdout
 
 from linecast import __main__ as cli
-from linecast import _runtime
+from linecast import _parsers
 from linecast._completion import COMMANDS, available_shells, render_completion
 from linecast.link import link_parser
 
@@ -320,7 +320,7 @@ class CompletionScriptTests(unittest.TestCase):
         """doctor is not a standalone binary, so its flags are listed by
         hand; they must still be the parser's."""
         from linecast._completion import DOCTOR_FLAGS
-        parser = _runtime.doctor_parser()
+        parser = _parsers.doctor_parser()
         expected = {o for a in parser._actions for o in a.option_strings}
         self.assertEqual(set(DOCTOR_FLAGS), expected)
         bash = render_completion("bash")
@@ -394,7 +394,7 @@ class CompletionScriptTests(unittest.TestCase):
         plus show and auto; every shell offers them all."""
         from linecast._completion import HOURS_SUBCOMMANDS
         choices = None
-        for action in _runtime.sunshine_parser()._actions:
+        for action in _parsers.sunshine_parser()._actions:
             if "--hours" in action.option_strings:
                 choices = set(action.choices)
         self.assertIsNotNone(choices, "sunshine has no --hours")
@@ -433,7 +433,7 @@ class CompletionScriptTests(unittest.TestCase):
             self.assertNotIn(f'export extern "language {sub}"', nu)
 
     def _moon_calendar_choices(self):
-        for action in _runtime.moon_parser()._actions:
+        for action in _parsers.moon_parser()._actions:
             if "--calendar" in action.option_strings:
                 return set(action.choices)
         self.fail("moon has no --calendar")
@@ -466,7 +466,7 @@ class CompletionTracksParserTests(unittest.TestCase):
     help is kept out of completion too."""
 
     def _parser_options(self, command):
-        parser = getattr(_runtime, f"{command}_parser")()
+        parser = getattr(_parsers, f"{command}_parser")()
         options = {}
         for action in parser._actions:
             if action.help == argparse.SUPPRESS:

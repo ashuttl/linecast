@@ -15,7 +15,8 @@ import argparse
 import os
 
 from linecast._commands import formatter_class
-from linecast._runtime import VersionAction, resolve_clock
+from linecast._runtime import resolve_clock
+from linecast._parsers import VersionAction
 from linecast._config import CLOCK_CHOICES, read_config, save_config, saved_clock
 
 

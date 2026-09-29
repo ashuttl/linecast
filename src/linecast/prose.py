@@ -31,7 +31,8 @@ from datetime import datetime, timedelta, timezone
 from linecast._i18n import LANGUAGE_CODES, VARIANTS, canonical_language
 from linecast._paths import cache_dir
 from linecast._commands import formatter_class
-from linecast._runtime import VersionAction, WeatherRuntime, resolve_lang
+from linecast._runtime import WeatherRuntime, resolve_lang
+from linecast._parsers import VersionAction
 from linecast.terminal.textwidth import wrap_display_width
 
 # (name, latitude, longitude, units): a spread of climates and hemispheres,

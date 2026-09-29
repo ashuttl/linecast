@@ -30,9 +30,8 @@ from linecast._i18n import fmt_duration_parts, lang_of, table_for
 from linecast._location import (
     country_for_defaults, location_is_pinned, location_tzinfo, resolve_location,
 )
-from linecast._runtime import (
-    RuntimeConfig, current_runtime, install_banner, set_current, sunshine_parser,
-)
+from linecast._runtime import RuntimeConfig, current_runtime, install_banner, set_current
+from linecast._parsers import sunshine_parser
 from linecast.terminal.glyphs import _icon_set
 from linecast.sunshine import solar
 from linecast.sunshine.palette import (

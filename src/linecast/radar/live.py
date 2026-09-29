@@ -24,7 +24,8 @@ from linecast.radar.sources import (
     DEFAULT_THEME, THEMES, _in_conus, get_source, theme_id,
 )
 from linecast.radar.ui import ThemePicker
-from linecast._runtime import RuntimeConfig, radar_parser, set_current
+from linecast._runtime import RuntimeConfig, set_current
+from linecast._parsers import radar_parser
 from linecast.terminal.spinner import Spinner
 from linecast.radar.view import LAYERS, parse_layers, render_radar
 

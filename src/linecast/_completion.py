@@ -1,6 +1,6 @@
 """Shell completion script generation for linecast commands.
 
-The per-command flags are read from the argparse parsers in _runtime,
+The per-command flags are read from the argparse parsers in _parsers,
 so a flag added there reaches every shell's completion without a
 parallel list here. Only the pieces argparse does not know about stay
 in this module: the top-level `linecast` dispatcher (hand-rolled in
@@ -70,9 +70,8 @@ def available_shells():
 
 
 def completion_help():
-    """The --help page.  argparse is imported here, at the call, but every
-    run has loaded it already: this module imports _config, and _config
-    imports _runtime, which imports argparse."""
+    """The --help page.  argparse is imported here, at the call, so a run
+    of `linecast` that asks for no parser does not load it."""
     import argparse
     from linecast._commands import formatter_class
     parser = argparse.ArgumentParser(
@@ -127,10 +126,10 @@ class _Flag:
 
 def command_flags(command, hints=None):
     """The flags of a command's argparse parser, in parser order."""
-    from linecast import _runtime
+    from linecast import _parsers
     if hints is None:
         hints = _value_hints()
-    parser = getattr(_runtime, f"{command}_parser")()
+    parser = getattr(_parsers, f"{command}_parser")()
     return _parser_flags(parser, hints)
 
 

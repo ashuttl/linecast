@@ -452,12 +452,12 @@ class TestFlags:
         assert "--month has no --oneline output" in done.stderr
 
     def test_month_parses_with_a_calendar(self):
-        from linecast._runtime import moon_parser
+        from linecast._parsers import moon_parser
         args = moon_parser().parse_args(["--month", "--calendar", "hebrew"])
         assert args.month and args.calendar == "hebrew"
         assert not moon_parser().parse_args([]).month
 
     def test_grid_is_still_taken_for_month(self):
-        from linecast._runtime import moon_parser
+        from linecast._parsers import moon_parser
         assert moon_parser().parse_args(["--grid"]).month
         assert "--grid" not in moon_parser().format_help()

@@ -19,7 +19,7 @@ from linecast._config import (
     CALENDAR_CHOICES, read_config, save_config, saved_calendar,
 )
 from linecast._commands import formatter_class
-from linecast._runtime import VersionAction
+from linecast._parsers import VersionAction
 
 _NATURAL = ("chinese with --lang zh, japanese with ja, "
             "korean with ko, vietnamese with vi, thai with th, islamic "

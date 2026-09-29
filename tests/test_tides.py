@@ -176,7 +176,8 @@ class StaticRenderTests(unittest.TestCase):
     cursor-positioned tooltips (they only mean something under live_loop)."""
 
     def _render(self, fullscreen):
-        from linecast._runtime import TidesRuntime, tides_parser
+        from linecast._runtime import TidesRuntime
+        from linecast._parsers import tides_parser
         now = datetime.now()
         start = now - timedelta(hours=12)
         preds = [(start + timedelta(minutes=30 * i), float(i % 12)) for i in range(96)]

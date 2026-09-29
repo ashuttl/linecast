@@ -10,10 +10,10 @@ from linecast.settings import units
 from linecast import _log
 from linecast import _runtime
 from linecast._runtime import (
-    RuntimeConfig, TidesRuntime, WeatherRuntime, current_runtime,
-    default_units, resolve_units, set_current, tides_parser, units_pref,
-    use_metric, weather_parser,
+    RuntimeConfig, TidesRuntime, WeatherRuntime, current_runtime, default_units, resolve_units,
+    set_current, units_pref, use_metric,
 )
+from linecast._parsers import tides_parser, weather_parser
 
 
 class ConfigDirMixin(unittest.TestCase):

@@ -16,7 +16,8 @@ from linecast._i18n import (
     LANGUAGES, LANGUAGE_NAMES, VARIANT_NAMES, VARIANTS, canonical_language, is_language_code,
 )
 from linecast._commands import formatter_class
-from linecast._runtime import LOCALE_VARS, VersionAction, resolve_lang
+from linecast._runtime import LOCALE_VARS, resolve_lang
+from linecast._parsers import VersionAction
 from linecast._config import read_config, save_config, saved_language
 
 

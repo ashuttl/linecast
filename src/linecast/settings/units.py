@@ -16,7 +16,8 @@ import argparse
 import os
 
 from linecast._commands import formatter_class
-from linecast._runtime import VersionAction, resolve_units
+from linecast._runtime import resolve_units
+from linecast._parsers import VersionAction
 from linecast._config import UNITS_CHOICES, read_config, save_config, saved_units
 
 

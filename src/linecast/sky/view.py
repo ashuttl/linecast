@@ -65,9 +65,8 @@ from linecast._location import (
 )
 from linecast.sky.planets import planet_positions
 from linecast.radar.i18n import rs
-from linecast._runtime import (
-    RuntimeConfig, install_banner, set_current, sky_parser,
-)
+from linecast._runtime import RuntimeConfig, install_banner, set_current
+from linecast._parsers import sky_parser
 from linecast.sky.catalogue import (
     MILKY_WAY_H, MILKY_WAY_W, constellation_name, constellations, culture_title,
     figures_for, milky_way, names_for, resolve_culture, star_names, star_vectors,

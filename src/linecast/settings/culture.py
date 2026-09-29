@@ -15,7 +15,7 @@ from linecast._config import (
     CULTURE_CHOICES, read_config, save_config, saved_culture,
 )
 from linecast._commands import formatter_class
-from linecast._runtime import VersionAction
+from linecast._parsers import VersionAction
 
 _NATURAL = "chinese with --lang zh; the IAU sky otherwise"
 

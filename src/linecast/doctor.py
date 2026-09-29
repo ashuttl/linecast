@@ -20,7 +20,7 @@ import re
 import sys
 from pathlib import Path
 
-from linecast._runtime import doctor_parser
+from linecast._parsers import doctor_parser
 from linecast._log import set_debug
 
 PROBE_TIMEOUT = 4        # seconds per host; every probe runs at once

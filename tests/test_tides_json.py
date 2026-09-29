@@ -5,7 +5,8 @@ import math
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 
-from linecast._runtime import TidesRuntime, tides_parser
+from linecast._runtime import TidesRuntime
+from linecast._parsers import tides_parser
 from linecast.tides.json import build_payload
 from linecast.tides.render import interp_height
 

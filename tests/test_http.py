@@ -16,7 +16,7 @@ from io import BytesIO
 import pytest
 
 import linecast
-from linecast import _http, _runtime
+from linecast import _http, _parsers
 from conftest import SRC
 
 
@@ -591,7 +591,7 @@ class TestVersion:
         assert linecast.USER_AGENT == first
 
     def test_version_action_prints_and_exits(self, capsys):
-        parser = _runtime._base_parser("weather", "test")
+        parser = _parsers._base_parser("weather", "test")
         with pytest.raises(SystemExit) as info:
             parser.parse_args(["--version"])
         assert info.value.code == 0
@@ -602,8 +602,8 @@ class TestVersion:
     def test_help_does_not_import_metadata_or_urllib(self):
         # every command builds a parser; none of them should pay for the
         # version lookup or urllib.request unless a request is made
-        for code in ("import linecast.weather.view, linecast._runtime; "
-                     "linecast._runtime.weather_parser()",
+        for code in ("import linecast.weather.view, linecast._parsers; "
+                     "linecast._parsers.weather_parser()",
                      "import linecast.radar.view",
                      "import linecast.maps.view",
                      "import linecast.sunshine.view",

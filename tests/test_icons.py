@@ -3,7 +3,8 @@
 import unittest
 from unittest import mock
 
-from linecast._runtime import RuntimeConfig, default_icons, weather_parser
+from linecast._runtime import RuntimeConfig, default_icons
+from linecast._parsers import weather_parser
 
 
 def _args(*argv):

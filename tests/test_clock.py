@@ -7,10 +7,8 @@ from unittest.mock import patch
 
 from linecast import _config
 from linecast.settings import clock
-from linecast._runtime import (
-    RuntimeConfig, default_clock, resolve_clock, sunshine_parser,
-    weather_parser,
-)
+from linecast._runtime import RuntimeConfig, default_clock, resolve_clock
+from linecast._parsers import sunshine_parser, weather_parser
 
 
 class ConfigDirMixin(unittest.TestCase):

@@ -23,9 +23,10 @@ from linecast.maps.search import Result, SearchUnavailable
 def _units(flag):
     """Pin the running command's units; distances follow the setting,
     not the language."""
+    import linecast._parsers as ps
     import linecast._runtime as rt
     rt.set_current(rt.RuntimeConfig.from_sources(
-        rt.maps_parser().parse_args(["--print", flag]), environ={}))
+        ps.maps_parser().parse_args(["--print", flag]), environ={}))
     try:
         yield
     finally:

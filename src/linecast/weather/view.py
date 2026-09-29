@@ -31,7 +31,8 @@ from linecast.terminal.color import RESET, bg, fg
 from linecast.terminal.textwidth import visible_len
 from linecast.terminal.framebuffer import fmt_time_dt, get_terminal_size
 from linecast._location import country_for_defaults, resolve_location
-from linecast._runtime import WeatherRuntime, install_banner, set_current, weather_parser
+from linecast._runtime import WeatherRuntime, install_banner, set_current
+from linecast._parsers import weather_parser
 from linecast._log import log_failure
 from linecast.weather.i18n import (
     fmt_wind,

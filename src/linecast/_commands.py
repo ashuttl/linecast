@@ -61,9 +61,9 @@ def formatter_class():
     so a long list of choices can stand apart from what they do.  A
     command's subcommands are listed without argparse's {show,set,…}
     line over them, which only repeats their names.  It is fetched, not
-    imported, so this module loads without argparse.  Every run loads
-    argparse all the same: __main__ imports _completion, which imports
-    _config, which imports _runtime, which imports argparse.
+    imported, so this module, which every run of `linecast` loads, loads
+    without argparse: a run that parses no flags, `linecast --version`
+    say, never imports it.
     """
     import argparse
     import textwrap

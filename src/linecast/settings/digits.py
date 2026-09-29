@@ -17,7 +17,8 @@ from linecast.terminal.bidi import resolve_digits
 from linecast._config import DIGITS_CHOICES
 from linecast._commands import formatter_class
 from linecast._config import read_config, save_config, saved_digits
-from linecast._runtime import VersionAction, resolve_lang
+from linecast._runtime import resolve_lang
+from linecast._parsers import VersionAction
 
 _NATURAL = "the language's own digits where it has them, 0-9 otherwise"
 _SET = {

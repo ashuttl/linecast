@@ -19,7 +19,8 @@ import pytest
 from linecast.weather import sources
 from linecast.weather import view as weather
 from linecast.terminal.oneline import weather_oneline
-from linecast._runtime import WeatherRuntime, weather_parser
+from linecast._runtime import WeatherRuntime
+from linecast._parsers import weather_parser
 from linecast.weather.alerts import build_alert_modal, render_alerts_mapped
 from linecast.weather.historical import HistoricalAverages
 from linecast.weather.json import build_payload

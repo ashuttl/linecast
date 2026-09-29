@@ -194,11 +194,11 @@ class Ctx:
     def runtime(self, cls_name="RuntimeConfig", live=False, **flags):
         from dataclasses import replace
 
-        from linecast import _runtime
+        from linecast import _parsers, _runtime
         cls = getattr(_runtime, cls_name)
-        parser = {"RuntimeConfig": _runtime.sunshine_parser,
-                  "WeatherRuntime": _runtime.weather_parser,
-                  "TidesRuntime": _runtime.tides_parser}[cls_name]
+        parser = {"RuntimeConfig": _parsers.sunshine_parser,
+                  "WeatherRuntime": _parsers.weather_parser,
+                  "TidesRuntime": _parsers.tides_parser}[cls_name]
         argv = ["--print", "--lang", self.lang, "--icons", "emoji"]
         for key, value in flags.items():
             argv += [f"--{key.replace('_', '-')}"] + ([] if value is True else [str(value)])

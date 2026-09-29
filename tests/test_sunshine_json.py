@@ -3,7 +3,8 @@
 import json
 from datetime import datetime, timedelta, timezone
 
-from linecast._runtime import RuntimeConfig, sunshine_parser
+from linecast._runtime import RuntimeConfig
+from linecast._parsers import sunshine_parser
 from linecast.sunshine.json import build_payload
 from linecast.sunshine.solar import polar_state
 from linecast.sunshine.solar import _tz_offset_hours, solar_times

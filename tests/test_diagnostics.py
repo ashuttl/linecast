@@ -205,7 +205,8 @@ class TestRedactUrl:
 class TestStartupLine:
     def test_debug_starts_with_where_things_live(self, quiet, capsys):
         rt = _mod("_runtime")
-        rt.RuntimeConfig.from_sources(rt.weather_parser().parse_args(["--debug", "--print"]))
+        args = _mod("_parsers").weather_parser().parse_args(["--debug", "--print"])
+        rt.RuntimeConfig.from_sources(args)
         first = _lines(capsys)[0]
         from linecast import __version__
         assert first.startswith(f"[linecast] linecast {__version__}, python ")
@@ -214,7 +215,7 @@ class TestStartupLine:
 
     def test_nothing_without_debug(self, quiet, capsys):
         rt = _mod("_runtime")
-        rt.RuntimeConfig.from_sources(rt.weather_parser().parse_args(["--print"]))
+        rt.RuntimeConfig.from_sources(_mod("_parsers").weather_parser().parse_args(["--print"]))
         assert capsys.readouterr().err == ""
 
 

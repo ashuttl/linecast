@@ -4,7 +4,8 @@ import json
 from datetime import datetime
 from pathlib import Path
 
-from linecast._runtime import WeatherRuntime, weather_parser
+from linecast._runtime import WeatherRuntime
+from linecast._parsers import weather_parser
 from linecast.weather.historical import HistoricalAverages
 from linecast.weather.json import build_payload
 
