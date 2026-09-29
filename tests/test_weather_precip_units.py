@@ -95,6 +95,11 @@ class TestPastSnow:
         assert _past_snow_line(1.2, metric=True) != ""
         assert _past_snow_line(1.2, metric=False) != ""
 
+    def test_snow_under_an_inch_is_given_to_the_tenth(self):
+        # 1.27 cm is half an inch: "0.5", as the daily forecast has it
+        line = _past_snow_line(1.27, metric=False)
+        assert "0.5\u00a0inches of snow" in line and "0.50" not in line
+
 
 class TestDailyPrecipThreshold:
     """The amount beside a day in the daily list, above and below 1 mm."""

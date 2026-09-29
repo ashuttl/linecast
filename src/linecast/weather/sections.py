@@ -1635,8 +1635,10 @@ def past_precip_sentence(hourly, now, runtime, station=None):
         if runtime.metric:
             amt = f"{fmt_decimal(total_snow_cm, 1, runtime)}{metric_sep}{_s('unit_cm', runtime)}"
         else:
+            # Snow to the tenth, as the daily forecast and the snowfall
+            # ahead give it; the hundredths are for the water in a gauge
             inches = total_snow_cm / 2.54
-            amt = _prose_inches(fmt_decimal(inches, 1 if inches >= 1 else 2, runtime), runtime)
+            amt = _prose_inches(fmt_decimal(inches, 1, runtime), runtime)
         ptype = _s("snow", runtime)
     elif mix_hours >= rain_hours:
         if runtime.metric:
