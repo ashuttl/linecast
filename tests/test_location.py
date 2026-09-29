@@ -301,6 +301,18 @@ class LocationCommandTests(unittest.TestCase):
             location._cmd_set("44.4293,-70.0356")
         self.assertEqual(path.read_text(), text)
 
+    @unittest.skipIf(os.name == "nt", "symlinks need privileges on Windows")
+    def test_a_config_linked_from_dotfiles_stays_linked(self):
+        path = _config.config_file()
+        path.parent.mkdir(parents=True, exist_ok=True)
+        repo = Path(self._tmpdir.name) / "dotfiles" / "config.json"
+        repo.parent.mkdir()
+        repo.write_text('{"units": "metric"}')
+        path.symlink_to(repo)
+        _config.write_config({"units": "imperial"})
+        self.assertTrue(path.is_symlink())
+        self.assertEqual(json.loads(repo.read_text()), {"units": "imperial"})
+
     def test_config_that_is_not_an_object_reads_as_empty(self):
         # A hand edit can leave a list or a bare string; every reader
         # calls .get on the result.

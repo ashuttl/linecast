@@ -26,6 +26,7 @@ Notable changes, by release. Notes for the next release collect under **Unreleas
 - Sunshine: Fixed `--oneline` giving a sunrise and sunset through the polar night and the midnight sun; it now shows dashes and names the season, as the full view does. Fixed a sunrise just before midnight, in the far north in summer, showing as just after midnight.
 - Moon, sunshine, sky, tides, radar, maps: Fixed Ctrl-C printing a Python traceback when pressed while the view was still loading, or during `--print`.
 - Settings: Fixed a setting command, such as `linecast units imperial`, replacing a config.json that could not be read, and every setting in it, with the one setting. It now says what is wrong with the file and leaves it alone.
+- Settings: A config.json that is a symbolic link, as from a dotfiles repository, stays one when a setting is saved; the setting is written to the file it points to.
 - Radar, maps: `--help` no longer offers `--oneline`, which printed the whole frame; neither view has a single line to give.
 - Weather: Fixed alert times on the 12-hour clock leaving out the minutes, so that a warning in force until 3:45pm read "until 3pm". In Greek they are written in words, as in the forecast.
 - Weather: Fixed alerts in Canada showing no times with Python 3.10.

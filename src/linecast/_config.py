@@ -1,6 +1,7 @@
 """Persistent user settings (config.json under the config root)."""
 
 import json
+import os
 import sys
 from pathlib import Path
 from typing import Any
@@ -54,6 +55,10 @@ def write_config(data: dict[str, Any]) -> None:
         raise OSError(f"it could not be read ({exc}); fix or remove it, then try again") from exc
     if not isinstance(current, dict):
         raise OSError("it does not hold a JSON object; fix or remove it, then try again")
+    # A config.json linked in from a dotfiles repository is written
+    # where the link points; replacing the link would leave the repo's
+    # copy behind, and the link gone
+    path = Path(os.path.realpath(path))
     path.parent.mkdir(parents=True, exist_ok=True)
     from linecast._cache import write_bytes_atomic
     write_bytes_atomic(path, (json.dumps(data, indent=2) + "\n").encode())
