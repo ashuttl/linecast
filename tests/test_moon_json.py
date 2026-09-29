@@ -114,6 +114,17 @@ class TestEvents:
         kinds = sorted(e["kind"] for e in _payload()["events"])
         assert kinds == ["rise", "set"]
 
+    def test_second_moonrise_on_the_same_date(self):
+        # Tromsø, 11 June 2026: the Moon rises at 00:24, sets at 18:48,
+        # and rises again at 23:38, then stays up for days. At noon the
+        # next moonrise is that night's, not none at all.
+        cest = timezone(timedelta(hours=2))
+        rise, sset = upcoming_moon_events(
+            datetime(2026, 6, 11, 12, 0, tzinfo=cest), 69.65, 18.96)
+        assert rise is not None
+        assert (rise.date(), rise.hour) == (datetime(2026, 6, 11).date(), 23)
+        assert (sset.hour, sset.minute) == (18, 48)
+
 
 class TestAlmanac:
     def test_next_full_and_new_are_dates_within_a_cycle(self):

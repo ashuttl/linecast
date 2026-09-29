@@ -407,7 +407,8 @@ def _refine_moon_crossing_utc(t0_utc, t1_utc, lat_deg, lng_deg, threshold_deg):
     return lo + timedelta(seconds=(hi - lo).total_seconds() / 2.0)
 
 
-def _moon_events_for_local_date(local_date, lat_deg, lng_deg, tzinfo, threshold_deg=0.125):
+def _moon_events_for_local_date(local_date, lat_deg, lng_deg, tzinfo, threshold_deg=0.125,
+                                since=None):
     """Return (moonrise_local, moonset_local) for one local calendar date.
 
     The threshold_deg of 0.125° approximates the combined effect of
@@ -418,6 +419,11 @@ def _moon_events_for_local_date(local_date, lat_deg, lng_deg, tzinfo, threshold_
 
     Events are found by stepping in 10-minute increments, detecting sign
     changes in (altitude - threshold), then refining via bisection.
+
+    With *since*, only the events later than that moment count. Far
+    north or south a date can hold two moonrises, or two moonsets, when
+    the Moon's declination swings quickly, and the one still to come is
+    the second.
     """
     start_local = datetime(local_date.year, local_date.month, local_date.day, tzinfo=tzinfo)
     end_local = start_local + timedelta(days=1)
@@ -451,7 +457,8 @@ def _moon_events_for_local_date(local_date, lat_deg, lng_deg, tzinfo, threshold_
             ) - threshold_deg
             is_rise = after > before
             cross_local = cross_utc.astimezone(tzinfo)
-            if start_local <= cross_local < end_local:
+            if (start_local <= cross_local < end_local
+                    and (since is None or cross_local > since)):
                 if is_rise and rise is None:
                     rise = cross_local
                 elif not is_rise and sset is None:

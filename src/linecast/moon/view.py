@@ -126,17 +126,19 @@ def upcoming_moon_events(now_local, lat, lng):
     """Next (moonrise, moonset) datetimes strictly after *now_local*.
 
     Scans up to three local calendar days. At high latitudes the Moon can
-    stay up (or down) for days, so either value may still be None.
+    stay up (or down) for days, so either value may still be None, and
+    a date can hold two moonrises, so today's are searched from now on.
     """
     tzinfo = now_local.tzinfo
     next_rise = None
     next_set = None
     for offset in range(3):
         day = now_local.date() + timedelta(days=offset)
-        rise, sset = _moon_events_for_local_date(day, lat, lng, tzinfo)
-        if next_rise is None and rise is not None and rise > now_local:
+        rise, sset = _moon_events_for_local_date(day, lat, lng, tzinfo,
+                                                 since=now_local)
+        if next_rise is None and rise is not None:
             next_rise = rise
-        if next_set is None and sset is not None and sset > now_local:
+        if next_set is None and sset is not None:
             next_set = sset
         if next_rise is not None and next_set is not None:
             break
