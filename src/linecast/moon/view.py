@@ -42,7 +42,6 @@ from linecast._timefmt import fmt_time_dt
 from linecast.terminal.color import lerp
 from linecast.terminal.textwidth import pad, visible_len
 from linecast.terminal.framebuffer import get_terminal_size, cell_aspect, Framebuffer
-from linecast.terminal.live import live_loop
 from linecast._i18n import GEOCODER_UNTRANSLATED, fmt_decimal, fmt_duration_parts, lang_of
 from linecast._config import saved_location
 from linecast._location import (
@@ -98,7 +97,7 @@ from linecast.astro.ephemeris import (
     moon_age_days,
     mat_apply, moon_axis_deg, moon_bright_limb_deg, precess_to_j2000,
 )
-from linecast.moon.disc import Turn, _draw_moon_disc
+from linecast.moon.disc import _draw_moon_disc
 from linecast.moon.palette import (
     MOON_GLOW_RGB, MOON_NIGHT_RGB, PANEL_AMBER_RGB, PANEL_DIM_RGB, PANEL_MUTED_RGB,
     PANEL_PURPLE_RGB, PANEL_TEXT_RGB, SKY_RGB, STAR_BRIGHT_RGB, STAR_DIM_RGB, STAR_RGB,
@@ -1076,113 +1075,20 @@ def main():
         emit(moon_oneline(_now(), lat, lng, runtime, calendar=args.calendar))
         return
 
-    live = runtime.live
+    # Both views read from the right in a right-to-left language; the
+    # Moon itself, on the disc and in the grid, is never flipped.
+    from linecast.terminal import bidi as _bidi
+    _bidi.set_mirror(True)
 
-    # The disc and the calendar keep separate scrub offsets, so flipping
-    # between them returns to where each was left: minutes through the
-    # disc's time, whole months through the calendar. --month opens on
-    # the calendar; v flips either way.
-    state = {"cal": args.month, "minutes": 0, "months": 0, "text": True}
-    turn = Turn()
-
-    def _render(offset_minutes=0, mouse_pos=None, active_alert=None, modal_scroll=0):
-        # offset_minutes/active_alert/modal_scroll are ignored; scrubbing
-        # is handled here (per view) rather than by live_loop.
-        # Both views read from the right in a right-to-left language;
-        # the Moon itself, on the disc and in the grid, is never flipped.
-        from linecast.terminal import bidi as _bidi
-        _bidi.set_mirror(True)
-        if state["cal"]:
-            from linecast.moon.calendar import render_calendar
-            return render_calendar(_now(), lat, lng, runtime,
-                                   month_offset=state["months"],
-                                   fullscreen=live, mouse_pos=mouse_pos,
-                                   calendar_name=cal, israel=israel)
-        moment = _now()
-        if state["minutes"]:
-            moment += timedelta(minutes=state["minutes"])
-        return render(moment, lat, lng, runtime, fullscreen=live,
-                      offset_minutes=state["minutes"],
-                      calendar_name=cal, israel=israel, turn=turn,
-                      show_text=state["text"])
-
-    if not live:
+    from linecast.moon.live import MoonApp
+    app = MoonApp(_now, lat, lng, runtime, calendar_name=cal, israel=israel,
+                  month=args.month)
+    if not runtime.live:
         from linecast.terminal.live import print_frame
         from linecast.terminal.textwidth import calibrate_from_terminal
         calibrate_from_terminal()
-        print_frame(_render())
+        print_frame(app.render())
         return
-
-    # A wheel notch or arrow key scrubs 15 minutes of the disc view or a
-    # month of the calendar; space returns each to now. v flips views,
-    # and t puts the disc view's text away and brings it back.
-    def _step(n):
-        if state["cal"]:
-            state["months"] += n
-        else:
-            state["minutes"] += 15 * n
-        return True
-
-    def _intercept(action):
-        if action == "fwd":
-            return _step(1)
-        if action == "back":
-            return _step(-1)
-        if action == "reset":
-            state["months" if state["cal"] else "minutes"] = 0
-            return True
-        return False
-
-    def _on_wheel(direction, _col, _row):
-        return _step(direction)
-
-    def _on_key(key):
-        if key == "v":
-            state["cal"] = not state["cal"]
-            return True
-        if key == "t" and not state["cal"]:
-            # Put the text away, and leave the Moon alone in its sky.
-            state["text"] = not state["text"]
-            return True
-        return False
-
-    def _on_drag(dcol, drow, done):
-        # Drag the disc to turn the Moon; let go and it settles back.
-        # The calendar has nothing to drag, but the loop only tracks
-        # clicks while a drag callback is set, so it answers here too.
-        if state["cal"]:
-            return False
-        # The disc is never mirrored, so a drag turns it the way the
-        # hand moved even when the view reads from the right
-        from linecast.terminal import bidi as _bidi
-        if _bidi.mirrored():
-            dcol = -dcol
-        return turn.release() if done else turn.drag(dcol, drow)
-
-    def _on_click(col, row):
-        # A calendar day is a doorway: click it and the disc view opens
-        # on that day, at this hour, with space the way back to now.
-        if not state["cal"]:
-            return False
-        from linecast.moon.calendar import clicked_day
-        target = clicked_day(col, row)
-        if target is None:
-            return False
-        state["minutes"] = (target - _now().date()).days * 1440
-        state["cal"] = False
-        return True
-
-    # The panel repaints once a minute, except in the last day before the
-    # Solar Hijri year turns, when it counts down to the second. Asked
-    # at every repaint, so a view left open reaches the last day too.
-    solar = civil_calendar(lang_of(runtime)) == SOLAR_HIJRI
-
-    def interval():
-        if solar:
-            now = _now()
-            if next_year_turn(now)[1] - now.astimezone(timezone.utc) < timedelta(days=1):
-                return 1
-        return 60
 
     # Help names the place the Moon is seen from, where the weather's
     # names its sources: a --location by the geocoder's label, a saved
@@ -1191,21 +1097,9 @@ def main():
     # has no names in (_geocode.place_label). It is asked off the loop,
     # so opening help never waits on the network; until it answers, the
     # label or the coordinates stand alone.
-    place = {"name": label}
-    if not place["name"] and not location_overridden(args.location):
-        place["name"] = (saved_location() or {}).get("label", "")
-    if not place["name"] or runtime.lang in GEOCODER_UNTRANSLATED:
-        def _name_the_place():
-            from linecast._geocode import place_label
-            place["name"] = place_label(lat, lng, place["name"], runtime.lang)
-        threading.Thread(target=_name_the_place, daemon=True).start()
-
-    from linecast.terminal.help import HelpPanel, entries
-    help_panel = HelpPanel(
-        None, runtime.lang, content=lambda cols, rows: entries(
-            'moon_calendar' if state['cal'] else 'moon', runtime.lang,
-            credits=(place_credit(lat, lng, place["name"], runtime),)))
-    live_loop(_render, interval=interval, mouse=True, intercept=_intercept,
-              help_panel=help_panel, on_wheel=_on_wheel, on_action=_on_key,
-              on_drag=_on_drag, on_click=_on_click)
-
+    app.place = label
+    if not app.place and not location_overridden(args.location):
+        app.place = (saved_location() or {}).get("label", "")
+    if not app.place or runtime.lang in GEOCODER_UNTRANSLATED:
+        threading.Thread(target=app.name_the_place, daemon=True).start()
+    app.run()
