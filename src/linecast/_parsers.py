@@ -138,6 +138,17 @@ def _base_parser(prog, description, units=None, clock=False, json=False,
     return p
 
 
+def refuse_view_flag(parser, flag, runtime, describes="today"):
+    """End the run with a usage error when *flag*, which opens on another
+    view (--year, --month), comes with --json or --oneline.  Those give
+    one moment and have no form of the other view, so the pair is a
+    mistake worth naming rather than a flag to drop on the floor."""
+    if runtime.json_mode or runtime.oneline:
+        mode = "--json" if runtime.json_mode else "--oneline"
+        parser.error(f"{flag} has no {mode} output "
+                     f"({flag} is a view; {mode} describes {describes})")
+
+
 # What the weather temperature graph spans; the first is the default.
 TEMP_RANGES = ("auto", "climate", "forecast", "world")
 

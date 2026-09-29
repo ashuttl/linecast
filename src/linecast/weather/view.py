@@ -34,7 +34,7 @@ from linecast.terminal.textwidth import visible_len
 from linecast.terminal.framebuffer import get_terminal_size
 from linecast._timefmt import fmt_time_dt
 from linecast._runtime import WeatherRuntime, install_banner, place_for, set_current
-from linecast._parsers import weather_parser
+from linecast._parsers import refuse_view_flag, weather_parser
 from linecast._log import log_failure
 from linecast.weather.i18n import fmt_wind, felt_index, wmo_label, _s, _wmo_icons
 from linecast._i18n import FULL_DAY_NAMES
@@ -1200,12 +1200,8 @@ def _main():
     args = parser.parse_args()
     runtime = WeatherRuntime.from_sources(args)
     set_current(runtime)
-    # --year picks a view. --json and --oneline describe today and have
-    # no year form, as in sunshine.
-    if args.year and (runtime.json_mode or runtime.oneline):
-        mode = "--json" if runtime.json_mode else "--oneline"
-        parser.error(f"--year has no {mode} output "
-                     f"(--year is a view; {mode} describes today)")
+    if args.year:
+        refuse_view_flag(parser, "--year", runtime)
     # In a right-to-left language the whole dashboard reads from the
     # right, the hourly graph included: now is at the right edge
     from linecast.terminal import bidi as _bidi

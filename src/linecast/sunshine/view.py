@@ -16,7 +16,6 @@ Usage: sunshine [--print] [--oneline] [--json] [--year] [--location PLACE]
 """
 
 import math
-import sys
 from datetime import datetime
 
 from linecast.terminal.braille import braille_rows_from_ys
@@ -28,10 +27,10 @@ from linecast.terminal import theme as _theme
 from linecast.terminal.theme import darken, lighten
 from linecast._i18n import fmt_duration_parts, lang_of
 from linecast._location import (
-    country_for_defaults, location_is_pinned, location_tzinfo, resolve_location,
+    location_is_pinned, location_tzinfo,
 )
-from linecast._runtime import RuntimeConfig, current_runtime, install_banner, set_current
-from linecast._parsers import sunshine_parser
+from linecast._runtime import RuntimeConfig, current_runtime, install_banner, place_for, set_current
+from linecast._parsers import refuse_view_flag, sunshine_parser
 from linecast.terminal.glyphs import _icon_set
 from linecast.sunshine.palette import (
     CURVE_COLOR, HORIZON_COLOR, INFO_AMBER_RGB, INFO_DIM_RGB, INFO_PURPLE_RGB,
@@ -444,26 +443,9 @@ def main():
     runtime = RuntimeConfig.from_sources(args)
     set_current(runtime)
 
-    # --year picks a view. --json and --oneline describe today and have
-    # no year form, so the combination is a mistake worth naming rather
-    # than a flag to drop on the floor.
-    if getattr(args, "year", False) and (runtime.json_mode or runtime.oneline):
-        mode = "--json" if runtime.json_mode else "--oneline"
-        parser.error(f"--year has no {mode} output "
-                     f"(--year is a view; {mode} describes today)")
-
-    lat, lng, country, label = resolve_location(
-        args.location, lang=runtime.lang, return_label=True)
-    if lat is None:
-        print("Could not determine location.", file=sys.stderr)
-        sys.exit(1)
-
-    # With no override the resolved location is the user's own; let the
-    # units default follow its country (a cold cache resolved without one)
-    own = country_for_defaults(args.location, country, lat, lng)
-    if own:
-        runtime = RuntimeConfig.from_sources(args, country=own)
-        set_current(runtime)
+    if args.year:
+        refuse_view_flag(parser, "--year", runtime)
+    lat, lng, country, label, runtime = place_for(args, runtime)
 
     # A pinned location may sit in another time zone; resolve it so times
     # match the location. None (IP-derived location) means machine-local

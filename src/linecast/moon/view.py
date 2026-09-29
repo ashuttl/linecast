@@ -32,7 +32,6 @@ sky, and brings it back.
 
 import calendar
 import math
-import sys
 import textwrap
 import threading
 from datetime import datetime, timedelta, timezone
@@ -44,8 +43,8 @@ from linecast.terminal.framebuffer import get_terminal_size, cell_aspect, Frameb
 from linecast._i18n import GEOCODER_UNTRANSLATED, fmt_decimal, fmt_duration_parts, lang_of
 from linecast._config import saved_location
 from linecast._location import (
-    country_for_defaults, location_is_pinned, location_overridden,
-    location_tzinfo, machine_tzinfo, resolve_location,
+    location_is_pinned, location_overridden,
+    location_tzinfo, machine_tzinfo,
 )
 from linecast.astro.calendars.lunisolar import resolve_calendar
 from linecast.moon.i18n import (
@@ -58,8 +57,8 @@ from linecast.astro.calendars.civil import (
 )
 from linecast.astro.seasons import full_moon_name, next_season_event
 from linecast.tides.i18n import _ts  # shared "space to return to now" hint
-from linecast._runtime import RuntimeConfig, install_banner, set_current
-from linecast._parsers import moon_parser
+from linecast._runtime import RuntimeConfig, install_banner, place_for, set_current
+from linecast._parsers import moon_parser, refuse_view_flag
 from linecast.terminal import theme as _theme
 from linecast.radar.i18n import compass_point, rs
 from linecast.astro.ephemeris import (
@@ -765,25 +764,9 @@ def main():
     runtime = RuntimeConfig.from_sources(args)
     set_current(runtime)
 
-    # --month picks a view, as sunshine's --year does. --json and
-    # --oneline describe the moment and have no month form.
-    if args.month and (runtime.json_mode or runtime.oneline):
-        mode = "--json" if runtime.json_mode else "--oneline"
-        parser.error(f"--month has no {mode} output "
-                     f"(--month is a view; {mode} describes now)")
-
-    lat, lng, country, label = resolve_location(args.location, lang=runtime.lang,
-                                                return_label=True)
-    if lat is None:
-        print("Could not determine location.", file=sys.stderr)
-        sys.exit(1)
-
-    # With no override the resolved location is the user's own; let the
-    # units default follow its country (a cold cache resolved without one)
-    own = country_for_defaults(args.location, country, lat, lng)
-    if own:
-        runtime = RuntimeConfig.from_sources(args, country=own)
-        set_current(runtime)
+    if args.month:
+        refuse_view_flag(parser, "--month", runtime, describes="now")
+    lat, lng, country, label, runtime = place_for(args, runtime)
 
     # A pinned location may sit in another time zone; resolve it so times
     # match the location instead of the machine.
