@@ -392,24 +392,24 @@ class TestYRange(unittest.TestCase):
 
 
 # ---------------------------------------------------------------------------
-# QLD geo-detection helper (in tides/view.py)
+# QLD geo-detection helper (in tides/stations.py)
 # ---------------------------------------------------------------------------
 
 class TestQLDBoundaryDetection(unittest.TestCase):
     def test_cairns_is_qld(self):
-        from linecast.tides.view import _is_qld_lat_lng
+        from linecast.tides.stations import _is_qld_lat_lng
         self.assertTrue(_is_qld_lat_lng(-16.92, 145.78))
 
     def test_sydney_is_not_qld(self):
-        from linecast.tides.view import _is_qld_lat_lng
+        from linecast.tides.stations import _is_qld_lat_lng
         self.assertFalse(_is_qld_lat_lng(-33.87, 151.21))
 
     def test_brisbane_is_qld(self):
-        from linecast.tides.view import _is_qld_lat_lng
+        from linecast.tides.stations import _is_qld_lat_lng
         self.assertTrue(_is_qld_lat_lng(-27.47, 153.03))
 
     def test_darwin_is_not_qld(self):
-        from linecast.tides.view import _is_qld_lat_lng
+        from linecast.tides.stations import _is_qld_lat_lng
         self.assertFalse(_is_qld_lat_lng(-12.46, 130.84))
 
 

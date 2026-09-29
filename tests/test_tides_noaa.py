@@ -128,7 +128,7 @@ class MonthChunkTests(unittest.TestCase):
 
     def test_two_threads_asking_for_one_month_make_one_request(self):
         # a subordinate station's curve and its extremes both want the
-        # hi/lo month, and tides/view.py asks for them on two threads at once
+        # hi/lo month, and tides/stations.py asks for them on two threads at once
         import os
         import tempfile
         import threading
@@ -444,7 +444,7 @@ class MetadataTests(unittest.TestCase):
 
         self.assertEqual(back_cove["timezone_abbr"], "EST")
         self.assertTrue(back_cove["observedst"])
-        from linecast.tides.view import _station_tzinfo
+        from linecast.tides.stations import _station_tzinfo
         self.assertEqual(_station_tzinfo(back_cove).key, "America/New_York")
         # a reference on another standard offset lends no clock
         self.assertEqual(belize["timezone_abbr"], "")

@@ -455,7 +455,7 @@ class TestTidesPool:
         assert capsys.readouterr().err == ""
 
     def test_provider_tags(self):
-        tides = _mod("tides.view")
+        tides = _mod("tides.stations")
         assert tides._provider_tag(tides.NOAA) == "tides/noaa"
         assert tides._provider_tag(tides.CHS) == "tides/chs"
         assert tides._provider_tag(tides.OPENMETEO) == "tides/open-meteo"

@@ -246,10 +246,10 @@ class TestLocations:
         assert obs is not None and obs["name"] == "Portland Intl Jetport"
 
     def test_tide_station_name(self):
-        from linecast.tides import view as tides_view
+        from linecast.tides import stations
         provider = SimpleNamespace(station_metadata=lambda _id: {
             "id": "8418150", "name": MARKER + "Portland", "state": "ME\x1b[0m",
             "lat": 43.658, "lng": -70.244})
-        meta, name, _tz = tides_view._station_details(provider, "8418150", "")
+        meta, name, _tz = stations._station_details(provider, "8418150", "")
         assert name == "Portland, ME"
         assert meta["lat"] == 43.658

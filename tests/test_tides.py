@@ -11,6 +11,7 @@ from linecast.tides import hko as _tides_hko
 from linecast.tides import noaa as _tides_noaa
 from linecast.tides import openmeteo as _tides_openmeteo
 from linecast.tides import qld as _tides_qld
+from linecast.tides import stations as _tides_stations
 from linecast.tides import tidecheck as _tides_tidecheck
 from linecast._runtime import TidesRuntime
 from linecast.tides.chart import prepare_tide_window
@@ -71,7 +72,7 @@ class RenderTests(unittest.TestCase):
                  for h in range(-24, 30)]
         hilo = [(start + timedelta(hours=3), 11.0, "H"),
                 (start + timedelta(hours=9), 0.0, "L")]
-        self.assertIs(tides._station_now(None, preds).tzinfo, tz)
+        self.assertIs(_tides_stations._station_now(None, preds).tzinfo, tz)
         with patch.object(tides, "get_terminal_size", return_value=(80, 24)):
             out = tides.render("abc", "Halifax", station_meta=None,
                                predictions=preds, hilo=hilo, provider=HKO)
@@ -217,8 +218,8 @@ class StationSearchTests(unittest.TestCase):
              patch.object(_tides_chs, "fetch_all_stations_chs", return_value=self.CHS), \
              patch.object(_tides_qld, "fetch_all_stations_qld", return_value=self.QLD), \
              patch.object(_tides_tidecheck, "is_available", return_value=False), \
-             patch.object(tides, "resolve_location", return_value=location):
-            return tides._find_matching_stations(query)
+             patch.object(_tides_stations, "resolve_location", return_value=location):
+            return _tides_stations._find_matching_stations(query)
 
     def test_multiword_query_matches_full_state_name(self):
         matches = self._matches("portland maine")
@@ -249,8 +250,9 @@ class StationSearchTests(unittest.TestCase):
             with patch.object(_tides_noaa, "fetch_all_stations_noaa", return_value=self.NOAA), \
                  patch.object(_tides_qld, "fetch_all_stations_qld", return_value=self.QLD), \
                  patch.object(_tides_tidecheck, "is_available", return_value=False), \
-                 patch.object(tides, "resolve_location", return_value=(44.41, -70.03, "US")):
-                matches = tides._find_matching_stations("portland")
+                 patch.object(_tides_stations, "resolve_location",
+                              return_value=(44.41, -70.03, "US")):
+                matches = _tides_stations._find_matching_stations("portland")
         self.assertEqual([m["id"] for m in matches], ["8418150", "9439221"])
 
     def test_tidecheck_joins_the_pool_when_a_key_is_set(self):
@@ -263,10 +265,10 @@ class StationSearchTests(unittest.TestCase):
              patch.object(_tides_tidecheck, "is_available", return_value=True), \
              patch.object(_tides_tidecheck, "search_stations_tidecheck",
                           return_value=hit) as search, \
-             patch.object(tides, "resolve_location", return_value=(44.41, -70.03, "US")):
-            matches = tides._find_matching_stations("lisbon")
+             patch.object(_tides_stations, "resolve_location", return_value=(44.41, -70.03, "US")):
+            matches = _tides_stations._find_matching_stations("lisbon")
             # --nearby sends an empty query, which has nothing to search for
-            self.assertEqual(tides._find_matching_stations(""), [])
+            self.assertEqual(_tides_stations._find_matching_stations(""), [])
 
         self.assertEqual([m["source"] for m in matches], ["tidecheck"])
         self.assertIsNotNone(matches[0]["dist_nm"])
@@ -398,7 +400,7 @@ class LocationRoutingTests(unittest.TestCase):
              patch.object(_tides_openmeteo, "find_nearest_openmeteo",
                           return_value=openmeteo), \
              patch("linecast.sunshine.json._location_label", return_value="Somewhere"):
-            picked = tides._station_for_location(lat, lng, country)
+            picked = _tides_stations._station_for_location(lat, lng, country)
         asked = [name for name, f in (("chs", f_chs), ("qld", f_qld),
                                       ("noaa", f_noaa), ("tidecheck", f_tc))
                  if f.called]
@@ -413,7 +415,7 @@ class LocationRoutingTests(unittest.TestCase):
              patch.object(_tides_tidecheck, "is_available", return_value=False), \
              patch.object(_tides_openmeteo, "find_nearest_openmeteo",
                           return_value=("om:45.2500,-66.0600", "Saint John")):
-            picked = tides._station_for_location(45.25, -66.06, "CA", label="Saint John")
+            picked = _tides_stations._station_for_location(45.25, -66.06, "CA", label="Saint John")
         self.assertEqual(picked, (OPENMETEO, "om:45.2500,-66.0600", "Saint John"))
 
     def test_us_goes_straight_to_noaa(self):
@@ -476,7 +478,7 @@ class LocationRoutingTests(unittest.TestCase):
                           return_value=("om:38.7200,-9.1400", None)), \
              patch("linecast.sunshine.json._location_label",
                    return_value="Lisbon"):
-            picked = tides._station_for_location(38.72, -9.14, "PT")
+            picked = _tides_stations._station_for_location(38.72, -9.14, "PT")
 
         fetch.assert_not_called()
         self.assertEqual(picked, (OPENMETEO, "om:38.7200,-9.1400", "Lisbon"))
@@ -552,7 +554,7 @@ class StationLabelTests(unittest.TestCase):
              patch.object(_tides_openmeteo, "find_nearest_openmeteo",
                           return_value=("om:-41.1576,146.2589", None)), \
              patch("linecast.sunshine.json._location_label") as reverse:
-            picked = tides._station_for_location(
+            picked = _tides_stations._station_for_location(
                 -41.1576, 146.2589, "AU", label="Leith, Tasmania, Australia")
         self.assertEqual(picked[0], OPENMETEO)
         self.assertEqual(picked[2], "Leith, Tasmania, Australia")
@@ -565,8 +567,8 @@ class StationLabelTests(unittest.TestCase):
         with patch.object(_tides_noaa, "find_nearest_station",
                           return_value=("8418150", "PORTLAND")), \
              patch.object(_tides_tidecheck, "is_available", return_value=False):
-            picked = tides._station_for_location(43.68, -70.36, "US",
-                                                 label="Portland, Maine")
+            picked = _tides_stations._station_for_location(43.68, -70.36, "US",
+                                                           label="Portland, Maine")
         self.assertEqual(picked, (NOAA, "8418150", "PORTLAND"))
 
     def test_without_a_label_the_provider_still_names_itself(self):
@@ -577,7 +579,7 @@ class StationLabelTests(unittest.TestCase):
                           return_value=("om:-41.1576,146.2589", None)), \
              patch("linecast.sunshine.json._location_label",
                    return_value="Tasmania, Australia"):
-            picked = tides._station_for_location(-41.1576, 146.2589, "AU")
+            picked = _tides_stations._station_for_location(-41.1576, 146.2589, "AU")
         self.assertEqual(picked[2], "Tasmania, Australia")
 
     def test_only_stationless_providers_are_overridden(self):
@@ -613,7 +615,7 @@ class CtrlCTests(unittest.TestCase):
         start = time.monotonic()
         with self.assertRaises(KeyboardInterrupt):
             threading.Timer(0.2, os.kill, (os.getpid(), signal.SIGINT)).start()
-            tides._fetch_station(Stuck(), "8418150", None, None, live=False)
+            _tides_stations._fetch_station(Stuck(), "8418150", None, None, live=False)
         self.assertLess(time.monotonic() - start, 1.5)
 
 

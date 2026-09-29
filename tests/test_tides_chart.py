@@ -72,7 +72,7 @@ def test_night_shading_follows_summer_time():
 
 def test_aleutian_stations_keep_summer_time():
     from zoneinfo import ZoneInfo
-    from linecast.tides.view import _station_tzinfo
+    from linecast.tides.stations import _station_tzinfo
     adak = {"timezone_abbr": "HAST", "timezonecorr": -10, "observedst": True, "state": "AK"}
     assert _station_tzinfo(adak) == ZoneInfo("America/Adak")
 
