@@ -239,6 +239,18 @@ class ResolveLangTests(ConfigDirMixin):
                 self.assertEqual(resolve_lang(None, {"LANG": value, "LC_ALL": value}),
                                  ("en", "default"))
 
+    def test_the_first_locale_set_decides_even_when_it_names_no_language(self):
+        # LC_ALL=C in a script on a German machine asks for plain output,
+        # and gettext ignores LANGUAGE under C as well.
+        for env in ({"LC_ALL": "C", "LANG": "de_DE.UTF-8"},
+                    {"LC_ALL": "C.UTF-8", "LANGUAGE": "de:fr", "LANG": "de_DE.UTF-8"},
+                    {"LC_MESSAGES": "POSIX", "LANG": "de_DE.UTF-8"},
+                    {"LC_ALL": "fil_PH.UTF-8", "LANG": "de_DE.UTF-8"}):
+            with self.subTest(env=env):
+                self.assertEqual(resolve_lang(None, env), ("en", "default"))
+        self.assertEqual(resolve_lang(None, {"LANGUAGE": "de", "LANG": "en_US.UTF-8"}),
+                         ("de", "LANGUAGE"))
+
     def test_a_three_letter_code_is_not_trimmed_to_two(self):
         # fil_PH is Filipino, not Finnish
         self.assertEqual(resolve_lang(None, {"LANG": "fil_PH"}), ("en", "default"))

@@ -50,6 +50,7 @@ Notable changes, by release. Notes for the next release collect under **Unreleas
 - Maps: In Japanese, a place whose name is written in kana, such as さいたま市 or ファミリーマート, is labelled with that name rather than its romanization, as names in kanji already were.
 - Maps: Fixed elevations in languages that write a decimal comma, where "5,094 m" read as five metres; they are grouped with a space, "5 094 m". A distance just short of a kilometre reads "1.0 km" rather than "1,000 m".
 - Maps: Fixed one damaged map tile in the cache blanking the whole street view with "street tiles unavailable"; it now leaves a gap only where it was.
+- Language: Fixed `LC_ALL=C` being passed over for the language in `LANG`, such as German with `LANG=de_DE.UTF-8`; linecast speaks English under it, as other programs do.
 
 ## 2.9.2 — 2026-09-27
 

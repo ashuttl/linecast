@@ -377,11 +377,20 @@ def resolve_lang(namespace=None, environ=None):
     saved = saved_language()
     if saved is not None:
         return saved, "config"
-    for name in LOCALE_VARS:
-        for value in env.get(name, "").split(":"):
+    # The first of LC_ALL, LC_MESSAGES, and LANG that is set is the
+    # locale, as POSIX has it, so LC_ALL=C over a German LANG is English.
+    # gettext reads the LANGUAGE list ahead of it, unless the locale is C
+    # or POSIX, which ask for no language at all.
+    name = next((var for var in LOCALE_VARS[1:] if env.get(var, "").strip()), None)
+    locale = env[name].strip() if name else ""
+    if not re.fullmatch(r"(c|posix)(\..*)?", locale.lower()):
+        for value in env.get("LANGUAGE", "").split(":"):
             code = language_of(value)
             if code is not None:
-                return code, name
+                return code, "LANGUAGE"
+    code = language_of(locale)
+    if code is not None:
+        return code, name
     return "en", "default"
 
 
