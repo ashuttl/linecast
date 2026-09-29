@@ -440,6 +440,33 @@ def test_spaced_leaves_wide_scripts_alone():
     assert ms.spaced("ソウル") == "ソウル"
 
 
+def test_greek_capitals_drop_their_accents():
+    # ΑΘΉΝΑ is a misspelling in capitals, and ΐ upper-cased by str.upper
+    # is three code points, whose marks spacing set loose in the row
+    assert ms.upper("Αθήνα", "el") == "ΑΘΗΝΑ"
+    assert ms.spaced("Αιγαίο Πέλαγος", "el") == \
+        "Α Ι Γ Α Ι Ο   Π Ε Λ Α Γ Ο Σ"
+    assert ms.spaced("Ζαΐρ", "el") == "Ζ Α Ϊ Ρ"
+    assert ms.upper("Ἀθῆναι", "el") == "ΑΘΗΝΑΙ"
+    # a Greek name is Greek whoever reads it
+    assert ms.upper("Θεσσαλονίκη", "en") == "ΘΕΣΣΑΛΟΝΙΚΗ"
+
+
+def test_greek_keeps_two_vowels_apart_in_capitals():
+    # the accent said ά and ι are two sounds; the diaeresis says it now
+    assert ms.upper("Κάιρο", "el") == "ΚΑΪΡΟ"
+    assert ms.upper("Εύβοια", "el") == "ΕΥΒΟΙΑ"
+    assert ms.upper("Café Ωμέγα", "el") == "CAFÉ ΩΜΕΓΑ"
+
+
+def test_turkish_capitalises_a_dotted_i():
+    assert ms.upper("İzmir", "tr") == "İZMİR"
+    assert ms.spaced("Beşiktaş", "tr") == "B E Ş İ K T A Ş"
+    assert ms.upper("Diyarbakır", "tr") == "DİYARBAKIR"
+    # the reader's language decides it, as it does in print
+    assert ms.upper("Beşiktaş", "en") == "BEŞIKTAŞ"
+
+
 def test_label_styles_use_only_palette_inks():
     for cls, (ink_key, case, bold) in ms.LABEL_STYLES.items():
         assert ink_key in ms.PALETTE_DARK, cls

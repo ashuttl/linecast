@@ -980,11 +980,11 @@ def _style_for(kind, palette):
     return palette.get(ink_key, style._PALETTE_16_DEFAULT), case, bold
 
 
-def _cased(text, case):
+def _cased(text, case, lang="en"):
     if case == "spaced":
-        return style.spaced(text)
+        return style.spaced(text, lang)
     if case == "upper":
-        return text.upper()
+        return style.upper(text, lang)
     return text
 
 
@@ -1062,7 +1062,7 @@ def label_overlays(view, bbox, graph_w, height_cells, band, palette,
                               "hamlet")
         glyph = style.GLYPH_CAPITAL if star else style.GLYPH_GENERIC
         anchor = (glyph, ink, bold) if settlement else None
-        text = _cased(name, case)
+        text = _cased(name, case, lang)
         # An island name belongs on the island, the same way a park name
         # belongs inside the park — but the tile hands islands over as
         # bare points, so the width has to come off the water mask.
@@ -1082,7 +1082,7 @@ def label_overlays(view, bbox, graph_w, height_cells, band, palette,
         if budget <= 0 or placed >= total:
             break
         ink, case, bold = _style_for(kind, palette)
-        text = _cased(name, case)
+        text = _cased(name, case, lang)
         # An area label belongs inside the area it names. A forest
         # parcel ten cells across does not get a forty-nine-cell name
         # laid over the county it sits in — that reads as a label for
@@ -1105,7 +1105,7 @@ def label_overlays(view, bbox, graph_w, height_cells, band, palette,
         if budget <= 0 or placed >= total:
             break
         ink, case, bold = _style_for(kind, palette)
-        n = _place_beside(overlays, occ, cells, _cased(text, case), ink,
+        n = _place_beside(overlays, occ, cells, _cased(text, case, lang), ink,
                           bold, style.SHIELD_REPEAT_CELLS,
                           min(budget, style.SHIELD_MAX_INSTANCES),
                           _text_mark(texts, text))
@@ -1120,7 +1120,7 @@ def label_overlays(view, bbox, graph_w, height_cells, band, palette,
         if budget <= 0 or placed >= total:
             break
         ink, case, bold = _style_for(kind, palette)
-        text = f"[{_cased(ref, case)}]"
+        text = f"[{_cased(ref, case, lang)}]"
         for cell in cells:
             if _place_point(overlays, occ, cell, text, ink, bold):
                 budget -= 1
@@ -1133,7 +1133,7 @@ def label_overlays(view, bbox, graph_w, height_cells, band, palette,
         if budget <= 0 or placed >= total:
             break
         ink, case, bold = _style_for(kind, palette)
-        n = _place_beside(overlays, occ, cells, _cased(name, case), ink,
+        n = _place_beside(overlays, occ, cells, _cased(name, case, lang), ink,
                           bold, style.ROAD_REPEAT_CELLS,
                           min(budget, style.max_instances(
                               graph_w * height_cells)),

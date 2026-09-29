@@ -23,7 +23,9 @@ either mode, not a mode — they live in _globe_now.
 """
 
 import math
+import unicodedata
 
+from linecast._i18n import base_language
 from linecast.terminal.color import color_mode
 from linecast.terminal.textwidth import char_width
 from linecast.terminal import theme as _theme
@@ -898,7 +900,50 @@ def is_capital(props):
     return props.get("capital") in (2, 3, 4)
 
 
-def spaced(name):
+# The marks Greek sets its capitals without: the monotonic tonos, and
+# the polytonic accents and breathings.  The diaeresis stays.
+_GREEK_ACCENTS = frozenset("\u0300\u0301\u0313\u0314\u0342\u0343\u0344")
+# The vowel pairs that are read as one sound unless the first carries
+# the accent, which in capitals only a diaeresis on the second can say.
+_GREEK_DIPHTHONGS = frozenset(("αι", "ει", "οι", "υι", "αυ", "ευ", "ου",
+                               "ηυ"))
+
+
+def upper(text, lang="en"):
+    """`text` in capitals, as its language writes them.
+
+    Turkish capitalises i as İ, where str.upper gives the dotless I:
+    İZMİR, not İZMIR.  Greek drops its accents in capitals — ΑΘΗΝΑ, not
+    ΑΘΉΝΑ — and where the accent kept two vowels apart (Κάιρο), the
+    second takes a diaeresis instead: ΚΑΪΡΟ.  Which Greek letters to
+    unaccent is a matter of the letters, not of the reader's language,
+    since a name reaches the map in Greek only because it is Greek.
+    """
+    if base_language(lang) == "tr":
+        text = text.replace("i", "İ")
+    if not any("\u0370" <= ch <= "\u03ff" or "\u1f00" <= ch <= "\u1fff"
+               for ch in text):
+        return text.upper()
+    letters = []                          # [base, its combining marks]
+    for ch in unicodedata.normalize("NFD", text):
+        if letters and unicodedata.combining(ch):
+            letters[-1][1] += ch
+        else:
+            letters.append([ch, ""])
+    for i, (base, marks) in enumerate(letters):
+        if not "\u0370" <= base <= "\u03ff":
+            continue
+        kept = "".join(m for m in marks if m not in _GREEK_ACCENTS)
+        if kept != marks and i + 1 < len(letters):
+            after = letters[i + 1]
+            if not after[1] and (base + after[0]).lower() in _GREEK_DIPHTHONGS:
+                after[1] = "\u0308"
+        letters[i][1] = kept
+    return unicodedata.normalize(
+        "NFC", "".join(base + marks for base, marks in letters).upper())
+
+
+def spaced(name, lang="en"):
     """SPACED CAPS — the only 'larger size' the terminal has.
 
     No length cap and no unspaced-UPPER fallback: a long area name
@@ -909,7 +954,7 @@ def spaced(name):
     if any(char_width(c, n) != 1
            for c, n in zip(name, name[1:] + " ")):
         return name                      # CJK or emoji: never upper, never space
-    return " ".join(name.upper())
+    return " ".join(upper(name, lang))
 
 
 def label_budget(gw, hc):

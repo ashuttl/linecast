@@ -183,6 +183,14 @@ class TestTheNamesDoNotMoveAtTheHandOff:
                 assert want in self._names(ov), (zoom, lang)
 
 
+    def test_a_city_in_capitals_is_cased_as_the_language_writes(self):
+        # the street register sets a city of a million in capitals:
+        # İZMİR in Turkish, not İZMIR, and ΑΘΗΝΑ in Greek, not ΑΘΉΝΑ
+        tr = self._names(self._street(38.4, 27.1, 8.0, 160, 43, "tr"))
+        assert {"İZMİR", "ATİNA"} <= tr
+        el = self._names(self._street(38.0, 23.7, 8.0, 160, 43, "el"))
+        assert {"ΑΘΗΝΑ", "ΣΜΥΡΝΗ"} <= el
+
 class TestTheBudget:
     """One rule: a name is given a patch of screen, the patch shrinks
     as the view closes in, and the clamp rises with it."""

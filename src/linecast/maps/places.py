@@ -239,7 +239,7 @@ def _walk(cities, cam, band, lang, upper_pop, taken, placed, out, skip,
             # cased before the cut, never after: the caps are what the
             # register draws, so they are what the cells are measured
             # against
-            name = name.upper()
+            name = style.upper(name, lang)
         out.append((col, row, _write(taken, col, row, name, gw), entry))
 
 
