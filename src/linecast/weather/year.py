@@ -39,7 +39,7 @@ from linecast.terminal.color import RESET, bg, fg
 from linecast.terminal.textwidth import visible_len
 from linecast.terminal.framebuffer import Framebuffer, get_terminal_size
 from linecast.terminal.live import overlay
-from linecast.terminal.textwidth import char_width
+from linecast.terminal.textwidth import cells as text_cells, char_width
 from linecast.terminal.theme import ensure_contrast, lerp_rgb, surface_bg
 from linecast.weather import style as _style
 from linecast.weather.daily import mostly_snow
@@ -360,21 +360,9 @@ def _place(overlays, free, rows, text, x, row, ink, width):
     """Text into a panel's overlays at cell x, if every cell it needs is
     inside the panel and free of data (free(cell, row)), with a cell of
     air either side between it and another label."""
-    cells = []
-    base = None
-    for ch in text:
-        w = char_width(ch)
-        if w == 0:
-            # A combining mark (a Thai tone mark, say) rides in its
-            # base's cell rather than claiming the next one.
-            if base is not None:
-                c, chars = cells[base]
-                cells[base] = (c, chars + ch)
-            continue
-        base = len(cells)
-        cells.append((x, ch))
-        cells.extend((x + k, "") for k in range(1, w))
-        x += w
+    laid, w = text_cells(text)
+    cells = [(x + c, ch) for c, ch in laid]
+    x += w
     first = cells[0][0]
     if first < 0 or x > width or not 0 <= row < rows:
         return False

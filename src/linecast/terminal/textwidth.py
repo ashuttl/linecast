@@ -113,6 +113,27 @@ def char_widths(text):
     return widths
 
 
+def cells(text):
+    """*text* as the cells it fills: a list of (column, glyph) from column
+    0, and the width.  A combining mark, a Thai vowel or tone mark say,
+    rides in its base's cell; a wide glyph's second column is an empty
+    glyph, which the caller draws as nothing, so the terminal's own
+    advance fills it.  The one walk every writer of text into cells
+    shares, so a script is laid out the same way everywhere."""
+    out, x, base = [], 0, None
+    for ch, w in zip(text, char_widths(text)):
+        if w == 0:
+            if base is not None:
+                col, glyph = out[base]
+                out[base] = (col, glyph + ch)
+            continue
+        base = len(out)
+        out.append((x, ch))
+        out.extend((x + k, "") for k in range(1, w))
+        x += w
+    return out, x
+
+
 def visible_len(s):
     """Length of a string ignoring ANSI escapes, counting wide/emoji chars as 2."""
     stripped = _OSC.sub('', s)

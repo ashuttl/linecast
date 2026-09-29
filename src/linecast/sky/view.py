@@ -75,7 +75,7 @@ from linecast.sky.scene import (
 )
 from linecast.sky.i18n import _sk, body_name
 from linecast.sunshine.i18n import clock_label, sky_phase
-from linecast.terminal.textwidth import char_width
+from linecast.terminal.textwidth import cells as text_cells
 from linecast.tides.i18n import _ts  # shared "space to return to now" hint
 from linecast.moon.disc import _draw_moon_disc
 from linecast.sunshine.palette import (
@@ -176,30 +176,15 @@ def _put_text(overlays, taken, text, x, row, rgb, bold, graph_w, graph_h,
     the text's cells and a column of air either side."""
     if row < 0 or row >= graph_h or x < 0:
         return False
-    cells = []
-    col = x
-    base = None
-    for i, ch in enumerate(text):
-        w = char_width(ch, text[i + 1] if i + 1 < len(text) else "")
-        if w == 0:
-            # A combining mark (a Thai vowel or tone mark, say) rides in
-            # its base's cell rather than claiming the next one.
-            if base is not None:
-                c, chars = cells[base]
-                cells[base] = (c, chars + ch)
-            continue
-        base = len(cells)
-        cells.append((col, ch))
-        if w == 2:
-            cells.append((col + 1, ""))
-        col += w
+    laid, width = text_cells(text)
+    col = x + width
     if col > graph_w:
         return False
     span = range(max(0, x - pad), min(graph_w, col + pad))
     if any((c, row) in taken for c in span):
         return False
-    for c, ch in cells:
-        overlays[(c, row)] = (ch, rgb, bold)
+    for c, ch in laid:
+        overlays[(x + c, row)] = (ch, rgb, bold)
     for c in span:
         taken.add((c, row))
     return True
