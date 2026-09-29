@@ -20,6 +20,7 @@ weather.fetch_forecast = lambda *a, **k: {"v": 1}
 weather.fetch_aqi = lambda *a, **k: {"aqi": 1}
 weather.fetch_historical = lambda *a, **k: "history"
 weather.fetch_alerts = lambda *a, **k: []
+weather.fetch_observation = lambda *a, **k: None
 weather.local_now = lambda data: datetime.now()
 
 started = threading.Event()
@@ -71,8 +72,10 @@ def test_ctrl_c_exits_without_traceback_or_waiting_for_providers(mode):
 
         sys.argv = ["weather-dev", "--location", "delhi", "--lang", "hi", {mode!r}]
         sys.stdout.isatty = lambda: True
-        weather.resolve_location = lambda *a, **k: (28.61, 77.21, "IN", "Delhi")
-        weather.country_for_defaults = lambda *a: ""
+        # place_for asks _location for the place when it is called
+        from linecast import _location
+        _location.resolve_location = lambda *a, **k: (28.61, 77.21, "IN", "Delhi")
+        _location.country_for_defaults = lambda *a: ""
         weather.fetch_forecast = stuck
 
         def interrupt_wait(self, timeout=None):
