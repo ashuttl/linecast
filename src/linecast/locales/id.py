@@ -20,8 +20,8 @@ MONTHS = ["Jan", "Feb", "Mar", "Apr", "Mei", "Jun",
           "Jul", "Agu", "Sep", "Okt", "Nov", "Des"]
 
 
-MOON_PHASES = ["Bulan Baru", "Sabit Awal", "Kuarter Pertama", "Cembung Awal",
-               "Bulan Purnama", "Cembung Akhir", "Kuarter Akhir", "Sabit Akhir"]
+MOON_PHASES = ["Bulan baru", "Sabit awal", "Kuarter pertama", "Cembung awal",
+               "Bulan purnama", "Cembung akhir", "Kuarter akhir", "Sabit akhir"]
 
 
 HELP = {

@@ -1198,3 +1198,18 @@ class TestKoreanMoonNames:
             "기우는 달", "하현달",
             "그믐달",
         ]
+
+
+class TestMoonPhaseCase:
+    # Languages that capitalise only a sentence's first word and its
+    # proper nouns; German, and the ones that capitalise the Moon itself
+    # (Měsíc, Luna, Ay), are left to their own rules.
+    SENTENCE_CASE = ("da", "es", "fi", "fr", "hu", "id", "is", "it", "nl",
+                     "no", "pl", "pt", "ro", "sv")
+
+    def test_phases_in_sentence_case(self):
+        from linecast.tides.i18n import MOON_NAMES_I18N
+        for lang in self.SENTENCE_CASE:
+            for name in MOON_NAMES_I18N[lang]:
+                first, *rest = name.split()
+                assert all(word.islower() for word in rest), (lang, name)

@@ -21,8 +21,8 @@ MONTHS = ["sty", "lut", "mar", "kwi", "maj", "cze",
           "lip", "sie", "wrz", "paź", "lis", "gru"]
 
 
-MOON_PHASES = ["Nów", "Sierp Rosnący", "Pierwsza Kwadra", "Garb Rosnący",
-               "Pełnia", "Garb Malejący", "Ostatnia Kwadra", "Sierp Malejący"]
+MOON_PHASES = ["Nów", "Sierp rosnący", "Pierwsza kwadra", "Garb rosnący",
+               "Pełnia", "Garb malejący", "Ostatnia kwadra", "Sierp malejący"]
 
 
 HELP = {

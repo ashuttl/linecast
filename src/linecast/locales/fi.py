@@ -20,8 +20,8 @@ FULL_DAY_NAMES = ["maanantai", "tiistai", "keskiviikko", "torstai", "perjantai",
 MONTH_DAY = "{day}.{mnum}."
 
 
-MOON_PHASES = ["Uusikuu", "Kasvava Sirppi", "Ensimmäinen Neljännes", "Kasvava Kuu",
-               "Täysikuu", "Vähenevä Kuu", "Viimeinen Neljännes", "Vähenevä Sirppi"]
+MOON_PHASES = ["Uusikuu", "Kasvava sirppi", "Ensimmäinen neljännes", "Kasvava kuu",
+               "Täysikuu", "Vähenevä kuu", "Viimeinen neljännes", "Vähenevä sirppi"]
 
 
 HELP = {

@@ -21,8 +21,8 @@ MONTHS = ["jan", "feb", "mar", "apr", "mai", "jun",
           "jul", "aug", "sep", "okt", "nov", "des"]
 
 
-MOON_PHASES = ["Nymåne", "Voksende Månesigd", "Første Kvarter", "Voksende Måne",
-               "Fullmåne", "Avtagende Måne", "Siste Kvarter", "Avtagende Månesigd"]
+MOON_PHASES = ["Nymåne", "Voksende månesigd", "Første kvarter", "Voksende måne",
+               "Fullmåne", "Avtagende måne", "Siste kvarter", "Avtagende månesigd"]
 
 
 HELP = {

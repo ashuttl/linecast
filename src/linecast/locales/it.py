@@ -20,8 +20,8 @@ MONTHS = ["gen", "feb", "mar", "apr", "mag", "giu",
           "lug", "ago", "set", "ott", "nov", "dic"]
 
 
-MOON_PHASES = ["Luna Nuova", "Falce Crescente", "Primo Quarto", "Gibbosa Crescente",
-               "Luna Piena", "Gibbosa Calante", "Ultimo Quarto", "Falce Calante"]
+MOON_PHASES = ["Luna nuova", "Falce crescente", "Primo quarto", "Gibbosa crescente",
+               "Luna piena", "Gibbosa calante", "Ultimo quarto", "Falce calante"]
 
 
 HELP = {

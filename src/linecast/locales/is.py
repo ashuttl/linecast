@@ -22,8 +22,8 @@ MONTHS = ["jan", "feb", "mar", "apr", "maí", "jún",
           "júl", "ágú", "sep", "okt", "nóv", "des"]
 
 
-MOON_PHASES = ["Nýtt Tungl", "Vaxandi Hálfmáni", "Fyrsti Fjórðungur", "Vaxandi Tungl",
-               "Fullt Tungl", "Þverrandi Tungl", "Síðasti Fjórðungur", "Þverrandi Hálfmáni"]
+MOON_PHASES = ["Nýtt tungl", "Vaxandi hálfmáni", "Fyrsti fjórðungur", "Vaxandi tungl",
+               "Fullt tungl", "Þverrandi tungl", "Síðasti fjórðungur", "Þverrandi hálfmáni"]
 
 
 HELP = {

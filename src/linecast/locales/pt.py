@@ -20,8 +20,8 @@ MONTHS = ["jan", "fev", "mar", "abr", "mai", "jun",
           "jul", "ago", "set", "out", "nov", "dez"]
 
 
-MOON_PHASES = ["Lua Nova", "Crescente Côncava", "Quarto Crescente", "Crescente Convexa",
-               "Lua Cheia", "Minguante Convexa", "Quarto Minguante", "Minguante Côncava"]
+MOON_PHASES = ["Lua nova", "Crescente côncava", "Quarto crescente", "Crescente convexa",
+               "Lua cheia", "Minguante convexa", "Quarto minguante", "Minguante côncava"]
 
 
 HELP = {

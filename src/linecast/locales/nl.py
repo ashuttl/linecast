@@ -20,8 +20,8 @@ MONTHS = ["jan", "feb", "mrt", "apr", "mei", "jun",
           "jul", "aug", "sep", "okt", "nov", "dec"]
 
 
-MOON_PHASES = ["Nieuwe Maan", "Wassende Sikkel", "Eerste Kwartier", "Wassende Maan",
-               "Volle Maan", "Afnemende Maan", "Laatste Kwartier", "Afnemende Sikkel"]
+MOON_PHASES = ["Nieuwe maan", "Wassende sikkel", "Eerste kwartier", "Wassende maan",
+               "Volle maan", "Afnemende maan", "Laatste kwartier", "Afnemende sikkel"]
 
 
 HELP = {
