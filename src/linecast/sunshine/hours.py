@@ -14,7 +14,7 @@ sunrise and sunset go last, since the line above names them already.
 
 from linecast.terminal.color import RESET, fg
 from linecast.terminal.textwidth import visible_len
-from linecast.terminal.framebuffer import fmt_time_dt
+from linecast._timefmt import fmt_time_dt
 from linecast._i18n import lang_of
 from linecast.astro.hours import elapsed, fmt_duration, last_mark, next_mark, reading, utc
 from linecast.astro.hours.i18n import hs, mark_name, reading_name, unit_name, variant_name

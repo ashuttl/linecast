@@ -608,7 +608,7 @@ def _time_phrase(dt, now, runtime, after=None, same_sentence=False):
     if dt.date() == now.date():
         if dt.hour == 12 and _has("around_noon", runtime):
             return _s("around_noon", runtime)
-        from linecast.terminal.framebuffer import fmt_hour_phrase
+        from linecast._timefmt import fmt_hour_phrase
         return _s("around", runtime,
                   time=fmt_hour_phrase(dt.hour, sentence_24h(runtime), lang))
     tomorrow = (now + timedelta(days=1)).date()

@@ -5,7 +5,7 @@ from string import Formatter
 
 import pytest
 
-from linecast.terminal.framebuffer import fmt_hour_phrase
+from linecast._timefmt import fmt_hour_phrase
 from linecast._i18n import LANGUAGE_CODES
 from linecast.moon.i18n import _ms, _fmt_month_day
 from linecast._runtime import WeatherRuntime, language_of, resolve_lang

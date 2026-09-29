@@ -8,7 +8,7 @@ these renderers instead of the full terminal UI.
 from linecast.weather.i18n import fmt_wind
 from linecast._i18n import fmt_decimal, fmt_duration_parts, fmt_percent, has_duration_words, lang_of
 from linecast.terminal.color import fg, RESET
-from linecast.terminal.framebuffer import fmt_time, fmt_time_dt
+from linecast._timefmt import fmt_time, fmt_time_dt
 
 
 def emit(line, stream=None):

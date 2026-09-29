@@ -56,7 +56,7 @@ def _parse_alert_time(iso_str, runtime=None, tz_name=""):
         day = day_names[dt.weekday()]
         if use_24h:
             return f"{day} {dt.strftime('%H:%M')}"
-        from linecast.terminal.framebuffer import fmt_hour_phrase
+        from linecast._timefmt import fmt_hour_phrase
         phrase = fmt_hour_phrase(dt.hour, lang=lang_of(runtime))
         if dt.minute:
             # A warning that ends at 3:45 must not read "until 3pm"

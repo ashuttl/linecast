@@ -7,7 +7,7 @@ from linecast.terminal import theme as _theme
 from linecast.terminal.braille import build_braille_curve, interpolate
 from linecast.terminal.color import bg, color_mode, fg, RESET
 from linecast.terminal.textwidth import visible_len
-from linecast.terminal.framebuffer import fmt_hour, fmt_time_dt
+from linecast._timefmt import fmt_hour, fmt_time_dt
 from linecast._runtime import WeatherRuntime, current_runtime
 from linecast._log import log_skipped
 from linecast._i18n import is_rtl, lang_of, table_for

@@ -27,7 +27,7 @@ SRC = Path(__file__).resolve().parent.parent / "src" / "linecast"
 COMMANDS = {"weather", "sunshine", "moon", "sky", "tides", "radar", "maps"}
 LAYERS = {
     **dict.fromkeys(("__init__", "_paths", "_plaintext", "_geo", "_png", "_i18n", "_log",
-                     "locales"), 0),
+                     "_timefmt", "locales"), 0),
     **dict.fromkeys(("_cache", "_http", "_rate_limit", "_config", "_location", "_geocode"), 1),
     **dict.fromkeys(("terminal", "astro", "_commands", "_parsers", "_runtime"), 2),
     **dict.fromkeys(COMMANDS, 3),

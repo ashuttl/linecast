@@ -15,7 +15,7 @@ import threading
 from linecast.terminal import live as _live
 from linecast.terminal import theme as _theme
 from linecast.terminal.color import fg, bg, RESET
-from linecast.terminal.framebuffer import fmt_time_dt
+from linecast._timefmt import fmt_time_dt
 from linecast.terminal.theme import ensure_contrast
 from linecast.weather.style import TOOLTIP_BG_RGB
 from linecast.radar.basemap import (

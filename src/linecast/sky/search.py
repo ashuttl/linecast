@@ -457,7 +457,7 @@ def _wrap(text, width):
 
 def describe_rising(target, rising, runtime, culture=None):
     """'Orion rises at 02:14 in the E', or that it never rises here."""
-    from linecast.terminal.framebuffer import fmt_time_dt
+    from linecast._timefmt import fmt_time_dt
     from linecast._i18n import sentence_24h
     from linecast.sky.i18n import _sk
     from linecast.sky.view import compass_point

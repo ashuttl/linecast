@@ -26,7 +26,7 @@ from datetime import date, datetime, time, timedelta, timezone
 from linecast.terminal import live as _live
 from linecast.terminal import theme as _theme
 from linecast.astro.ephemeris import _moon_events_for_local_date, next_moon_phase_utc
-from linecast.terminal.framebuffer import fmt_time_dt
+from linecast._timefmt import fmt_time_dt
 from linecast.terminal.color import bg, fg
 from linecast.terminal.textwidth import visible_len
 from linecast.terminal.framebuffer import Framebuffer, cell_aspect, get_terminal_size

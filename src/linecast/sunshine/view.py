@@ -22,7 +22,8 @@ from datetime import datetime
 from linecast.terminal.braille import braille_rows_from_ys
 from linecast.terminal.color import fg, RESET, lerp, interp_stops
 from linecast.terminal.textwidth import visible_len
-from linecast.terminal.framebuffer import fmt_time, fmt_time_dt, get_terminal_size, Framebuffer
+from linecast.terminal.framebuffer import get_terminal_size, Framebuffer
+from linecast._timefmt import fmt_time, fmt_time_dt
 from linecast.terminal.live import live_loop
 from linecast.terminal import theme as _theme
 from linecast.terminal.theme import darken, lighten

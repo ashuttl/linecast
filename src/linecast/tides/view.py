@@ -30,7 +30,8 @@ from datetime import datetime, timezone, timedelta
 from linecast.terminal.braille import build_braille_curve
 from linecast.terminal.color import bg, fg, RESET
 from linecast.terminal.textwidth import visible_len
-from linecast.terminal.framebuffer import fmt_time_dt, get_terminal_size
+from linecast.terminal.framebuffer import get_terminal_size
+from linecast._timefmt import fmt_time_dt
 from linecast.terminal import live as _live
 from linecast.terminal import theme as _theme
 from linecast.terminal.theme import (

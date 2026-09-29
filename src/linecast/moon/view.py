@@ -38,7 +38,7 @@ import threading
 from datetime import datetime, timedelta, timezone
 from typing import NamedTuple
 
-from linecast.terminal.framebuffer import fmt_time_dt
+from linecast._timefmt import fmt_time_dt
 from linecast.terminal.color import lerp
 from linecast.terminal.textwidth import visible_len
 from linecast.terminal.framebuffer import get_terminal_size, cell_aspect, Framebuffer
