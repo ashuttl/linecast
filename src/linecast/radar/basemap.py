@@ -231,6 +231,26 @@ def _bresenham(x0, y0, x1, y1):
             y0 += sy
 
 
+def _off_the_cut(rings):
+    """Rings as runs of coast, less their edges along the antimeridian.
+
+    The data cuts land at ±180 (Chukotka, Wrangel Island, Taveuni), and
+    in a view that crosses it the cut is no shore.
+    """
+    runs = []
+    for ring in rings:
+        run = []
+        for p in ring:
+            if run and abs(p[0]) == 180 and abs(run[-1][0]) == 180:
+                if len(run) > 1:
+                    runs.append(run)
+                run = []
+            run.append(p)
+        if len(run) > 1:
+            runs.append(run)
+    return runs
+
+
 def _edge_dots(is_land, is_water, gw, hc):
     """Braille masks stroking the land/water boundary of dot masks.
 
@@ -332,9 +352,22 @@ class DotLayer:
                                int(round(x1)), int(round(y1))):
             self._set_dot(x, y, color, rank)
 
-    def _in_view(self, points):
-        """True if a feature's lon/lat bbox overlaps the view (cheap cull)."""
+    def _turns(self):
+        """The shifts in longitude that bring the data into the view.
+
+        The data's longitudes stop at ±180, and a view can run past
+        them: Fiji's reaches 184°E, where the Lau group, at -179°, is
+        drawn a turn of the planet east, at 181°.
+        """
+        minlon, _, maxlon, _ = self.bbox
+        return ((0.0,) + ((360.0,) if maxlon > 180 else ())
+                + ((-360.0,) if minlon < -180 else ()))
+
+    def _in_view(self, points, turn=0.0):
+        """True if a feature's lon/lat bbox, moved `turn` degrees east,
+        overlaps the view (cheap cull)."""
         minlon, minlat, maxlon, maxlat = self.bbox
+        minlon, maxlon = minlon - turn, maxlon - turn
         lo_lon = lo_lat = float("inf")
         hi_lon = hi_lat = float("-inf")
         for lon, lat in points:
@@ -353,13 +386,14 @@ class DotLayer:
         # `project` places a (lon, lat) on the dot grid for a caller
         # whose map is not the bbox's own — the terrain camera
         offsets = ((0, 0),) if width <= 1 else ((0, 0), (1, 0), (0, 1))
-        for coords in lines:
-            if not self._in_view(coords):
+        turns = self._turns() if project is None else (0.0,)
+        for coords, turn in ((c, t) for c in lines for t in turns):
+            if not self._in_view(coords, turn):
                 continue
             prev = None
             for lon, lat in coords:
                 p = (project(lon, lat) if project is not None
-                     else _project(lon, lat, self.bbox, self.dw, self.dh))
+                     else _project(lon + turn, lat, self.bbox, self.dw, self.dh))
                 if prev is not None:
                     for ox, oy in offsets:
                         self._dot_line(prev[0] + ox, prev[1] + oy,
@@ -370,7 +404,7 @@ class DotLayer:
 class Basemap(DotLayer):
     """Pre-rasterised braille geography for one (bbox, size). Reused per frame."""
 
-    _CACHE_FMT = 1
+    _CACHE_FMT = 2
 
     def __init__(self, bbox, graph_w, height_cells):
         super().__init__(bbox, graph_w, height_cells)
@@ -448,11 +482,12 @@ class Basemap(DotLayer):
         resolution, writing ``value`` inside.  Even-odd across a group's rings
         means interior rings (island holes) keep the opposite value, so filling
         land with 1 and then carving lakes with 0 both respect their holes."""
-        for rings in poly_groups:
-            if not self._in_view([p for ring in rings for p in ring]):
+        turns = self._turns()
+        for rings, turn in ((r, t) for r in poly_groups for t in turns):
+            if not self._in_view([p for ring in rings for p in ring], turn):
                 continue
             # project rings to dot space
-            prings = [[_project(lon, lat, self.bbox, self.dw, self.dh)
+            prings = [[_project(lon + turn, lat, self.bbox, self.dw, self.dh)
                        for lon, lat in ring] for ring in rings]
             ys = [p[1] for ring in prings for p in ring]
             y0 = max(0, int(min(ys)))
@@ -511,6 +546,8 @@ class Basemap(DotLayer):
         # the land/sea fill boundary can never disagree.
         data = _load_data()
         coast = [ring for rings in data["land"] for ring in rings]
+        if len(self._turns()) > 1:
+            coast = _off_the_cut(coast)
         # lake shorelines are coastlines too: draw them in COAST so the crisp
         # boundary is re-added over the coarse sub-pixel water fill, exactly as
         # for the ocean coast.
@@ -542,9 +579,10 @@ class Basemap(DotLayer):
         if max_cities is None:
             max_cities = max(6, min(24, (self.graph_w * self.height_cells) // 400))
         minlon, minlat, maxlon, maxlat = self.bbox
+        turns = self._turns() if project is None else (0.0,)
         inview = []
-        for entry in _load_data()["cities"]:
-            lon, lat, pop = entry[0], entry[1], entry[2]
+        for entry, turn in ((e, t) for e in _load_data()["cities"] for t in turns):
+            lon, lat, pop = entry[0] + turn, entry[1], entry[2]
             if minlon <= lon <= maxlon and minlat <= lat <= maxlat:
                 inview.append((pop, _localized(entry, lang), lon, lat))
         inview.sort(key=lambda c: c[0], reverse=True)

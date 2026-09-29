@@ -136,6 +136,49 @@ class TestBasemapSyntheticData:
         assert basemap_mod._DATA["cities"][0][3] == "Testville"
 
 
+class TestBasemapAntimeridian:
+    """An island the data cuts at ±180, as Natural Earth cuts Taveuni,
+    seen from views that run past the antimeridian either way."""
+
+    GRAPH_W = 10
+    HEIGHT_CELLS = 5
+
+    def setup_method(self):
+        self._original_data = basemap_mod._DATA
+        west = [(178, -3), (180, -3), (180, 3), (178, 3), (178, -3)]
+        east = [(-180, -3), (-178, -3), (-178, 3), (-180, 3), (-180, -3)]
+        basemap_mod._DATA = {
+            "land": [[west], [east]],
+            "lakes": [],
+            "borders": [],
+            "cities": [[-179.0, 0.0, 1_000_000, "Eastville"]],
+        }
+
+    def teardown_method(self):
+        basemap_mod._DATA = self._original_data
+
+    def test_land_east_of_the_antimeridian_is_drawn(self):
+        # 175..185: lon -179 is 181, dot (12, 10), sub-pixel (6, 5)
+        bm = Basemap((175.0, -5.0, 185.0, 5.0), self.GRAPH_W, self.HEIGHT_CELLS)
+        assert bm.sea[5][6] is False
+        # and its east coast, -178 = 182: dot (14, 10), cell (7, 2)
+        assert bm.color[2][7] == COAST
+
+    def test_land_west_of_the_antimeridian_is_drawn(self):
+        # -185..-175: lon 179 is -181, dot (8, 10), sub-pixel (4, 5)
+        bm = Basemap((-185.0, -5.0, -175.0, 5.0), self.GRAPH_W, self.HEIGHT_CELLS)
+        assert bm.sea[5][4] is False
+
+    def test_the_cut_is_not_a_coast(self):
+        # lon 180, lat 0: dot (10, 10), cell (5, 2), inside the island
+        bm = Basemap((175.0, -5.0, 185.0, 5.0), self.GRAPH_W, self.HEIGHT_CELLS)
+        assert bm.dots[2][5] == 0
+
+    def test_a_city_east_of_the_antimeridian_is_named(self):
+        bm = Basemap((175.0, -5.0, 185.0, 5.0), self.GRAPH_W, self.HEIGHT_CELLS)
+        assert bm.city_overlays(max_cities=1)[(6, 2)] == ("•", CITY)
+
+
 class TestBasemapLakes:
     """Lakes are carved out of the land fill (their islands staying land via
     even-odd fill) and their shorelines stroked like coastline."""
