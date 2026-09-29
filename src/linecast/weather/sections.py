@@ -1529,8 +1529,11 @@ def _snow_sentence(parts, hourly, now, runtime):
         return "", False
     codes = hourly.get("weather_code", [])
     snowfall = hourly.get("snowfall") or []
-    snow_hours = sum(1 for i, _ in run if i < len(codes) and codes[i] in _SNOW_CODES)
-    if snow_hours * 2 < len(run):
+    snowy = [k for k, (i, _) in enumerate(run) if i < len(codes) and codes[i] in _SNOW_CODES]
+    # Most of the snow's own span must be snow: a flake or two in a day
+    # of rain is not a snowfall, but snow that turns to rain is one
+    # however long the rain goes on after it
+    if not snowy or len(snowy) * 2 < snowy[-1] - snowy[0] + 1:
         return "", False
     total_cm = _snow_cm(sum((snowfall[i] if i < len(snowfall) else 0) or 0 for i, _ in run),
                         runtime)
@@ -1546,7 +1549,7 @@ def _snow_sentence(parts, hourly, now, runtime):
     # Snow that turns to rain is done piling up when it turns: "about 3
     # inches of snow by early afternoon", not by the evening the rain
     # ends in
-    last = max(k for k, (i, _) in enumerate(run) if i < len(codes) and codes[i] in _SNOW_CODES)
+    last = snowy[-1]
     end = run[last + 1][1] if last + 1 < len(run) else parts["end"] or run[-1][1]
     return (_ucfirst(_s("snow_total", runtime, amt=amt,
                         time=_period_phrase(end, now, runtime, by=True))),

@@ -603,6 +603,19 @@ class TestWhatLands:
         assert snow_total_sentence(hourly, self.EVENING, _runtime()) == \
             "About 4 inches of snow by tonight"
 
+    def test_the_snow_total_stands_however_long_the_rain_goes_on(self):
+        from linecast.weather.sections import snow_total_sentence
+        codes = [73] * 4 + [63] * 8
+        hourly = self._hourly(codes, [0.06] * 4 + [0.12] * 8)
+        hourly["snowfall"] = [0.9] * 4 + [0] * 8
+        assert snow_total_sentence(hourly, self.EVENING, _runtime()) == \
+            "About 4 inches of snow by tonight"
+        # but snow here and there in a day of rain is not a snowfall
+        codes = [73, 63, 63, 63, 63, 73, 63, 63, 63, 63, 63, 73]
+        hourly = self._hourly(codes, [0.1] * 12)
+        hourly["snowfall"] = [0.9 if c == 73 else 0 for c in codes]
+        assert snow_total_sentence(hourly, self.EVENING, _runtime()) == ""
+
 
 class TestHedges:
     """The word before "starting" follows the odds."""
