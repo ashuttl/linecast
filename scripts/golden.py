@@ -708,18 +708,93 @@ def _(ctx):
 # ---------------------------------------------------------------------------
 # Maps: synthetic ground, as tests/test_render_snapshots.py draws it
 # ---------------------------------------------------------------------------
-def _maps(ctx, view, zoom, **kw):
+def _varint(n):
+    out = bytearray()
+    while True:
+        b, n = n & 0x7F, n >> 7
+        out.append(b | 0x80 if n else b)
+        if not n:
+            return bytes(out)
+
+
+def _pbf(num, wire, payload):
+    key = _varint((num << 3) | wire)
+    return key + (_varint(payload) if wire == 0 else _varint(len(payload)) + payload)
+
+
+def _mvt_layer(name, kind, points, props):
+    """One vector-tile layer of one feature: a closed ring for a polygon
+    (kind 3), clockwise on screen, or a line (kind 2) through `points`."""
+    def zz(n):
+        return (n << 1) ^ (n >> 63)
+    nums = [9, zz(points[0][0]), zz(points[0][1]), ((len(points) - 1) << 3) | 2]
+    for (ax, ay), (bx, by) in zip(points, points[1:]):
+        nums += [zz(bx - ax), zz(by - ay)]
+    if kind == 3:
+        nums.append(15)
+    tags = b"".join(_varint(i) for i in range(len(props)) for _ in (0, 1))
+    feature = (_pbf(3, 0, kind) + _pbf(2, 2, tags)
+               + _pbf(4, 2, b"".join(_varint(n) for n in nums)))
+    parts = [_pbf(15, 0, 2), _pbf(1, 2, name.encode()), _pbf(2, 2, feature)]
+    parts += [_pbf(3, 2, k.encode()) for k in props]
+    parts += [_pbf(4, 2, _pbf(1, 2, v.encode())) for v in props.values()]
+    parts.append(_pbf(5, 0, 4096))
+    return _pbf(3, 2, b"".join(parts))
+
+
+def _street_tiles(bbox, gw, hc, block, lang="en", reserved=(), window=None):
+    """The street loader over hand-made tiles laid against the view: a
+    harbour over its western half and a named road across the middle."""
+    import math
+    from linecast.maps import globe as _globe
+    from linecast.maps import streets
+    band, _z, keys = streets.view_tiles(bbox, hc, window)
+    minlon, minlat, maxlon, maxlat = bbox
+    midlon, midlat, reach = (minlon + maxlon) / 2, (minlat + maxlat) / 2, maxlon - minlon
+    tiles = {}
+    for z, tx, ty in keys:
+        def xy(lon, lat, n=1 << z, tx=tx, ty=ty):
+            s = math.sin(math.radians(lat))
+            wy = 0.5 - math.log((1 + s) / (1 - s)) / (4 * math.pi)
+            return (round(((lon + 180.0) / 360.0 * n - tx) * 4096), round((wy * n - ty) * 4096))
+        (x0, y0), (x1, y1) = xy(minlon - reach, maxlat + reach), xy(midlon, minlat - reach)
+        road = [xy(minlon - reach, midlat), xy(maxlon + reach, midlat)]
+        tiles[(z, tx, ty)] = (
+            _mvt_layer("water", 3, [(x0, y0), (x1, y0), (x1, y1), (x0, y1)], {"class": "lake"})
+            + _mvt_layer("transportation", 2, road, {"class": "primary"})
+            + _mvt_layer("transportation_name", 2, road,
+                         {"class": "primary", "name": "Congress Street"}))
+    cells = None
+    if window is not None:
+        cells = (round((window[0][2] - window[0][0]) / (reach / gw)), window[1])
+    cam = _globe.Camera.for_bbox(bbox, gw, hc)
+    camera = None if _globe.affine_ok(cam.lat, cam.zoom, gw, hc) else cam
+    return streets.build_street_view(bbox, gw, hc, tiles, band, lang, reserved, None, camera, cells)
+
+
+def _maps(ctx, view, zoom, live=False, offline=False, fail=False, at=None, **kw):
     from unittest import mock
     from linecast.maps import globe as _globe
-    from linecast.maps import loaders, paint
+    from linecast.maps import globe_now, loaders, paint
     from linecast.maps import view as maps
     _mirror(False)
-    lat, lon = 43.66, -70.26
+    lat, lon = at or (43.66, -70.26)
+    # the Sun where the stopped clock has it, and no clouds to fetch
+    subsolar = globe_now.subsolar(_now().timestamp())
 
     def elevation(bbox, gw, hc, block, window=None):
+        if fail:
+            raise RuntimeError("no network")
+        if offline:
+            return maps._EMPTY_TERRAIN
         fine = [[(x - gw * 1.4) * 2.0 for x in range(gw * 2)] for _ in range(hc * 4)]
         grid = [[(x - gw * 0.7) * 4.0 for x in range(gw)] for _ in range(hc * 2)]
         return maps.TerrainView(grid, loaders._coast_dots(fine, gw, hc), None, None, None)
+
+    def street_tiles(*args, **kwargs):
+        if fail:
+            raise RuntimeError("no network")
+        return (None, None, None) if offline else _street_tiles(*args, **kwargs)
 
     def synth(lls):
         return [[None if ll is None else (1200.0 if ll[1] > lon else -3200.0)
@@ -734,9 +809,13 @@ def _maps(ctx, view, zoom, **kw):
                                                     paint.BORDER_STROKE))
 
     with mock.patch.object(maps, "_get_elevation", elevation), \
-            mock.patch.object(maps, "_get_globe", get_globe):
+            mock.patch.object(maps, "_get_globe", get_globe), \
+            mock.patch.object(maps, "_get_street_tiles", street_tiles), \
+            mock.patch.object(maps, "_get_clouds", lambda *a: None), \
+            mock.patch.object(globe_now, "subsolar", lambda t=None: subsolar):
         return maps.render_map(lat, lon, "Portland, Maine", zoom,
-                               runtime=ctx.runtime(**kw.pop("flags", {})), view=view, **kw)
+                               runtime=ctx.runtime(live=live, **kw.pop("flags", {})),
+                               view=view, block=not live, **kw)
 
 
 @scene("maps-terrain", themes=("stock", "dark"))
@@ -747,6 +826,63 @@ def _(ctx):
 @scene("maps-globe", themes=("stock", "dark"))
 def _(ctx):
     return ctx.printed(_maps(ctx, "terrain", 125.0))
+
+
+@scene("maps-street", themes=("stock", "dark"))
+def _(ctx):
+    return ctx.printed(_maps(ctx, "street", 0.02))
+
+
+@scene("maps-route", themes=("stock", "dark"))
+def _(ctx):
+    from linecast.maps.route import _parse
+    route = _parse(_fixture("osrm_route.json"), "car")
+    ends = dict(route=route, dest=(43.660968, -70.255059),
+                origin=(43.677099, -70.370996, "Westbrook"))
+    return "\n----\n".join(
+        ctx.printed(_maps(ctx, view, 0.15, at=(43.67, -70.31), **ends))
+        for view in ("street", "terrain"))
+
+
+@scene("maps-live", themes=("stock", "dark"))
+def _(ctx):
+    # One reader's frames in each register: the overscan built and
+    # cropped, a pan inside its margin in motion and at rest, a drag
+    # preview, a pan past the margin with the network gone (the last
+    # view stands in), the Sun and the clouds, and the planet.
+    from linecast.maps import view as maps
+    lat, lon, z = 43.66, -70.26, 0.02
+    frames = []
+    home = dict(live=True, marker=(lat, lon))
+    east = (lat, lon + z * 0.1)
+    for view in ("terrain", "street"):
+        maps._last_terrain[0] = maps._last_street[0] = None
+        frames += [
+            _maps(ctx, view, z, mouse_pos=(30, 13), **home),
+            _maps(ctx, view, z, at=east, motion=(1, 0), moving=True, **home),
+            _maps(ctx, view, z, at=east, mouse_pos=(50, 13), **home),
+            _maps(ctx, view, z, at=east, pan_offset=(4, 1), **home),
+            _maps(ctx, view, z, at=(lat, lon + z * 2), offline=True, **home),
+            _maps(ctx, view, z, sun=True, clouds=True, **home),
+            _maps(ctx, view, 125.0, sun=True, **home),
+        ]
+    maps._last_terrain[0] = maps._last_street[0] = None
+    return "\n----\n".join(ctx.live(f) for f in frames)
+
+
+@scene("maps-footers", size=(230, 10), themes=("stock",))
+def _(ctx):
+    # wide enough for every rung of the credits: each register flat and
+    # round, with and without the sky, and a failed load
+    frames = []
+    for view in ("terrain", "street"):
+        for zoom in (0.02, 125.0):
+            frames += [_maps(ctx, view, zoom),
+                       _maps(ctx, view, zoom, live=True, sun=True),
+                       _maps(ctx, view, zoom, live=True, clouds=True),
+                       _maps(ctx, view, zoom, live=True, sun=True, clouds=True)]
+        frames.append(_maps(ctx, view, 0.02, fail=True))
+    return "\n----\n".join(ctx.live(f) for f in frames)
 
 
 @scene("maps-panels", size=(100, 30), themes=("stock", "dark"))
