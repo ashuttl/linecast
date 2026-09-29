@@ -5,7 +5,7 @@ import os
 import sys
 from datetime import tzinfo
 
-from linecast._cache import location_cache_key, read_cache, write_cache
+from linecast._cache import location_cache_key, read_cache, read_stale, write_cache
 from linecast._config import saved_location
 from linecast._http import fetch_json, fetch_json_cached
 from linecast._paths import cache_dir
@@ -75,10 +75,17 @@ def get_location() -> tuple[float | None, float | None, str | None]:
         except Exception as exc:
             last = i == len(PROVIDERS) - 1
             log_failure(f"location/{name}", "geolocation", exc, url=url,
-                        fallback="no location" if last
+                        fallback="last location found, if any" if last
                         else PROVIDERS[i + 1][0])
     else:
-        return None, None, None
+        # Offline, the place the machine was last found is a better
+        # guess than none, and the moon, the sky and the sun need
+        # nothing else from the network.
+        stale = read_stale(_cache_file())
+        try:
+            return float(stale["lat"]), float(stale["lng"]), stale.get("country", "")
+        except (TypeError, KeyError, ValueError, AttributeError):
+            return None, None, None
 
     # the answer is in hand; keeping it is a separate, best-effort matter
     write_cache(_cache_file(), {"lat": lat, "lng": lng, "country": country})

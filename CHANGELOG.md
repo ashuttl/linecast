@@ -53,6 +53,7 @@ Notable changes, by release. Notes for the next release collect under **Unreleas
 - Language: Fixed `LC_ALL=C` being passed over for the language in `LANG`, such as German with `LANG=de_DE.UTF-8`; linecast speaks English under it, as other programs do.
 - Language: Fixed `linecast language` refusing `zh_Hant`, and a region given in numbers, such as `es-419` for Latin American Spanish, which `--lang` takes.
 - Link: Fixed `linecast link` ending in a Python traceback where linecast is installed in a directory the user cannot write in, as with a system package; it says so and suggests `--dir`.
+- Location: Fixed the moon, sunshine and sky views saying "Could not determine location" when offline, once an hour had passed since linecast last found where the machine is; with no location saved, they use the last place found.
 
 ## 2.9.2 — 2026-09-27
 

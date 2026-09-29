@@ -80,6 +80,22 @@ class GeolocationProviderChainTests(unittest.TestCase):
 
         self.assertEqual(self._get_location(fake), (None, None, None))
 
+    def test_offline_the_last_location_found_stands(self):
+        # A laptop on a train, an hour after the last run: the moon and
+        # the sky need no network, so the old answer beats none.
+        def fake(url, headers=None, timeout=0):
+            raise OSError("Network is unreachable")
+
+        with tempfile.TemporaryDirectory() as tmpdir, \
+             patch.dict(os.environ, {"LINECAST_CACHE_DIR": tmpdir}), \
+             patch.object(_location, "saved_location", return_value=None), \
+             patch.object(_location, "fetch_json", side_effect=fake):
+            cache_file = Path(tmpdir) / "location.json"
+            cache_file.write_text(json.dumps({"lat": 1.0, "lng": 2.0, "country": "US"}))
+            stale_at = time.time() - 3 * 86400
+            os.utime(cache_file, (stale_at, stale_at))
+            self.assertEqual(_location.get_location(), (1.0, 2.0, "US"))
+
 
 class GeocoderFallbackTests(unittest.TestCase):
     def test_photon_answers_when_open_meteo_fails(self):
