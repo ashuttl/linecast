@@ -337,6 +337,150 @@ def _arrow(final):
     return {b'A': 'fwd', b'B': 'back', b'C': 'fwd', b'D': 'back'}.get(final)
 
 
+# The keys a view answers to outside a text field, byte to action; any
+# other byte is dropped.  A key a view handles and its help lists must be
+# here too, or it never reaches on_action.  A letter reads the same in
+# either case, except W, A, S and D: lower-case wasd pans, and the
+# shifted letters keep the view actions panning displaced.  A digit is
+# itself.
+_KEYS = {
+    b'q': 'quit', b'Q': 'quit',
+    b'o': 'open', b'O': 'open',
+    b'n': 'reset', b'N': 'reset', b' ': 'reset',
+    b'+': 'key:+', b'=': 'key:+',
+    b'-': 'key:-', b'_': 'key:-',
+    b't': 'key:t', b'T': 'key:t',
+    b'c': 'key:c', b'C': 'key:c',
+    b'w': 'key:w', b'a': 'key:a', b's': 'key:s', b'd': 'key:d',
+    b'W': 'key:W', b'A': 'key:A', b'S': 'key:S', b'D': 'key:D',
+    b'v': 'key:v', b'V': 'key:v',
+    b'p': 'key:p', b'P': 'key:p',
+    b'l': 'key:l', b'L': 'key:l',
+    b'm': 'key:m', b'M': 'key:m',
+    b'y': 'key:y', b'Y': 'key:y',
+    b'r': 'key:r', b'R': 'key:r',
+    b'/': 'key:/', b'?': 'key:?',
+    b'\r': 'key:enter', b'\n': 'key:enter',
+    **{digit.encode(): 'key:' + digit for digit in '0123456789'},
+}
+
+
+def _read_byte_timeout(fd, timeout):
+    """The next byte of input if it arrives within `timeout` seconds, else None."""
+    if _term.wait_readable(fd, timeout):
+        return _term.read_byte(fd)
+    return None
+
+
+def _read_utf8(fd, lead):
+    """The character a UTF-8 lead byte starts, or None if it is broken."""
+    o = lead[0]
+    if 0xC0 <= o < 0xE0:
+        extra = 1
+    elif 0xE0 <= o < 0xF0:
+        extra = 2
+    elif 0xF0 <= o < 0xF8:
+        extra = 3
+    else:
+        return None  # stray continuation byte or invalid lead
+    buf = bytearray(lead)
+    for _ in range(extra):
+        c = _read_byte_timeout(fd, 0.05)
+        if c is None:
+            return None
+        buf.extend(c)
+    try:
+        return buf.decode('utf-8')
+    except UnicodeDecodeError:
+        return None
+
+
+def _read_escape(fd):
+    """What an ESC just read begins: an arrow, a mouse report, the
+    terminal's answer to a query, or the Esc key alone.
+
+    Reads the whole of an OSC, CSI or SS3 sequence, so none of its bytes
+    is later taken for a key.  Returns an action, a mouse tuple, 'ack',
+    'theme', 'escape', or None for a sequence that means nothing here.
+    """
+    # Use 150ms timeout — 50ms is too short when the system is busy
+    # rendering; mouse release sequences (\033[<0;x;ym) can arrive late
+    # and the \033 gets read as a bare ESC.
+    b2 = _read_byte_timeout(fd, 0.15)
+    if b2 is None:
+        return 'escape'
+    if b2 == b'\033':
+        # Esc, and the next sequence already arriving: a mouse report
+        # while the pointer moves, an arrow.  The first is a bare Esc;
+        # the second goes back to start the next read, or the rest of
+        # its sequence would be taken for keys ([<35;12;5M: 3, 5, m)
+        _term.unread(b2)
+        return 'escape'
+
+    if b2 == b']':
+        # An OSC reply to the live loop's theme probe, e.g.
+        # \033]11;rgb:1e/1e/2e\007 (or ST-terminated).  Consume it
+        # whole and hand the body to the theme; it is never a key.
+        body = bytearray()
+        while True:
+            c = _read_byte_timeout(fd, 0.15)
+            if c is None:
+                return None
+            if c == b'\x07':
+                break
+            if c == b'\033':
+                _read_byte_timeout(fd, 0.05)  # the backslash of ST
+                break
+            body.extend(c)
+            if len(body) > 256:
+                return None
+        from linecast.terminal import theme as _theme
+        return 'theme' if _theme.ingest_osc(bytes(body)) else None
+
+    if b2 == b'[':
+        seq = bytearray()
+        while True:
+            c = _read_byte_timeout(fd, 0.15)
+            if c is None:
+                break
+            if c == b'\033':
+                # a sequence cut short by the next one: drop this one,
+                # keep the next whole
+                _term.unread(c)
+                return None
+            seq.extend(c)
+            # Legacy mouse: \033[M Cb Cx Cy
+            if c == b'M' and len(seq) == 1:
+                tail = bytearray()
+                for _ in range(3):
+                    c_tail = _read_byte_timeout(fd, 0.15)
+                    if c_tail is None:
+                        return None
+                    tail.extend(c_tail)
+                return _decode_legacy_mouse(bytes(tail))
+            c0 = c[0]
+            if (65 <= c0 <= 90) or (97 <= c0 <= 122) or c0 == 126:
+                break
+
+        action = _decode_sgr_mouse(bytes(seq))
+        if action is not None:
+            return action
+
+        final = bytes(seq[-1:]) if seq else b''
+        if final == b'R' and seq[:1].isdigit():
+            # A cursor position report: the terminal has reached the
+            # query the loop sent after its last frame (or a probe's).
+            return 'ack'
+        return _arrow(final)
+
+    if b2 == b'O':
+        # SS3 sequence (some terminals use for arrows)
+        b3 = _read_byte_timeout(fd, 0.15)
+        if b3 is not None:
+            return _arrow(b3)
+    return 'escape'
+
+
 def _read_key(fd, text=False):
     """Read a keypress from stdin in cbreak mode. Returns action string or None.
 
@@ -353,117 +497,12 @@ def _read_key(fd, text=False):
     Without it, a letter typed under a non-Latin layout acts as the Latin
     key it sits on (see terminal.keylayouts): Persian ض and Russian й are q.
     """
-    def _read_byte():
-        return _term.read_byte(fd)
-
-    def _read_byte_timeout(timeout=0.15):
-        if _term.wait_readable(fd, timeout):
-            return _term.read_byte(fd)
-        return None
-
-    def _read_utf8(lead):
-        """The character a UTF-8 lead byte starts, or None if it is broken."""
-        o = lead[0]
-        if 0xC0 <= o < 0xE0:
-            extra = 1
-        elif 0xE0 <= o < 0xF0:
-            extra = 2
-        elif 0xF0 <= o < 0xF8:
-            extra = 3
-        else:
-            return None  # stray continuation byte or invalid lead
-        buf = bytearray(lead)
-        for _ in range(extra):
-            c = _read_byte_timeout(0.05)
-            if c is None:
-                return None
-            buf.extend(c)
-        try:
-            return buf.decode('utf-8')
-        except UnicodeDecodeError:
-            return None
-
-    b = _read_byte()
+    b = _term.read_byte(fd)
     if b is None:
         return None
 
     if b == b'\033':
-        # Use 150ms timeout — 50ms is too short when the system is busy
-        # rendering; mouse release sequences (\033[<0;x;ym) can arrive late
-        # and the \033 gets read as a bare ESC.
-        b2 = _read_byte_timeout(0.15)
-        if b2 is None:
-            return 'escape'
-        if b2 == b'\033':
-            # Esc, and the next sequence already arriving: a mouse report
-            # while the pointer moves, an arrow.  The first is a bare Esc;
-            # the second goes back to start the next read, or the rest of
-            # its sequence would be taken for keys ([<35;12;5M: 3, 5, m)
-            _term.unread(b2)
-            return 'escape'
-
-        if b2 == b']':
-            # An OSC reply to the live loop's theme probe, e.g.
-            # \033]11;rgb:1e/1e/2e\007 (or ST-terminated).  Consume it
-            # whole and hand the body to the theme; it is never a key.
-            body = bytearray()
-            while True:
-                c = _read_byte_timeout(0.15)
-                if c is None:
-                    return None
-                if c == b'\x07':
-                    break
-                if c == b'\033':
-                    _read_byte_timeout(0.05)  # the backslash of ST
-                    break
-                body.extend(c)
-                if len(body) > 256:
-                    return None
-            from linecast.terminal import theme as _theme
-            return 'theme' if _theme.ingest_osc(bytes(body)) else None
-
-        if b2 == b'[':
-            seq = bytearray()
-            while True:
-                c = _read_byte_timeout(0.15)
-                if c is None:
-                    break
-                if c == b'\033':
-                    # a sequence cut short by the next one: drop this one,
-                    # keep the next whole
-                    _term.unread(c)
-                    return None
-                seq.extend(c)
-                # Legacy mouse: \033[M Cb Cx Cy
-                if c == b'M' and len(seq) == 1:
-                    tail = bytearray()
-                    for _ in range(3):
-                        c_tail = _read_byte_timeout(0.15)
-                        if c_tail is None:
-                            return None
-                        tail.extend(c_tail)
-                    return _decode_legacy_mouse(bytes(tail))
-                c0 = c[0]
-                if (65 <= c0 <= 90) or (97 <= c0 <= 122) or c0 == 126:
-                    break
-
-            action = _decode_sgr_mouse(bytes(seq))
-            if action is not None:
-                return action
-
-            final = bytes(seq[-1:]) if seq else b''
-            if final == b'R' and seq[:1].isdigit():
-                # A cursor position report: the terminal has reached the
-                # query the loop sent after its last frame (or a probe's).
-                return 'ack'
-            return _arrow(final)
-
-        if b2 == b'O':
-            # SS3 sequence (some terminals use for arrows)
-            b3 = _read_byte_timeout(0.15)
-            if b3 is not None:
-                return _arrow(b3)
-        return 'escape'
+        return _read_escape(fd)
 
     # On Windows cbreak turns off the console's own Ctrl-C handling, so
     # the keystroke arrives as ETX instead of a KeyboardInterrupt. It is
@@ -486,57 +525,20 @@ def _read_key(fd, text=False):
             return None
         if o < 0x80:
             return 'char:' + chr(o)
-        ch = _read_utf8(b)
+        ch = _read_utf8(fd, b)
         return 'char:' + ch if ch is not None else None
 
     if b[0] >= 0x80:
         # A letter from a non-Latin layout (ض, й, ㅂ): read it as the
         # Latin key it sits on, so q still quits under Persian or Russian.
         from linecast.terminal.keylayouts import latin_key
-        ch = _read_utf8(b)
+        ch = _read_utf8(fd, b)
         latin = latin_key(ch) if ch is not None else None
         if latin is None:
             return None
         b = latin.encode()
 
-    if b in (b'q', b'Q'):
-        return 'quit'
-    if b in (b'o', b'O'):
-        return 'open'
-    if b in (b'n', b'N', b' '):
-        return 'reset'
-    if b in (b'+', b'='):
-        return 'key:+'
-    if b.isdigit():
-        return 'key:' + b.decode()
-    if b in (b'-', b'_'):
-        return 'key:-'
-    if b in (b't', b'T'):
-        return 'key:t'
-    if b in (b'c', b'C'):
-        return 'key:c'
-    # Lowercase WASD pans; shifted keys retain the displaced view actions.
-    if b in (b'w', b'a', b's', b'd', b'W', b'A', b'S', b'D'):
-        return 'key:' + b.decode()
-    if b in (b'v', b'V'):
-        return 'key:v'
-    if b in (b'p', b'P'):
-        return 'key:p'
-    if b in (b'l', b'L'):
-        return 'key:l'
-    if b in (b'm', b'M'):
-        return 'key:m'
-    if b in (b'y', b'Y'):
-        return 'key:y'
-    if b in (b'r', b'R'):
-        return 'key:r'
-    if b == b'/':
-        return 'key:/'
-    if b == b'?':
-        return 'key:?'
-    if b in (b'\r', b'\n'):
-        return 'key:enter'
-    return None
+    return _KEYS.get(b)
 
 
 # ---------------------------------------------------------------------------
@@ -771,6 +773,21 @@ def live_loop(render_fn, interval=60, mouse=False, on_open=None, scroll_step=15,
         hold the paint while more input is waiting."""
         return 'coalesce' if _term.wait_readable(fd, 0) else 'repaint'
 
+    def scrub(step):
+        """An arrow or a wheel notch, `step` +1 forward or -1 back: a
+        frame of the animation, which pauses it, or scroll_step minutes
+        of time."""
+        nonlocal offset, playing, play_frame
+        if auto_play:
+            playing = False
+            play_frame += step
+        else:
+            if clamp_offset is not None:
+                offset = clamp_offset(offset)
+            offset += step * scroll_step
+            if clamp_offset is not None:
+                offset = clamp_offset(offset)
+
     def handle_input():
         """Read one key or mouse event and apply it.
 
@@ -829,16 +846,7 @@ def live_loop(render_fn, interval=60, mouse=False, on_open=None, scroll_step=15,
                 on_open(active_alert)
                 return 'repaint'
         elif action in ('fwd', 'back'):
-            step = 1 if action == 'fwd' else -1
-            if auto_play:
-                playing = False
-                play_frame += step
-            else:
-                if clamp_offset is not None:
-                    offset = clamp_offset(offset)
-                offset += step * scroll_step
-                if clamp_offset is not None:
-                    offset = clamp_offset(offset)
+            scrub(1 if action == 'fwd' else -1)
             return _coalesce_or_repaint()  # rapid scrolling
         elif action == 'reset':
             if auto_play:
@@ -866,15 +874,8 @@ def live_loop(render_fn, interval=60, mouse=False, on_open=None, scroll_step=15,
                     # Scroll the modal
                     modal_scroll += 3 if wheel_cb == 65 else -3
                     modal_scroll = max(0, modal_scroll)
-                elif auto_play:
-                    playing = False
-                    play_frame += 1 if wheel_cb == 64 else -1
                 else:
-                    if clamp_offset is not None:
-                        offset = clamp_offset(offset)
-                    offset += scroll_step if wheel_cb == 64 else -scroll_step
-                    if clamp_offset is not None:
-                        offset = clamp_offset(offset)
+                    scrub(1 if wheel_cb == 64 else -1)
                 return _coalesce_or_repaint()  # rapid scrolling
             if is_rel:
                 # Button release — completes a drag gesture if one
