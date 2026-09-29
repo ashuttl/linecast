@@ -1247,3 +1247,33 @@ class TestPrintedRoute:
         # the view is the route's; the marker is still Westbrook
         assert (lat, lon) != home
         assert kwargs["marker"] == home
+
+    def test_the_steps_are_printed_as_the_map_is(self, monkeypatch, capsys):
+        """Below the map, the turn-by-turn list goes through print_frame
+        too: in Persian it reads from the right, in Persian digits."""
+        from linecast.maps import tile_cache
+        from linecast.terminal import textwidth
+
+        monkeypatch.setattr(sys, "argv", [
+            "linecast-maps", "--print", "--lang", "fa", "--from", "a", "--to", "b"])
+        monkeypatch.setattr(tile_cache, "prune_maps_cache", lambda: 0)
+        monkeypatch.setattr(textwidth, "calibrate_from_terminal", lambda: None)
+        home = (43.677, -70.371)
+        monkeypatch.setattr(_maps_live, "resolve_location",
+                            lambda *a, **k: (*home, "US", "Westbrook"))
+        ends = {"a": Result("Head Light", "", 43.6231, -70.2078, "point"),
+                "b": Result("Jetport", "", 43.6462, -70.3093, "point")}
+        monkeypatch.setattr(_maps_live, "resolve_place",
+                            lambda query, *a, **k: ends[query])
+        steps = [{"type": "turn", "modifier": "left", "name": "Main Street",
+                  "distance_m": 1500.0}]
+        route = _maps_route.Route([(-70.2078, 43.6231), (-70.3093, 43.6462)],
+                                  1500.0, 600.0, steps, "car")
+        monkeypatch.setattr(_maps_live._route, "route", lambda *a, **k: route)
+        monkeypatch.setattr(_maps_live, "render_map", lambda *a, **k: "MAP")
+
+        _maps_live.main()
+
+        out = capsys.readouterr().out
+        assert out.startswith("MAP\n\n")
+        assert "۰٫۹" in out and "0.9" not in out   # 1.5 km in miles

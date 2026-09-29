@@ -1019,11 +1019,11 @@ def main():
                                        if origin else None),
                                note=note or "", sun=sky, clouds=sky))
         if found is not None:
-            # the turn-by-turn list rides below the map: --print asked
-            # for directions, so it gets the directions
-            print()
-            for line in ui.steps_text(
-                    found, runtime.lang,
-                    origin_label=origin.name if origin else location_name,
-                    dest_label=dest.name):
-                print(line)
+            # the turn-by-turn list rides below the map, after a blank
+            # line: --print asked for directions, so it gets the
+            # directions, ordered and in the language's digits as the
+            # map's own text is
+            print_frame("\n" + "\n".join(ui.steps_text(
+                found, runtime.lang,
+                origin_label=origin.name if origin else location_name,
+                dest_label=dest.name)))
