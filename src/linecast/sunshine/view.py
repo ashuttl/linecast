@@ -389,7 +389,7 @@ def _info_line(lat, lng, doy, sunrise, sunset, width, runtime, now_hour=None, of
     if now_hour is not None and not polar:
         sky = _sky_name(lat, lng, doy, now_hour, sunrise, sunset,
                         tz_offset_h, runtime)
-        if lw + cw + len(sky) + 3 + rw + 2 <= width:
+        if lw + cw + visible_len(sky) + 3 + rw + 2 <= width:
             center += f" {dim}· {sky}"
             cw = visible_len(center)
 

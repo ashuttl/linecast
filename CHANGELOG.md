@@ -62,6 +62,7 @@ Fixes:
   - Fixed the Moon on `--oneline` being worked out for a moment hours from now wherever the clock is not UTC, so that near a new or full moon it could show the phase before or after.
   - Fixed a change in the day's length under a minute reading "−0m 15s", as it does every day near the equator and for weeks around each solstice; it reads "−15s".
   - Fixed the year view in Chinese, Japanese, and Korean drawing a row a column too long or too short near midnight, when the sun sat on a month's or the place's name.
+  - Fixed the line under the day view running a cell past the edge in Chinese, Japanese, and Korean at some window widths; the sky's name after the day's length is added only where it fits.
 - Tides:
   - Fixed most NOAA stations picked with `--station`, such as Back Cove in Portland, Maine, running an hour behind through summer time: the chart drew now an hour early, and `--json` gave a fixed offset for the time zone.
   - Fixed tides from the global tide model, as for Sydney, Melbourne, and the coasts of Europe, being an hour off in the days either side of a change of clock.
