@@ -430,13 +430,13 @@ class TestMoonSnapshot:
 
     def test_stars_are_sown_evenly_and_keep_off_the_moon(self):
         from linecast.terminal.framebuffer import Framebuffer
-        from linecast.moon.view import _STAR_DENSITY, _star_overlays
+        from linecast.moon.stars import _STAR_DENSITY, star_overlays
 
         fb = Framebuffer(120, 40)
         cx, cy, radius = 60, 40, 30
         taken = {(x, row) for x in range(90, 120) for row in range(10, 30)}
         sky = (60.0, 20.0, 0.0)   # the Moon in Taurus, pole up
-        stars = _star_overlays(fb, cx, cy, radius, sky, taken=taken)
+        stars = star_overlays(fb, cx, cy, radius, sky, taken=taken)
         free = sum(1 for x in range(120) for row in range(40)
                    if (x, row) not in taken
                    and (x - cx) ** 2 + (row * 2 + 0.5 - cy) ** 2 >= (radius + 3) ** 2)
@@ -453,7 +453,7 @@ class TestMoonSnapshot:
         """Sirius sits where it should about the Moon, and turns with the
         parallactic angle as the night goes on."""
         from linecast.terminal.framebuffer import Framebuffer
-        from linecast.moon.view import _load_stars, _star_overlays
+        from linecast.moon.stars import _load_stars, star_overlays
 
         stars = _load_stars()
         assert len(stars) > 2000
@@ -467,13 +467,13 @@ class TestMoonSnapshot:
         # straight up: Sirius hangs below the disc, focal length times
         # the angle down.
         sky = (101.29, 43.28, 0.0)
-        field = _star_overlays(fb, cx, cy, radius, sky)
+        field = star_overlays(fb, cx, cy, radius, sky)
         brightest = [cell for cell, (glyph, _c, _b) in field.items() if glyph == "✱"]
         expect = (cx, int((cy + 1.5 * radius * math.radians(60.0)) // 2))
         assert expect in brightest, (expect, brightest)
         # Later in the night the sky has turned: with celestial north
         # ninety degrees round to the right, Sirius lies to the left.
-        field = _star_overlays(fb, cx, cy, radius, (101.29, 43.28, 90.0))
+        field = star_overlays(fb, cx, cy, radius, (101.29, 43.28, 90.0))
         brightest = [cell for cell, (glyph, _c, _b) in field.items() if glyph == "✱"]
         expect = (cx - int(round(1.5 * radius * math.radians(60.0))), cy // 2)
         assert expect in brightest, (expect, brightest)
@@ -481,7 +481,7 @@ class TestMoonSnapshot:
     def test_turning_the_disc_sweeps_the_stars_the_other_way(self):
         """Roll the surface right and the sky behind it goes left, as the
         background does when you walk round a statue."""
-        from linecast.moon.view import _load_stars, _project_star, _star_direction
+        from linecast.moon.stars import _load_stars, _project_star, _star_direction
         from linecast.moon.disc import _rotation
 
         cx, cy, radius = 60, 40, 30
