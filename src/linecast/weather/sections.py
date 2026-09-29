@@ -19,6 +19,7 @@ from linecast.weather.cover import sky_condition
 from linecast.weather.i18n import (
     fmt_wind, _precip_s, DAY_SPAN_FORMS, ON_DAY_FORMS, ON_FULL_DAY_FORMS, PRECIP_RUN_DESCS_I18N,
     felt_index, wmo_label, _PRECIP_DESCS_I18N, _PRECIP_PARTITIVES_I18N, _STRINGS, _s, _wmo_icons,
+    wind_unit_label,
 )
 from linecast._i18n import DAY_NAMES, FULL_DAY_NAMES
 from linecast.weather import style as _style
@@ -2211,7 +2212,7 @@ def _prose_wind_unit(runtime):
     key = _WIND_PROSE_KEYS.get(runtime.wind_unit)
     if key and _has(key, runtime):
         return _s(key, runtime)
-    return runtime.wind_unit_label
+    return wind_unit_label(runtime)
 
 
 def _gusts(hourly, now, runtime, after=None, daily=None):

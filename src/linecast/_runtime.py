@@ -506,25 +506,6 @@ class WeatherRuntime(RuntimeConfig):
         return speed * {"km/h": 1.0, "m/s": 3.6, "mph": 1.609344}[self.wind_unit]
 
     @property
-    def wind_unit_label(self):
-        """The wind unit as the display language writes it (Turkish reads
-        km/sa, Russian м/с); `wind_unit` is the JSON's and stays km/h
-        or m/s."""
-        if not self.metric:
-            return "mph"
-        from linecast.weather.i18n import _s
-        return _s("unit_ms" if self.wind_unit == "m/s" else "unit_kmh", self)
-
-    @property
-    def precip_unit_label(self):
-        """The precipitation unit as the display language writes it
-        (Ukrainian reads мм); `precip_unit` is the JSON's and stays mm."""
-        if not self.metric:
-            return "″"
-        from linecast.weather.i18n import _s
-        return _s("unit_mm", self)
-
-    @property
     def precip_unit(self):
         return "mm" if self.metric else "″"
 

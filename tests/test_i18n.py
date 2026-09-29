@@ -13,7 +13,7 @@ from linecast.maps.i18n import ms
 from linecast.moon.i18n import _ms
 from linecast.radar.i18n import rs
 from linecast.tides.i18n import _ts
-from linecast.weather.i18n import WMO_NAMES_I18N, _s
+from linecast.weather.i18n import WMO_NAMES_I18N, _s, precip_unit_label, wind_unit_label
 from linecast._i18n import DAY_NAMES
 from linecast.weather.sections import (
     _past_precip_line,
@@ -638,22 +638,22 @@ class TestTurkishPercentAndUnits:
                         metric=True, shading=False)
         turkish = WeatherRuntime(lang="tr", **defaults)
         english = WeatherRuntime(lang="en", **defaults)
-        assert turkish.wind_unit_label == "km/sa"
+        assert wind_unit_label(turkish) == "km/sa"
         assert turkish.wind_unit == "km/h"
-        assert english.wind_unit_label == "km/h"
+        assert wind_unit_label(english) == "km/h"
         imperial = WeatherRuntime(lang="tr", **{**defaults, "metric": False})
-        assert imperial.wind_unit_label == "mph"
+        assert wind_unit_label(imperial) == "mph"
 
     def test_the_wind_is_in_metres_per_second_where_the_forecasts_are(self):
         from linecast._runtime import WeatherRuntime
         defaults = dict(live=False, icons="emoji", oneline=False, celsius=True,
                         metric=True, shading=False)
         japanese = WeatherRuntime(lang="ja", **defaults)
-        assert japanese.wind_unit == japanese.wind_unit_label == "m/s"
+        assert japanese.wind_unit == wind_unit_label(japanese) == "m/s"
         assert japanese.wind_unit_param == "ms"
         assert japanese.wind_kmh(10) == 36
         russian = WeatherRuntime(lang="ru", **defaults)
-        assert russian.wind_unit == "m/s" and russian.wind_unit_label == "м/с"
+        assert russian.wind_unit == "m/s" and wind_unit_label(russian) == "м/с"
         for lang in ("en", "de", "zh", "pt-PT", "el"):
             assert WeatherRuntime(lang=lang, **defaults).wind_unit == "km/h", lang
         imperial = WeatherRuntime(lang="ja", **{**defaults, "metric": False})
@@ -949,9 +949,9 @@ class TestUnitLabels:
 
     def test_the_rain_and_the_radar_distance_follow(self):
         from linecast.radar.i18n import rs
-        assert self._runtime("uk").precip_unit_label == "мм"
+        assert precip_unit_label(self._runtime("uk")) == "мм"
         assert self._runtime("uk").precip_unit == "mm"
-        assert self._runtime("fr").precip_unit_label == "mm"
+        assert precip_unit_label(self._runtime("fr")) == "mm"
         assert rs("unit_km", "uk") == "км" and rs("unit_km", "fr") == "km"
         near = rs("near", "uk", dist=12, unit=rs("unit_km", "uk"), dir="ПнС", name="Київ")
         assert near == "12 км на ПнС від Київ"

@@ -43,7 +43,7 @@ from linecast.terminal.textwidth import char_width
 from linecast.terminal.theme import ensure_contrast, lerp_rgb, surface_bg
 from linecast.weather import style as _style
 from linecast.weather.daily import mostly_snow
-from linecast.weather.i18n import _s, _wmo_icons
+from linecast.weather.i18n import _s, _wmo_icons, precip_unit_label
 
 # Days either side of a date that its average is taken over.
 _SMOOTH_DAYS = 7
@@ -424,7 +424,7 @@ def _header(climate, days, runtime, cols, location_name, location_menu):
         observed = [p for p in days.precip[:days.today] if p is not None]
         normal = _normal_to_date(climate, days.today, starts, starts[1:] + [n])
         if observed and len(observed) >= whole and normal is not None:
-            unit = runtime.precip_unit_label
+            unit = precip_unit_label(runtime)
             sep = _s("metric_unit_sep", runtime) if runtime.metric else ""
             parts.append(f"{_style.PRECIP_RAIN}{_fmt_amount(sum(observed), runtime)}{sep}{unit}"
                          f"{_style.MUTED} · {_s('avg', runtime)} "

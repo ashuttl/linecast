@@ -8,7 +8,7 @@ from linecast.terminal.color import bg, color_mode, fg, RESET, BOLD
 from linecast.terminal.textwidth import visible_len
 from linecast._runtime import WeatherRuntime, current_runtime
 from linecast.weather.cover import sky_condition
-from linecast.weather.i18n import _s, _wmo_icons, fmt_wind, wmo_label
+from linecast.weather.i18n import _s, _wmo_icons, fmt_wind, precip_unit_label, wmo_label
 from linecast._i18n import DAY_NAMES, FULL_DAY_NAMES
 from linecast.weather.sources import _local_now_for_data
 from linecast.weather.style import (
@@ -152,7 +152,7 @@ def render_daily_mapped(data, width, runtime=None, now=None):
                 precip_amt = fmt_snow_amount(snow_i, runtime)
             elif runtime.metric:
                 sep = _s("metric_unit_sep", runtime)
-                precip_amt = f"{precip_i:.0f}{sep}{runtime.precip_unit_label}"
+                precip_amt = f"{precip_i:.0f}{sep}{precip_unit_label(runtime)}"
             else:
                 unit = _s('precip_inch', runtime)
                 precip_amt = fmt_decimal(precip_i, 1 if precip_i >= 1 else 2, runtime) + unit
@@ -421,7 +421,7 @@ def fmt_precip_amount(amount, runtime):
     """An amount of precipitation with its unit, as the daily rows show it."""
     if runtime.metric:
         return (f"{fmt_decimal(amount, 1, runtime)}{_s('metric_unit_sep', runtime)}"
-                f"{runtime.precip_unit_label}")
+                f"{precip_unit_label(runtime)}")
     unit = _s("precip_inch", runtime)
     return fmt_decimal(amount, 1 if amount >= 1 else 2, runtime) + unit
 

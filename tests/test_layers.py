@@ -37,11 +37,9 @@ LAYERS = {
 
 # (importer, imported module): the upward imports that stand for now.
 UPWARD = {
-    # the unit labels' words, and radar's themes for its parser (kept)
-    ("_runtime", "weather.i18n"): "2.4",
     ("_parsers", "radar.sources"): "kept: radar_parser's choices, asked for lazily",
-    # shared words move to _i18n and HELP (2.4)
-    ("astro.hours.i18n", "sunshine.i18n"): "2.4",
+    ("astro.hours.i18n", "sunshine.i18n"): "kept: the hours line names sunrise and sunset "
+                                           "in sunshine's own words; astro/hours is its library",
 }
 
 # (importer, imported module): a command reaching another's view or live.
