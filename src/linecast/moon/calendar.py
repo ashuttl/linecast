@@ -35,7 +35,7 @@ from linecast._i18n import base_language, lang_of, table_for
 from linecast.astro.calendars.lunisolar import (
     CALENDAR_MERIDIAN_HOURS, calendar_is_native, lunisolar_date,
 )
-from linecast.astro.calendars.hebrew import hebrew_date, holiday_key, rosh_chodesh
+from linecast.astro.calendars.hebrew import hebrew_date, holiday_key
 from linecast.astro.calendars.hijri import hijri_date, observance_key
 from linecast.astro.calendars.icelandic import lit_moon_key
 from linecast.astro.calendars.icelandic import month_key as icelandic_month_key
@@ -48,12 +48,10 @@ from linecast.astro.calendars.civil import (
     SOLAR_HIJRI, civil_calendar, shift_month, solar_hijri_month_title,
 )
 from linecast.moon.i18n import (
-    _day_abbrev, _fmt_month_day, _ms, _zh_day_name, anahulu_name, festival_table,
-    gregorian_date_label, hebrew_date_label, hijri_sighting_note, hebrew_holiday_name,
-    hebrew_month_name, hijri_date_label, hijri_era, hijri_month_name, hijri_observance_name,
-    icelandic_day_name, icelandic_month_name, icelandic_moon_name, icelandic_week_label,
-    ja_night_name, lunar_date_label, pacific_night_label, pacific_night_name, rosh_chodesh_label,
-    thai_festival_name, thai_lunar_label, thai_month_label, vi_month_label, wan_phra_label,
+    _day_abbrev, _fmt_month_day, _ms, _zh_day_name, festival_table, gregorian_date_label,
+    hebrew_holiday_name, hebrew_month_name, hijri_era, hijri_month_name,
+    hijri_observance_name, icelandic_day_name, icelandic_month_name, icelandic_moon_name,
+    pacific_night_name, thai_festival_name, thai_month_label, vi_month_label, wan_phra_label,
     zh_month_label,
 )
 from linecast._i18n import MONTHS, moon_name
@@ -62,6 +60,10 @@ from linecast.astro.calendars.thai_lunar import (
     _festival_key as thai_festival_key, is_wan_phra, thai_lunar_date,
 )
 from linecast.astro.seasons import full_moon_name
+from linecast.moon.phase import (
+    SYNODIC_MONTH, moon_cycle_frac, moon_illumination, moon_phase,
+)
+from linecast.moon.readings import context, reading
 from linecast.terminal.textwidth import char_width
 from linecast.terminal.theme import darken, ensure_contrast, is_light_theme, surface_bg
 from linecast.tides.i18n import _ts
@@ -304,9 +306,6 @@ def render_calendar(now_local, lat, lng, runtime, month_offset=0,
     None for none."""
     from linecast.moon import disc
     from linecast.moon import palette as moon_palette  # rebuilt on theme reload
-    from linecast.moon.phase import (
-        moon_cycle_frac, moon_illumination, moon_phase, SYNODIC_MONTH,
-    )
     from linecast._runtime import install_banner
 
     lang = lang_of(runtime)
@@ -524,10 +523,8 @@ def render_calendar(now_local, lat, lng, runtime, month_offset=0,
     if mouse_pos:
         d = clicked_day(*mouse_pos)
         if d is not None:
-            chip = _hover_chip(
-                d, now_local, lat, lng, runtime,
-                cal, native, fest, phase_days, mouse_pos, cols, rows,
-                moon_phase, moon_cycle_frac, SYNODIC_MONTH, israel)
+            chip = _hover_chip(d, context(now_local, lat, lng, runtime, cal, israel),
+                               reading(cal), phase_days, mouse_pos, cols, rows)
     return overlay("\n".join(lines), chip)
 
 
@@ -564,28 +561,23 @@ def clicked_day(col, row):
     return None
 
 
-def _hover_chip(d, now_local, lat, lng, runtime, cal, native, fest,
-                phase_days, mouse_pos, cols, rows,
-                moon_phase, moon_cycle_frac, SYNODIC_MONTH, israel=False):
-    """The hovered day, read in full: date, phase, rise and set, calendar."""
-    from linecast.moon.phase import moon_illumination
+def _hover_chip(d, ctx, found, phase_days, mouse_pos, cols, rows):
+    """The hovered day, read in full: date, phase, rise and set, calendar.
 
-    tzinfo = now_local.tzinfo
+    *found* is the calendar's reading (moon.readings), or None for none."""
+    runtime, lang = ctx.runtime, ctx.lang
+    tzinfo = ctx.now_local.tzinfo
     noon = datetime.combine(d, time(12), tzinfo=tzinfo)
     illum = moon_illumination(noon)
     principal = phase_days.get(d)
-    lang = lang_of(runtime)
-    lunar = (lunisolar_date(d, CALENDAR_MERIDIAN_HOURS[cal])
-             if cal in CALENDAR_MERIDIAN_HOURS else None)
-    japanese_night = (ja_night_name(lunar[1])
-                      if cal == "japanese" and native and lunar is not None else None)
+    night_name = found.night_name(d, ctx) if found else None
 
     tip_bg = bg(*TIP_BG_RGB)
     tip_fg = fg(*TIP_TEXT_RGB)
     tip_dim = fg(*TIP_DIM_RGB)
 
     head = f"{_day_abbrev(noon, runtime)} {_fmt_month_day(noon, runtime)}"
-    ahead = (d - now_local.date()).days
+    ahead = (d - ctx.today).days
     if ahead > 0:
         head += f" · {_ms('in_days', runtime, days=str(ahead))}"
     # Solar Hijri dates keep the Gregorian date a line below, dim.
@@ -594,80 +586,29 @@ def _hover_chip(d, now_local, lat, lng, runtime, cal, native, fest,
 
     if principal:
         idx, at = principal
-        name = japanese_night or moon_name(idx, runtime)
-        if idx == 4 and lang == "en" and cal in (None, "almanac"):
+        name = night_name or moon_name(idx, runtime)
+        if idx == 4 and lang == "en" and (found is None or found.full_moon_names):
             mn = full_moon_name(at, SYNODIC_MONTH)
             name = "Blue Moon" if mn == "Blue" else f"Full {mn} Moon"
-        lit_moon = lit_moon_key(at) if idx == 0 and cal == "icelandic" else None
+        lit_moon = found.new_moon_name(at) if found and idx == 0 else None
         if lit_moon:
-            name = icelandic_moon_name(lit_moon)
+            name = lit_moon
         icon = moon_phase(at, runtime)[2]
         phase_line = (f"{icon} {name} · "
                       f"{fmt_time_dt(at, use_24h=runtime.use_24h)}")
     else:
         idx, _name, icon = moon_phase(noon, runtime)
-        name = japanese_night or moon_name(idx, runtime)
+        name = night_name or moon_name(idx, runtime)
         phase_line = (f"{icon} {name} · "
                       f"{_ms('illuminated', runtime, pct=f'{illum * 100:.0f}')}")
 
-    rise, sset = _moon_events_for_local_date(d, lat, lng, tzinfo)
+    rise, sset = _moon_events_for_local_date(d, ctx.lat, ctx.lng, tzinfo)
 
     def _t(dt):
         return fmt_time_dt(dt, use_24h=runtime.use_24h) if dt else "—"
 
     events = f"↑ {_t(rise)}  ↓ {_t(sset)}"
-
-    cal_line = None
-    if cal in PACIFIC_CALENDARS:
-        night, nights = pacific_night(cal, d)
-        cal_line = pacific_night_label(cal, night, nights)
-        if cal == "hawaiian":
-            cal_line += f" · anahulu {anahulu_name(night)}"
-    elif cal == "almanac":
-        half = "light" if moon_cycle_frac(noon) < 0.5 else "dark"
-        cal_line = _ms(f"{half}_of_moon", runtime)
-    elif cal == "islamic":
-        cal_line = hijri_date_label(*hijri_date(d), lang)
-        key = observance_key(d)
-        if key:
-            cal_line = f"{hijri_observance_name(key, lang)} · {cal_line}"
-    elif cal == "hebrew":
-        cal_line = hebrew_date_label(*hebrew_date(d))
-        key = holiday_key(d, israel)
-        if key:
-            cal_line = f"{hebrew_holiday_name(key)} · {cal_line}"
-        elif rosh_chodesh(d):
-            cal_line = f"{rosh_chodesh_label(*rosh_chodesh(d))} · {cal_line}"
-    elif cal == "icelandic":
-        cal_line = (f"{icelandic_week_label(d, runtime)} · "
-                    f"{icelandic_month_name(icelandic_month_key(d))}")
-        key = named_day_key(d)
-        if key and key != "veturnaetur":
-            cal_line = f"{icelandic_day_name(key)} · {cal_line}"
-    elif cal == "thai":
-        m, day_n, doubled = thai_lunar_date(d)
-        label_lang = "th" if native else "en"
-        cal_line = thai_lunar_label(m, day_n, doubled, label_lang)
-        key = thai_festival_key(d)
-        if key:
-            cal_line = f"{thai_festival_name(key, label_lang)} · {cal_line}"
-        elif is_wan_phra(d):
-            cal_line = f"{wan_phra_label(False, label_lang)} · {cal_line}"
-    elif cal in CALENDAR_MERIDIAN_HOURS:
-        if lunar is not None:
-            m, day_n, leap = lunar
-            label_lang = lang if native else "en"
-            cal_line = lunar_date_label(m, day_n, leap, label_lang)
-            parts = []
-            festival = fest.get((m, day_n)) if not leap else None
-            if festival and festival != japanese_night:
-                parts.append(festival)
-            if cal == "japanese" and native:
-                night = ja_night_name(day_n)
-                # The phase line already names this Japanese night.
-                if night != japanese_night and night not in parts:
-                    parts.append(night)
-            cal_line = " · ".join([*parts, cal_line])
+    cal_line = found.hover(d, ctx) if found else None
 
     tip_lines = [f"{tip_bg}{tip_fg} {head} "]
     if gregorian:
@@ -678,7 +619,7 @@ def _hover_chip(d, now_local, lat, lng, runtime, cal, native, fest,
     ]
     if cal_line:
         tip_lines.append(f"{tip_bg}{tip_fg} {cal_line} ")
-        note = hijri_sighting_note(lang) if cal == "islamic" else None
+        note = found.hover_note(ctx)
         if note:
             tip_lines.append(f"{tip_bg}{tip_dim} {note} ")
 
