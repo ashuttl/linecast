@@ -23,6 +23,7 @@ the printed almanacs draw their tables this way.
 
 import calendar
 from datetime import date, datetime, time, timedelta, timezone
+from typing import NamedTuple
 
 from linecast.terminal import live as _live
 from linecast.terminal import theme as _theme
@@ -211,8 +212,8 @@ def render_calendar(now_local, lat, lng, runtime, month_offset=0,
     # The frame on screen is the one clicks and hovers land on, so its
     # geometry is kept for clicked_day() rather than recomputed.
     global _last_grid
-    _last_grid = (left, row0, cell_w, cell_h, weeks, lead, days_in,
-                  first, civil)
+    _last_grid = _Grid(left, row0, cell_w, cell_h, weeks, lead, days_in,
+                       first, civil)
 
     phase_days = _phase_days(first, days_in, tzinfo)
     from linecast.terminal import bidi as _bidi
@@ -382,7 +383,20 @@ def _corner_text(day, month_name, room):
     return text
 
 
-_last_grid = None   # geometry of the last rendered grid, for clicked_day
+class _Grid(NamedTuple):
+    """Where a month grid set its days, in 0-based frame cells."""
+    left: int               # the grid's first column
+    row0: int               # the first week's top row
+    cell_w: int
+    cell_h: int
+    weeks: int
+    lead: int               # the empty cells before the month's first day
+    days_in: int
+    first: date             # the month's first day
+    civil: str              # the civil calendar its months are
+
+
+_last_grid = None   # the last rendered grid's _Grid, for clicked_day
 
 
 def clicked_day(col, row):
@@ -392,15 +406,15 @@ def clicked_day(col, row):
     mapping serves the hover chip, so a click opens exactly the day the
     chip was reading.
     """
-    if _last_grid is None:
+    grid = _last_grid
+    if grid is None:
         return None
-    left, row0, cell_w, cell_h, weeks, lead, days_in, first, _civil = _last_grid
-    gx, gy = col - 1 - left, row - 1 - row0
-    if not (0 <= gx < cell_w * 7 and 0 <= gy < cell_h * weeks):
+    gx, gy = col - 1 - grid.left, row - 1 - grid.row0
+    if not (0 <= gx < grid.cell_w * 7 and 0 <= gy < grid.cell_h * grid.weeks):
         return None
-    day = (gy // cell_h) * 7 + gx // cell_w - lead + 1
-    if 1 <= day <= days_in:
-        return first + timedelta(days=day - 1)
+    day = (gy // grid.cell_h) * 7 + gx // grid.cell_w - grid.lead + 1
+    if 1 <= day <= grid.days_in:
+        return grid.first + timedelta(days=day - 1)
     return None
 
 
