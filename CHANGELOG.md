@@ -81,6 +81,7 @@ Fixes:
   - Fixed `A`, which the help lists for showing and hiding the alerts, doing nothing.
   - Fixed the mouse wheel stepping through the frames behind the theme menu while it was open; it moves the menu's highlight, as the arrow keys do.
   - Fixed the theme menu's top edge running past its corner in Japanese, Chinese, and Korean, and falling short of it in Thai. The sky's tradition picker had the same fault, and is fixed too.
+  - Fixed `--print` in Persian, Arabic, and Hebrew writing the map's labels backwards, with their letters unjoined; they read as they do in the live view.
 - Maps:
   - Fixed a map tile that failed to load on a slow or dropped connection leaving a gap in the street or terrain view for as long as the view stayed put; the tile is asked for again a few seconds later.
   - Fixed one damaged map tile in the cache blanking the whole street view with "street tiles unavailable"; it now leaves a gap only where it was.

@@ -302,3 +302,39 @@ class TestRender:
         assert RadarApp.interval == _radar_live.FRAME_STEP
         assert RadarApp.mouse is True and RadarApp.auto_play is True
         assert RadarApp.play_interval == 0.2
+
+
+class TestPrinted:
+    def test_print_measures_the_terminal_and_prints_a_frame(self, monkeypatch):
+        """--print asks the terminal its glyph widths before the spinner
+        has the screen, and prints through print_frame, which orders
+        right-to-left text and clips at the edge."""
+        import sys
+        from linecast import _geocode
+        from linecast.terminal import textwidth
+
+        calls = []
+
+        class QuietSpinner:
+            def __init__(self, *a, **k):
+                pass
+
+            def start(self):
+                calls.append("spin")
+
+            def stop(self):
+                pass
+
+        monkeypatch.setattr(sys, "argv", ["linecast-radar", "--print",
+                                          "--location", "43.68,-70.35"])
+        monkeypatch.setattr(textwidth, "calibrate_from_terminal", lambda: calls.append("measure"))
+        monkeypatch.setattr(_radar_live, "Spinner", QuietSpinner)
+        monkeypatch.setattr(_radar_live, "country_for_defaults", lambda *a: None)
+        monkeypatch.setattr(_geocode, "place_label", lambda lat, lon, name, lang: "Westbrook")
+        monkeypatch.setattr(_radar_live, "get_source", lambda *a: FakeSource())
+        monkeypatch.setattr(rf, "use", lambda source: None)
+        monkeypatch.setattr(_radar_live, "render_radar",
+                            lambda *a, **k: calls.append("draw") or ("frame", False))
+        monkeypatch.setattr(_radar_live, "print_frame", calls.append)
+        _radar_live.main()
+        assert calls == ["measure", "spin", "draw", "frame"]

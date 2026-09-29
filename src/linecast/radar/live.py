@@ -14,7 +14,7 @@ from linecast.radar import frames as _frames
 from linecast.radar import sources as _sources
 from linecast.terminal.framebuffer import get_terminal_size
 from linecast._geo import wrap_lon
-from linecast.terminal.live import LiveApp, nudge
+from linecast.terminal.live import LiveApp, nudge, print_frame
 from linecast._location import country_for_defaults, resolve_location
 from linecast.radar.frames import N_FRAMES, _sat_timeline
 from linecast.radar.i18n import rs
@@ -223,6 +223,11 @@ def main():
 
     # everything from here to the first paint may block on the network
     # (geocoding, the frame index, static-mode frame fetches) — spin
+    if not runtime.live:
+        # Ask the terminal how wide it draws things before the spinner
+        # has the screen: the probe wants stdin and stdout to itself.
+        from linecast.terminal.textwidth import calibrate_from_terminal
+        calibrate_from_terminal()
     spin = Spinner(rs("loading", runtime.lang))
     spin.start()
     try:
@@ -264,7 +269,7 @@ def main():
         spin.stop()
 
     if not runtime.live:
-        print(static_out)
+        print_frame(static_out)
         return
 
     # a background index refresh that adds a frame repaints the timeline
