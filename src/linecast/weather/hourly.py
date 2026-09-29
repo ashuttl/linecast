@@ -457,7 +457,7 @@ def _column_of(dt, window_dts, graph_w):
     return (i + min(1.0, max(0.0, frac))) / (n - 1) * (graph_w - 1)
 
 
-def _compute_time_markers(window_dts, total_hours, graph_w, runtime=None):
+def _compute_time_markers(window_dts, graph_w, runtime=None):
     """Compute notable timeline columns (midnight, noon) and day labels.
 
     The samples are on the hour, so a midnight or a noon is one of them,
@@ -480,7 +480,7 @@ def _compute_time_markers(window_dts, total_hours, graph_w, runtime=None):
     return midnight_cols, noon_cols, midnight_day_names
 
 
-def _compute_sun_labels(window_dts, sun_events, total_hours, graph_w, runtime):
+def _compute_sun_labels(window_dts, sun_events, graph_w, runtime):
     """Compute sunrise/sunset labels mapped to graph columns."""
     sun_labels = {}
     use_24h = runtime.use_24h
@@ -944,8 +944,7 @@ def _render_braille_rows(braille_rows, col_daylight, midnight_cols, runtime,
     return lines
 
 
-def _render_tick_labels(window_dts, total_hours, graph_w, runtime=None, hover_col=None,
-                        now_col=None):
+def _render_tick_labels(window_dts, graph_w, runtime=None, hover_col=None, now_col=None):
     """Render compact timeline tick labels under the chart.
 
     Labels are anchored to clock-aligned hours so they scroll with the data
@@ -1337,7 +1336,6 @@ def render_hourly(data, width, n_braille_rows=2, n_precip_rows=0, now=None, runt
     window_amount = window["precip_amount"]
     window_codes = window["codes"]
     window_dts = window["dts"]
-    total_hours = window["total_hours"]
     chart_lo = min(window_temps)
     chart_hi = max(window_temps)
     # The curve is scaled to the whole forecast, so it holds still while
@@ -1346,7 +1344,7 @@ def render_hourly(data, width, n_braille_rows=2, n_precip_rows=0, now=None, runt
                                      n_rows=n_braille_rows)
 
     midnight_cols, _noon_cols, midnight_day_names = _compute_time_markers(
-        window_dts, total_hours, graph_w, runtime
+        window_dts, graph_w, runtime
     )
 
     # The current time, marked like a midnight divider but in its own
@@ -1357,7 +1355,7 @@ def render_hourly(data, width, n_braille_rows=2, n_precip_rows=0, now=None, runt
         col = _column_of(now, window_dts, graph_w)
         if col is not None:
             now_col = int(col)
-    sun_labels = _compute_sun_labels(window_dts, sun_events, total_hours, graph_w, runtime)
+    sun_labels = _compute_sun_labels(window_dts, sun_events, graph_w, runtime)
     col_daylight = _compute_daylight_columns(window_dts, sun_events, graph_w)
     col_temps = _interpolate_columns(window_temps, graph_w)
 
@@ -1393,7 +1391,7 @@ def render_hourly(data, width, n_braille_rows=2, n_precip_rows=0, now=None, runt
         )
     ]
 
-    tick_line = _render_tick_labels(window_dts, total_hours, graph_w, runtime, hover_col=hover_col,
+    tick_line = _render_tick_labels(window_dts, graph_w, runtime, hover_col=hover_col,
                                     now_col=now_col)
     if tick_line:
         lines.append(tick_line)

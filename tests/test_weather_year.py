@@ -721,16 +721,16 @@ class TestSolarHijri:
     def test_the_axis_names_the_months_and_never_numbers_them(self):
         starts, n = year._month_starts(2026)
         rt = _runtime(lang="fa")
-        wide = _strip(year._month_axis(2026, starts, n, 115, rt))
+        wide = _strip(year._month_axis(starts, n, 115, rt))
         assert "ژانویه" in wide and "سپتامبر" in wide and "دسامبر" in wide
-        narrow = _strip(year._month_axis(2026, starts, n, 64, rt))
+        narrow = _strip(year._month_axis(starts, n, 64, rt))
         assert "مه" in narrow
         assert not any(ch.isdigit() for ch in narrow)
         assert "سپتامبر" not in narrow   # seven letters in a five-cell month
 
     def test_other_languages_keep_their_axis(self):
         starts, n = year._month_starts(2026)
-        assert "Jan" in _strip(year._month_axis(2026, starts, n, 115, _runtime()))
+        assert "Jan" in _strip(year._month_axis(starts, n, 115, _runtime()))
 
     def test_the_hover_gives_both_calendars(self):
         text = _strip(_render(_climate(), _days(), mouse_pos=(40, 10),

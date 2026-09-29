@@ -76,8 +76,7 @@ def weather_oneline(data, location_name, runtime):
 # Sunshine oneline
 # ---------------------------------------------------------------------------
 
-def sunshine_oneline(lat, lng, doy, now_hour, runtime, tz_offset_h=None,
-                     hours=None, now=None):
+def sunshine_oneline(lat, lng, doy, runtime, tz_offset_h=None, hours=None, now=None):
     """Return a compact solar summary line.
 
     Example: ``sunrise 5:42a sunset 7:38p 12h34m +2m waning_crescent_icon``

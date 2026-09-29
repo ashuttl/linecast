@@ -813,7 +813,7 @@ def render(now_local, lat, lng, runtime, view, fullscreen=False,
         help_label = help_hint(lang, graph_w)
         room = max(0, graph_w - visible_len(help_label) - 2)
         status_labels = _status_line(scene, now_local, runtime, view, room, location_label,
-                                     offset_minutes, speed, today, limit, layout=True)
+                                     offset_minutes, speed, today, layout=True)
         status_labels.append((graph_w - visible_len(help_label), help_label))
         for x, text in status_labels:
             paint_text(fb, overlays, text, x, graph_h - 1, TEXT_RGB)
@@ -1064,14 +1064,14 @@ def render(now_local, lat, lng, runtime, view, fullscreen=False,
     lines = fb.render(overlays=overlays)
     if not fullscreen:
         lines.append(_status_line(scene, now_local, runtime, view, cols, location_label,
-                                  offset_minutes, speed, today, limit))
+                                  offset_minutes, speed, today))
     if hint:
         lines.append(hint)
     return _live.overlay("\n".join(lines), floating)
 
 
 def _status_line(scene, now_local, runtime, view, width, location_label,
-                 offset_minutes, speed, today, limit, layout=False):
+                 offset_minutes, speed, today, layout=False):
     """Place and clock; where the view faces and how wide; the sky's name
     and what is up. Parts drop from the right as the width runs out.
     With layout=True, return positioned plain labels for the image."""
@@ -1096,7 +1096,7 @@ def _status_line(scene, now_local, runtime, view, width, location_label,
     elif offset_minutes:
         center += f"  {dim}{_ts('space_to_now', runtime)}"
     sky = sky_phase(scene.sun_alt, runtime, morning=scene.morning())
-    up = _whats_up(scene, runtime, limit, view.culture)
+    up = _whats_up(scene, runtime, view.culture)
     right_full = f"{dim}{sky} · {text}{up}" if up else f"{dim}{sky}"
     right_short = f"{dim}{sky}"
 
@@ -1131,7 +1131,7 @@ def _status_line(scene, now_local, runtime, view, width, location_label,
     return f"{RESET}{line}{RESET}"
 
 
-def _whats_up(scene, runtime, limit, culture=None):
+def _whats_up(scene, runtime, culture=None):
     """The Moon and the planets above the horizon, brightest first, each
     with the way to look: '🌖 84% W · Jupiter SE · Saturn S'."""
     parts = []

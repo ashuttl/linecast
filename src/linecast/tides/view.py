@@ -933,7 +933,7 @@ def render(station_id, station_name, station_meta=None, runtime=None,
             if tooltip:
                 overlay_parts.append(tooltip)
         elif now_col is not None and now_info is not None:
-            now_tip = _build_now_tooltip(now_col, now_info, chart_start, cols, graph_w)
+            now_tip = _build_now_tooltip(now_col, now_info, chart_start, cols)
             if now_tip:
                 overlay_parts.append(now_tip)
 

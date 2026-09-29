@@ -146,13 +146,13 @@ class TestMarkersFollowTheSamples:
         assert int(_column_of(now, wdts, WIDTH)) == _col(wdts.index(now), n)
 
         # The midnight dividers, each on a sample whose hour is 0
-        midnights, _noons, _names = _compute_time_markers(wdts, n - 1, WIDTH, _runtime())
+        midnights, _noons, _names = _compute_time_markers(wdts, WIDTH, _runtime())
         expected = {_col(i, n) for i, dt in enumerate(wdts) if dt.hour == 0}
         expected = {x for x in expected if 0 < x < WIDTH - 1}
         assert midnights == expected
 
         # The sunrise, forty minutes past the hour it follows
-        labels = _compute_sun_labels(wdts, [(sunrise, None)], n - 1, WIDTH, _runtime())
+        labels = _compute_sun_labels(wdts, [(sunrise, None)], WIDTH, _runtime())
         on_the_hour = sunrise.replace(minute=0)
         i = wdts.index(on_the_hour)
         assert list(labels) == [int((i + sunrise.minute / 60) / (n - 1) * (WIDTH - 1))]

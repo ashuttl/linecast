@@ -705,8 +705,7 @@ class MapApp(LiveApp):
         from linecast.terminal.help import HelpPanel
         self._help = HelpPanel(
             'maps', self.runtime.lang, content=lambda cols, rows:
-            ui.help_rows(cols, rows, self.runtime.lang,
-                               self.routes.route is not None))
+            ui.help_rows(rows, self.runtime.lang, self.routes.route is not None))
         return self._help
 
     def intercept(self, action):

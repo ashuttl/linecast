@@ -175,19 +175,19 @@ class TestFormatComparison:
 
     def test_above_average_fahrenheit(self):
         hist = HistoricalAverages(avg_high=60.0, avg_low=40.0, avg_precip=0.1, years=10)
-        text = format_historical_comparison(65.0, 42.0, hist, self._runtime())
+        text = format_historical_comparison(65.0, hist, self._runtime())
         assert "above" in text.lower()
         assert "5" in text
 
     def test_below_average_fahrenheit(self):
         hist = HistoricalAverages(avg_high=60.0, avg_low=40.0, avg_precip=0.1, years=10)
-        text = format_historical_comparison(55.0, 38.0, hist, self._runtime())
+        text = format_historical_comparison(55.0, hist, self._runtime())
         assert "below" in text.lower()
         assert "5" in text
 
     def test_near_average_fahrenheit(self):
         hist = HistoricalAverages(avg_high=60.0, avg_low=40.0, avg_precip=0.1, years=10)
-        text = format_historical_comparison(61.0, 41.0, hist, self._runtime())
+        text = format_historical_comparison(61.0, hist, self._runtime())
         assert "avg" in text.lower()
         # Should say "near avg" not "above" or "below"
         assert "above" not in text.lower()
@@ -195,24 +195,24 @@ class TestFormatComparison:
 
     def test_above_average_celsius(self):
         hist = HistoricalAverages(avg_high=15.0, avg_low=5.0, avg_precip=2.0, years=10)
-        text = format_historical_comparison(18.0, 7.0, hist, self._runtime(celsius=True))
+        text = format_historical_comparison(18.0, hist, self._runtime(celsius=True))
         assert "3" in text
 
     def test_near_average_celsius(self):
         hist = HistoricalAverages(avg_high=15.0, avg_low=5.0, avg_precip=2.0, years=10)
-        text = format_historical_comparison(15.5, 5.5, hist, self._runtime(celsius=True))
+        text = format_historical_comparison(15.5, hist, self._runtime(celsius=True))
         # 0.5 difference is within 1.5 threshold for Celsius
         assert "above" not in text.lower()
         assert "below" not in text.lower()
 
     def test_french_locale(self):
         hist = HistoricalAverages(avg_high=60.0, avg_low=40.0, avg_precip=0.1, years=10)
-        text = format_historical_comparison(70.0, 50.0, hist, self._runtime(lang="fr"))
+        text = format_historical_comparison(70.0, hist, self._runtime(lang="fr"))
         assert "moy" in text.lower()
 
     def test_japanese_locale(self):
         hist = HistoricalAverages(avg_high=60.0, avg_low=40.0, avg_precip=0.1, years=10)
-        text = format_historical_comparison(70.0, 50.0, hist, self._runtime(lang="ja"))
+        text = format_historical_comparison(70.0, hist, self._runtime(lang="ja"))
         assert len(text) > 0
 
 

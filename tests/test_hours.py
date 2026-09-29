@@ -667,7 +667,7 @@ class TestPainting:
         tz = ZoneInfo("Asia/Riyadh")
         now = datetime(2026, 9, 16, 15, 0, tzinfo=tz)
         hours, now = hours_now("islamic", now, 21.4225, 39.8262, tz, None, "SA")
-        line = _plain(sunshine_oneline(21.4225, 39.8262, 259, 15.0, _runtime(use_24h=True),
+        line = _plain(sunshine_oneline(21.4225, 39.8262, 259, _runtime(use_24h=True),
                                        3.0, hours, now))
         assert line.endswith("Dhuhr · Asr in 41m")
 

@@ -624,7 +624,7 @@ def _help_rows(lang, route, glyphs):
     return rows
 
 
-def help_rows(cols, rows, lang="en", route=False):
+def help_rows(rows, lang="en", route=False):
     """Keep the map legend when it fits; short windows retain the controls."""
     full = _help_rows(lang, route, glyphs=True)
     if len(full) + 4 <= rows:
@@ -634,4 +634,4 @@ def help_rows(cols, rows, lang="en", route=False):
 
 def help_overlay(cols, rows, lang="en", route=False):
     from linecast.terminal.help import panel
-    return panel(help_rows(cols, rows, lang, route), cols, rows, lang)[0]
+    return panel(help_rows(rows, lang, route), cols, rows, lang)[0]

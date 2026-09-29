@@ -364,7 +364,7 @@ def render_day_label_line(midnight_day_names, graph_w, moon_labels=None):
     return f"{line}{RESET}"
 
 
-def build_now_tooltip(now_col, now_info, chart_start, cols, graph_w):
+def build_now_tooltip(now_col, now_info, chart_start, cols):
     """Build cursor-positioned tooltip at the top of the now indicator line."""
     if now_col is None or now_info is None:
         return ""

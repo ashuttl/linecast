@@ -1000,8 +1000,8 @@ class TestMoreToSay:
         from linecast.weather.sections import sky_sentence
         cover = [90, 90, 90, 90, 10, 10, 10, 10, 10, 10, 10, 10]
         hourly = self._hourly(NOON, len(cover), cloud_cover=cover)
-        assert sky_sentence(hourly, DAILY, NOON, _runtime()) == "Clearing around 16:00"
-        assert (sky_sentence(hourly, DAILY, NOON, _runtime(lang="ja"))
+        assert sky_sentence(hourly, NOON, _runtime()) == "Clearing around 16:00"
+        assert (sky_sentence(hourly, NOON, _runtime(lang="ja"))
                 == "16時頃に晴れてくる見込みです")
 
     def test_a_brief_clearing_is_not_clearing(self):
@@ -1010,20 +1010,20 @@ class TestMoreToSay:
         from linecast.weather.sections import sky_sentence
         cover = [90, 90, 90, 90, 90, 90, 10, 10, 10, 90, 90, 90, 90, 90]
         hourly = self._hourly(NOON, len(cover), cloud_cover=cover)
-        assert sky_sentence(hourly, DAILY, NOON, _runtime()) == ""
+        assert sky_sentence(hourly, NOON, _runtime()) == ""
 
     def test_the_sky_clouds_over_unless_rain_already_says_so(self):
         from linecast.weather.sections import sky_sentence
         cover = [10, 10, 10, 10, 90, 90, 90, 90, 90, 90, 90, 90]
         hourly = self._hourly(NOON, len(cover), cloud_cover=cover)
-        assert sky_sentence(hourly, DAILY, NOON, _runtime()) == "Clouding over around 16:00"
-        assert sky_sentence(hourly, DAILY, NOON, _runtime(), precip_kind="starting") == ""
+        assert sky_sentence(hourly, NOON, _runtime()) == "Clouding over around 16:00"
+        assert sky_sentence(hourly, NOON, _runtime(), precip_kind="starting") == ""
 
     def test_a_mixed_sky_says_nothing(self):
         from linecast.weather.sections import sky_sentence
         cover = [50, 50, 50, 50, 90, 90, 90, 90, 90, 90, 90, 90]
         hourly = self._hourly(NOON, len(cover), cloud_cover=cover)
-        assert sky_sentence(hourly, DAILY, NOON, _runtime()) == ""
+        assert sky_sentence(hourly, NOON, _runtime()) == ""
 
     def test_a_change_after_dark_is_named_at_the_hour_it_happens(self):
         # Seattle at five: a clear evening, and the sky shuts at ten.
@@ -1032,7 +1032,7 @@ class TestMoreToSay:
         evening = datetime(2026, 7, 15, 17, 0)
         cover = [0, 0, 0, 0, 20] + [100] * 20
         hourly = self._hourly(evening, len(cover), cloud_cover=cover)
-        assert sky_sentence(hourly, DAILY, evening, _runtime()) == "Clouding over around 22:00"
+        assert sky_sentence(hourly, evening, _runtime()) == "Clouding over around 22:00"
 
     def test_a_night_change_that_is_gone_by_morning_says_nothing(self):
         # Cloud that rolls in after dark and burns off at breakfast is
@@ -1041,7 +1041,7 @@ class TestMoreToSay:
         evening = datetime(2026, 7, 15, 17, 0)
         cover = [0] * 5 + [100] * 8 + [0] * 12
         hourly = self._hourly(evening, len(cover), cloud_cover=cover)
-        assert sky_sentence(hourly, DAILY, evening, _runtime()) == ""
+        assert sky_sentence(hourly, evening, _runtime()) == ""
 
     def test_the_hour_named_is_the_hour_the_sky_turns(self):
         # Rome at dusk: half cloud at six, the sky properly open at
@@ -1050,7 +1050,7 @@ class TestMoreToSay:
         afternoon = datetime(2026, 7, 15, 14, 0)
         cover = [100, 100, 100, 100, 52, 11, 36, 13, 19] + [10] * 16
         hourly = self._hourly(afternoon, len(cover), cloud_cover=cover)
-        assert sky_sentence(hourly, DAILY, afternoon, _runtime()) == "Clearing around 19:00"
+        assert sky_sentence(hourly, afternoon, _runtime()) == "Clearing around 19:00"
 
     def test_noon_is_named_in_words(self):
         # London at eight: the sky shuts at twelve, which every language
@@ -1065,7 +1065,7 @@ class TestMoreToSay:
                            ("ja", "昼頃に曇ってくる見込みです"),
                            ("uk", "Близько полудня стане похмуро"),
                            ("tr", "Öğle saatlerinde hava kapanacak")):
-            assert sky_sentence(hourly, DAILY, morning, _runtime(lang=lang)) == said, lang
+            assert sky_sentence(hourly, morning, _runtime(lang=lang)) == said, lang
 
     def _week(self, now, sums, probs, codes=None):
         days = [(now + timedelta(days=k)).date().isoformat() for k in range(-1, 7)]
@@ -1959,7 +1959,7 @@ class TestFog:
         hourly = dict(self._hourly(NOON, codes), cloud_cover=[100] * 5 + [10] * 20)
         # The cloud clears when the fog does, and the sky sentence says
         # so on its own
-        assert sky_sentence(hourly, DAILY, NOON, _runtime()) == "Clearing around 17:00"
+        assert sky_sentence(hourly, NOON, _runtime()) == "Clearing around 17:00"
         data = {"daily": dict(DAILY, temperature_2m_max=[70, 75, 67]), "hourly": hourly,
                 "current": {"weather_code": 45}}
         assert self._prose(data) == (

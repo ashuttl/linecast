@@ -91,7 +91,7 @@ def render_header(data, width, location_name="", runtime=None, aqi_data=None, hi
             if (0 <= index < min(len(hi_temps), len(lo_temps))
                     and hi_temps[index] is not None and lo_temps[index] is not None):
                 hist_text = format_historical_comparison(
-                    hi_temps[index], lo_temps[index], historical, runtime,
+                    hi_temps[index], historical, runtime,
                 )
                 if hist_text:
                     left_hist = f" {MUTED}({hist_text})"
@@ -454,13 +454,13 @@ def narrative_text(data, now, runtime=None, trace=None):
         add(4, hours(fog_at), fog_at,
             lambda after: _fog(hourly, current, now, runtime, after, daily)[0],
             leaves=fog_end)
-    sky, sky_at = _sky(hourly, daily, now, runtime, kind, precip["end"])
+    sky, sky_at = _sky(hourly, now, runtime, kind, precip["end"])
     # Fog is the sky.  Once the fog sentence has spoken, a sentence about
     # the cloud would say the same change over again -- the fog closing
     # in, or lifting -- in words that read as though it were something else.
     if sky and not fog:
         add(3, hours(sky_at), sky_at,
-            lambda after: _sky(hourly, daily, now, runtime, kind, precip["end"], after)[0])
+            lambda after: _sky(hourly, now, runtime, kind, precip["end"], after)[0])
     freeze, freeze_at = _freeze(hourly, current, now, runtime)
     if freeze:
         add(4, hours(freeze_at), freeze_at,
@@ -1985,7 +1985,7 @@ _SKY_CLOUDY = 65
 _SKY_CLEAR = 35
 
 
-def sky_sentence(hourly, daily, now, runtime=None, precip_kind="", precip_end=None):
+def sky_sentence(hourly, now, runtime=None, precip_kind="", precip_end=None):
     """"Clearing around 2pm", "Clouding over tomorrow morning": the first
     lasting change in the sky over the next day, when the sky is plainly
     one thing now and plainly the other later.
@@ -2002,10 +2002,10 @@ def sky_sentence(hourly, daily, now, runtime=None, precip_kind="", precip_end=No
     then; after rain that is ending, only a clearing after the end."""
     if runtime is None:
         runtime = current_runtime(WeatherRuntime)
-    return _sky(hourly, daily, now, runtime, precip_kind, precip_end)[0]
+    return _sky(hourly, now, runtime, precip_kind, precip_end)[0]
 
 
-def _sky(hourly, daily, now, runtime, precip_kind="", precip_end=None, after=None):
+def _sky(hourly, now, runtime, precip_kind="", precip_end=None, after=None):
     """The sky sentence and the hour it is about."""
     if not _has("sky_clearing", runtime) or precip_kind in ("starting", "continuing"):
         return "", None

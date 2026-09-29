@@ -185,7 +185,7 @@ def _until(expires, runtime):
     return _s("until", runtime, time=expires, time_dat=tr_dative(expires))
 
 
-def _render_single_alert(alert, width, max_lines=999, runtime=None, tz_name="", now=None):
+def _render_single_alert(alert, width, runtime=None, tz_name="", now=None):
     """Render one alert as a single compact line: pill + date range +
     truncated body. An alert already in force gives only its end: when
     it began is past, and the modal still has it."""
@@ -222,13 +222,13 @@ def _render_single_alert(alert, width, max_lines=999, runtime=None, tz_name="", 
     return ["".join(parts)]
 
 
-def render_alerts(alerts, width=80, remaining_rows=None, runtime=None, tz_name=""):
+def render_alerts(alerts, width=80, runtime=None, tz_name=""):
     """NWS/ECCC/JMA alert banners — compact format."""
-    lines, _spans = render_alerts_mapped(alerts, width, remaining_rows, runtime, tz_name)
+    lines, _spans = render_alerts_mapped(alerts, width, runtime, tz_name)
     return lines
 
 
-def render_alerts_mapped(alerts, width=80, remaining_rows=None, runtime=None, tz_name=""):
+def render_alerts_mapped(alerts, width=80, runtime=None, tz_name=""):
     """Render the alert banners, with the columns each alert occupies.
 
     When several alerts share the same description, their pills are grouped

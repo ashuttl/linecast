@@ -546,8 +546,7 @@ def main():
         from linecast.terminal.oneline import emit, sunshine_oneline
         now = _now()
         doy = now.timetuple().tm_yday
-        now_hour = now.hour + now.minute / 60 + now.second / 3600
-        emit(sunshine_oneline(lat, lng, doy, now_hour, runtime,
+        emit(sunshine_oneline(lat, lng, doy, runtime,
                               tz_offset_h=_offset_hours(now),
                               hours=_hours(now), now=now))
         return

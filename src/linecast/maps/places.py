@@ -286,7 +286,7 @@ def _write(taken, col, row, name, gw):
     return "".join(kept)
 
 
-def _emit(entries, ink_of, gw, wide_fill):
+def _emit(entries, ink_of, wide_fill):
     """{(col, row): tuple} for a laid-out list, in a caller's own ink.
 
     `ink_of(entry)` gives (dot ink, label ink, bold) for one city;
@@ -323,7 +323,7 @@ def terrain_overlays(cam, band, lang="en"):
     hypsometric ramp and no fixed ink reads on all of it.
     """
     return _emit(layout(cam, band, lang),
-                 lambda _entry: (None, None, False), cam.gw,
+                 lambda _entry: (None, None, False),
                  lambda ink, bold: ("", ink, False))
 
 
@@ -347,7 +347,7 @@ def street_overlays(cam, band, palette, lang="en", window=None):
         layout(cam, band, lang, upper_pop=style.CITY_CAPS_POP,
                window=window),
         lambda entry: major if entry[2] >= style.CITY_CAPS_POP else minor,
-        cam.gw, lambda ink, bold: ("", ink, False))
+        lambda ink, bold: ("", ink, False))
 
 
 def _style(palette, kind):

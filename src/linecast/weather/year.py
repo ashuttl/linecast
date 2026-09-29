@@ -736,7 +736,7 @@ def render_year(climate, days, runtime, *, location_name="", location_menu=False
     for row, body in enumerate(temp_fb.render(temp_over)):
         text = label_at.get(row, "")
         lines.append(f"{dim}{' ' * (gutter - 1 - visible_len(text))}{text} {RESET}{body}")
-    lines.append(" " * gutter + _month_axis(year, starts, n, width, runtime,
+    lines.append(" " * gutter + _month_axis(starts, n, width, runtime,
                                             this_month=month_of[today] if today is not None
                                             else None))
     for body in precip_fb.render(precip_over):
@@ -768,7 +768,7 @@ def _on_the_page(lines, cols):
         + RESET for line in lines)
 
 
-def _month_axis(year, starts, n, width, runtime, this_month=None):
+def _month_axis(starts, n, width, runtime, this_month=None):
     """The month labels at their months' starts, the current one brighter.
 
     The axis runs by the Gregorian months, as the running totals do.

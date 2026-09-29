@@ -509,7 +509,7 @@ def resolve_levels(types, base=None, brackets=None):
     embedding = list(levels)       # sos and eos read these, not resolved ones
     for seq in sequences:
         _resolve_sequence(seq, types, original, levels, embedding, kept,
-                          position, base, matching_pdi, brackets)
+                          position, base, brackets)
 
     # L1: separators and trailing whitespace back to the paragraph level
     trailing = True
@@ -530,7 +530,7 @@ def resolve_levels(types, base=None, brackets=None):
 
 
 def _resolve_sequence(seq, types, original, levels, embedding, kept, position,
-                      base, matching_pdi, brackets):
+                      base, brackets):
     """W1-W7, N0-N2, and I1-I2 for one isolating run sequence."""
     level = embedding[seq[0]]
     first, last = seq[0], seq[-1]

@@ -455,8 +455,8 @@ def _(ctx):
 def _(ctx):
     from linecast.terminal.oneline import sunshine_oneline
     now = _now()
-    return ctx.printed(sunshine_oneline(LAT, LNG, now.timetuple().tm_yday, 14.5,
-                                        ctx.runtime(), tz_offset_h=-5, now=now))
+    return ctx.printed(sunshine_oneline(LAT, LNG, now.timetuple().tm_yday, ctx.runtime(),
+                                        tz_offset_h=-5, now=now))
 
 
 # ---------------------------------------------------------------------------

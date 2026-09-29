@@ -126,7 +126,7 @@ class TestSunshineOneline:
     def test_basic_output(self):
         # Portland, ME in summer (doy=172 = ~June 21)
         rt = self._runtime()
-        line = sunshine_oneline(43.66, -70.26, 172, 12.0, rt)
+        line = sunshine_oneline(43.66, -70.26, 172, rt)
         plain = _strip_ansi(line)
         # Should contain up/down arrows and time-like patterns
         assert "↑" in plain  # sunrise arrow
@@ -135,7 +135,7 @@ class TestSunshineOneline:
 
     def test_contains_delta(self):
         rt = self._runtime()
-        line = sunshine_oneline(43.66, -70.26, 172, 12.0, rt)
+        line = sunshine_oneline(43.66, -70.26, 172, rt)
         plain = _strip_ansi(line)
         # Delta should have + or - sign with m (minutes), or at the
         # solstice s (seconds)
@@ -143,22 +143,22 @@ class TestSunshineOneline:
 
     def test_24h_format(self):
         rt = self._runtime(lang="fr")
-        line = sunshine_oneline(48.86, 2.35, 172, 12.0, rt)
+        line = sunshine_oneline(48.86, 2.35, 172, rt)
         plain = _strip_ansi(line)
         # 24h format should have HH:MM without a/p
         assert "a" not in plain.split("h")[0] or ":" in plain
 
     def test_a_polar_season_has_no_sunrise_or_sunset(self):
         rt = self._runtime()
-        winter = _strip_ansi(sunshine_oneline(69.65, 18.96, 355, 12.0, rt, tz_offset_h=1))
-        summer = _strip_ansi(sunshine_oneline(69.65, 18.96, 172, 12.0, rt, tz_offset_h=2))
+        winter = _strip_ansi(sunshine_oneline(69.65, 18.96, 355, rt, tz_offset_h=1))
+        summer = _strip_ansi(sunshine_oneline(69.65, 18.96, 172, rt, tz_offset_h=2))
         assert winter.startswith("↑— ↓— 0h00m polar night")
         assert summer.startswith("↑— ↓— 24h00m midnight sun")
 
     def test_a_change_under_a_minute_is_in_seconds(self):
         # On the equator the day changes by seconds all year: Singapore
         # in September loses 4s a day, not "0m 4s".
-        line = _strip_ansi(sunshine_oneline(1.35, 103.82, 264, 12.0,
+        line = _strip_ansi(sunshine_oneline(1.35, 103.82, 264,
                                             self._runtime(use_24h=True), tz_offset_h=8))
         assert " −4s " in line
         assert "0m" not in line
@@ -166,7 +166,7 @@ class TestSunshineOneline:
     def test_persian_writes_the_day_length_in_words(self):
         # As the change beside it is, and as the day view writes both:
         # a Persian reader does not read h and m as units.
-        line = _strip_ansi(sunshine_oneline(35.69, 51.39, 300, 12.0,
+        line = _strip_ansi(sunshine_oneline(35.69, 51.39, 300,
                                             self._runtime(lang="fa"), tz_offset_h=3.5))
         assert "ساعت" in line and "دقیقه" in line
         assert "h" not in line and "m " not in line
@@ -175,7 +175,7 @@ class TestSunshineOneline:
         # Vorkuta in mid-July: the Sun rises at 23:41 on the 16th, which
         # comes back as a negative hour on the 17th
         rt = self._runtime(use_24h=True)
-        line = _strip_ansi(sunshine_oneline(67.5, 64.05, 198, 12.0, rt, tz_offset_h=3))
+        line = _strip_ansi(sunshine_oneline(67.5, 64.05, 198, rt, tz_offset_h=3))
         assert line.startswith("↑23:")
 
 

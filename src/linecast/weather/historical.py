@@ -305,8 +305,7 @@ def temperature_scale(runtime, historical, forecast_range, n_rows=2):
     return lo, hi
 
 
-def format_historical_comparison(current_high: float, current_low: float,
-                                 hist: HistoricalAverages, runtime) -> str:
+def format_historical_comparison(current_high: float, hist: HistoricalAverages, runtime) -> str:
     """Format a short comparison string like '3° above avg' or 'avg 68°'.
 
     Returns an empty string if the difference is negligible.
