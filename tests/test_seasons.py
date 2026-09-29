@@ -76,3 +76,14 @@ class TestFullMoonNames:
         # 2023: full moons Aug 1 and Aug 31 — the second is Blue.
         assert full_moon_name(_utc(2023, 8, 31, 1), SYNODIC) == "Blue"
         assert full_moon_name(_utc(2023, 8, 1, 18), SYNODIC) == "Sturgeon"
+
+    def test_blue_moon_follows_the_real_month_not_the_mean_one(self):
+        # Manila, March 2029: full moons Mar 1 01:10 and Mar 30 10:26
+        # local, 29.4 days apart; a mean month back from the second
+        # lands in February
+        from zoneinfo import ZoneInfo
+        from linecast.astro.ephemeris import next_moon_phase_utc
+        manila = ZoneInfo("Asia/Manila")
+        full = next_moon_phase_utc(_utc(2029, 3, 20), 0.5).astimezone(manila)
+        assert (full.month, full.day) == (3, 30)
+        assert full_moon_name(full, SYNODIC) == "Blue"

@@ -37,6 +37,7 @@ Notable changes, by release. Notes for the next release collect under **Unreleas
 - Weather: Fixed the last 24 hours' precipitation naming a kind too slight to mention, such as "0.4 cm of snow" after a dusting that was followed by 15 mm of rain.
 - Moon, sky: Fixed times and dates past the next change of clock being an hour off where the location comes from the network rather than a setting, which could put a new or full moon on the wrong day.
 - Moon: In the last day before a full or new moon, an equinox or a solstice, the wait is given in hours and minutes, as it is for moonrise and moonset. It read "in 0.0d" for the last hour.
+- Moon: Fixed Blue Moons being missed, or named where there was none, when the two full moons of a month fell close to 29½ days apart, as in March 2029 in East Asia.
 
 ## 2.9.2 — 2026-09-27
 

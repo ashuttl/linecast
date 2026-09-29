@@ -134,7 +134,12 @@ def full_moon_name(full_local, synodic_days):
         return "Harvest"          # the full moon nearest the equinox
     if half < delta <= 3.0 * half:
         return "Hunter's"         # the one after the Harvest Moon
-    prev = full_local - timedelta(days=synodic_days)
+    # The full moon before, found rather than a mean month back: months
+    # run from 29.3 to 29.8 days, and a Blue Moon can turn on the hours
+    from linecast.astro.ephemeris import next_moon_phase_utc
+    prev_utc = next_moon_phase_utc(full_utc - timedelta(days=1), 0.5, backwards=True)
+    prev = (full_local - timedelta(days=synodic_days) if prev_utc is None
+            else prev_utc.astimezone(full_local.tzinfo))
     if (prev.year, prev.month) == (full_local.year, full_local.month):
         return "Blue"             # second full moon this calendar month
     return FULL_MOON_NAMES[full_local.month - 1]
