@@ -264,6 +264,36 @@ class TestProviders:
         _, out, _ = _run("--json", monkeypatch=monkeypatch)
         assert json.loads(out)["tidecheck_budget"] is None
 
+    @pytest.mark.parametrize("country, name, url", [
+        ("US", "US National Weather Service alerts", "https://api.weather.gov/"),
+        ("DE", "DWD alerts", "https://api.brightsky.dev/"),
+        ("FR", "MeteoAlarm alerts", "https://feeds.meteoalarm.org/"),
+        ("IN", "SACHET alerts", "https://sachet.ndma.gov.in/"),
+    ])
+    def test_the_alerts_are_probed_for_the_users_own_country(self, monkeypatch,
+                                                             country, name, url):
+        from linecast import _location
+        monkeypatch.setattr(_location, "own_country", lambda: country)
+        hosts = dict(_doctor().providers())
+        assert hosts[name] == url
+        assert [n for n in hosts if n.endswith(" alerts")] == [name]
+
+    def test_no_country_or_one_without_alerts_lists_none(self, monkeypatch):
+        from linecast import _location
+        for country in (None, "BR"):
+            monkeypatch.setattr(_location, "own_country", lambda c=country: c)
+            assert not [n for n, _url in _doctor().providers() if n.endswith(" alerts")]
+
+    def test_hong_kong_s_warnings_share_the_tides_row(self, monkeypatch):
+        from linecast import _location
+        monkeypatch.setattr(_location, "own_country", lambda: "HK")
+        urls = [url for _name, url in _doctor().providers()]
+        assert urls.count("https://data.weather.gov.hk/") == 1
+
+    def test_the_airport_reports_are_probed(self):
+        hosts = dict(_doctor().providers())
+        assert hosts["Aviation Weather Center reports"] == "https://aviationweather.gov/"
+
     def test_overrides_are_honoured(self, no_probes, monkeypatch):
         monkeypatch.setenv("LINECAST_LIBREWXR_URL", "https://wxr.example:8443/base")
         monkeypatch.setenv("LINECAST_VECTOR_TILES_URL", "https://tiles.example/planet.json")

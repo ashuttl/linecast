@@ -57,7 +57,13 @@ def _hostname(url):
 def providers():
     """(name, url) for every host a command may talk to, honouring the
     URL overrides.  TideCheck's url is None until a key is configured.
-    A 4xx from a host root is still a host that answers."""
+    A 4xx from a host root is still a host that answers.
+
+    Of the alert services, the one for the user's own country is listed,
+    where linecast has one: the rest are hosts this user's forecast
+    never asks.
+    """
+    from linecast._location import own_country
     from linecast.maps.builtup import DEFAULT_URL as BUILTUP_URL
     from linecast.maps.elevation import tile_url as elevation_tile_url
     from linecast.maps.route import _FALLBACK as OSRM_FALLBACK, _PRIMARY as OSRM_PRIMARY
@@ -68,15 +74,20 @@ def providers():
     from linecast.tides.qld import QLD_BASE
     from linecast.tides.tidecheck import TIDECHECK_BASE, is_available
     from linecast.maps.vtiles import DEFAULT_TILEJSON_URL, FALLBACK_TILEJSON_URL
+    from linecast.weather.alert_feeds import ALERT_FEEDS
     env = os.environ
+    feed = ALERT_FEEDS.get(own_country() or "")
+    # Hong Kong's warnings come from the host its tides do, listed below
+    alerts = ([(f"{feed.name} alerts", feed.url)]
+              if feed is not None and feed.url != _root(HKO_BASE) else [])
     return [
         ("Open-Meteo forecast", "https://api.open-meteo.com/"),
         ("Open-Meteo geocoder", "https://geocoding-api.open-meteo.com/"),
         ("Open-Meteo marine", "https://marine-api.open-meteo.com/"),
         ("Open-Meteo archive", "https://archive-api.open-meteo.com/"),
         ("Open-Meteo air quality", "https://air-quality-api.open-meteo.com/"),
-        ("NWS alerts", "https://api.weather.gov/"),
-        ("MetService alerts", "https://alerts.metservice.com/"),
+        ("Aviation Weather Center reports", "https://aviationweather.gov/"),
+        *alerts,
         ("ipinfo geolocation", "https://ipinfo.io/"),
         ("ipwho geolocation (fallback)", "https://ipwho.is/"),
         ("GeoJS geolocation (fallback)", "https://get.geojs.io/"),
