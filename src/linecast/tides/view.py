@@ -1019,12 +1019,6 @@ class TidesApp(LocationMenu, _live.LiveApp):
         name = _pill_label(self.station_name, location_menu=True)
         return row == 1 and bool(name) and col <= visible_len(name) + 4
 
-    def help_panel(self):
-        from linecast.terminal.help import HelpPanel, entries
-        lang = self.runtime.lang
-        return HelpPanel('tides', lang, content=lambda cols, rows:
-                         self.menu_rows() + entries('tides', lang))
-
     def expand_for(self, offset_minutes):
         """Widen the fetched range when the user scrolls near an edge.
 

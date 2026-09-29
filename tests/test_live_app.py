@@ -93,6 +93,17 @@ class TestHooks:
         assert hooks["on_wheel"](1, 1, 1) is True
         assert hooks["text_mode"].__self__ is app
 
+    def test_an_app_that_takes_clicks_is_handed_a_drag_that_does_nothing(self):
+        # the loop tells a click by its press and release, which it
+        # follows only for an app with on_drag
+        class App(LiveApp):
+            def on_click(self, col, row):
+                return True
+
+        hooks = App().hooks()
+        assert set(hooks) == {"on_click", "on_drag"}
+        assert hooks["on_drag"](1, 1, True) is False
+
     def test_the_defaults_do_nothing(self):
         app = LiveApp()
         assert app.on_action("x") is False

@@ -710,7 +710,9 @@ class WeatherApp(LocationMenu, _live.LiveApp):
     scroll_step = 60
     mouse = True
 
-    help_view = 'weather'
+    @property
+    def help_view(self):
+        return 'weather_year' if self.year_view else 'weather'
 
     def __init__(self, data, alerts, aqi, lat, lng, runtime,
                  location_name="", historical=None, country="", year_view=False):
@@ -1030,20 +1032,14 @@ class WeatherApp(LocationMenu, _live.LiveApp):
             output = _live.overlay(body, previous + floating)
         return output, alert_rows
 
-    def help_panel(self):
-        from linecast.terminal.help import HelpPanel, entries
+    def help_credits(self):
         from linecast.maps.search import ATTRIBUTION
+        lang = self.runtime.lang
         observed = ((self.data or {}).get("current") or {}).get("observed")
-        return HelpPanel('weather', self.runtime.lang, content=lambda cols, rows:
-                         self.menu_rows() +
-                         entries('weather_year' if self.year_view else 'weather',
-                                 self.runtime.lang,
-                                 credits=(forecast_attribution(self.runtime.lang),
-                                          observation_attribution(self.runtime.lang,
-                                                                  observed["station"])
-                                          if observed else None,
-                                          alert_attribution(self.country, self.runtime.lang),
-                                          ATTRIBUTION)))
+        return (forecast_attribution(lang),
+                observation_attribution(lang, observed["station"]) if observed else None,
+                alert_attribution(self.country, lang),
+                ATTRIBUTION)
 
     def on_open(self, idx):
         if 0 <= idx < len(self.alerts):

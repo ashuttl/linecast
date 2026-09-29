@@ -118,8 +118,8 @@ class LocationMenu:
         recent.remember(place)
         self._update_location_picker()
 
-    def menu_rows(self):
-        """The menu's keys, for the top of the help panel."""
+    def help_rows(self):
+        """The menu's keys, at the top of the help panel."""
         lang = self.runtime.lang
         return [('l', ls('locations', lang)), ('/', ls('add', lang))]
 
@@ -145,10 +145,6 @@ class LocationMenu:
             return NotImplemented  # the view's own scrolling
         self.locations.handle('fwd' if direction > 0 else 'back', *self._here())
         return True
-
-    def on_drag(self, dcol, drow, done):
-        # Opt in to live_loop's press/release tracking for clicks.
-        return False
 
     def on_click(self, col, row):
         if self.locations.active:

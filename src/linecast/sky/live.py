@@ -449,9 +449,6 @@ class SkyApp(LiveApp):
             return moved
         return self.camera.drag(dcol, drow)
 
-    def on_click(self, col, row):
-        return False
-
     def stop(self):
         with self._clock_lock:
             self.speed = None

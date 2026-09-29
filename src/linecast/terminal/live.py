@@ -1037,15 +1037,38 @@ class LiveApp:
         return menu_box(lines, cols, rows, border=fg(*MUTED))
 
     def hooks(self):
-        """The hooks this app overrides, as live_loop keyword arguments."""
-        return {name: getattr(self, name) for name in self.HOOKS
-                if getattr(type(self), name) is not getattr(LiveApp, name)}
+        """The hooks this app overrides, as live_loop keyword arguments.
+        An app that takes clicks and no drags is handed a drag that does
+        nothing: the loop tells a click by the press and the release,
+        which it tracks only for an app with on_drag."""
+        hooks = {name: getattr(self, name) for name in self.HOOKS
+                 if getattr(type(self), name) is not getattr(LiveApp, name)}
+        if "on_click" in hooks and "on_drag" not in hooks:
+            hooks["on_drag"] = lambda dcol, drow, done: False
+        return hooks
 
+    # The help panel: the view's keys (terminal/help.CONTROLS[help_view]),
+    # after help_rows and before help_credits.  help_view is read each
+    # time the panel is drawn, so a view that switches, as weather's year
+    # view does, makes it a property.
     help_view = None
 
+    def help_rows(self):
+        """Rows placed before the view's own keys."""
+        return []
+
+    def help_credits(self):
+        """The data credits listed under the keys."""
+        return ()
+
     def help_panel(self):
-        from linecast.terminal.help import HelpPanel
-        return HelpPanel(self.help_view, self.runtime.lang) if self.help_view else None
+        from linecast.terminal.help import HelpPanel, entries
+        if not self.help_view:
+            return None
+        lang = self.runtime.lang
+        return HelpPanel(self.help_view, lang, content=lambda cols, rows:
+                         self.help_rows() + entries(self.help_view, lang,
+                                                    credits=self.help_credits()))
 
     def run(self):
         """Run the app on the alternate screen until it quits."""
