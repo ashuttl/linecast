@@ -21,7 +21,7 @@ from linecast.terminal.color import (
 from linecast.terminal.framebuffer import halfblock
 from linecast.radar.basemap import BORDER
 from linecast.terminal.theme import lerp_rgb, themed
-from linecast.radar.ui import MARKER
+from linecast.radar.ui import MARKER as _MARKER_RAW
 
 
 # A colour setter we can compare, or any other escape, taken whole: the
@@ -73,29 +73,6 @@ def compact_colors(output):
     packed = _MAP_ESCAPE.sub(compact, body)
     return output if unfamiliar else f'{packed}{sep}{floating}'
 
-
-# geography over terrain: dark strokes cut into the colour fill (the
-# radar palette's dim-on-dark strokes vanish against light terrain).
-# Every terrain ink below passes through terminal.theme.themed once, at import:
-# the calibrated luminance ladder stays, the hue family follows the
-# terminal's own theme.
-COAST_STROKE = themed((22, 32, 52))
-BORDER_STROKE = themed((52, 48, 66))
-LABEL_DARK = themed((28, 32, 44))
-LABEL_LIGHT = themed((232, 232, 240))
-
-# the marker is radar's, re-inked: on any theme it should be the
-# theme's own bright accent, not an absolute yellow
-_MARKER_RAW = MARKER
-MARKER = themed(_MARKER_RAW)
-
-# Inland water: lakes and rivers are *not* on the bathymetric ramp.  A
-# terrarium sample reports the elevation of the water's surface, so a
-# lake is indistinguishable from the meadow beside it — the polygons
-# come from the same vector tiles street mode uses, and the ramps never
-# have to guess.  One flat tint, because a lake surface is flat.
-LAKE_FILL = themed((74, 118, 156))
-RIVER_STROKE = themed((108, 152, 190))
 
 # Hypsometric bands above sea level (meters) — *bands*, not a gradient:
 # land takes the flat colour of its band and the boundaries read as
@@ -160,8 +137,6 @@ _HYPSO_POLAR_RAW = [
 ]
 _HYPSO_FAMILIES_RAW = (_HYPSO_RAW, _HYPSO_SEMIARID_RAW,
                        _HYPSO_ARID_RAW, _HYPSO_POLAR_RAW)
-HYPSO_FAMILIES = [[(m, themed(c)) for m, c in fam]
-                  for fam in _HYPSO_FAMILIES_RAW]
 
 # Bathymetric tint below sea level — deliberately a smooth gradient
 # where the land is banded: the sea is the one continuous field on the
@@ -176,7 +151,50 @@ _BATHY_RAW = [
     (-50, (96, 148, 178)),
     (0, (120, 170, 194)),
 ]
-BATHY_STOPS = [(m, themed(c)) for m, c in _BATHY_RAW]
+
+
+def _rebuild():
+    """Ink the terrain for the theme now in force.
+
+    Every ink passes through terminal.theme.themed: the calibrated
+    luminance ladder stays, and the hue family follows the terminal's
+    own theme.  Run once at import and again on each theme change.
+    """
+    global COAST_STROKE, BORDER_STROKE, LABEL_DARK, LABEL_LIGHT, MARKER
+    global LAKE_FILL, RIVER_STROKE, HYPSO_FAMILIES, BATHY_STOPS
+    global _SHADOW_TINT, _LIGHT_TINT
+    # geography over terrain: dark strokes cut into the colour fill (the
+    # radar palette's dim-on-dark strokes vanish against light terrain)
+    COAST_STROKE = themed((22, 32, 52))
+    BORDER_STROKE = themed((52, 48, 66))
+    LABEL_DARK = themed((28, 32, 44))
+    LABEL_LIGHT = themed((232, 232, 240))
+
+    # the marker is radar's, re-inked: on any theme it should be the
+    # theme's own bright accent, not an absolute yellow
+    MARKER = themed(_MARKER_RAW)
+
+    # Inland water: lakes and rivers are *not* on the bathymetric ramp.  A
+    # terrarium sample reports the elevation of the water's surface, so a
+    # lake is indistinguishable from the meadow beside it — the polygons
+    # come from the same vector tiles street mode uses, and the ramps never
+    # have to guess.  One flat tint, because a lake surface is flat.
+    LAKE_FILL = themed((74, 118, 156))
+    RIVER_STROKE = themed((108, 152, 190))
+
+    HYPSO_FAMILIES = [[(m, themed(c)) for m, c in fam]
+                      for fam in _HYPSO_FAMILIES_RAW]
+    BATHY_STOPS = [(m, themed(c)) for m, c in _BATHY_RAW]
+
+    # aerial perspective on land: shadow does not just darken, it cools
+    # toward slate; full light warms faintly toward sun-colour.  Both are
+    # small nudges after the multiply — the ramp still owns the hue.
+    _SHADOW_TINT = themed((40, 48, 72))
+    _LIGHT_TINT = themed((255, 248, 228))
+
+
+_rebuild()
+_theme.on_reload(_rebuild)
 
 
 def _hypso_band(e, fam=0):
@@ -199,32 +217,6 @@ _COVER_RGB = [None] + [_style.COVER_COLOR[k]
 _ZENITH = math.radians(45.0)
 _SUNS = tuple((wgt, math.cos(math.radians(az)), math.sin(math.radians(az)))
               for wgt, az in ((0.55, 315.0), (0.225, 270.0), (0.225, 360.0)))
-
-# aerial perspective on land: shadow does not just darken, it cools
-# toward slate; full light warms faintly toward sun-colour.  Both are
-# small nudges after the multiply — the ramp still owns the hue.
-_SHADOW_TINT = themed((40, 48, 72))
-_LIGHT_TINT = themed((255, 248, 228))
-
-
-@_theme.on_reload
-def _rebuild_inks():
-    # every themed() ink above, re-inked for the new theme
-    global COAST_STROKE, BORDER_STROKE, LABEL_DARK, LABEL_LIGHT, MARKER
-    global LAKE_FILL, RIVER_STROKE, HYPSO_FAMILIES, BATHY_STOPS, _SHADOW_TINT
-    global _LIGHT_TINT
-    COAST_STROKE = themed((22, 32, 52))
-    BORDER_STROKE = themed((52, 48, 66))
-    LABEL_DARK = themed((28, 32, 44))
-    LABEL_LIGHT = themed((232, 232, 240))
-    MARKER = themed(_MARKER_RAW)
-    LAKE_FILL = themed((74, 118, 156))
-    RIVER_STROKE = themed((108, 152, 190))
-    HYPSO_FAMILIES = [[(m, themed(c)) for m, c in fam]
-                      for fam in _HYPSO_FAMILIES_RAW]
-    BATHY_STOPS = [(m, themed(c)) for m, c in _BATHY_RAW]
-    _SHADOW_TINT = themed((40, 48, 72))
-    _LIGHT_TINT = themed((255, 248, 228))
 
 
 def build_terrain_buffer(elev, bbox, w, h, water=None, cover=None,

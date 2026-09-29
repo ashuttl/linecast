@@ -61,9 +61,6 @@ def is_globe(zoom, lat):
 # terminal cell resolves at planet scale.
 _MERCATOR_LAT = 85.05
 
-_ATMOSPHERE = themed((104, 148, 198))
-_AIRGLOW = themed((96, 150, 116))
-
 
 def _rebuild():
     global _ATMOSPHERE, _AIRGLOW
@@ -71,6 +68,7 @@ def _rebuild():
     _AIRGLOW = themed((96, 150, 116))
 
 
+_rebuild()
 from linecast.terminal import theme as _theme  # noqa: E402 — the hook needs the palette above
 _theme.on_reload(_rebuild)
 
