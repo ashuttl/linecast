@@ -149,7 +149,8 @@ class ResolveLangTests(ConfigDirMixin):
     def test_a_code_may_carry_a_script_or_be_a_locale_s_name(self):
         from linecast._i18n import is_language_code
         for value in ("zh-Hant", "zh-hant", "zh-TW", "zh-tw", "zh-HK", "zh-MO",
-                      "fr-CA", "pt_PT", "es-AR", "zh-Hant-TW"):
+                      "fr-CA", "pt_PT", "es-AR", "zh-Hant-TW", "zh_Hant", "zh_Hant_TW",
+                      "es-419", "es_419"):
             self.assertTrue(is_language_code(value), value)
         self.assertFalse(is_language_code("fr-CAN"))
         self.assertFalse(is_language_code("fr-"))
@@ -197,6 +198,14 @@ class ResolveLangTests(ConfigDirMixin):
         with redirect_stdout(out):
             language._cmd_show()
         self.assertIn("zh-Hant  Traditional Chinese  [fixed]", out.getvalue())
+
+    def test_main_takes_every_spelling_lang_takes(self):
+        # --lang zh_Hant and --lang es-419 work, so the setting should too.
+        for value, code in (("zh_Hant", "zh-Hant"), ("es-419", "es"), ("es_419", "es")):
+            with patch("sys.argv", ["linecast language", value]), \
+                    redirect_stdout(io.StringIO()):
+                language.main()
+            self.assertEqual(_config.saved_language(), code, value)
 
     def test_setting_an_alias_saves_the_language_it_names(self):
         with redirect_stdout(io.StringIO()):

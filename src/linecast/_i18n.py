@@ -229,12 +229,14 @@ def has_text(table, key, lang):
 
 def is_language_code(value):
     """A language code linecast could act on, whether or not it has strings
-    for it: two letters, a script (zh-Hant), a region (pt-PT, es_MX), or
-    an alias of one.  An unlisted code leaves the app in English and still
-    reaches the providers that publish in it, as India's alerts do."""
+    for it: two letters, a script (zh-Hant, zh_Hant), a region (pt-PT,
+    es_MX, es-419), or an alias of one.  An unlisted code leaves the app
+    in English and still reaches the providers that publish in it, as
+    India's alerts do."""
     if not isinstance(value, str) or not value.isascii():
         return False
-    return (re.fullmatch(r"[A-Za-z]{2}(-[A-Za-z]{4})?([-_][A-Za-z]{2})?", value) is not None
+    return (re.fullmatch(r"[A-Za-z]{2}([-_][A-Za-z]{4})?([-_]([A-Za-z]{2}|[0-9]{3}))?", value)
+            is not None
             or value.lower() in LANGUAGE_ALIASES)
 
 
