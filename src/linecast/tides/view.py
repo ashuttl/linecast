@@ -593,8 +593,11 @@ def _render_header_line(cols, station_name, runtime, offset_minutes=0, location_
     name = _pill_label(station_name, location_menu)
 
     # Station name pill (left)
-    if name:
-        pbg = bg(*PILL_BG_RGB)
+    pbg = bg(*PILL_BG_RGB)
+    if name and not pbg:
+        # no color: the half blocks alone would read as stray marks
+        pill, pill_w = name, visible_len(name)
+    elif name:
         pfg = fg(*PILL_FG_RGB)
         pedge = fg(*PILL_BG_RGB)
         pill = f"{pedge}\u2590{pbg}{pfg} {name} {RESET}{pedge}\u258c{RESET}"
@@ -692,7 +695,10 @@ def _info_line(window, now_height, now_dt, width, offset_minutes, rising, runtim
     pill_fg_esc = fg(*pill_rgb)
     pill_bg_esc = bg(*pill_rgb)
 
-    if rest_parts:
+    if not now_bg:
+        # no color: the stats alone, without the half blocks round them
+        line = sep.join([now_content, *rest_parts]) + RESET
+    elif rest_parts:
         rest_content = sep.join(rest_parts)
         line = (
             f"{now_fg}\u2590"

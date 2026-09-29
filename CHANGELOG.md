@@ -71,6 +71,7 @@ Fixes:
   - Fixed a low tide just below the datum, such as -0.01 ft, showing as "-0.0′".
   - Fixed `--oneline` naming high and low tide in English in every language.
   - Fixed the waves and swell running past the edge of a narrow window, as they did in Thai. Where both do not fit, the swell is left out.
+  - Fixed the station's name and the tide readings showing stray half blocks at their ends with color turned off, as with `NO_COLOR`; they are plain text, as the place is in the weather view.
   - Fixed Canadian stations showing no tides for a day after a run without a connection; offline, they keep the last predictions fetched.
   - Fixed Canadian stations, and TideCheck's, placing the tides an hour off past a change of clock on a run that had just fetched them; they fall where they do when read from the cache.
   - Fixed Ctrl-C, while a station's tides were still loading, waiting for a slow provider to answer or give up, up to half a minute; it quits at once.

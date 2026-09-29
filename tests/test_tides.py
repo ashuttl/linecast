@@ -165,10 +165,10 @@ class HeaderNameTests(unittest.TestCase):
         return re.sub(r"\033\[[0-9;]*m", "", tides._render_header_line(80, name, runtime))
 
     def test_capitals_are_title_cased(self):
-        self.assertIn(" Portland, ME ", self._header("PORTLAND, me"))
+        self.assertIn("Portland, ME ", self._header("PORTLAND, me"))
 
     def test_a_geocoders_name_is_left_alone(self):
-        self.assertIn(" Osaka, préfecture d'Osaka, Japon ",
+        self.assertIn("Osaka, préfecture d'Osaka, Japon ",
                       self._header("Osaka, préfecture d'Osaka, Japon"))
 
 
@@ -615,3 +615,31 @@ class CtrlCTests(unittest.TestCase):
             threading.Timer(0.2, os.kill, (os.getpid(), signal.SIGINT)).start()
             tides._fetch_station(Stuck(), "8418150", None, None, live=False)
         self.assertLess(time.monotonic() - start, 1.5)
+
+
+class TestNoColor(unittest.TestCase):
+    """Without color the pills' half blocks would read as stray marks;
+    the text stands alone, as weather's place does."""
+
+    def setUp(self):
+        from linecast.terminal import color as _color
+        patcher = patch.object(_color, "_COLOR_MODE", "none")
+        patcher.start()
+        self.addCleanup(patcher.stop)
+        self.runtime = TidesRuntime(live=False, icons="plain", lang="en", oneline=False,
+                                    metric=True)
+
+    def test_the_station_is_its_name(self):
+        line = tides._render_header_line(60, "PORTLAND, ME", self.runtime)
+        self.assertTrue(line.startswith("Portland, ME "))
+        self.assertNotIn("▐", line)
+        self.assertNotIn("▌", line)
+
+    def test_the_stats_are_the_text(self):
+        now = datetime(2026, 9, 29, 12, 0)
+        window = {"hilo": [(now + timedelta(hours=3), 9.8, "H"),
+                           (now + timedelta(hours=9), 0.4, "L")]}
+        line = tides._info_line(window, 5.0, now, 60, 0, True, self.runtime)
+        self.assertNotIn("▐", line)
+        self.assertNotIn("▌", line)
+        self.assertEqual(line.strip(), "↗ 1.5m  ▲3.0m 15:00  ▼0.1m 21:00  Δ2.9m")
