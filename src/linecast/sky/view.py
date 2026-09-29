@@ -205,10 +205,6 @@ def _put_text(overlays, taken, text, x, row, rgb, bold, graph_w, graph_h,
     return True
 
 
-# Braille dot bits: _BRAILLE[dot column 0-1][dot row 0-3].
-_BRAILLE = DOT_BITS
-
-
 def _plot_arc(dots, a, b, cam, f, cx, cy, graph_w, graph_h, aspect=1.0):
     """A great-circle arc between two camera-frame vectors, as braille
     dots — two across and four down each cell — only above the horizon.
@@ -268,7 +264,7 @@ def _plot_arc(dots, a, b, cam, f, cx, cy, graph_w, graph_h, aspect=1.0):
         dx, dy = int(sx * 2.0), int(sy * 2.0)
         col, row = dx >> 1, dy >> 2
         if 0 <= col < graph_w and 0 <= row < graph_h:
-            dots[(col, row)] = dots.get((col, row), 0) | _BRAILLE[dx & 1][dy & 3]
+            dots[(col, row)] = dots.get((col, row), 0) | DOT_BITS[dx & 1][dy & 3]
 
 
 def _glow(fb, x, y, rgb, radius, alpha, cam, f, cx, cy, aspect):
