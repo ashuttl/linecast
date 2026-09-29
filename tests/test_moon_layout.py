@@ -116,6 +116,31 @@ class TestCorners:
         assert lines[year].startswith(" Day 64 of 365")
 
 
+class TestFitCorners:
+    """_fit_corners on its own: which form the panel takes, and the room
+    it leaves the Moon, with no clock and no ephemeris."""
+
+    INK = (200, 200, 200)
+
+    def _block(self, width, lines=1):
+        return [[("x" * width, self.INK, False)] for _ in range(lines)]
+
+    def test_the_first_form_that_fits_and_leaves_the_moon_its_share(self):
+        from linecast.moon.view import _fit_corners
+        too_wide = (0.7, lambda: (self._block(99), [], [], []))
+        small = (0.7, lambda: (self._block(10, 3), [], [], []))
+        smaller = (0.7, lambda: (self._block(5), [], [], []))
+        radius, overlays = _fit_corners([too_wide, small, smaller], 100, 30, 1.0)
+        assert radius == min(30 * 2 * 0.41, 100 * 0.5 - 3.0)   # the bare disc
+        assert (1, 0) in overlays and (1, 2) in overlays and (1, 3) not in overlays
+
+    def test_no_form_fits_and_the_moon_has_the_sky(self):
+        from linecast.moon.view import _fit_corners
+        radius, overlays = _fit_corners(
+            [(0.7, lambda: (self._block(99), [], [], []))], 100, 30, 1.0)
+        assert overlays == {} and radius == min(30 * 2 * 0.41, 100 * 0.5 - 3.0)
+
+
 class TestCompactLayout:
     def test_narrow_terminal_never_wraps(self):
         for lang in ("en", "fr"):

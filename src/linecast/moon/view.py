@@ -305,13 +305,10 @@ def _panel_overlays(panel, x0, row0, graph_w):
     as both reach, so no star lands among the text as if it were part
     of it.
     """
-    def width(line):
-        return sum(visible_len(t) for t, _c, _b in line)
-
     overlays = {}
     for i, segments in enumerate(panel):
         if not segments and 0 < i < len(panel) - 1:
-            reach = min(width(panel[i - 1]), width(panel[i + 1]))
+            reach = min(_seg_w(panel[i - 1]), _seg_w(panel[i + 1]))
             for x in range(max(0, x0 - 1), min(graph_w, x0 + reach + 1)):
                 overlays[(x, row0 + i)] = (" ", PANEL_DIM_RGB, False)
             continue
@@ -326,6 +323,116 @@ def _panel_overlays(panel, x0, row0, graph_w):
         if segments and x < graph_w:
             overlays[(x, row0 + i)] = (" ", segments[-1][1], False)
     return overlays
+
+
+def _seg_w(segments):
+    """The cells a panel line's (text, rgb, bold) segments take."""
+    return sum(visible_len(t) for t, _c, _b in segments)
+
+
+def _block_w(block):
+    return max(map(_seg_w, block), default=0)
+
+
+def _place_corners(tl, tr, bl, br, graph_w, graph_h):
+    """Overlays for the four corners, or None if they will not fit:
+    each block against its corner, or, where a pair will not share
+    its rows, the right-hand one beneath the left, flush left."""
+    room = graph_w - 2
+    if max(map(_block_w, (tl, tr, bl, br))) > room:
+        return None
+    spots = []
+    if _block_w(tl) + 2 + _block_w(tr) <= room:
+        spots += [(tl, 1, 0), (tr, graph_w - 1 - _block_w(tr), 0)]
+        top_h = max(len(tl), len(tr))
+    else:
+        spots += [(tl, 1, 0), (tr, 1, len(tl))]
+        top_h = len(tl) + len(tr)
+    if _block_w(bl) + 2 + _block_w(br) <= room:
+        spots += [(bl, 1, graph_h - len(bl)),
+                  (br, graph_w - 1 - _block_w(br), graph_h - len(br))]
+        bottom_h = max(len(bl), len(br))
+    else:
+        spots += [(bl, 1, graph_h - len(bl) - len(br)), (br, 1, graph_h - len(br))]
+        bottom_h = len(bl) + len(br)
+    if top_h + bottom_h > graph_h:
+        return None
+    overlays = {}
+    for block, x, row in spots:
+        if block:
+            overlays.update(_panel_overlays(block, x, row, graph_w))
+    return overlays
+
+
+def _fit_corners(forms, graph_w, graph_h, aspect):
+    """(radius, overlays): the disc's radius in cells across, and the
+    corners' text, for the form the panel takes.
+
+    *forms* runs from the most said to the least, each a (share, make)
+    pair: *make* gives the four corners' blocks, and *share* is how much
+    of its bare size that form must leave the Moon. *aspect* is a
+    sub-pixel's height in cell widths.
+
+    The radius is measured in cells across.  A sub-pixel is half a cell
+    tall, which is a cell width only when the font's cell is twice as
+    tall as it is wide; on the cell it really has, a sub-pixel stands
+    *aspect* cell widths, and the disc's height in sub-pixels is its
+    radius over that. Bare, it takes ~82% of the sky's height, or its
+    width less a margin; the corners' text keeps two cells of sky
+    between it and the limb.
+
+    The first form that leaves the Moon its share wins; if none does,
+    the one that leaves it the most. Then the fullest form that leaves
+    it as much: where what stays (the counsel beside a long headline)
+    is what holds the Moon in, shedding the rest would not enlarge it.
+    """
+    cx, cy = graph_w // 2, graph_h
+    bare = min(graph_h * 2 * 0.41 * aspect, graph_w * 0.5 - 3.0)
+
+    def disc_room(overlays):
+        radius = bare
+        for x, row in overlays:
+            dy = min(abs(2 * row - cy), abs(2 * row + 1 - cy)) * aspect
+            radius = min(radius, math.hypot(x - cx, dy) - 2.0)
+        return radius
+
+    best = None
+    tried = []
+    for share, form in forms:
+        overlays = _place_corners(*form(), graph_w, graph_h)
+        if overlays is None:
+            continue
+        radius = disc_room(overlays)
+        tried.append((radius, overlays))
+        if radius >= share * bare:
+            best = (radius, overlays)
+            break
+        if best is None or radius > best[0]:
+            best = (radius, overlays)
+    if best:
+        best = next(fit for fit in tried if fit[0] >= best[0])
+    radius, overlays = best if best else (bare, {})
+    return max(4.0, radius), overlays
+
+
+def _place_help(overlays, graph_w, graph_h, lang):
+    """Add the help hint to *overlays*: under the Moon, between the
+    month and the year, or in a free corner when they leave no room
+    there, in the dim ink: it points at the information, so it must not
+    outrank it. It sits on the plain sky, which needs no lift for
+    contrast."""
+    from linecast.terminal.help import hint as help_label
+    label = help_label(lang, graph_w - 2)
+    width = visible_len(label)
+    spots = [((graph_w - width) // 2, graph_h - 1, 3)] + [
+        (x, row, 1) for row in (graph_h - 1, 0, graph_h - 2, 1)
+        for x in (graph_w - width - 1, 1)]
+    for x, row, air in spots:
+        if x >= 1 and not any((c, row) in overlays
+                              for c in range(x - air, x + width + air)):
+            overlays.update(_panel_overlays([[(label, PANEL_DIM_RGB, False)]], x, row,
+                                            graph_w))
+            break
 
 
 def keeps_israel_days(country, lat, lng):
@@ -556,12 +663,6 @@ def render(now_local, lat, lng, runtime, fullscreen=False, offset_minutes=0,
     # without touching them. In a large terminal that costs it nothing;
     # in a small one the corners give up detail — the waits, then the
     # year, then the month — before the disc gives up much of its size.
-    def seg_w(segments):
-        return sum(visible_len(t) for t, _c, _b in segments)
-
-    def block_w(block):
-        return max(map(seg_w, block), default=0)
-
     headline = [(f"{moon.icon} {name}", T, True)] + (
         [(f" · {head_extra}", T, False)] if head_extra else [])
 
@@ -574,7 +675,7 @@ def render(now_local, lat, lng, runtime, fullscreen=False, offset_minutes=0,
         block = [top, [(illum_txt, M, False)]]
         texts = [t for t in extra.counsel if t]
         if texts:
-            least = max(seg_w(top), 28)
+            least = max(_seg_w(top), 28)
             block.append([])
             block += [[(seg, M, False)] for txt in texts
                       for seg in _wrap(txt, max(int(least * 1.3), 48), least)]
@@ -611,96 +712,17 @@ def render(now_local, lat, lng, runtime, fullscreen=False, offset_minutes=0,
         (0.0, lambda: ([headline[:1]], [], [], [])),
     ]
 
-    def place(tl, tr, bl, br):
-        """Overlays for the four corners, or None if they will not fit:
-        each block against its corner, or, where a pair will not share
-        its rows, the right-hand one beneath the left, flush left."""
-        room = graph_w - 2
-        if max(map(block_w, (tl, tr, bl, br))) > room:
-            return None
-        spots = []
-        if block_w(tl) + 2 + block_w(tr) <= room:
-            spots += [(tl, 1, 0), (tr, graph_w - 1 - block_w(tr), 0)]
-            top_h = max(len(tl), len(tr))
-        else:
-            spots += [(tl, 1, 0), (tr, 1, len(tl))]
-            top_h = len(tl) + len(tr)
-        if block_w(bl) + 2 + block_w(br) <= room:
-            spots += [(bl, 1, graph_h - len(bl)),
-                      (br, graph_w - 1 - block_w(br), graph_h - len(br))]
-            bottom_h = max(len(bl), len(br))
-        else:
-            spots += [(bl, 1, graph_h - len(bl) - len(br)), (br, 1, graph_h - len(br))]
-            bottom_h = len(bl) + len(br)
-        if top_h + bottom_h > graph_h:
-            return None
-        overlays = {}
-        for block, x, row in spots:
-            if block:
-                overlays.update(_panel_overlays(block, x, row, graph_w))
-        return overlays
-
-    # The disc's radius is measured in cells across.  A sub-pixel is
-    # half a cell tall, which is a cell width only when the font's cell
-    # is twice as tall as it is wide; on the cell it really has, a
-    # sub-pixel stands *aspect* cell widths, and the disc's height in
-    # sub-pixels is its radius over that. Bare, it takes ~82% of the
-    # sky's height, or its width less a margin; the corners' text keeps
-    # two cells of sky between it and the limb.
-    aspect = cell_aspect() / 2.0
-    cx, cy = graph_w // 2, graph_h
-    bare = min(graph_h * 2 * 0.41 * aspect, graph_w * 0.5 - 3.0)
-
-    def disc_room(overlays):
-        radius = bare
-        for x, row in overlays:
-            dy = min(abs(2 * row - cy), abs(2 * row + 1 - cy)) * aspect
-            radius = min(radius, math.hypot(x - cx, dy) - 2.0)
-        return radius
-
-    # The first form that leaves the Moon its share; if none does, the
-    # one that leaves it the most. Then the fullest form that leaves it
-    # as much: where what stays (the counsel beside a long headline)
-    # is what holds the Moon in, shedding the rest would not enlarge
-    # it. With the text put away, no corner has anything in it.
+    # With the text put away, no corner has anything in it.
     if not show_text:
         forms = [(0.0, lambda: ([], [], [], []))]
-    best = None
-    tried = []
-    for share, form in forms:
-        overlays = place(*form())
-        if overlays is None:
-            continue
-        radius = disc_room(overlays)
-        tried.append((radius, overlays))
-        if radius >= share * bare:
-            best = (radius, overlays)
-            break
-        if best is None or radius > best[0]:
-            best = (radius, overlays)
-    if best:
-        best = next(fit for fit in tried if fit[0] >= best[0])
-    radius, overlays = best if best else (bare, {})
-    radius = max(4.0, radius)
+    aspect = cell_aspect() / 2.0   # a sub-pixel's height in cell widths
+    radius, overlays = _fit_corners(forms, graph_w, graph_h, aspect)
+    cx, cy = graph_w // 2, graph_h   # the middle of the sky, in sub-pixels down
 
     fb = Framebuffer(graph_w, graph_h, bg_color=SKY_RGB)
     paint_disc(fb, cx, cy, radius, aspect)
     if fullscreen and show_text:
-        # Help goes under the Moon, between the month and the year, or
-        # in a free corner when they leave no room there, in the dim ink:
-        # it points at the information, so it must not outrank it. It
-        # sits on the plain sky, which needs no lift for contrast.
-        from linecast.terminal.help import hint as help_label
-        label = help_label(lang, graph_w - 2)
-        width = visible_len(label)
-        spots = [((graph_w - width) // 2, graph_h - 1, 3)] + [
-            (x, row, 1) for row in (graph_h - 1, 0, graph_h - 2, 1)
-            for x in (graph_w - width - 1, 1)]
-        for x, row, air in spots:
-            if x >= 1 and not any((c, row) in overlays
-                                  for c in range(x - air, x + width + air)):
-                overlays.update(_panel_overlays([[(label, D, False)]], x, row, graph_w))
-                break
+        _place_help(overlays, graph_w, graph_h, lang)
     stars = star_overlays(fb, cx, cy, radius, moon.sky, taken=overlays.keys(),
                           turn=rotation, aspect=aspect)
     from linecast.terminal import bidi as _bidi
