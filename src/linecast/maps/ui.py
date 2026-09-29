@@ -26,7 +26,7 @@ import threading
 
 from linecast.maps import style
 from linecast.terminal.color import RESET, bg, fg
-from linecast.terminal.textwidth import visible_len
+from linecast.terminal.textwidth import fit, visible_len
 from linecast.terminal.live import nudge
 from linecast.maps.i18n import ms
 from linecast.terminal.help_i18n import hs, is_help_word
@@ -225,17 +225,6 @@ def _label(result):
     return f"{result.name}, {result.detail}" if result.detail else result.name
 
 
-def _fit(text, width):
-    """Truncate to `width` columns, keeping an ellipsis as the tell."""
-    if visible_len(text) <= width:
-        return text
-    out = ""
-    for ch in text:
-        if visible_len(out + ch) > width - 1:
-            break
-        out += ch
-    return out + "…"
-
 
 def _row(n, body, width, surface):
     pad = " " * max(0, width - visible_len(body))
@@ -264,7 +253,7 @@ def search_overlay(state, cols, rows, lang="en"):
     # Follow the selection when the terminal cannot fit every suggestion.
     start = min(max(0, state.sel - limit + 1), max(0, len(state.results) - limit))
     for i, result in enumerate(state.results[start:start + limit], start):
-        body = " " + _fit(_label(result), width - 2)
+        body = " " + fit(_label(result), width - 2)
         body += " " * max(0, width - visible_len(body))
         if i == state.sel:
             body = f"\033[7m{body}\033[27m"
@@ -526,7 +515,7 @@ def directions_overlay(state, cols, rows, lang="en", home_label=""):
         pad = " " * (lw - visible_len(label))
         body = (f" {fg(*CROSSHAIR)}{key} {fg(*DIM)}{label}{pad}  "
                 f"{fg(*DIM) if placeholder else fg(*ink)}"
-                f"{_fit(value, width - lw - 6)}")
+                f"{fit(value, width - lw - 6)}")
         return _row(line, body, width, surface)
 
     def loose(line, body):
@@ -555,7 +544,7 @@ def directions_overlay(state, cols, rows, lang="en", home_label=""):
             start = max(0, min(step - limit // 2, len(steps) - limit))
         for i in range(start, start + limit):
             s = steps[i]
-            plain = " " + _fit(f"  {maneuver_glyph(s)} "
+            plain = " " + fit(f"  {maneuver_glyph(s)} "
                                f"{_step_dist(s, lang):>8}  "
                                f"{_step_text(s, lang)}", width - 2)
             body = (f"\033[7m{plain} \033[27m" if i == step
@@ -572,7 +561,7 @@ def directions_overlay(state, cols, rows, lang="en", home_label=""):
     hint = ms('steps_hint', lang)
     if step is not None and steps:
         hint = f"{step + 1}/{len(steps)} · {hint}"
-    out.append(loose(line, f"{fg(*DIM)} {_fit(hint, width - 2)}"))
+    out.append(loose(line, f"{fg(*DIM)} {fit(hint, width - 2)}"))
     state.panel_rows = (width, acts)
     return "".join(out)
 

@@ -29,7 +29,7 @@ from linecast.weather.sources import _local_now_for_data
 
 
 def location_control(name, width, runtime):
-    from linecast.terminal.help import fit
+    from linecast.terminal.textwidth import fit
     from linecast.weather.locations_i18n import ls
     return fit(name or ls('locations', runtime.lang), max(0, min(width - 6, width // 2))) + ' ▼'
 
@@ -160,7 +160,7 @@ def render_header(data, width, location_name="", runtime=None, aqi_data=None, hi
     if location_menu:
         loc_part = location_chip(location_control(location_name, width, runtime))
     elif location_name:
-        from linecast.terminal.help import fit
+        from linecast.terminal.textwidth import fit
         loc_part = location_chip(fit(location_name, max(0, min(width - 4, width // 2))))
 
     def _join_right(*parts):
@@ -217,7 +217,7 @@ def render_header(data, width, location_name="", runtime=None, aqi_data=None, hi
             result = _assemble(compact, loc_part)
             if result:
                 return result
-        from linecast.terminal.help import fit
+        from linecast.terminal.textwidth import fit
         room = max(0, width - visible_len(loc_part) - 1)
         core = f"{icon} {name}" + (f" {round(temp)}{deg}" if temp is not None else "")
         plain = fit(core, room)

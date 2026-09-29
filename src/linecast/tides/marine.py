@@ -13,7 +13,7 @@ from linecast._i18n import fmt_decimal
 from linecast._http import fetch_json_cached
 from linecast._paths import cache_dir
 from linecast._runtime import TidesRuntime
-from linecast.terminal.textwidth import truncate_display_width, visible_len
+from linecast.terminal.textwidth import fit, visible_len
 
 MARINE_CACHE_MAX_AGE = 3600  # 1 hour
 
@@ -194,7 +194,7 @@ def format_marine_line(marine: dict[str, Any] | None, runtime: TidesRuntime,
         if visible_len(f"{line} · {part}") > width:
             break
         line = f"{line} · {part}"
-    return truncate_display_width(line, width)
+    return fit(line, width)
 
 
 def _format_height(meters, runtime):

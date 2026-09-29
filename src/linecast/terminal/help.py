@@ -7,7 +7,7 @@ from linecast.terminal import theme as _theme
 from linecast.terminal.color import RESET, bg, fg
 from linecast.terminal.textwidth import visible_len
 from linecast.terminal.help_i18n import hs
-from linecast.terminal.textwidth import glyphs
+from linecast.terminal.textwidth import fit, glyphs
 
 
 def hint(lang='en', width=80):
@@ -106,18 +106,6 @@ def entries(view, lang, credits=()):
         rows.append(None)
         rows += [('', credit) for credit in credits]
     return rows
-
-
-def fit(text, width):
-    """Clip plain text by terminal cells, keeping combining marks."""
-    if visible_len(text) <= width:
-        return text
-    out = ''
-    for ch in text:
-        if visible_len(out + ch) > width - 1:
-            break
-        out += ch
-    return out + '…' if width > 0 else ''
 
 
 def wrap(text, width):

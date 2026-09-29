@@ -67,8 +67,8 @@ class TestWrappingRespectsMarks:
                 assert line == line.strip(" "), (width, line)
 
     def test_truncation_keeps_trailing_marks_with_their_base(self):
-        from linecast.terminal.textwidth import truncate_display_width, visible_len
-        out = truncate_display_width("वर्षा" * 4, 11)
+        from linecast.terminal.textwidth import fit, visible_len
+        out = fit("वर्षा" * 4, 11)
         # The cut falls before a column-bearing character, so a virama
         # never strands: the tail keeps its consonant's marks.
         assert out.endswith("र्…")

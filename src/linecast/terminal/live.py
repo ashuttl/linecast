@@ -251,7 +251,7 @@ def toast_box(text, cols, rows, icon=""):
     from linecast.terminal import theme as _theme
     from linecast.terminal.color import RESET, bg, fg
     from linecast.terminal.textwidth import visible_len
-    from linecast.terminal.help import fit
+    from linecast.terminal.textwidth import fit
     if cols < 1 or rows < 1:
         return ""
     surface = _theme.surface_bg(0.10)

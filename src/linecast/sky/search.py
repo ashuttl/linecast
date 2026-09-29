@@ -19,7 +19,7 @@ from datetime import timedelta, timezone
 
 from linecast.terminal import theme as _theme
 from linecast.terminal.color import RESET, bg, fg
-from linecast.terminal.textwidth import visible_len
+from linecast.terminal.textwidth import fit, visible_len
 from linecast.terminal.live import nudge
 from linecast.terminal.theme import ensure_contrast, surface_bg
 from linecast.astro.ephemeris import mat_apply
@@ -412,7 +412,7 @@ def search_overlay(state, cols, rows, runtime):
     out = [row(1, " " + field)]
     line = 2
     for i, target in enumerate(state.results[:max(0, rows - 4)]):
-        body = " " + _fit(target.label, width - 2)
+        body = " " + fit(target.label, width - 2)
         body += " " * max(0, width - visible_len(body))
         if i == state.sel:
             body = f"\033[7m{body}\033[27m"
@@ -430,16 +430,6 @@ def search_overlay(state, cols, rows, runtime):
             line += 1
     return "".join(out)
 
-
-def _fit(text, width):
-    if visible_len(text) <= width:
-        return text
-    out = ""
-    for ch in text:
-        if visible_len(out + ch) > width - 1:
-            break
-        out += ch
-    return out + "…"
 
 
 def _wrap(text, width):

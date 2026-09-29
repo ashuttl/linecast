@@ -8,7 +8,7 @@ from linecast.terminal.color import bg, fg, RESET, BOLD
 from linecast.terminal.textwidth import visible_len
 from linecast._i18n import lang_of, sentence_24h, table_for, tr_dative
 from linecast._log import log_failure
-from linecast.terminal.textwidth import truncate_display_width, wrap_display_width
+from linecast.terminal.textwidth import fit, wrap_display_width
 from linecast.weather.i18n import _s
 from linecast._i18n import DAY_NAMES
 from linecast.weather.sources import ALERTS_OK, ALERTS_STALE, ALERTS_UNAVAILABLE
@@ -80,7 +80,7 @@ def alerts_notice(alerts, width, runtime=None, tz_name=""):
         text = _s("alerts_stale", runtime, when=when)
     else:
         return None
-    return f"{MUTED}{truncate_display_width(text, max(1, width))}{RESET}"
+    return f"{MUTED}{fit(text, max(1, width))}{RESET}"
 
 
 def _severity_color(severity):
@@ -117,7 +117,7 @@ def _alert_pill(alert, max_width=None):
     pill = _pill(event)
     if max_width is not None and visible_len(pill) > max_width:
         chrome = visible_len(pill) - visible_len(event)
-        pill = _pill(truncate_display_width(event, max(1, max_width - chrome)))
+        pill = _pill(fit(event, max(1, max_width - chrome)))
     return pill
 
 
@@ -210,7 +210,7 @@ def _render_single_alert(alert, width, runtime=None, tz_name="", now=None):
         flat = _preview_text(desc)
         remaining = width - used - 1  # the space before the description
         if remaining > 10:
-            truncated = truncate_display_width(flat, remaining)
+            truncated = fit(flat, remaining)
             parts.append(f" {MUTED}{truncated}{RESET}")
 
     return ["".join(parts)]
@@ -266,7 +266,7 @@ def render_alerts_mapped(alerts, width=80, runtime=None, tz_name=""):
                 flat = _preview_text(desc)
                 remaining = width
                 if remaining > 10:
-                    truncated = truncate_display_width(flat, remaining)
+                    truncated = fit(flat, remaining)
                     lines.append(f"{MUTED}{truncated}{RESET}")
                     spans.append([(0, width - 1, first_index)])
 
@@ -333,7 +333,7 @@ def _build_modal_content(alert, inner_w, runtime=None, tz_name=""):
     if url:
         lines.append("")
         link_color = fg(*LINK_RGB)
-        display_url = url if visible_len(url) <= inner_w else truncate_display_width(url, inner_w)
+        display_url = url if visible_len(url) <= inner_w else fit(url, inner_w)
         osc_link = f"\033]8;;{url}\033\\{link_color}{MBG}{display_url}\033]8;;\033\\{RESET}"
         lines.append(osc_link)
 

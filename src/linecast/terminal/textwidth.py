@@ -243,8 +243,8 @@ def wrap_display_width(text, width):
     return lines or [""]
 
 
-def truncate_display_width(text, width):
-    """Truncate plain text to a terminal display width, adding … if needed.
+def fit(text, width):
+    """Plain text cut to a terminal display width, with … as the tell.
 
     The ellipsis is counted, so the result is never wider than ``width``:
     a line built to the last column has no cell to spare, and one column

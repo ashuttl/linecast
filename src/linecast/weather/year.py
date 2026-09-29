@@ -380,7 +380,7 @@ def _header(climate, days, runtime, cols, location_name, location_menu):
     precipitation so far against theirs to the date; the place at the
     right, as the dashboard's header has it."""
     from linecast.weather.sections import location_chip, location_control
-    from linecast.terminal.help import fit
+    from linecast.terminal.textwidth import fit
 
     parts = [f"{_style.TEXT}{days.year if days else ''}"]
     if climate and days:
