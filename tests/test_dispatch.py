@@ -174,6 +174,24 @@ class ScriptModeStdlibShadowTests(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(result.stderr, "")
 
+    def test_ctrl_c_before_the_view_starts_is_not_a_traceback(self):
+        """Ctrl-C while a view is still fetching, or during --print,
+        exits 130 with nothing on stderr, whichever view it is."""
+        def interrupted(name):
+            return mock.Mock(main=mock.Mock(side_effect=KeyboardInterrupt))
+
+        stderr = StringIO()
+        old_argv = sys.argv
+        try:
+            sys.argv = ["linecast", "moon", "--print"]
+            with mock.patch("importlib.import_module", side_effect=interrupted), \
+                 redirect_stderr(stderr), self.assertRaises(SystemExit) as exit_:
+                cli.main()
+        finally:
+            sys.argv = old_argv
+        self.assertEqual(exit_.exception.code, 130)
+        self.assertEqual(stderr.getvalue(), "")
+
     def test_running_a_command_file_directly_keeps_the_stdlib_calendar(self):
         """python src/linecast/__main__.py must not shadow stdlib modules.
 

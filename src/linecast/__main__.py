@@ -89,6 +89,10 @@ def main():
             _main()
         finally:
             sys.stdout.flush()
+    except KeyboardInterrupt:
+        # Ctrl-C while a view is still fetching, or in --print: the
+        # reader's choice again, not a traceback's
+        sys.exit(130)
     except OSError as exc:
         if not _reader_gone(exc):
             raise
