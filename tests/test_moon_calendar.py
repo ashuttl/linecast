@@ -110,6 +110,13 @@ class TestGrid:
         body, _chip = _render(30, 12)
         assert any("🌒" in line or "🌘" in line for line in body)
 
+    def test_a_one_row_glyph_sits_beside_its_own_day(self):
+        # A window too short for two rows a week sets the glyph on the
+        # number's row: nearer its own number than the next day's.
+        body, _chip = _render(80, 9)
+        row = next(line for line in body if re.search(r"\b8 ", line))
+        assert re.search(r"\b8  🌘 +9  🌘", row), row
+
     def test_paged_month_names_itself_and_the_way_back(self):
         body, _chip = _render(100, 32, month_offset=1)
         assert "Oct 2026" in body[0]

@@ -57,6 +57,7 @@ Notable changes, by release. Notes for the next release collect under **Unreleas
 - Language: A list of languages in `LANGUAGE`, as some Linux desktops set it, is read as other programs read it, down to the first language linecast speaks: `ca:es` is Spanish rather than English.
 - Moon: Fixed the next moonrise or moonset in the far north on the few days a year when the Moon rises or sets twice on one date: the view, `--oneline`, and `--json` gave the next day's, or none at all, in place of the second.
 - Moon: Fixed the wait for a moonrise or moonset after the clocks change being an hour out, such as "in 15h 00m" for a moonset sixteen hours off the night the clocks go back.
+- Moon: In a window too short to draw the month view's discs, each day's phase sits beside its own date; it sat just before the next day's and read as that day's.
 
 ## 2.9.2 — 2026-09-27
 

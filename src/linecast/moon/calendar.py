@@ -435,10 +435,11 @@ def render_calendar(now_local, lat, lng, runtime, month_offset=0,
                 fb.flip_columns(x0, x0 + cell_w, y0 * 2, (y0 + cell_h) * 2)
         elif cell_h > 1 or cell_w >= 6:
             # No room to draw: the phase glyph stands in for the disc.
-            # On a one-row cell it sits after the day number, and a
-            # cell too narrow for both keeps the number.
+            # On a one-row cell it sits a space after where a two-digit
+            # day number ends, beside its own number rather than the
+            # next day's, and a cell too narrow for both keeps the number.
             icon = moon_phase(noon, runtime)[2]
-            gx = cx if cell_h > 1 else x0 + cell_w - 2
+            gx = cx if cell_h > 1 else x0 + 4
             _put(overlays, gx, y0 + cell_h // 2, icon, T, max_x=graph_w)
 
         # The day number: today bold and bright, a full moon amber, the
