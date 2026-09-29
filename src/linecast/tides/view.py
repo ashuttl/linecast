@@ -27,7 +27,7 @@ import threading
 import time as _t
 from datetime import datetime, timezone, timedelta
 
-from linecast.terminal.braille import build_braille_curve
+from linecast.terminal.braille import BLANK, build_braille_curve
 from linecast.terminal.color import bg, fg, RESET
 from linecast.terminal.textwidth import visible_len
 from linecast.terminal.framebuffer import get_terminal_size
@@ -436,7 +436,7 @@ def _compute_tide_overlays(extrema, col_heights, n_rows, graph_w, runtime,
         """Check if all columns in a braille row are empty (no dots)."""
         if braille_rows is None or row < 0 or row >= n_rows:
             return True
-        return all(braille_rows[row][c][0] == '\u2800' for c in cols if 0 <= c < graph_w)
+        return all(braille_rows[row][c][0] == BLANK for c in cols if 0 <= c < graph_w)
 
     for x, height_ft, height_display, is_peak, dt in extrema:
         if h_max == h_min:
@@ -579,7 +579,7 @@ def _render_tide_braille_rows(braille_rows, col_daylight, midnight_cols,
             if ci in fg_chars:
                 oc, oc_color = fg_chars[ci]
                 line += f"{fg(*oc_color)}{oc}"
-            elif ch != '\u2800':
+            elif ch != BLANK:
                 dl = col_daylight[ci] if ci < len(col_daylight) else 1.0
                 brightness = NIGHT_DIM + (1.0 - NIGHT_DIM) * dl
                 line += fg(int(cr * brightness), int(cg * brightness), int(cb * brightness))

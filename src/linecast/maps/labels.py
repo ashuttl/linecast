@@ -44,7 +44,8 @@ import heapq
 
 from linecast.maps import globe as _globe
 from linecast.maps import places, style
-from linecast.radar.basemap import _bresenham, marine_region
+from linecast.radar.basemap import marine_region
+from linecast.terminal.braille import line_dots
 from linecast.terminal.textwidth import char_width, visible_len
 from linecast.maps.vtiles import iter_layer
 from linecast._i18n import base_language, setting
@@ -105,8 +106,8 @@ def cell_path(pts, graph_w, height_cells):
     for x, y in pts:
         c = (min(graph_w, max(-1, int(x) // 2)),
              min(height_cells, max(-1, int(y) // 4)))
-        steps = [c] if prev is None else _bresenham(prev[0], prev[1],
-                                                    c[0], c[1])
+        steps = [c] if prev is None else line_dots(prev[0], prev[1],
+                                                   c[0], c[1])
         for step in steps:
             if step == last:
                 continue

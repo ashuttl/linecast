@@ -4,7 +4,7 @@ import math
 from datetime import datetime, timedelta
 
 from linecast.terminal import theme as _theme
-from linecast.terminal.braille import build_braille_curve, interpolate
+from linecast.terminal.braille import BLANK, build_braille_curve, interpolate
 from linecast.terminal.color import bg, color_mode, fg, RESET
 from linecast.terminal.textwidth import visible_len
 from linecast._timefmt import fmt_hour, fmt_time_dt
@@ -868,7 +868,7 @@ def _compute_axis_overlays(value_range, braille_rows, n_rows, graph_w, overlays,
                 continue
             if occupied.get(row, set()).intersection(cols):
                 continue
-            if any(braille_rows[row][c][0] != "\u2800" for c in cols):
+            if any(braille_rows[row][c][0] != BLANK for c in cols):
                 continue
             occupied.setdefault(row, set()).update(cols)
             overlays.setdefault(row, []).append((start, label, MUTED_RGB))
@@ -916,7 +916,7 @@ def _render_braille_rows(braille_rows, col_daylight, midnight_cols, runtime,
 
             # Pick indicator color for empty cells (hover > now > midnight)
             indicator = None
-            if ch == '\u2800':
+            if ch == BLANK:
                 if hover_col is not None and ci == hover_col:
                     indicator = hover_fg
                 elif now_col is not None and ci == now_col:

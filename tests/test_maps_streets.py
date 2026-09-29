@@ -296,7 +296,7 @@ class TestCoast:
 
     def test_the_stroke_and_the_fill_agree_cell_for_cell(self):
         # Every stroked cell must border the painted water; this is the
-        # invariant the whole _edge_dots exercise exists to guarantee.
+        # invariant the whole edge_dots exercise exists to guarantee.
         fills, layer_, _labels = build(classed("water", LEFT_HALF, "lake"),
                                        hc=self.HC)
         for cx, mask in enumerate(layer_.dots[0]):

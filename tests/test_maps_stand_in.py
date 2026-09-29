@@ -13,8 +13,8 @@ import pytest
 from linecast.maps import view as maps
 from linecast.maps import globe as _globe
 from linecast.maps import loaders
+from linecast.terminal.braille import DOT_BITS
 from linecast.terminal.color import BG_PRIMARY
-from linecast.radar.basemap import _BITS
 from linecast.radar.i18n import rs
 from linecast.radar.render import bbox_for
 
@@ -52,13 +52,13 @@ class TestReprojectStreet:
 
     def test_pan_shifts_fills_and_dots(self):
         dots = [[0] * GW for _ in range(HC)]
-        dots[1][3] = _BITS[0][0]
+        dots[1][3] = DOT_BITS[0][0]
         fills, layer = maps._reproject_street(
             _prev(dots), (1.0, 0.0, 9.0, 8.0), GW, HC, "g")
         # one degree east: everything moves one cell left
         assert fills[0][0] == (1, 0)
         assert fills[0][GW - 1] == "g"
-        assert layer.dots[1][2] == _BITS[0][0]
+        assert layer.dots[1][2] == DOT_BITS[0][0]
         assert layer.color[1][2] == "ink"
         assert _count(layer.dots) == 1
 
@@ -97,7 +97,7 @@ class TestReprojectTerrain:
     def _prev(self, dots=None, borders=None):
         fill = [[(x, y) for x in range(GW)] for y in range(HC * 2)]
         coast = [[0] * GW for _ in range(HC)]
-        coast[1][3] = _BITS[0][0]
+        coast[1][3] = DOT_BITS[0][0]
         rdots = dots or [[0] * GW for _ in range(HC)]
         rivers = maps._ShiftedLayer(
             rdots, [["ink" if d else None for d in row] for row in rdots])
@@ -121,18 +121,18 @@ class TestReprojectTerrain:
 
     def test_a_pan_moves_the_fill_the_coast_and_the_linework_together(self):
         rdots = [[0] * GW for _ in range(HC)]
-        rdots[2][5] = _BITS[0][0]
+        rdots[2][5] = DOT_BITS[0][0]
         bdots = [[0] * GW for _ in range(HC)]
-        bdots[3][6] = _BITS[0][0]
+        bdots[3][6] = DOT_BITS[0][0]
         fill, coast, rivers, borders = maps._reproject_terrain(
             self._prev(rdots, bdots), (1.0, 0.0, 9.0, 8.0), GW, HC)
         # one degree east: everything moves one cell left
         assert fill[0][0] == (1, 0)
         assert fill[0][GW - 1] == BG_PRIMARY
-        assert coast[1][2] == _BITS[0][0] and _count(coast) == 1
-        assert rivers.dots[2][4] == _BITS[0][0]
+        assert coast[1][2] == DOT_BITS[0][0] and _count(coast) == 1
+        assert rivers.dots[2][4] == DOT_BITS[0][0]
         assert rivers.color[2][4] == "ink"
-        assert borders.dots[3][5] == _BITS[0][0]
+        assert borders.dots[3][5] == DOT_BITS[0][0]
         assert borders.color[3][5] == "edge"
 
     def test_a_view_without_tiles_carries_no_rivers(self):
@@ -302,7 +302,7 @@ class TestThePlanetStandsIn:
     def _prev(self, bbox=BBOX):
         fills = [[(x, y) for x in range(GW)] for y in range(HC * 2)]
         dots = [[0] * GW for _ in range(HC)]
-        dots[2][5] = _BITS[0][0]
+        dots[2][5] = DOT_BITS[0][0]
         layer = maps._ShiftedLayer(
             dots, [["ink" if d else None for d in row] for row in dots])
         return (bbox, GW, HC, fills, layer, {})

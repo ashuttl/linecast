@@ -31,7 +31,7 @@ from operator import itemgetter, or_
 
 from linecast.maps import globe as _globe
 from linecast.maps.hover import HoverIndex
-from linecast.radar.basemap import _BITS
+from linecast.terminal.braille import DOT_BITS
 from linecast.terminal.scenes import Memo
 
 # The margin is a MARGIN'th of the window on each side.  Measured at
@@ -273,7 +273,7 @@ def crop_layer(layer, dx, dy, w, h, hover=None):
 # A braille cell's eight dots, one byte each, by sub-row: unpacking a
 # grid is then a table lookup a cell and a join a dot row.
 _DOT_TABLE = tuple(
-    tuple(bytes(1 if v & _BITS[sx][sy] else 0 for sx in (0, 1))
+    tuple(bytes(1 if v & DOT_BITS[sx][sy] else 0 for sx in (0, 1))
           for v in range(256))
     for sy in range(4))
 
@@ -282,7 +282,7 @@ _DOT_TABLE = tuple(
 # bits: a pass of C over a whole grid where a comprehension would be a
 # pass of Python.
 _WEIGHTS = {bit: bytes((0, bit)) + bytes(254)
-            for col in _BITS for bit in col}
+            for col in DOT_BITS for bit in col}
 _MASKS = {}
 
 
@@ -391,7 +391,7 @@ class Resample:
                     for cy in range(hc):
                         base = (4 * cy + sy) * dw
                         idx.extend(flat[base + sx:base + dw:2])
-                    planes.append((_BITS[sx][sy], idx))
+                    planes.append((DOT_BITS[sx][sy], idx))
             self._planes = planes
         return self._planes
 

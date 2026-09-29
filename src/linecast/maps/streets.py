@@ -30,7 +30,8 @@ from linecast.maps.mvt import (
     LINESTRING, POLYGON, assemble_polygons, decode_tile,
 )
 from linecast._png import DecodeMemo
-from linecast.radar.basemap import DotLayer, _bresenham, _edge_dots
+from linecast.radar.basemap import DotLayer
+from linecast.terminal.braille import edge_dots, line_dots
 from linecast._log import debug_log, log_failure
 from linecast.terminal.theme import lerp_rgb
 from linecast.maps.vtiles import (fetch_tiles, iter_layer, prefetch_tiles,
@@ -375,7 +376,7 @@ def stroked_water(water, min_dots=None):
     a zoom makes it big enough for the ring to mean something.
 
     A body is its 4-connected component, the same connectivity
-    `_edge_dots` strokes with, so no dot of an unstroked pond can ever
+    `edge_dots` strokes with, so no dot of an unstroked pond can ever
     be adjacent to the water of a body that is stroked: the two would
     be one component.  A component cut by the window is judged by the
     area still visible, which is all the view has — half a lake at the
@@ -714,7 +715,7 @@ def stroke_polyline(layer, pts, color, rank, weight=1, dash=None,
         i += max(abs(cx0 - x0), abs(cy0 - y0))
         # the perpendicular for this segment: across the dominant axis
         ox, oy = (0, 1) if abs(x1 - x0) >= abs(y1 - y0) else (1, 0)
-        walk = _bresenham(cx0, cy0, cx1, cy1)
+        walk = line_dots(cx0, cy0, cx1, cy1)
         if k and (cx0, cy0) == (x0, y0):
             next(walk)                      # the previous segment's end
         for px, py in walk:
@@ -905,7 +906,7 @@ def water_lines(view, bbox, graph_w, height_cells, band, color, water=None,
 def _stamp_line(grid, pts, value, dw, dh, thick=1):
     """Stamp a projected polyline into the sub-pixel grid, `thick` wide."""
     for (x0, y0), (x1, y1) in zip(pts, pts[1:]):
-        for x, y in _bresenham(int(x0), int(y0), int(x1), int(y1)):
+        for x, y in line_dots(int(x0), int(y0), int(x1), int(y1)):
             for oy in range(thick):
                 yy = y + oy
                 if not 0 <= yy < dh:
@@ -1074,7 +1075,7 @@ def build_water_view(bbox, graph_w, height_cells, tiles, band, color,
             ocean)
 
 
-# A coast dot sits on the *land* side of the boundary (_edge_dots only
+# A coast dot sits on the *land* side of the boundary (edge_dots only
 # ever strokes land), so the water it goes round is a neighbour, never
 # the cell itself.  Ties are broken by this order, which is the reading
 # order of the neighbourhood — deterministic, and the same answer at
@@ -1196,7 +1197,7 @@ def build_street_view(bbox, graph_w, height_cells, tiles, band, lang="en",
     # other here and is never the small one.
     shores = stroked_water(water)
     land = [bytearray(1 - v for v in row) for row in shores]
-    coast = _edge_dots(land, shores, graph_w, height_cells)
+    coast = edge_dots(land, shores, graph_w, height_cells)
     ink = palette.get("coast", style._PALETTE_16_DEFAULT)
     feats = [("coast", "")]
     coast_owners, shore = water_owners(coast, wet, waters, feats,

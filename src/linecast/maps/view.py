@@ -61,7 +61,8 @@ from linecast.maps.loaders import (
     _get_globe, _get_street_tiles, _sphere, _terrain_buffer, _terrain_cache, _view_key,
     fetch_destination, take_street, take_terrain,
 )
-from linecast.radar.basemap import _BITS, DotLayer, _edge_dots
+from linecast.radar.basemap import DotLayer
+from linecast.terminal.braille import DOT_BITS, edge_dots
 from linecast.terminal import theme as _theme
 from linecast.radar.i18n import rs
 from linecast.radar.render import bbox_for
@@ -304,13 +305,13 @@ class _Reprojection:
                         if nx < 0:
                             continue
                         for sy in range(4):
-                            if not bits & _BITS[sx][sy]:
+                            if not bits & DOT_BITS[sx][sy]:
                                 continue
                             ny = fwd_y[cy * 4 + sy]
                             if ny < 0:
                                 continue
                             ncx, ncy = nx // 2, ny // 4
-                            dots[ncy][ncx] |= _BITS[nx % 2][ny % 4]
+                            dots[ncy][ncx] |= DOT_BITS[nx % 2][ny % 4]
                             if pcrow is not None:
                                 color[ncy][ncx] = pcrow[cx]
             return dots, color
@@ -325,8 +326,8 @@ class _Reprojection:
             for nx, ox in enumerate(back_x):
                 if ox < 0:
                     continue
-                if prow[ox // 2] & _BITS[ox % 2][oy % 4]:
-                    row[nx // 2] |= _BITS[nx % 2][ny % 4]
+                if prow[ox // 2] & DOT_BITS[ox % 2][oy % 4]:
+                    row[nx // 2] |= DOT_BITS[nx % 2][ny % 4]
                     if pcrow is not None:
                         crow[nx // 2] = pcrow[ox // 2]
         return dots, color
@@ -814,9 +815,9 @@ def _render_terrain(bbox, graph_w, height_cells, block, pan_offset,
                 # rule, that the coastline is the boundary of the fill,
                 # holds for the window's fill as it did for the built
                 # view's (maps.loaders.shore_bits)
-                coast = _edge_dots(exact.bits(shore, SHORE_LAND),
-                                   exact.bits(shore, SHORE_WATER),
-                                   graph_w, height_cells)
+                coast = edge_dots(exact.bits(shore, SHORE_LAND),
+                                  exact.bits(shore, SHORE_WATER),
+                                  graph_w, height_cells)
             else:
                 coast = exact.dots(coast)
             rivers = exact.layer(rivers)

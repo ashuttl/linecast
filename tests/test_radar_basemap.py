@@ -11,6 +11,7 @@ from linecast.radar.basemap import (
     Basemap, DotLayer, _project, marine_region, nearest_city,
     COAST, CITY, CITY_LABEL,
 )
+from linecast.terminal.braille import DOT_BITS, line_dots
 
 
 class TestProject:
@@ -490,12 +491,12 @@ class TestDotLayerRank:
         # rounded first (a wide layer so the diagonal fits)
         layer = DotLayer(self.BBOX, 4, 2)
         layer._dot_line(0.4, 0.6, 6.5, 7.4, self.RED, 1)
-        want = set(basemap_mod._bresenham(0, 1, 6, 7))
+        want = set(line_dots(0, 1, 6, 7))
         got = {(cx * 2 + dx, cy * 4 + dy)
                for cy, row in enumerate(layer.dots)
                for cx, mask in enumerate(row)
                for dx in range(2) for dy in range(4)
-               if mask & basemap_mod._BITS[dx][dy]}
+               if mask & DOT_BITS[dx][dy]}
         assert got == want
 
     def test_draw_lines_threads_its_rank(self):

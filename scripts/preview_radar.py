@@ -12,7 +12,8 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
 from linecast.radar import warnings as _radar_warnings  # noqa: E402
 from linecast.terminal.color import BG_PRIMARY  # noqa: E402
-from linecast.radar.basemap import Basemap, DotLayer, _BITS, SEA_FILL  # noqa: E402
+from linecast.radar.basemap import Basemap, DotLayer, SEA_FILL  # noqa: E402
+from linecast.terminal.braille import DOT_BITS  # noqa: E402
 from linecast.radar.render import bbox_for, build_radar_buffer  # noqa: E402
 from linecast.radar.sources import get_source  # noqa: E402
 from png_encode import encode_rgb  # noqa: E402
@@ -74,7 +75,7 @@ def main():
                 for dc in (0, 1):
                     for dr in (0, 1, 2, 3):
                         grid[r0 + dr][c0 + dc] = (
-                            col if wmask & _BITS[dc][dr] else BG_PRIMARY)
+                            col if wmask & DOT_BITS[dc][dr] else BG_PRIMARY)
             elif top is not None or bot is not None:
                 for dc in (0, 1):
                     grid[r0][c0 + dc] = top or BG_PRIMARY
@@ -87,7 +88,7 @@ def main():
                     col = bm.color[cy][cx] or SEA_FILL
                     for dc in (0, 1):
                         for dr in (0, 1, 2, 3):
-                            if mask & _BITS[dc][dr]:
+                            if mask & DOT_BITS[dc][dr]:
                                 grid[r0 + dr][c0 + dc] = col
 
     def get_px(px, py):

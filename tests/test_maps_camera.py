@@ -25,7 +25,7 @@ from linecast.maps import style as _maps_style
 from linecast.maps import loaders as _loaders
 from linecast.maps.route import Route
 from linecast.radar import basemap as _basemap
-from linecast.radar.basemap import _BITS, _edge_dots
+from linecast.terminal.braille import DOT_BITS, edge_dots
 from linecast.radar.render import bbox_for
 
 GW, HC = 160, 45
@@ -322,13 +322,13 @@ class TestTheLoaderPicksItsSource:
 class TestBordersThroughTheCamera:
     def test_a_border_off_screen_costs_no_dots(self, monkeypatch):
         walked = []
-        real = _basemap._bresenham
+        real = _basemap.line_dots
 
         def counted(*a):
             walked.append(1)
             return real(*a)
 
-        monkeypatch.setattr(_basemap, "_bresenham", counted)
+        monkeypatch.setattr(_basemap, "line_dots", counted)
         # the middle of the South Pacific: the nearest border is
         # thousands of kilometres away, and a disk this size is bigger
         # than the planet's own circle of them
@@ -677,7 +677,7 @@ class TestTheRestingCropIsTheWindow:
         return {(cx * 2 + sx, cy * 4 + sy)
                 for cy, row in enumerate(grid)
                 for cx, v in enumerate(row) if v
-                for sx in (0, 1) for sy in range(4) if v & _BITS[sx][sy]}
+                for sx in (0, 1) for sy in range(4) if v & DOT_BITS[sx][sy]}
 
     @classmethod
     def _on_shore(cls, grid, real, reach=1):
@@ -707,9 +707,9 @@ class TestTheRestingCropIsTheWindow:
                            cap=_globe.cap(zoom, gw, hc)) == (dx, dy)
         sliced = over.crop_grid(built.coast, dx, dy, gw, hc)
         cut = over.Resample(frame, window, gw, hc)
-        exact = _edge_dots(cut.bits(built.shore, _loaders.SHORE_LAND),
-                           cut.bits(built.shore, _loaders.SHORE_WATER),
-                           gw, hc)
+        exact = edge_dots(cut.bits(built.shore, _loaders.SHORE_LAND),
+                          cut.bits(built.shore, _loaders.SHORE_WATER),
+                          gw, hc)
         # every dot of the resampled shore is on the real one or next
         # to it, at every one of these views; the slice is not
         assert self._on_shore(exact, real.coast) > 0.995

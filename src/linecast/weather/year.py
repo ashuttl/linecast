@@ -34,6 +34,7 @@ from datetime import date, timedelta
 from linecast._i18n import fmt_decimal
 from linecast.terminal import live as _live
 from linecast.terminal import theme as _theme
+from linecast.terminal.braille import DOT_BITS
 from linecast.terminal.color import RESET, bg, fg
 from linecast.terminal.textwidth import visible_len
 from linecast.terminal.framebuffer import Framebuffer, get_terminal_size
@@ -48,8 +49,6 @@ from linecast.weather.i18n import _s, _wmo_icons
 _SMOOTH_DAYS = 7
 # A leap year, so every month and day has a slot.
 _LEAP = 2000
-# Braille dot bits by [column][row] within a cell.
-_BITS = ((0x01, 0x02, 0x04, 0x40), (0x08, 0x10, 0x20, 0x80))
 # The share of the chart's rows the precipitation panel takes.
 _PRECIP_SHARE = 0.28
 # The bars' colorings, in the order c steps through them; the first is
@@ -292,7 +291,7 @@ class _Braille:
                 return              # and never takes one from data
             elif not wins:
                 ink = self.ink[row][cell]
-        self.bits[row][cell] = held | _BITS[i % 2][y % 4]
+        self.bits[row][cell] = held | DOT_BITS[i % 2][y % 4]
         self.ink[row][cell] = ink
         self.guide[row][cell] = guide
 
@@ -321,7 +320,7 @@ class _Bars:
         """Dot row y of dot column i, for a day gone by or one forecast."""
         cell, row = i // 2, y // 4
         if 0 <= cell < self.width and 0 <= row < self.rows:
-            self.bits[row][cell] |= _BITS[i % 2][y % 4]
+            self.bits[row][cell] |= DOT_BITS[i % 2][y % 4]
             self.observed[row][cell] |= observed
 
     def free(self, cell, row):

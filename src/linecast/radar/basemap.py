@@ -21,12 +21,10 @@ import os
 from linecast.terminal import theme as _theme
 from linecast._paths import data_path
 from linecast._log import log_failure
+from linecast.terminal.braille import DOT_BITS, line_dots
 from linecast.terminal.textwidth import char_width
 from linecast.terminal.theme import is_light_theme, lerp_rgb
 from linecast._i18n import base_language
-
-# braille dot bit for (col, row) within a 2x4 cell — matches terminal/braille.py
-_BITS = ((0x01, 0x02, 0x04, 0x40), (0x08, 0x10, 0x20, 0x80))
 
 # geography palette (dim, so radar reads on top)
 COAST = (120, 150, 178)
@@ -212,25 +210,6 @@ def _project(lon, lat, bbox, w, h):
     return x, y
 
 
-def _bresenham(x0, y0, x1, y1):
-    """Integer dots from (x0, y0) to (x1, y1), both ends included."""
-    dx, dy = abs(x1 - x0), abs(y1 - y0)
-    sx = 1 if x0 < x1 else -1
-    sy = 1 if y0 < y1 else -1
-    err = dx - dy
-    while True:
-        yield x0, y0
-        if x0 == x1 and y0 == y1:
-            return
-        e2 = 2 * err
-        if e2 > -dy:
-            err -= dy
-            x0 += sx
-        if e2 < dx:
-            err += dx
-            y0 += sy
-
-
 def _off_the_cut(rings):
     """Rings as runs of coast, less their edges along the antimeridian.
 
@@ -249,34 +228,6 @@ def _off_the_cut(rings):
         if len(run) > 1:
             runs.append(run)
     return runs
-
-
-def _edge_dots(is_land, is_water, gw, hc):
-    """Braille masks stroking the land/water boundary of dot masks.
-
-    Both masks are (hc*4) x (gw*2) truthy/falsy grids at exactly braille
-    dot resolution (2x4 per cell).  A dot is set only where
-    ``is_land[dy][dx]`` and a 4-neighbour has ``is_water`` — so the
-    stroke and the colour boundary can never disagree, at any zoom, from
-    any data source, and *unknown* samples (in neither mask) are never
-    stroked from either side.
-    """
-    dh, dw = hc * 4, gw * 2
-    dots = [[0] * gw for _ in range(hc)]
-    for dy in range(dh):
-        land = is_land[dy]
-        here = is_water[dy]
-        up = is_water[dy - 1] if dy > 0 else None
-        down = is_water[dy + 1] if dy < dh - 1 else None
-        for dx in range(dw):
-            if not land[dx]:
-                continue
-            if ((dx > 0 and here[dx - 1])
-                    or (dx < dw - 1 and here[dx + 1])
-                    or (up is not None and up[dx])
-                    or (down is not None and down[dx])):
-                dots[dy // 4][dx // 2] |= _BITS[dx % 2][dy % 4]
-    return dots
 
 
 class DotLayer:
@@ -317,14 +268,14 @@ class DotLayer:
         if dx < 0 or dx >= self.dw or dy < 0 or dy >= self.dh:
             return
         cx, cy = dx // 2, dy // 4
-        self.dots[cy][cx] |= _BITS[dx % 2][dy % 4]
+        self.dots[cy][cx] |= DOT_BITS[dx % 2][dy % 4]
         if rank >= self.rank[cy][cx]:   # ties: last writer wins, as before
             self.rank[cy][cx] = rank
             self.color[cy][cx] = color
             self.owner[cy][cx] = owner
 
     def or_mask(self, mask, color, rank=0, owner=None, owners=None):
-        """Admit a cell-indexed dot bitmask (e.g. _edge_dots output).
+        """Admit a cell-indexed dot bitmask (e.g. braille.edge_dots output).
 
         The mask's dots OR into the grid; the cells it touches follow the
         same rank contest as a stroke, so an edge mask and a line layer
@@ -348,8 +299,8 @@ class DotLayer:
                                               else owners[cy][cx])
 
     def _dot_line(self, x0, y0, x1, y1, color, rank=0):
-        for x, y in _bresenham(int(round(x0)), int(round(y0)),
-                               int(round(x1)), int(round(y1))):
+        for x, y in line_dots(int(round(x0)), int(round(y0)),
+                              int(round(x1)), int(round(y1))):
             self._set_dot(x, y, color, rank)
 
     def _turns(self):

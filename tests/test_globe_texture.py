@@ -21,6 +21,7 @@ from linecast.maps import globe as _globe
 from linecast.maps import globe_texture
 from linecast.maps import paint
 from linecast.maps import loaders
+from linecast.terminal.braille import DOT_BITS
 
 SMALL = (32, 16)    # mask texels: a planet small enough to bake in a blink
 
@@ -218,7 +219,7 @@ def _dots(layer):
         for cx, mask in enumerate(row):
             for dx in range(2):
                 for dy in range(4):
-                    if mask & globe_texture._BITS[dx][dy]:
+                    if mask & DOT_BITS[dx][dy]:
                         out.add((cy * 4 + dy, cx * 2 + dx))
     return out
 

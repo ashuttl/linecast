@@ -54,7 +54,8 @@ from linecast.maps import style
 from linecast.terminal.color import BG_PRIMARY, color_mode
 from linecast.terminal.live import nudge as _nudge_repaint
 from linecast._paths import cache_dir, data_path
-from linecast.radar.basemap import _BITS, DotLayer, _bresenham, _load_data
+from linecast.radar.basemap import DotLayer, _load_data
+from linecast.terminal.braille import DOT_BITS, line_dots
 from linecast.radar.tiles import _TILE_SIZE
 from linecast._log import log_failure
 from linecast.terminal.scenes import Memo
@@ -356,7 +357,7 @@ def _border_layer(border, gw, hc, ink):
     layer = DotLayer((0.0, 0.0, 1.0, 1.0), gw, hc)
     dots, color = layer.dots, layer.color
     for dy, row in enumerate(border):
-        even, odd = _BITS[0][dy & 3], _BITS[1][dy & 3]
+        even, odd = DOT_BITS[0][dy & 3], DOT_BITS[1][dy & 3]
         drow, crow = dots[dy >> 2], color[dy >> 2]
         pos = row.find(1)
         while pos >= 0:
@@ -529,7 +530,7 @@ def _border_plane(tw, th):
                  last if y > last else max(0, y))
             # a step of half the world is the antimeridian, not a border
             if prev is not None and abs(prev[0] - p[0]) * 2 <= tw:
-                for x, y_ in _bresenham(prev[0], prev[1], p[0], p[1]):
+                for x, y_ in line_dots(prev[0], prev[1], p[0], p[1]):
                     for ox, oy in _BORDER_BRUSH:
                         rows[min(last, y_ + oy)][(x + ox) % tw] = 1
             prev = p

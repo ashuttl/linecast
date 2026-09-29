@@ -33,12 +33,12 @@ from linecast.maps import style as _style
 from linecast.maps.elevation import elevation_grid
 from linecast.terminal import live as _live
 from linecast.terminal.live import nudge as _nudge_repaint
+from linecast.terminal.braille import edge_dots
 from linecast.terminal.color import BG_PRIMARY
 from linecast.maps.i18n import ms
 from linecast.maps.paint import (
     BORDER_STROKE, RIVER_STROKE, build_terrain_buffer,
 )
-from linecast.radar.basemap import _edge_dots
 from linecast._log import log_failure
 from linecast.terminal.scenes import FetchHold, Memo, SceneCache
 
@@ -328,9 +328,9 @@ def shore_bits(fine, water=None, min_dots=None):
 
 def shore_edges(shore, gw, hc):
     """The braille shoreline of packed land/water bits."""
-    return _edge_dots([[v & SHORE_LAND for v in row] for row in shore],
-                      [[v & SHORE_WATER for v in row] for row in shore],
-                      gw, hc)
+    return edge_dots([[v & SHORE_LAND for v in row] for row in shore],
+                     [[v & SHORE_WATER for v in row] for row in shore],
+                     gw, hc)
 
 
 def _box_average(fine, gw, hc):
@@ -732,7 +732,7 @@ def _textured_globe(tex, lat0, lon0, zoom, gw, hc):
     shot = globe_texture.sample(tex, lat0, lon0, zoom, gw, hc, BORDER_STROKE)
     lls, zs, atmo, glow = _sphere(zoom, gw, hc, lat0, lon0)
     return _globe.GlobeView(
-        shot.elev, _edge_dots(shot.land, shot.water, gw, hc), zs, atmo,
+        shot.elev, edge_dots(shot.land, shot.water, gw, hc), zs, atmo,
         None, shot.borders, lls, glow, None, shot.fill,
         _water_subpixels(shot.water, gw, hc))
 

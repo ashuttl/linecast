@@ -14,7 +14,8 @@ from linecast.terminal import color as _color
 from linecast.maps import elevation as _elevation
 from linecast.terminal.color import BG_PRIMARY
 from linecast.maps.elevation import decode_meters, elevation_grid
-from linecast.radar.basemap import BORDER, COAST, _edge_dots
+from linecast.radar.basemap import BORDER, COAST
+from linecast.terminal.braille import edge_dots
 from linecast.maps.paint import (
     BORDER_STROKE, COAST_STROKE, LAKE_FILL, build_terrain_buffer, compose_terrain,
 )
@@ -254,7 +255,7 @@ class TestEdgeDots:
         # sub-column of cell 1, all four rows -> 0x01|0x02|0x04|0x40
         expected = [[0, 0x47]]
         assert _coast_dots(fine, 2, 1) == expected
-        assert _edge_dots(is_land, is_water, 2, 1) == expected
+        assert edge_dots(is_land, is_water, 2, 1) == expected
 
     def test_unknown_next_to_water_is_never_stroked(self):
         # The case the old suite missed: a missing sample beside water.
@@ -264,7 +265,7 @@ class TestEdgeDots:
         assert _coast_dots(fine, 1, 1) == [[0]]
         is_land = [[False, False] for _ in range(4)]
         is_water = [[False, True] for _ in range(4)]
-        assert _edge_dots(is_land, is_water, 1, 1) == [[0]]
+        assert edge_dots(is_land, is_water, 1, 1) == [[0]]
 
     def test_tile_masks_have_no_unknown_state(self):
         # How street mode calls it: is_land is simply "not water", so
@@ -272,13 +273,13 @@ class TestEdgeDots:
         # east column land -> the east sub-column of the cell.
         is_water = [[True, False] for _ in range(4)]
         is_land = [[not w for w in row] for row in is_water]
-        assert _edge_dots(is_land, is_water, 1, 1) == [[0xB8]]
+        assert edge_dots(is_land, is_water, 1, 1) == [[0xB8]]
 
     def test_a_dot_in_both_masks_still_strokes_once(self):
         # Defensive: overlapping masks must not double-set or crash.
         is_land = [[True, True] for _ in range(4)]
         is_water = [[True, True] for _ in range(4)]
-        assert _edge_dots(is_land, is_water, 1, 1) == [[0xFF]]
+        assert edge_dots(is_land, is_water, 1, 1) == [[0xFF]]
 
 
 class TestComposeTerrain:

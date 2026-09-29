@@ -1,9 +1,64 @@
-"""Shared braille line-graph rendering.
+"""Shared braille drawing: the dot table, lines, edges, and curve graphs.
 
-Provides a single reusable function for building multi-row braille curve
-graphs from any numeric data series.  Used by both the weather hourly chart
-and the tides chart.
+A braille cell is a 2x4 grid of dots, and each dot is one bit of the
+character's offset from U+2800.  DOT_BITS maps a dot's column and row to
+its bit; line_dots and edge_dots walk lines and shape edges at dot
+resolution for the maps and radar layers; build_braille_curve draws the
+multi-row curve graphs of the weather hourly chart and the tides chart.
 """
+
+# The bit for the dot at (column 0-1, row 0-3) within a cell.
+DOT_BITS = ((0x01, 0x02, 0x04, 0x40), (0x08, 0x10, 0x20, 0x80))
+
+# The empty cell: a braille character with no dots raised.
+BLANK = "\u2800"
+
+
+def line_dots(x0, y0, x1, y1):
+    """Integer dots from (x0, y0) to (x1, y1), both ends included."""
+    dx, dy = abs(x1 - x0), abs(y1 - y0)
+    sx = 1 if x0 < x1 else -1
+    sy = 1 if y0 < y1 else -1
+    err = dx - dy
+    while True:
+        yield x0, y0
+        if x0 == x1 and y0 == y1:
+            return
+        e2 = 2 * err
+        if e2 > -dy:
+            err -= dy
+            x0 += sx
+        if e2 < dx:
+            err += dx
+            y0 += sy
+
+
+def edge_dots(is_land, is_water, gw, hc):
+    """Braille masks stroking the land/water boundary of dot masks.
+
+    Both masks are (hc*4) x (gw*2) truthy/falsy grids at exactly braille
+    dot resolution (2x4 per cell).  A dot is set only where
+    ``is_land[dy][dx]`` and a 4-neighbour has ``is_water`` — so the
+    stroke and the colour boundary can never disagree, at any zoom, from
+    any data source, and *unknown* samples (in neither mask) are never
+    stroked from either side.
+    """
+    dh, dw = hc * 4, gw * 2
+    dots = [[0] * gw for _ in range(hc)]
+    for dy in range(dh):
+        land = is_land[dy]
+        here = is_water[dy]
+        up = is_water[dy - 1] if dy > 0 else None
+        down = is_water[dy + 1] if dy < dh - 1 else None
+        for dx in range(dw):
+            if not land[dx]:
+                continue
+            if ((dx > 0 and here[dx - 1])
+                    or (dx < dw - 1 and here[dx + 1])
+                    or (up is not None and up[dx])
+                    or (down is not None and down[dx])):
+                dots[dy // 4][dx // 2] |= DOT_BITS[dx % 2][dy % 4]
+    return dots
 
 
 def interpolate(values, n):
@@ -28,8 +83,7 @@ def braille_rows_from_ys(ys_i, graph_w, n_rows):
     """
     total_dots = n_rows * 4
 
-    # Braille dot bit positions: BITS[col][row] for 2x4 grid within each char
-    bits = [[0x01, 0x02, 0x04, 0x40], [0x08, 0x10, 0x20, 0x80]]
+    bits = DOT_BITS
 
     # Bit storage per (braille_row, char_col)
     rows_bits = [[0] * graph_w for _ in range(n_rows)]

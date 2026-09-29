@@ -20,6 +20,7 @@ from linecast.maps import streets as st
 from linecast.maps import style
 from linecast.terminal import theme as _theme
 from linecast.maps.loaders import _coast_dots
+from linecast.terminal.braille import edge_dots
 
 from test_maps_streets import (  # the tile-fixture writer, reused wholesale
     DARK_BG, EXTENT, WORLD, Z0, as_text, classed, dot_mask, feature, layer,
@@ -81,7 +82,7 @@ class TestStrokedWater:
 
     def test_a_body_is_four_connected_and_not_eight(self):
         # Two squares meeting at a corner are two ponds, not one lake —
-        # the same connectivity _edge_dots strokes with, so no dot of an
+        # the same connectivity edge_dots strokes with, so no dot of an
         # unstroked pond can ever sit beside a stroked body's water.
         mask = blank(40, 20)
         half = (MIN // 2) + 1
@@ -267,7 +268,7 @@ class TestStreetCoast:
         view = st.decode_view({Z0: tile(water_and_pond())})
         mask = st.inland_water_mask(view, WORLD, GW, HC)
         _fills, layer_, _overlays = street(water_and_pond())
-        expected = st._edge_dots(
+        expected = edge_dots(
             [bytearray(1 - v for v in row) for row in st.stroked_water(mask)],
             st.stroked_water(mask), GW, HC)
         for cy, row in enumerate(expected):

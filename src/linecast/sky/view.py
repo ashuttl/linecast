@@ -43,6 +43,7 @@ import math
 import sys
 from datetime import datetime, timezone
 
+from linecast.terminal.braille import DOT_BITS
 from linecast.terminal.color import RESET, bg, fg, interp_stops, lerp
 from linecast.terminal.textwidth import visible_len
 from linecast.terminal.framebuffer import Framebuffer, cell_aspect, get_terminal_size
@@ -205,7 +206,7 @@ def _put_text(overlays, taken, text, x, row, rgb, bold, graph_w, graph_h,
 
 
 # Braille dot bits: _BRAILLE[dot column 0-1][dot row 0-3].
-_BRAILLE = ((0x01, 0x02, 0x04, 0x40), (0x08, 0x10, 0x20, 0x80))
+_BRAILLE = DOT_BITS
 
 
 def _plot_arc(dots, a, b, cam, f, cx, cy, graph_w, graph_h, aspect=1.0):

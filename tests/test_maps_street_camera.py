@@ -25,7 +25,7 @@ from linecast.maps import overscan as over
 from linecast.maps import streets as st
 from linecast.maps import style as _maps_style
 from linecast.maps import loaders as _loaders
-from linecast.radar.basemap import _BITS
+from linecast.terminal.braille import DOT_BITS
 from linecast.radar.render import bbox_for
 from test_maps_streets import EXTENT, field, layer, line_feature, vstr
 
@@ -155,7 +155,7 @@ def _lit(dots):
     return {(cx * 2 + sx, cy * 4 + sy)
             for cy, row in enumerate(dots)
             for cx, v in enumerate(row) if v
-            for sx in (0, 1) for sy in range(4) if v & _BITS[sx][sy]}
+            for sx in (0, 1) for sy in range(4) if v & DOT_BITS[sx][sy]}
 
 
 def _near(dots, real, reach=1):
