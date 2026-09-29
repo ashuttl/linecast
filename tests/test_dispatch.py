@@ -141,6 +141,16 @@ class Argv0DispatchTests(unittest.TestCase):
             with self.subTest(view=name):
                 self.assertEqual("--oneline" in help_page, name not in ("radar", "maps"))
 
+    def test_zoom_is_degrees_above_zero(self):
+        # the views divide by it: 0 was a ZeroDivisionError, nan a ValueError
+        from linecast._runtime import maps_parser, radar_parser
+        for parser in (maps_parser(), radar_parser()):
+            self.assertEqual(parser.parse_args(["--zoom", "0.5"]).zoom, 0.5)
+            for bad in ("0", "-1", "nan", "inf", "abc"):
+                with self.subTest(prog=parser.prog, zoom=bad), \
+                     redirect_stderr(StringIO()), self.assertRaises(SystemExit):
+                    parser.parse_args(["--zoom", bad])
+
     def test_help_ends_with_the_moon_tonight(self):
         # The one thing the help page can say about the sky without a
         # place or a network: the phase, from the clock alone.

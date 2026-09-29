@@ -428,6 +428,18 @@ class VersionAction(argparse.Action):
         parser.exit()
 
 
+def zoom_degrees(text):
+    """A --zoom: degrees of latitude, a finite number above zero.  The
+    views divide by it."""
+    try:
+        value = float(text)
+    except ValueError:
+        value = float("nan")
+    if not 0 < value < float("inf"):
+        raise argparse.ArgumentTypeError(f"expected degrees above 0, got {text!r}")
+    return value
+
+
 def _base_parser(prog, description, units=None, clock=False, json=False,
                  temperature_scale=False, oneline=True):
     """A view command's parser, with its help page in sections.
@@ -633,7 +645,7 @@ def radar_parser():
                     help="location as 'lat,lng' or place name")
     p.add_argument("--search", metavar="QUERY", default=None,
                     help="search for a location and exit")
-    p.add_argument("--zoom", metavar="DEGREES", type=float, default=6.0,
+    p.add_argument("--zoom", metavar="DEGREES", type=zoom_degrees, default=6.0,
                     help="degrees of latitude shown top-to-bottom (default 6)")
     from linecast.radar.sources import THEMES
     themes = tuple(THEMES)
@@ -666,7 +678,7 @@ def maps_parser():
                     help="search for a location and exit")
     # the default is per view and resolved in maps.main(): a street map
     # opens on a neighbourhood, terrain on a region
-    p.add_argument("--zoom", metavar="DEGREES", type=float, default=None,
+    p.add_argument("--zoom", metavar="DEGREES", type=zoom_degrees, default=None,
                     help="degrees of latitude shown top-to-bottom "
                          "(default 0.05 in street view, 4 in terrain)")
     p.add_argument("--view", choices=("street", "terrain", "now"),
