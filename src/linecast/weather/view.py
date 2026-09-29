@@ -392,7 +392,11 @@ def _build_daily_tooltip(data, mouse_col, mouse_row, daily_start, daily_spans, c
         wet = [(j, v) for j, v in hour_values("precipitation") if v > 0]
         first = when(wet[0][0]) if wet else None
         last = when(wet[-1][0]) if wet else None
-        all_day = wet and wet[0][0] <= hours[0] + 1 and wet[-1][0] >= hours[-1] - 1
+        # Through the day from one end to the other, with no more than an
+        # hour's lull, as the forecast in words has it: showers in the
+        # small hours and again at night are not a day of rain.
+        all_day = (wet and wet[0][0] <= hours[0] + 1 and wet[-1][0] >= hours[-1] - 1
+                   and all(b - a <= 2 for (a, _), (b, _) in zip(wet, wet[1:])))
         if amount and all_day:
             lines.append(f"{TBG}{TFG} {_s('amount_all_day', runtime, amount=amount)} ")
         elif amount and first and last and first != last:

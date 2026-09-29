@@ -74,6 +74,7 @@ Notable changes, by release. Notes for the next release collect under **Unreleas
 - Tides: Fixed the view failing with "Could not fetch tide data" in north Burnaby and around Vancouver's Second Narrows, where the nearest Canadian station predicts only the current; it now picks the nearest station with tides.
 - Tides: Fixed tides from the global tide model, as for Sydney, Melbourne, and the coasts of Europe, being an hour off on the far side of a change of clock: the week before the clocks change, the tides after it were an hour early or late, and the week after, the tides before it.
 - Maps: Fixed a search for a city, such as Paris, listing it twice.
+- Weather: Fixed the daily forecast's rain hover saying "through the day" for a day with showers in the small hours and again at night but dry between; it gives the hours they fall between.
 
 ## 2.9.2 — 2026-09-27
 

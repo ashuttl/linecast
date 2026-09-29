@@ -234,6 +234,34 @@ def test_daily_rain_chip_says_through_the_day_for_all_day_rain():
     assert "between" not in text
 
 
+def test_daily_rain_chip_gives_the_span_for_showers_at_either_end_of_the_day():
+    data = _hourly_data()
+    times = data["hourly"]["time"]
+    date = times[30][:10]
+    # Showers in the small hours and again at night, dry from 3am to 8pm
+    data["hourly"]["precipitation"] = [
+        0.06 if t.startswith(date) and not 3 <= int(t[11:13]) < 20 else 0.0 for t in times]
+    data["daily"] = {
+        "time": [times[0][:10], date, "2099-01-01"],
+        "temperature_2m_max": [70, 70, 70],
+        "temperature_2m_min": [60, 60, 60],
+        "precipitation_sum": [0, 0.42, 0],
+        "precipitation_probability_max": [0, 70, 0],
+        "weather_code": [61, 80, 0],
+        "wind_speed_10m_max": [5, 5, 5],
+        "wind_gusts_10m_max": [8, 8, 8],
+        "sunrise": [], "sunset": [],
+    }
+    runtime = _runtime()
+    lines, spans = render_daily_mapped(data, 100, runtime)
+    k = next(k for k, s in enumerate(spans) if s["index"] == 1)
+    a = spans[k]["cols"]["rain"][0]
+    with patch.object(_color, "_COLOR_MODE", "truecolor"):
+        text = _plain(_build_daily_tooltip(data, a + 1, 21 + k, 20, spans, 100, 40, runtime))
+    assert "through the day" not in text
+    assert "0.42″ between 00:00 and 23:00" in text
+
+
 def test_daily_snow_chip_gives_the_snow_not_its_water():
     data = _hourly_data()
     times = data["hourly"]["time"]
