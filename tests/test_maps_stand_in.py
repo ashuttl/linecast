@@ -16,7 +16,7 @@ from linecast.maps import loaders
 from linecast.terminal.braille import DOT_BITS
 from linecast.terminal.color import BG_PRIMARY
 from linecast.radar.i18n import rs
-from linecast.radar.render import bbox_for
+from linecast._xyz import bbox_for
 
 GW, HC = 8, 4
 BBOX = (0.0, 0.0, 8.0, 8.0)  # one degree per cell column, two per row

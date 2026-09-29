@@ -33,6 +33,7 @@ import time
 from linecast.maps import night_lights as _night_lights
 from linecast.radar import tiles
 from linecast._geo import wrap_lon
+from linecast._xyz import stitch_xyz
 from linecast.maps.globe import _aspect, _source_zoom, bilinear_taps, geometry
 from linecast._png import decode_rgba
 from linecast._log import log_failure
@@ -406,7 +407,7 @@ def refresh(zoom, h, timeout=15):
                         fallback="tile left transparent")
             return None
 
-    canvas = tiles.stitch_xyz(fetch, _CLOUD_BBOX, z)
+    canvas = stitch_xyz(fetch, _CLOUD_BBOX, z)
     white = _mosaic_white(canvas)
     cover = _ring_cover(canvas, white or _CAP_WHITE)
     with _cloud_lock:

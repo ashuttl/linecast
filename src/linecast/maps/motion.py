@@ -21,7 +21,7 @@ says how far in it is — so a test can walk a flight a step at a time.
 import math
 
 from linecast._geo import angle_delta
-from linecast.radar.render import bbox_for
+from linecast._xyz import bbox_for
 
 RHO = 1.42          # van Wijk's trade-off between zooming and panning
 SPEED = 3.0         # path units per second

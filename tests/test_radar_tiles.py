@@ -15,9 +15,9 @@ import pytest
 
 from linecast.radar import tiles
 from linecast.radar.tiles import (
-    _lonlat_to_world, _pick_zoom, _tile_url, reproject, _TILE_SIZE,
-    librewxr_provider, rainviewer_provider,
+    _tile_url, reproject, librewxr_provider, rainviewer_provider,
 )
+from linecast._xyz import TILE_SIZE, lonlat_to_world, pick_zoom
 
 _SIG = b"\x89PNG\r\n\x1a\n"
 
@@ -61,23 +61,23 @@ class TestProviders:
 
 class TestLonLatToWorld:
     def test_origin(self):
-        x, y = _lonlat_to_world(0.0, 0.0)
+        x, y = lonlat_to_world(0.0, 0.0)
         assert x == 0.5
         assert y == 0.5
 
     def test_lon_180_maps_to_x_1(self):
-        x, _y = _lonlat_to_world(180.0, 0.0)
+        x, _y = lonlat_to_world(180.0, 0.0)
         assert x == 1.0
 
     def test_lat_clamping_near_poles_does_not_crash(self):
         for lat in (89.9, 90.0, 95.0, -89.9, -90.0, -95.0):
-            x, y = _lonlat_to_world(0.0, lat)
+            x, y = lonlat_to_world(0.0, lat)
             assert 0.0 <= x <= 1.0
             assert -1.0 <= y <= 2.0  # not asserting exact clamp, just sane/no crash
 
     def test_y_decreases_as_lat_increases(self):
-        _, y_low = _lonlat_to_world(0.0, 10.0)
-        _, y_high = _lonlat_to_world(0.0, 50.0)
+        _, y_low = lonlat_to_world(0.0, 10.0)
+        _, y_high = lonlat_to_world(0.0, 50.0)
         assert y_high < y_low
 
 
@@ -86,20 +86,20 @@ class TestPickZoom:
         for bbox, w in [((-180, -80, 180, 80), 4096),
                          ((-1, -1, 1, 1), 4096),
                          ((-0.01, -0.01, 0.01, 0.01), 8192)]:
-            assert _pick_zoom(bbox, w, 7) <= 7
+            assert pick_zoom(bbox, w, 7) <= 7
 
     def test_deep_zoom_ceiling_honoured(self):
-        z = _pick_zoom((-0.01, -0.01, 0.01, 0.01), 8192, 12)
+        z = pick_zoom((-0.01, -0.01, 0.01, 0.01), 8192, 12)
         assert 7 < z <= 12
 
     def test_wider_bbox_gives_lower_zoom(self):
         w = 1024
-        z_wide = _pick_zoom((-180, -80, 180, 80), w, 7)
-        z_narrow = _pick_zoom((-1, -1, 1, 1), w, 7)
+        z_wide = pick_zoom((-180, -80, 180, 80), w, 7)
+        z_narrow = pick_zoom((-1, -1, 1, 1), w, 7)
         assert z_wide < z_narrow
 
     def test_never_negative(self):
-        assert _pick_zoom((-180, -80, 180, 80), 1, 7) >= 0
+        assert pick_zoom((-180, -80, 180, 80), 1, 7) >= 0
 
 
 class TestTileUrl:
@@ -158,7 +158,7 @@ class TestReproject:
 
     def test_solid_tile_resamples_to_known_color(self):
         color = (100, 150, 200, 255)
-        png = _solid_png(_TILE_SIZE, _TILE_SIZE, *color)
+        png = _solid_png(TILE_SIZE, TILE_SIZE, *color)
         original = self._patch_fetch_tile(lambda *a, **k: png)
         try:
             bbox = (-10.0, -10.0, 10.0, 10.0)
@@ -183,7 +183,7 @@ class TestReproject:
         second one collects it — and the frame is whole, not holed.
         """
         color = (100, 150, 200, 255)
-        png = _solid_png(_TILE_SIZE, _TILE_SIZE, *color)
+        png = _solid_png(TILE_SIZE, TILE_SIZE, *color)
         calls = []
 
         def flaky(provider, host, path, z, x, y, timeout=15, mutable=False):
@@ -236,7 +236,7 @@ class TestSmoothGray:
         # world = canvas size so 1 canvas px == 1/world of the world; bbox
         # covering exactly the canvas in lon (lat is mercator, keep it tiny
         # and symmetric so rows map ~linearly)
-        from linecast.radar.tiles import _smooth_gray
+        from linecast._xyz import _smooth_gray
         return _smooth_gray(canvas, w, h, 0, 0, w, (-180, -0.5, 180, 0.5),
                             out_w, out_h)
 
@@ -263,7 +263,7 @@ class TestSmoothGray:
         # neighbourhoods; it must stay byte-identical to the plain
         # weighted sum, edge clamping and snow majority included
         import random
-        from linecast.radar.tiles import _smooth_gray
+        from linecast._xyz import _smooth_gray
         rng = random.Random(7)
         cw, ch = 16, 8
         pixels = {}
@@ -290,14 +290,14 @@ def _reference_smooth_gray(canvas, canvas_w, canvas_h, org_x, org_y, world,
     col = []
     for ox in range(w):
         lon = minlon + (ox + 0.5) / w * (maxlon - minlon)
-        wx, _ = _lonlat_to_world(lon, minlat)
+        wx, _ = lonlat_to_world(lon, minlat)
         fx = wx * world - org_x - 0.5
         x0 = int(fx // 1)
         col.append((x0, fx - x0))
     out = bytearray(w * h * 4)
     for oy in range(h):
         lat = maxlat - (oy + 0.5) / h * (maxlat - minlat)
-        _, wy = _lonlat_to_world(minlon, lat)
+        _, wy = lonlat_to_world(minlon, lat)
         fy = wy * world - org_y - 0.5
         y0 = int(fy // 1)
         ty = fy - y0

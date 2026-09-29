@@ -56,7 +56,7 @@ from linecast.terminal.live import nudge as _nudge_repaint
 from linecast._paths import cache_dir, data_path
 from linecast.radar.basemap import DotLayer, _load_data
 from linecast.terminal.braille import DOT_BITS, line_dots
-from linecast.radar.tiles import _TILE_SIZE
+from linecast._xyz import TILE_SIZE
 from linecast._log import log_failure
 from linecast.terminal.scenes import Memo
 
@@ -178,7 +178,7 @@ def _mask_dims(z):
     bilinear sampling used to draw — and half that tall, because an
     equirectangular planet is twice as wide as it is high.
     """
-    world = _TILE_SIZE << z
+    world = TILE_SIZE << z
     return world * 2, world
 
 

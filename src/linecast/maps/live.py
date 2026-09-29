@@ -34,7 +34,7 @@ from linecast.maps import vtiles as _vtiles
 from linecast.maps.loaders import (
     _zoom_hold, globe_warm, recentres, warm_globe_texture,
 )
-from linecast.radar.render import bbox_for
+from linecast._xyz import bbox_for
 from linecast._runtime import RuntimeConfig, set_current
 from linecast._parsers import maps_parser
 from linecast._log import log_failure

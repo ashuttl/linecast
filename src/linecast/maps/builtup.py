@@ -22,7 +22,7 @@ from linecast._http import fetch_bytes
 from linecast.maps.tile_cache import note_tile_use
 from linecast._paths import cache_dir
 from linecast._png import DecodeMemo, decode_rgba
-from linecast.radar.tiles import _pick_zoom, reproject_xyz, stitch_xyz
+from linecast._xyz import pick_zoom, reproject_xyz, stitch_xyz
 from linecast._log import log_failure
 
 MAX_ZOOM = 9  # the published pyramid's floor: ~300 m per pixel, plenty for a tint
@@ -101,7 +101,7 @@ def builtup_grid(bbox: tuple[float, float, float, float], w: int, h: int,
     hillshade under it does.
     """
     detail = bbox if camera is None else camera.scale_bbox
-    z = _pick_zoom(detail, w, MAX_ZOOM)
+    z = pick_zoom(detail, w, MAX_ZOOM)
 
     def fetch(z_, x, y):
         data = _fetch_tile(z_, x, y, timeout)

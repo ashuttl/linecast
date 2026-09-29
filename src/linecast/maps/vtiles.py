@@ -26,13 +26,11 @@ Set LINECAST_VECTOR_TILES_URL to point at a self-hosted TileJSON; an
 override is the user's chosen source and gets no fallback.
 """
 
-import atexit
 import math
 import os
 import threading
 import time
 from collections.abc import Callable, Iterable, Iterator, Sequence
-from concurrent.futures import ThreadPoolExecutor
 from typing import Any
 
 from linecast._cache import (read_cache, read_stale, write_bytes_atomic,
@@ -40,7 +38,7 @@ from linecast._cache import (read_cache, read_stale, write_bytes_atomic,
 from linecast._http import MAX_BODY_BYTES, fetch_bytes, fetch_json, gunzip_limited
 from linecast.maps.tile_cache import note_tile_use
 from linecast._paths import cache_dir
-from linecast.radar.tiles import _lonlat_to_world
+from linecast._xyz import close_pools, lonlat_to_world, shared_pool
 from linecast._log import debug_log, log_failure
 
 DEFAULT_TILEJSON_URL = "https://tiles.openfreemap.org/planet"
@@ -188,8 +186,8 @@ def tiles_for_bbox(bbox: tuple[float, float, float, float], z: int) -> list[tupl
     y clamps at the mercator poles."""
     minlon, minlat, maxlon, maxlat = bbox
     n = 1 << z
-    x0, y0 = _lonlat_to_world(minlon, maxlat)  # top-left
-    x1, y1 = _lonlat_to_world(maxlon, minlat)  # bottom-right
+    x0, y0 = lonlat_to_world(minlon, maxlat)  # top-left
+    x1, y1 = lonlat_to_world(maxlon, minlat)  # bottom-right
     # floor, not truncation: a camera centred just west of the
     # antimeridian unwraps its bounds to a negative world x, and
     # truncating toward zero would drop the westernmost tile instead
@@ -362,22 +360,11 @@ def fetch_tile(z: int, x: int, y: int, timeout: float = 15) -> bytes | None:
 
 # Two pools: one for the view on screen, a smaller one for guesses.
 # They stay separate because prefetch queues 20-odd tiles at a time, and
-# a view sharing that queue waits behind all of them.
-_POOLS: dict[str, ThreadPoolExecutor] = {}
-_POOL_LOCK = threading.Lock()
-_closed = False        # no pool after shutdown(); fetches run on the caller
+# a view sharing that queue waits behind all of them.  Once they are
+# closed a view's fetches run on the caller, and guesses are not made.
+_VIEW, _PREFETCH = "vtiles-view", "vtiles-prefetch"
+_prefetch_lock = threading.Lock()
 _prefetch_gen = 0      # bumped when the view moves; stale guesses stand down
-
-
-def _pool(name: str = "view", workers: int = 8) -> ThreadPoolExecutor | None:
-    with _POOL_LOCK:
-        if _closed:
-            return None
-        pool = _POOLS.get(name)
-        if pool is None:
-            pool = _POOLS[name] = ThreadPoolExecutor(
-                max_workers=workers, thread_name_prefix=f"vtiles-{name}")
-        return pool
 
 
 def fetch_tiles(keys: list[tuple[int, int, int]], timeout: float = 15
@@ -391,7 +378,7 @@ def fetch_tiles(keys: list[tuple[int, int, int]], timeout: float = 15
     def one(key):
         return fetch_tile(*key, timeout=timeout)
 
-    pool = _pool()
+    pool = shared_pool(_VIEW, 8)
     results = map(one, keys) if pool is None else pool.map(one, keys)
     return dict(zip(keys, results))
 
@@ -413,10 +400,10 @@ def prefetch_tiles(keys: Iterable[tuple[int, int, int]]) -> None:
     global _prefetch_gen
     if fallback_serving():
         return  # OSM US rate-limits anonymous use; don't spend it on guesses
-    pool = _pool("prefetch", 2)
+    pool = shared_pool(_PREFETCH, 2)
     if pool is None:
         return
-    with _POOL_LOCK:
+    with _prefetch_lock:
         _prefetch_gen += 1
         gen = _prefetch_gen
     for key in keys:
@@ -426,7 +413,7 @@ def prefetch_tiles(keys: Iterable[tuple[int, int, int]]) -> None:
 def stand_down() -> None:
     """Skip every prefetched tile that has not started yet."""
     global _prefetch_gen
-    with _POOL_LOCK:
+    with _prefetch_lock:
         _prefetch_gen += 1
 
 
@@ -435,17 +422,8 @@ def shutdown() -> None:
 
     Pool threads are not daemons, so the interpreter joins them on the
     way out and a queue of guesses becomes a wait at the door. The live
-    map calls this as it quits; threading's exit hook catches every
-    other way out, and it runs before the join, where atexit runs after.
+    map calls this as it quits; _xyz's exit hook closes every pool on
+    every other way out.
     """
-    global _closed
     stand_down()
-    with _POOL_LOCK:
-        _closed = True
-        pools = list(_POOLS.values())
-        _POOLS.clear()
-    for pool in pools:
-        pool.shutdown(wait=False, cancel_futures=True)
-
-
-getattr(threading, "_register_atexit", atexit.register)(shutdown)
+    close_pools(_VIEW, _PREFETCH)

@@ -17,7 +17,7 @@ from linecast._paths import cache_dir
 from linecast._http import fetch_bytes_cached
 from linecast.maps.tile_cache import note_tile_use
 from linecast._png import DecodeMemo, decode_rgba
-from linecast.radar.tiles import _lonlat_to_world, _pick_zoom, stitch_xyz
+from linecast._xyz import lonlat_to_world, pick_zoom, stitch_xyz
 from linecast._log import log_failure
 
 DEFAULT_URL = "https://s3.amazonaws.com/elevation-tiles-prod"
@@ -98,7 +98,7 @@ def elevation_grid(bbox: tuple[float, float, float, float], w: int, h: int,
     # one step past the width-matched zoom: the caller's 2x supersample
     # then box-averages real detail down instead of interpolated guesses
     detail = bbox if camera is None else camera.scale_bbox
-    z = min(MAX_ZOOM, _pick_zoom(detail, w, MAX_ZOOM) + 1)
+    z = min(MAX_ZOOM, pick_zoom(detail, w, MAX_ZOOM) + 1)
     grid = _resample(bbox, w, h, z, timeout, camera, missing)
     if z <= BATHY_ZOOM:
         return grid
@@ -145,7 +145,7 @@ def _resample(bbox, w, h, z, timeout, camera=None, missing=None):
     cols = []
     for ox in range(w):
         lon = minlon + (ox + 0.5) / w * (maxlon - minlon)
-        wx, _ = _lonlat_to_world(lon, minlat)
+        wx, _ = lonlat_to_world(lon, minlat)
         fx = min(max(wx * world - org_x - 0.5, 0.0), cw - 1.0)
         x0 = int(fx)
         cols.append((x0 * 4, min(x0 + 1, cw - 1) * 4, fx - x0))
@@ -153,7 +153,7 @@ def _resample(bbox, w, h, z, timeout, camera=None, missing=None):
     rows, need = [], set()
     for oy in range(h):
         lat = maxlat - (oy + 0.5) / h * (maxlat - minlat)
-        _, wy = _lonlat_to_world(minlon, lat)
+        _, wy = lonlat_to_world(minlon, lat)
         fy = min(max(wy * world - org_y - 0.5, 0.0), ch - 1.0)
         y0 = int(fy)
         y1 = min(y0 + 1, ch - 1)
@@ -218,7 +218,7 @@ def _mercator_table(minlat, maxlat, bins=_MERCATOR_BINS):
     if hi - lo < 1e-9:
         hi = lo + 1e-9
     step = (hi - lo) / bins
-    vals = [_lonlat_to_world(0.0, lo + i * step)[1] for i in range(bins + 1)]
+    vals = [lonlat_to_world(0.0, lo + i * step)[1] for i in range(bins + 1)]
     return lo, 1.0 / step, vals
 
 

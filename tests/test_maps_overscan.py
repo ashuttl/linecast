@@ -17,7 +17,7 @@ from linecast.maps import view as maps
 from linecast.maps import loaders
 from linecast.maps.hover import HoverIndex
 from linecast.radar.basemap import DotLayer
-from linecast.radar.render import bbox_for
+from linecast._xyz import bbox_for
 
 ANSI = re.compile(r"\x1b\[[0-9;?]*[A-Za-z]|\x1b\][^\x07]*\x07")
 COLS, ROWS = 60, 20

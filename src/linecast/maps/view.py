@@ -65,7 +65,7 @@ from linecast.radar.basemap import DotLayer
 from linecast.terminal.braille import DOT_BITS, edge_dots
 from linecast.terminal import theme as _theme
 from linecast.radar.i18n import rs
-from linecast.radar.render import bbox_for
+from linecast._xyz import bbox_for
 from linecast.radar.ui import (
     CROSSHAIR, DIM, MUTED, _panned_place, _shift_grid,
 )

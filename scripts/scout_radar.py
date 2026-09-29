@@ -20,7 +20,7 @@ import argparse
 import sys
 
 from linecast.radar import frames as _radar_frames
-from linecast.radar.render import bbox_for
+from linecast._xyz import bbox_for
 from linecast.radar.sources import get_source, has_radar
 
 # The gallery radar frame: 120x36 cells, two of them header and footer.

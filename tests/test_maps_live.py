@@ -25,7 +25,7 @@ from linecast.maps.live import (
 )
 from linecast.maps.motion import lon_span
 from linecast.maps.search import Result
-from linecast.radar.render import bbox_for
+from linecast._xyz import bbox_for
 from linecast.maps.view import MAX_ZOOM_DEG, MIN_ZOOM_DEG, ZOOM_STEP
 
 COLS, ROWS = 100, 42

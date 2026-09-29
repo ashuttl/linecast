@@ -28,7 +28,7 @@ from linecast._geo import wrap_lon
 from linecast._paths import cache_dir, data_path
 from linecast._png import decode_rgba
 from linecast.radar.basemap import DotLayer, _load_data
-from linecast.radar.tiles import _TILE_SIZE, stitch_xyz
+from linecast._xyz import TILE_SIZE, stitch_xyz
 from linecast._log import log_failure
 from linecast.terminal.scenes import Memo
 from linecast.terminal.theme import themed
@@ -277,7 +277,7 @@ AFFINE_DOTS = 0.05
 # are refused: the vector tiles are fetched two zooms ahead of the
 # screen's own detail, and a dot coarser than a z1 tile pixel would
 # have them reaching for footprints the size of a continent.
-_MAX_DOT_DEGREES = 360.0 / (_TILE_SIZE * 2)
+_MAX_DOT_DEGREES = 360.0 / (TILE_SIZE * 2)
 
 
 def cap_sine(zoom, gw, hc):
@@ -313,7 +313,7 @@ def _unproject(ux, uy, sin0, cos0):
 def scale_bbox(lat0, lon0, zoom, gw, hc):
     """The window's bbox taken as a scale and nothing else.
 
-    `radar.render.bbox_for`, with the one guard a camera needs: at the
+    `_xyz.bbox_for`, with the one guard a camera needs: at the
     pole itself the cosine is zero and the longitude span is infinite,
     and a source asked for its detail would divide by it.  Everywhere a
     view can actually sit this is bbox_for's own arithmetic, number for
@@ -811,7 +811,7 @@ _canvas_cache = Memo(keep=2)  # this zoom's canvas and the last one's
 def _source_zoom(zoom, h):
     """Terrarium zoom level whose detail matches zoom/h degrees per sample."""
     return min(3, max(1, round(math.log2(
-        max(1e-9, 360.0 / (zoom / h) / _TILE_SIZE)))))
+        max(1e-9, 360.0 / (zoom / h) / TILE_SIZE)))))
 
 
 def warm(zoom, h):
@@ -932,7 +932,7 @@ def bilinear_taps(ll_row, canvas):
         elif lat < -lat_max:
             lat = -lat_max
         sn = sin(radians(lat))
-        # _lonlat_to_world, inlined
+        # lonlat_to_world, inlined
         fx = (ll[1] + 180.0) / 360.0 * world - org_x - 0.5
         fy = (0.5 - log((1 + sn) / (1 - sn)) / four_pi) * world - org_y - 0.5
         if fy < 0.0:

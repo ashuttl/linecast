@@ -20,35 +20,15 @@ stroke is contrast-corrected per cell so it stays legible over the brightest
 cores.
 """
 
-import math
-
 from linecast.terminal import theme as _theme
 from linecast.terminal.color import fg, bg, lerp, RESET, BG_PRIMARY
 from linecast.terminal.framebuffer import halfblock
-from linecast.terminal.framebuffer import cell_aspect
 from linecast.radar.basemap import COAST, SEA_FILL
 from linecast.terminal.theme import ensure_contrast
 
 
 def _bbox_key(bbox):
     return tuple(round(v, 3) for v in bbox)
-
-
-def bbox_for(lat, lon, zoom, graph_w, height_cells):
-    """Geographic window so map sub-cells render ~square on screen.
-
-    `zoom` is the degrees of latitude shown top-to-bottom.  The width
-    follows from the screen's true shape: graph_w cells across against
-    height_cells cells down, each as tall as the terminal's font makes
-    it, so ground that is square stays square whatever the font.
-    """
-    spy_h = height_cells * 2
-    half_lat = zoom / 2
-    minlat, maxlat = lat - half_lat, lat + half_lat
-    # A sub-pixel's height in cell widths (1.0 on a 2:1 cell).
-    aspect = cell_aspect() / 2.0
-    lon_span = zoom * (graph_w / (spy_h * aspect)) / math.cos(math.radians(lat))
-    return (lon - lon_span / 2, minlat, lon + lon_span / 2, maxlat)
 
 
 def build_radar_buffer(rgba, pw, ph, graph_w, height_cells, sea=None):

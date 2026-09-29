@@ -195,7 +195,7 @@ def _varied_canvas(size=64):
 def _reference_elevation(lls, canvas):
     """_globe.elevation as it was before the straight-line rewrite."""
     from linecast.maps.elevation import decode_meters
-    from linecast.radar.tiles import _lonlat_to_world
+    from linecast._xyz import lonlat_to_world
     canvas, cw, ch, org_x, org_y, world = canvas
     grid = []
     for ll_row in lls:
@@ -205,7 +205,7 @@ def _reference_elevation(lls, canvas):
                 row.append(None)
                 continue
             lat = min(85.05, max(-85.05, ll[0]))
-            wx, wy = _lonlat_to_world(ll[1], lat)
+            wx, wy = lonlat_to_world(ll[1], lat)
             fx = wx * world - org_x - 0.5
             fy = min(max(wy * world - org_y - 0.5, 0.0), ch - 1.0)
             x0 = int(fx) % cw

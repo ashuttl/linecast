@@ -7,7 +7,7 @@ import pytest
 
 from linecast._geo import angle_delta
 from linecast.maps import motion as mm
-from linecast.radar.render import bbox_for
+from linecast._xyz import bbox_for
 
 GW, HC = 40, 12
 

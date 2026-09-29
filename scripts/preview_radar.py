@@ -14,7 +14,8 @@ from linecast.radar import warnings as _radar_warnings  # noqa: E402
 from linecast.terminal.color import BG_PRIMARY  # noqa: E402
 from linecast.radar.basemap import Basemap, DotLayer, SEA_FILL  # noqa: E402
 from linecast.terminal.braille import DOT_BITS  # noqa: E402
-from linecast.radar.render import bbox_for, build_radar_buffer  # noqa: E402
+from linecast._xyz import bbox_for  # noqa: E402
+from linecast.radar.render import build_radar_buffer  # noqa: E402
 from linecast.radar.sources import get_source  # noqa: E402
 from png_encode import encode_rgb  # noqa: E402
 

@@ -26,7 +26,7 @@ from linecast.maps import loaders as _loaders
 from linecast.maps.route import Route
 from linecast.radar import basemap as _basemap
 from linecast.terminal.braille import DOT_BITS, edge_dots
-from linecast.radar.render import bbox_for
+from linecast._xyz import bbox_for
 
 GW, HC = 160, 45
 

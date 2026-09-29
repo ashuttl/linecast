@@ -26,7 +26,7 @@ from linecast.maps import streets as st
 from linecast.maps import style as _maps_style
 from linecast.maps import loaders as _loaders
 from linecast.terminal.braille import DOT_BITS
-from linecast.radar.render import bbox_for
+from linecast._xyz import bbox_for
 from test_maps_streets import EXTENT, field, layer, line_feature, vstr
 
 # a 160x45 terminal's map: the band a 10 deg view lands on there

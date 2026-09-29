@@ -38,7 +38,8 @@ from linecast.radar import warnings as _warnings
 from linecast.terminal.live import overlay
 from linecast.radar.basemap import DotLayer
 from linecast.radar.i18n import rs
-from linecast.radar.render import bbox_for, _bbox_key, compose
+from linecast._xyz import bbox_for
+from linecast.radar.render import _bbox_key, compose
 from linecast.radar.frames import (
     _cached_frame, _ensure_prefetch, _load_frame, _nearest_cached, _play_gate, _sat_timeline,
 )

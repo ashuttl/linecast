@@ -131,7 +131,7 @@ def locate(frame, bbox, gw, hc, inside=True, cap=None):
 
     Whole-cell to within SLACK, that is.  A flat window's columns are
     not quite the frame's: its longitude span follows the cosine of its
-    own centre latitude (radar.render.bbox_for), so a window dragged
+    own centre latitude (_xyz.bbox_for), so a window dragged
     one row north is a hair narrower than the view it was cut from —
     at street zoom a few thousandths of a cell across the whole width,
     at a terrain zoom a few hundredths a row.  The offset is taken at

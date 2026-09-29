@@ -5,7 +5,8 @@ level or inside a function alike (docs/architecture.md, "The layers"):
 
     0  the base: paths, text, geometry, PNG, the strings
     1  state and the network: the cache, HTTP, settings, the location
-    2  the libraries: terminal/, astro/, the runtime and the commands' names
+    2  the libraries: terminal/, astro/, the tile arithmetic, the runtime
+       and the commands' names
     3  the commands: weather/, sunshine/, moon/, sky/, tides/, radar/, maps/
     4  the entry points: the linecast command, completions, link, doctor,
        prose, and settings/
@@ -29,7 +30,7 @@ LAYERS = {
     **dict.fromkeys(("__init__", "_paths", "_plaintext", "_geo", "_png", "_i18n", "_log",
                      "_timefmt", "locales"), 0),
     **dict.fromkeys(("_cache", "_http", "_rate_limit", "_config", "_location", "_geocode"), 1),
-    **dict.fromkeys(("terminal", "astro", "_commands", "_parsers", "_runtime"), 2),
+    **dict.fromkeys(("terminal", "astro", "_xyz", "_commands", "_parsers", "_runtime"), 2),
     **dict.fromkeys(COMMANDS, 3),
     **dict.fromkeys(("__main__", "_completion", "link", "doctor", "prose", "settings"), 4),
 }

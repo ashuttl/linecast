@@ -282,7 +282,7 @@ class TestTheWindowOfAnOverscanIsThePlanetsOwnSet:
     @staticmethod
     def _built(lat, lon, zoom, gw, hc, window):
         from linecast.maps import overscan as o
-        from linecast.radar.render import bbox_for
+        from linecast._xyz import bbox_for
         bbox = bbox_for(lat, lon, zoom, gw, hc)
         frame, at = o.plan(bbox, gw, hc)
         band = band_of(lat, lon, zoom, gw, hc)

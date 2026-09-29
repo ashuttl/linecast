@@ -9,6 +9,7 @@ import gzip
 
 import pytest
 
+from linecast import _xyz
 from linecast.maps import vtiles as vt
 
 TEMPLATE = "https://tiles.example/planet/20260802_080001_pt/{z}/{x}/{y}.pbf"
@@ -231,12 +232,12 @@ class TestPrefetch:
     @pytest.fixture(autouse=True)
     def pools(self):
         """Each test gets its own pools, and leaves none behind."""
-        vt._POOLS.clear()
-        vt._closed = False
+        for name in (vt._VIEW, vt._PREFETCH):
+            _xyz._pools.pop(name, None)
         yield
         vt.shutdown()
-        vt._POOLS.clear()
-        vt._closed = False
+        for name in (vt._VIEW, vt._PREFETCH):
+            _xyz._pools.pop(name, None)
 
     def test_a_view_does_not_queue_behind_prefetched_tiles(self, monkeypatch):
         import threading

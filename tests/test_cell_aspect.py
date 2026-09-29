@@ -15,7 +15,7 @@ import pytest
 from linecast.sky.scene import focal_length, project, unproject
 from linecast.maps import globe
 from linecast.terminal.framebuffer import Framebuffer, cell_aspect
-from linecast.radar.render import bbox_for
+from linecast._xyz import bbox_for
 from linecast.moon.disc import _draw_moon_disc
 
 
