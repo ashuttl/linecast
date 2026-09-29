@@ -18,7 +18,8 @@ import unicodedata
 from datetime import timedelta, timezone
 
 from linecast.terminal import theme as _theme
-from linecast.terminal.color import RESET, bg, fg
+from linecast.terminal.box import CARET, REVERSE, REVERSE_OFF, panel_row
+from linecast.terminal.color import fg
 from linecast.terminal.textwidth import fit, pad, visible_len
 from linecast.terminal.live import nudge
 from linecast.terminal.theme import ensure_contrast, surface_bg
@@ -399,22 +400,21 @@ def search_overlay(state, cols, rows, runtime):
     ink = ensure_contrast(_theme.theme_fg, surface, 4.0)
     dim = ensure_contrast(surface_bg(0.55), surface, 2.2)
     width = max(PANEL_MIN, min(PANEL_MAX, cols - 2))
-    caret = "\033[7m \033[27m"
 
     def row(n, body):
-        return f"\033[{n};1H{bg(*surface)}{pad(body, width)}{RESET}"
+        return panel_row(n, body, width, surface)
 
     if state.query:
-        field = f"{fg(*dim)}/ {fg(*ink)}{state.query}{caret}"
+        field = f"{fg(*dim)}/ {fg(*ink)}{state.query}{CARET}"
     else:
-        field = f"{fg(*dim)}/ {caret} {_sk('search_prompt', runtime)}"
+        field = f"{fg(*dim)}/ {CARET} {_sk('search_prompt', runtime)}"
     out = [row(1, " " + field)]
     line = 2
     for i, target in enumerate(state.results[:max(0, rows - 4)]):
         body = " " + fit(target.label, width - 2)
         body = pad(body, width)
         if i == state.sel:
-            body = f"\033[7m{body}\033[27m"
+            body = f"{REVERSE}{body}{REVERSE_OFF}"
         out.append(row(line, f"{fg(*ink)}{body}"))
         line += 1
     if state.query and not state.results:

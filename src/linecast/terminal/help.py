@@ -7,7 +7,8 @@ from linecast.terminal import theme as _theme
 from linecast.terminal.color import RESET, bg, fg
 from linecast.terminal.textwidth import visible_len
 from linecast.terminal.help_i18n import hs
-from linecast.terminal.textwidth import fit, glyphs
+from linecast.terminal.textwidth import fit, glyphs, pad
+from linecast.terminal.box import at, centre, place
 
 
 def hint(lang='en', width=80):
@@ -143,7 +144,7 @@ def panel(content, cols, rows, lang='en', page=0):
     """A centered panel and its page count. Short windows retain every key."""
     if cols < 16 or rows < 5:
         note = fit('? / esc', cols)
-        return f'\033[1;1H{RESET}{note}', 1
+        return f'{at(1, 1)}{RESET}{note}', 1
     from linecast.terminal import bidi as _bidi
     from linecast._i18n import is_rtl
     # Read from the right: the keys go in a column on the right, the
@@ -185,10 +186,8 @@ def panel(content, cols, rows, lang='en', page=0):
     key_ink = _theme.ensure_contrast(_theme.theme_ansi[3], surface, 4.5)
 
     def border(left, text, right):
-        text = fit(' ' + text + ' ', width)
-        pad = width - visible_len(text)
-        return (f'{bg(*surface)}{fg(*dim)}{left}' + '─' * (pad // 2) + text
-                + '─' * (pad - pad // 2) + right + RESET)
+        text = pad(fit(' ' + text + ' ', width), width, '^', '─')
+        return f'{bg(*surface)}{fg(*dim)}{left}{text}{right}{RESET}'
 
     title = hs('help_title', lang)
     if pages > 1:
@@ -202,25 +201,24 @@ def panel(content, cols, rows, lang='en', page=0):
             if key and rtl:
                 key = fit(key, key_width - 1)
                 label = fit(text, width - key_width - 4)
-                pad = width - 4 - visible_len(label) - key_width
-                body = (' ' * (1 + pad) + f'{fg(*ink)}{label}  '
-                        + ' ' * (key_width - visible_len(key)) + f'{fg(*key_ink)}{key}')
+                room = width - 4 - visible_len(label) - key_width
+                body = (' ' * (1 + room) + f'{fg(*ink)}{label}  '
+                        + pad(f'{fg(*key_ink)}{key}', key_width, '>'))
             elif key:
                 key = fit(key, key_width)
                 label = fit(text, width - key_width - 3)
-                body = (f' {fg(*key_ink)}{key}' + ' ' * (key_width - visible_len(key))
+                body = (' ' + pad(f'{fg(*key_ink)}{key}', key_width)
                         + f' {fg(*ink)}{label}')
             elif rtl:
                 line = fit(text, width - 2)
-                body = ' ' * (width - 1 - visible_len(line)) + f'{fg(*dim)}{line}'
+                body = pad(f'{fg(*dim)}{line}', width - 1, '>')
             else:
                 body = f' {fg(*dim)}{fit(text, width - 2)}'
-            body += ' ' * (width - visible_len(body))
+            body = pad(body, width)
         lines.append(f'{bg(*surface)}{fg(*dim)}│{body}{fg(*dim)}│{RESET}')
     lines.append(border('╰', hs('help_close', lang), '╯'))
-    top = max(1, (rows - len(lines)) // 2 + 1)
-    left = max(1, (cols - width - 2) // 2 + 1)
-    return ''.join(f'\033[{top + i};{left}H{line}' for i, line in enumerate(lines)), pages
+    top, left = centre(cols, rows, width + 2, len(lines))
+    return place(lines, top, left), pages
 
 
 class HelpPanel:

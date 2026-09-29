@@ -182,6 +182,7 @@ def pointer_chip(lines, col, mouse_row, cols, rows, pad_bg="", flip_at=None):
     """
     if not lines:
         return ""
+    from linecast.terminal.box import place
     from linecast.terminal.color import RESET
     from linecast.terminal.textwidth import visible_len
     width = max(visible_len(line) for line in lines)
@@ -195,8 +196,7 @@ def pointer_chip(lines, col, mouse_row, cols, rows, pad_bg="", flip_at=None):
         row = max(1, rows - height + 1)
     if col + width - 1 > cols:
         col = max(1, (cols - width + 1) if flip_at is None else flip_at - width)
-    return "".join(f"\033[{row + i};{col}H{line}"
-                   for i, line in enumerate(padded))
+    return place(padded, row, col)
 
 
 MUTED = (150, 155, 170)   # the frame and text of a menu box
@@ -216,12 +216,12 @@ def menu_box(lines, cols, rows, title="", sel=None, border="", fill="",
     `more` says whether there is more above and below the rows shown,
     marked ▲ and ▼ in the borders.
     """
+    from linecast.terminal.box import REVERSE, REVERSE_OFF, centre, place
     from linecast.terminal.color import RESET
-    from linecast.terminal.textwidth import visible_len
+    from linecast.terminal.textwidth import pad, visible_len
     widths = [visible_len(line) for line in lines if line is not None]
     inner = max(0, min(cols - 4, (max(widths) if widths else 0) + 1))
-    top = max(1, (rows - (len(lines) + 2)) // 2)
-    left = max(0, (cols - inner - 2) // 2)
+    top, left = centre(cols, rows, inner + 2, len(lines) + 2)
     head = f" {title} ".center(inner, "─") if title else "─" * inner
     foot = "─" * inner
     above, below = more
@@ -236,22 +236,22 @@ def menu_box(lines, cols, rows, title="", sel=None, border="", fill="",
             continue
         while line and visible_len(line) > inner:
             line = line[:-1]
-        body = line + " " * (inner - visible_len(line))
+        body = pad(line, inner)
         if i == sel:
-            body = f"\033[7m{body}\033[27m"  # reverse-video highlight
+            body = f"{REVERSE}{body}{REVERSE_OFF}"
         out.append(f"│{body}│")
     out.append(f"└{foot}┘")
-    return "".join(
-        f"\033[{top + 1 + i};{left + 1}H{border}{fill}{line}{RESET}"
-        for i, line in enumerate(out))
+    # never on the top row
+    return place([f"{border}{fill}{line}{RESET}" for line in out],
+                 max(2, top), left)
 
 
 def toast_box(text, cols, rows, icon=""):
     """A compact, rounded notification above the bottom-right of the view."""
     from linecast.terminal import theme as _theme
+    from linecast.terminal.box import at, place
     from linecast.terminal.color import RESET, bg, fg
-    from linecast.terminal.textwidth import visible_len
-    from linecast.terminal.textwidth import fit
+    from linecast.terminal.textwidth import fit, visible_len
     if cols < 1 or rows < 1:
         return ""
     surface = _theme.surface_bg(0.10)
@@ -261,15 +261,14 @@ def toast_box(text, cols, rows, icon=""):
     label = f"{icon} {text}" if icon else text
     if cols < 8 or rows < 4:
         # A tiny terminal still gets the spinner, without an overflowing box.
-        return f"\033[{rows};1H{fill}{ink}{fit(label, cols)}{RESET}"
+        return f"{at(rows, 1)}{fill}{ink}{fit(label, cols)}{RESET}"
     label = fit(label, min(60, cols - 8))
     inner = visible_len(label) + 2
     left, top = cols - inner - 3, rows - 3
     lines = [f"{border}╭{'─' * inner}╮",
              f"{border}│{ink} {label} {border}│",
              f"{border}╰{'─' * inner}╯"]
-    return ''.join(f"\033[{top + i};{left}H{fill}{line}{RESET}"
-                   for i, line in enumerate(lines))
+    return place([f"{fill}{line}{RESET}" for line in lines], top, left)
 
 
 # ---------------------------------------------------------------------------

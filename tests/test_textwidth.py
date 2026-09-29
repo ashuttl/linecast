@@ -269,3 +269,8 @@ class TestPad:
         assert pad("東京", 6) == "東京  "
         assert pad("\033[1mhi\033[0m", 4) == "\033[1mhi\033[0m  "
         assert pad("toolong", 3) == "toolong"
+
+    def test_a_border_centres_its_label_by_cells(self):
+        from linecast.terminal.textwidth import pad
+        # " テーマ " is eight cells: three of rule, the odd one on the right
+        assert pad(" テーマ ", 11, "^", "─") == "─ テーマ ──"

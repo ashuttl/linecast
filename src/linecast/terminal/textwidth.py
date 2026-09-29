@@ -243,17 +243,18 @@ def wrap_display_width(text, width):
     return lines or [""]
 
 
-def pad(text, width, align="<"):
-    """*text* in *width* terminal columns, spaces on the right ("<"), the
+def pad(text, width, align="<", fill=" "):
+    """*text* in *width* terminal columns, filled on the right ("<"), the
     left (">"), or both ("^", the odd one on the right); text already
     that wide or wider comes back as it is.  Escape sequences take no
-    room."""
+    room.  *fill* is one column wide: a space, or the ─ of a border
+    with its label centred in it."""
     room = max(0, width - visible_len(text))
     if align == ">":
-        return " " * room + text
+        return fill * room + text
     if align == "^":
-        return " " * (room // 2) + text + " " * (room - room // 2)
-    return text + " " * room
+        return fill * (room // 2) + text + fill * (room - room // 2)
+    return text + fill * room
 
 
 def fit(text, width):

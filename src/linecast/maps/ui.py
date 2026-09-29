@@ -25,7 +25,8 @@ Enter, when Photon has come back empty.
 import threading
 
 from linecast.maps import style
-from linecast.terminal.color import RESET, bg, fg
+from linecast.terminal.box import CARET, REVERSE, REVERSE_OFF, at, panel_row
+from linecast.terminal.color import RESET, fg
 from linecast.terminal.textwidth import fit, pad, visible_len
 from linecast.terminal.live import nudge
 from linecast.maps.i18n import ms
@@ -226,26 +227,21 @@ def _label(result):
 
 
 
-def _row(n, body, width, surface):
-    return f"\033[{n};1H{bg(*surface)}{pad(body, width)}{RESET}"
-
-
 def search_overlay(state, cols, rows, lang="en"):
     """The panel, as cursor-addressed escapes for the \\x00 channel."""
     surface = surface_bg(0.10)
     ink = ensure_contrast(_theme.theme_fg, surface, 4.0)
     width = max(PANEL_MIN, min(PANEL_MAX, cols - 2))
-    caret = "\033[7m \033[27m"
     tail = "…" if state.status == "pending" else ""
 
     if state.query:
-        field = f"{fg(*MUTED)}/ {fg(*ink)}{state.query}{caret}{tail}"
+        field = f"{fg(*MUTED)}/ {fg(*ink)}{state.query}{CARET}{tail}"
     else:
         prompt = {"route": 'search_dest_prompt',
                   "origin": 'search_origin_prompt'}.get(state.purpose,
                                                         'search_prompt')
-        field = f"{fg(*MUTED)}/ {caret}{fg(*DIM)}{ms(prompt, lang)}"
-    out = [_row(1, " " + field, cols, surface)]
+        field = f"{fg(*MUTED)}/ {CARET}{fg(*DIM)}{ms(prompt, lang)}"
+    out = [panel_row(1, " " + field, cols, surface)]
 
     line = 2
     limit = min(MAX_ROWS, max(0, rows - 3))
@@ -255,18 +251,18 @@ def search_overlay(state, cols, rows, lang="en"):
         body = " " + fit(_label(result), width - 2)
         body = pad(body, width)
         if i == state.sel:
-            body = f"\033[7m{body}\033[27m"
-        out.append(_row(line, f"{fg(*ink)}{body}", width, surface))
+            body = f"{REVERSE}{body}{REVERSE_OFF}"
+        out.append(panel_row(line, f"{fg(*ink)}{body}", width, surface))
         line += 1
     if not state.results:
         note = {"none": "search_none", "error": "search_error"}.get(
             state.status)
         if note:
-            out.append(_row(line, f"{fg(*DIM)} {ms(note, lang)}", width,
+            out.append(panel_row(line, f"{fg(*DIM)} {ms(note, lang)}", width,
                             surface))
             line += 1
 
-    out.append(_row(line, f"{fg(*DIM)} {ms('search_hint', lang)}", width,
+    out.append(panel_row(line, f"{fg(*DIM)} {ms('search_hint', lang)}", width,
                     surface))
     return "".join(out)
 
@@ -511,16 +507,15 @@ def directions_overlay(state, cols, rows, lang="en", home_label=""):
     lw = max(visible_len(label) for label in labels)
 
     def field(line, key, label, value, placeholder=False):
-        pad = " " * (lw - visible_len(label))
-        body = (f" {fg(*CROSSHAIR)}{key} {fg(*DIM)}{label}{pad}  "
+        body = (f" {fg(*CROSSHAIR)}{key} {fg(*DIM)}{pad(label, lw)}  "
                 f"{fg(*DIM) if placeholder else fg(*ink)}"
                 f"{fit(value, width - lw - 6)}")
-        return _row(line, body, width, surface)
+        return panel_row(line, body, width, surface)
 
     def loose(line, body):
         """A row with no ground of its own: the map stays visible
         wherever the text is not."""
-        return f"\033[{line};1H{body}{RESET}"
+        return f"{at(line, 1)}{body}{RESET}"
 
     mode = ms('profile_' + state.profile, lang)
     if route is not None:
@@ -546,7 +541,7 @@ def directions_overlay(state, cols, rows, lang="en", home_label=""):
             plain = " " + fit(f"  {maneuver_glyph(s)} "
                                f"{_step_dist(s, lang):>8}  "
                                f"{_step_text(s, lang)}", width - 2)
-            body = (f"\033[7m{plain} \033[27m" if i == step
+            body = (f"{REVERSE}{plain} {REVERSE_OFF}" if i == step
                     else plain)
             out.append(loose(line, f"{fg(*ink)}{body}"))
             acts[line] = ('step', i)
