@@ -4,6 +4,7 @@ import os
 
 from linecast.terminal import theme as _theme
 from linecast._cache import read_stale, write_cache
+from linecast.terminal.box import REVERSE, REVERSE_OFF, at
 from linecast.terminal.color import RESET, bg, fg
 from linecast.terminal.textwidth import pad, visible_len
 from linecast.terminal.textwidth import fit
@@ -180,10 +181,10 @@ class LocationPicker:
         def row(n, text, selected=False, muted=False, color=None):
             body = fit(' ' + text, width)
             body = pad(body, width)
-            reverse = '\033[7m' if selected else ''
-            normal = '\033[27m' if selected else ''
+            reverse = REVERSE if selected else ''
+            normal = REVERSE_OFF if selected else ''
             color = color if color is not None else (dim if muted else ink)
-            out.append(f'\033[{n};{col}H{bg(*surface)}{fg(*color)}'
+            out.append(f'{at(n, col)}{bg(*surface)}{fg(*color)}'
                        f'{reverse}{body}{normal}{RESET}')
 
         if searching:
@@ -205,8 +206,8 @@ class LocationPicker:
         entries = list(range(len(items)))
         if not searching and self.recent.places:
             entries.insert(len(self.recent.places), None)
-        at = entries.index(sel) if entries else 0
-        start = min(max(0, at - available + 1), max(0, len(entries) - available))
+        focus = entries.index(sel) if entries else 0
+        start = min(max(0, focus - available + 1), max(0, len(entries) - available))
         shown = entries[start:start + available]
         for n, index in enumerate(shown, 2):
             if index is None:

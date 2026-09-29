@@ -4,11 +4,12 @@ import re
 from datetime import datetime, timezone
 
 from linecast.terminal import theme as _theme
+from linecast.terminal.box import centre, place
 from linecast.terminal.color import bg, fg, RESET, BOLD
 from linecast.terminal.textwidth import visible_len
 from linecast._i18n import lang_of, sentence_24h, table_for, tr_dative
 from linecast._log import log_failure
-from linecast.terminal.textwidth import fit, wrap_display_width
+from linecast.terminal.textwidth import fit, pad, wrap_display_width
 from linecast.weather.i18n import _s
 from linecast._i18n import DAY_NAMES
 from linecast.weather.alert_feeds import ALERTS_OK, ALERTS_STALE, ALERTS_UNAVAILABLE
@@ -374,34 +375,23 @@ def build_alert_modal(alert, cols, rows, runtime=None, scroll=0, tz_name=""):
     total_h = visible_h + 2  # content + top/bottom borders
 
     # Center the modal
-    top_row = max(1, (rows - total_h) // 2 + 1)
-    left_col = max(1, (cols - modal_w) // 2 + 1)
-
-    result = ""
-    horiz = "\u2500" * (modal_w - 2)
+    top_row, left_col = centre(cols, rows, modal_w, total_h)
+    width = modal_w - 2   # inside the border
 
     # Top border (with scroll-up indicator)
-    bar_ch = "\u2500"
     if can_scroll_up:
-        arrow = f" {fg(*DIM_RGB)}\u25b2 "
-        arrow_len = 3
-        left_bar = (modal_w - 2 - arrow_len) // 2
-        right_bar = modal_w - 2 - arrow_len - left_bar
-        top_line = f"{BORDER}\u256d{bar_ch * left_bar}{arrow}{BORDER}{bar_ch * right_bar}\u256e"
+        top = pad(f" {fg(*DIM_RGB)}\u25b2 {BORDER}", width, "^", "\u2500")
     else:
-        top_line = f"{BORDER}\u256d{horiz}\u256e"
-    result += f"\033[{top_row};{left_col}H{MBG}{top_line}{RESET}"
+        top = "\u2500" * width
+    lines = [f"{MBG}{BORDER}\u256d{top}\u256e{RESET}"]
 
     # Content lines — every cell gets the modal bg
-    for i, line in enumerate(visible_lines):
-        r_pos = top_row + 1 + i
-        line_vis = visible_len(line)
-        pad = max(0, inner_w - line_vis)
-        result += (f"\033[{r_pos};{left_col}H{MBG}{BORDER}\u2502{RESET}{MBG} {line}"
-                   f"{MBG}{' ' * pad} {BORDER}\u2502{RESET}")
+    for line in visible_lines:
+        room = max(0, inner_w - visible_len(line))
+        lines.append(f"{MBG}{BORDER}\u2502{RESET}{MBG} {line}"
+                     f"{MBG}{' ' * room} {BORDER}\u2502{RESET}")
 
     # Bottom border with hints
-    bot_row = top_row + visible_h + 1
     url = alert.get("url") or ""
     parts = [_s("q_to_close", runtime)]
     if url:
@@ -410,16 +400,13 @@ def build_alert_modal(alert, cols, rows, runtime=None, scroll=0, tz_name=""):
         parts.append("\u25bc " + _s("scroll", runtime))
     sep = " · "
     hint = f" {sep.join(parts)} "
-    hint_len = visible_len(hint)
-    if hint_len + 2 < modal_w - 2:
-        left_bar = (modal_w - 2 - hint_len) // 2
-        right_bar = modal_w - 2 - hint_len - left_bar
-        bot_line = (f"{BORDER}\u2570{bar_ch * left_bar}{MUTED}{hint}"
-                    f"{BORDER}{bar_ch * right_bar}\u256f")
+    if visible_len(hint) + 2 < width:
+        bottom = pad(f"{MUTED}{hint}{BORDER}", width, "^", "\u2500")
     else:
-        bot_line = f"{BORDER}\u2570{horiz}\u256f"
-    result += f"\033[{bot_row};{left_col}H{MBG}{bot_line}{RESET}"
+        bottom = "\u2500" * width
+    lines.append(f"{MBG}{BORDER}\u2570{bottom}\u256f{RESET}")
 
+    result = place(lines, top_row, left_col)
     return result, max_scroll
 
 _theme.track_imports(globals(), "linecast.weather.style")
