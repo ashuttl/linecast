@@ -19,6 +19,8 @@ reader on Celsius; one on Fahrenheit keeps the forecast's feels-like.
 
 import math
 
+from linecast.weather.forecast import _at
+
 _HUMIDEX_FROM_C = 20
 _WIND_CHILL_FROM_C = 0
 
@@ -61,8 +63,7 @@ def apply_canadian_indices(data, country_code, runtime):
         temps = hourly.get("temperature_2m") or []
         dews = hourly.get("dew_point_2m") or []
         winds = hourly.get("wind_speed_10m") or []
-        pairs = [_indices(t, dews[i] if i < len(dews) else None,
-                          winds[i] if i < len(winds) else None, runtime)
+        pairs = [_indices(t, _at(dews, i), _at(winds, i), runtime)
                  for i, t in enumerate(temps)]
         hourly["humidex"] = [h for h, _w in pairs]
         hourly["wind_chill"] = [w for _h, w in pairs]

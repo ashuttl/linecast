@@ -25,7 +25,7 @@ from linecast._i18n import DAY_NAMES, FULL_DAY_NAMES
 from linecast.weather import style as _style
 from linecast.weather.style import (MUTED, TEXT, WIND_COLOR, _aqhi_color, _aqi_color,
                                      _colored_temp, _india_aqi_color)
-from linecast.weather.forecast import local_now
+from linecast.weather.forecast import _at, local_now
 
 
 def location_control(name, width, runtime):
@@ -1179,13 +1179,13 @@ def _peak_hour(run, amounts, codes, desc=None, open_ended=False):
     snow, and a flip is not a turn.
     """
     def amount(idx):
-        return (amounts[idx] if idx < len(amounts) else 0) or 0
+        return _at(amounts, idx) or 0
 
     def rank(idx):
-        return _PRECIP_RANK.get(codes[idx] if idx < len(codes) else 0, 0)
+        return _PRECIP_RANK.get(_at(codes, idx, 0), 0)
 
     def code(idx):
-        return codes[idx] if idx < len(codes) else 0
+        return _at(codes, idx, 0)
 
     def kind(idx):
         return _PRECIP_KIND.get(code(idx))
@@ -1310,7 +1310,7 @@ def _precip_parts(hourly, now, runtime, daily=None, after=None, current=None):
 
     def prob(idx):
         # A null probability or code is an hour that says nothing
-        return (precip_prob[idx] if idx < len(precip_prob) else 0) or 0
+        return _at(precip_prob, idx) or 0
 
     # The header prints what is falling now, so the prose cannot say it
     # has not started: when the current conditions are wet, the hour we
@@ -1320,13 +1320,13 @@ def _precip_parts(hourly, now, runtime, daily=None, after=None, current=None):
     first_idx = window[0][0]
 
     def is_precip(idx):
-        c = codes[idx] if idx < len(codes) else 0
+        c = _at(codes, idx, 0)
         if c not in _PRECIP_CODES:
             return False
         return prob(idx) > 30 or (idx == first_idx and current_wet)
 
     def desc(idx):
-        c = codes[idx] if idx < len(codes) else 0
+        c = _at(codes, idx, 0)
         descs = _precip_descs(lang)
         return descs.get(c, _PRECIP_DESCS.get(c, "precipitation"))
 
@@ -1358,8 +1358,8 @@ def _precip_parts(hourly, now, runtime, daily=None, after=None, current=None):
     def water(idx):
         """What an hour brings, to weigh it against another: its forecast
         amount, and the rank of its code between two the same."""
-        amount = (amounts[idx] if idx < len(amounts) else 0) or 0
-        return amount, _PRECIP_RANK.get(codes[idx] if idx < len(codes) else 0, 0)
+        amount = _at(amounts, idx) or 0
+        return amount, _PRECIP_RANK.get(_at(codes, idx, 0), 0)
 
     def sentence(key, run, end=None, start=None, open_ended=False, **words):
         """The template for `key`, or its "becoming" form when the run
@@ -1413,7 +1413,7 @@ def _precip_parts(hourly, now, runtime, daily=None, after=None, current=None):
             words["time"] = _time_phrase(end, now, runtime, after=peak[1] if peak else None,
                                          same_sentence=True)
         parts["last_named"] = end or (peak[1] if peak else None) or start
-        return _ucfirst(_precip_s(key, codes[noun] if noun < len(codes) else 0, runtime,
+        return _ucfirst(_precip_s(key, _at(codes, noun, 0), runtime,
                                   **words))
 
     if is_precip(first_idx):
@@ -1502,7 +1502,7 @@ def more_later_sentence(parts, now, runtime, after=None):
     if (dt - parts["end"]).total_seconds() < 3 * 3600:
         return ""
     codes = parts["codes"]
-    return _ucfirst(_precip_s("more_later", codes[i] if i < len(codes) else 0, runtime,
+    return _ucfirst(_precip_s("more_later", _at(codes, i, 0), runtime,
                               desc=parts["desc"](i),
                               time=_time_phrase(dt, now, runtime, after=after)))
 
@@ -1533,7 +1533,7 @@ def _snow_sentence(parts, hourly, now, runtime):
     # however long the rain goes on after it
     if not snowy or len(snowy) * 2 < snowy[-1] - snowy[0] + 1:
         return "", False
-    total_cm = _snow_cm(sum((snowfall[i] if i < len(snowfall) else 0) or 0 for i, _ in run),
+    total_cm = _snow_cm(sum(_at(snowfall, i) or 0 for i, _ in run),
                         runtime)
     if total_cm < 1:
         return "", False
@@ -1593,9 +1593,9 @@ def past_precip_sentence(hourly, now, runtime, station=None):
         if dt <= past_start or dt > current_hour:
             continue
         # A null hour holds no measurable precipitation
-        p = (precip[i] if i < len(precip) else 0) or 0
-        s = (snowfall[i] if i < len(snowfall) else 0) or 0
-        c = codes[i] if i < len(codes) else 0
+        p = _at(precip, i) or 0
+        s = _at(snowfall, i) or 0
+        c = _at(codes, i, 0)
         if p > 0 or s > 0:
             total_precip += p
             total_snow += s
@@ -1731,9 +1731,9 @@ def _next_rain(daily, now, runtime, hourly=None, after=None):
     mm = 1.0 if runtime.metric else 25.4
     by_date = {}
     for k, t in enumerate(times):
-        amount = ((sums[k] if k < len(sums) else 0) or 0) * mm
-        p = (probs[k] if k < len(probs) else 0) or 0
-        by_date[t] = (amount, p, codes[k] if k < len(codes) else 0)
+        amount = (_at(sums, k) or 0) * mm
+        p = _at(probs, k) or 0
+        by_date[t] = (amount, p, _at(codes, k, 0))
     run = []    # (day, first wet hour, code, odds, amount, heavy hours)
     for offset in range(1, 8):
         day = now.date() + timedelta(days=offset)
@@ -1947,7 +1947,7 @@ def _wet_day(hourly, day, floor, far=False):
         seen = True
         p = probs[i] or 0
         if codes[i] in _PRECIP_CODES and p > 30:
-            wet.append((i, dt, p, (amounts[i] if i < len(amounts) else 0) or 0))
+            wet.append((i, dt, p, _at(amounts, i) or 0))
     if not seen:
         return None
     if not wet:

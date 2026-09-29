@@ -12,17 +12,10 @@ from datetime import datetime
 from linecast.weather.cover import sky_condition
 from linecast.weather.i18n import _wmo_icons, wmo_label
 from linecast.weather.sections import comparative_sentence, narrative_text
-from linecast.weather.forecast import FORECAST_SOURCE, local_now, forecast_date
+from linecast.weather.forecast import FORECAST_SOURCE, _at, local_now, forecast_date
 from linecast.weather.alert_feeds import alert_source, alerts_status
 
 SCHEMA_VERSION = 1
-
-
-def _at(seq, i):
-    """seq[i] or None when the list is missing or too short."""
-    if not seq or i < 0 or i >= len(seq):
-        return None
-    return seq[i]
 
 
 def _condition_name(code, runtime):

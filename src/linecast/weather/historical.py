@@ -26,6 +26,7 @@ from linecast._cache import location_cache_key, read_cache
 from linecast._http import HTTPError, fetch_json, fetch_json_cached
 from linecast._paths import cache_dir
 from linecast._log import debug_log, log_skipped
+from linecast.weather.forecast import _at
 
 _HISTORY_YEARS = 10
 _CACHE_MAX_AGE = 7 * 86400  # 7 days — historical data doesn't change
@@ -244,15 +245,15 @@ def _compute_averages(data, month: int, day: int) -> Optional[HistoricalAverages
             bad = exc
             continue
 
-        hi = highs[i] if i < len(highs) else None
-        lo = lows[i] if i < len(lows) else None
+        hi = _at(highs, i)
+        lo = _at(lows, i)
         if hi is not None:
             year_highs[y] = max(hi, year_highs.get(y, hi))
         if lo is not None:
             year_lows[y] = min(lo, year_lows.get(y, lo))
 
         if m == month and d == day:
-            pr = precips[i] if i < len(precips) else None
+            pr = _at(precips, i)
             if hi is not None and lo is not None:
                 sum_hi += hi
                 sum_lo += lo

@@ -43,6 +43,7 @@ from linecast.terminal.textwidth import cells as text_cells, char_width
 from linecast.terminal.theme import ensure_contrast, lerp_rgb, surface_bg
 from linecast.weather import style as _style
 from linecast.weather.daily import mostly_snow
+from linecast.weather.forecast import _at
 from linecast.weather.i18n import _s, _wmo_icons, precip_unit_label
 
 # Days either side of a date that its average is taken over.
@@ -92,10 +93,6 @@ _theme.on_reload(_rebuild)
 def _slot(d):
     """The date's place in a leap year, 0-365: Feb 29 has its own."""
     return date(_LEAP, d.month, d.day).timetuple().tm_yday - 1
-
-
-def _at(values, i):
-    return values[i] if values is not None and i < len(values) else None
 
 
 @dataclass(frozen=True)

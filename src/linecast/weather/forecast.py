@@ -30,6 +30,12 @@ def local_now(data):
         return datetime.now()
 
 
+def _at(values, i, default=None):
+    """values[i], or `default` when the series is missing or has no
+    entry i: a series can be absent, or shorter than the times."""
+    return values[i] if values is not None and 0 <= i < len(values) else default
+
+
 def forecast_date(data) -> "date | None":
     """The day a forecast calls today: with past_days=1 the daily series
     starts yesterday, so index 1 is the day it was fetched.  None when

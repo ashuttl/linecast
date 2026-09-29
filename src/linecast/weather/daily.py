@@ -10,7 +10,7 @@ from linecast._runtime import WeatherRuntime, current_runtime
 from linecast.weather.cover import sky_condition
 from linecast.weather.i18n import _s, _wmo_icons, fmt_wind, precip_unit_label, wmo_label
 from linecast._i18n import DAY_NAMES, FULL_DAY_NAMES
-from linecast.weather.forecast import local_now
+from linecast.weather.forecast import _at, local_now
 from linecast.weather.style import (
     DIM, MUTED, TEXT, WIND_COLOR, _knockout_ink, _precip_color, _precip_type, _temp_color,
 )
@@ -112,8 +112,7 @@ def render_daily_mapped(data, width, runtime=None, now=None):
     # colored amount + unit are enough context.
     # The condition in words beside its icon, named as the icon draws it.
     # The words go first as the window narrows: the icon says the same.
-    conditions = [sky_condition((wmo_codes[i] if i < len(wmo_codes) else 0) or 0,
-                                cover_means[i] if i < len(cover_means) else None)
+    conditions = [sky_condition(_at(wmo_codes, i) or 0, _at(cover_means, i))
                   for i in range(display_end)]
     labels = [wmo_label(c, lang) for c in conditions]
     label_w = max(visible_len(labels[i]) for i in range(1, display_end))
@@ -124,16 +123,16 @@ def render_daily_mapped(data, width, runtime=None, now=None):
     day_raw = []  # (precip_amt, prob_s, wind_amt, ptype, wmo_i) per day
     for i in range(1, display_end):
         # a null is a day the model has no figure for: nothing to show
-        precip_i = (precip_sum[i] if i < len(precip_sum) else 0) or 0
-        prob_i = (precip_prob[i] if i < len(precip_prob) else 0) or 0
-        wind_i = (wind_max[i] if i < len(wind_max) else 0) or 0
-        wmo_i = (wmo_codes[i] if i < len(wmo_codes) else 0) or 0
+        precip_i = _at(precip_sum, i) or 0
+        prob_i = _at(precip_prob, i) or 0
+        wind_i = _at(wind_max, i) or 0
+        wmo_i = _at(wmo_codes, i) or 0
         precip_amt = ""
         ptype = ""
         # 0.04" is 1 mm, so the same rain earns a row in either unit.  A
         # tenth of an inch is 2.5 mm, too coarse to name amounts that
         # small honestly, so inches take a second decimal under one.
-        snow_i = (snowfall[i] if i < len(snowfall) else 0) or 0
+        snow_i = _at(snowfall, i) or 0
         if precip_i >= (1 if runtime.metric else 0.04):
             ptype = _s(_precip_type(wmo_i), runtime)
             if _precip_type(wmo_i) == "Snow" and mostly_snow(snow_i, precip_i, runtime):
@@ -256,7 +255,7 @@ def render_daily_mapped(data, width, runtime=None, now=None):
         if is_today:
             day_name = f"{BOLD}{day_name}{RESET}{TEXT}"
 
-        wmo = (wmo_codes[i] if i < len(wmo_codes) else 0) or 0
+        wmo = _at(wmo_codes, i) or 0
         icon = icons.get(conditions[i], icons[0])
         if label_w:
             icon += f"  {pad(labels[i], label_w)}"
@@ -266,8 +265,8 @@ def render_daily_mapped(data, width, runtime=None, now=None):
         # dropped for width.
         if not any(day_raw[i - 1][:3]):
             icon = f"{MUTED}{icon}{TEXT}"
-        hi = hi_temps[i] if i < len(hi_temps) else None
-        lo = lo_temps[i] if i < len(lo_temps) else None
+        hi = _at(hi_temps, i)
+        lo = _at(lo_temps, i)
         if hi is None or lo is None:
             continue
 

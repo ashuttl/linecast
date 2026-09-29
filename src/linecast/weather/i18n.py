@@ -3,6 +3,7 @@
 import re
 from linecast._i18n import LocaleTable, base_language, fallbacks, has_text, lang_of, lookup
 from linecast.weather.cover import MOSTLY_CLOUDY
+from linecast.weather.forecast import _at
 
 # Nerd Font WMO icons
 _WMO_ICONS_NERD = {
@@ -233,7 +234,3 @@ def felt_index(record, runtime, i=None):
         if value is not None:
             return key, value
     return None
-
-
-def _at(values, i):
-    return values[i] if values is not None and 0 <= i < len(values) else None

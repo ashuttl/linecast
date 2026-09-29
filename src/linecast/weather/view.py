@@ -55,7 +55,7 @@ from linecast.weather.credits import (
     alert_attribution, forecast_attribution, observation_attribution, observed_credit,
 )
 from linecast.weather.forecast import (
-    local_now, fetch_forecast, forecast_date, forecast_is_todays, FORECAST_SOURCE,
+    _at, local_now, fetch_forecast, forecast_date, forecast_is_todays, FORECAST_SOURCE,
 )
 from linecast.weather.air import apply_national_index, fetch_canada_aqhi, fetch_aqi
 from linecast._geocode import reverse_geocode, print_search, without_country
@@ -147,19 +147,18 @@ def _build_hover_tooltip(data, mouse_col, mouse_row, hourly_start, hourly_end, c
     idx = int(graph_col / max(1, graph_w - 1) * total_hours + 0.5)
     idx = max(0, min(n - 1, idx))
 
-    dt = window["dts"][idx] if idx < len(window["dts"]) else None
+    dt = _at(window["dts"], idx)
     temp = window["temps"][idx]
-    apparent = (window["apparent_temps"][idx]
-                if idx < len(window.get("apparent_temps", [])) else None)
-    code = window["codes"][idx] if idx < len(window["codes"]) else 0
-    wind = window["winds"][idx] if idx < len(window["winds"]) else 0
-    wind_dir = window["wind_dirs"][idx] if idx < len(window["wind_dirs"]) else 0
-    humidity = window["humidity"][idx] if idx < len(window.get("humidity", [])) else None
-    dew = window["dew_points"][idx] if idx < len(window.get("dew_points", [])) else None
-    amount = window["precip_amount"][idx] if idx < len(window.get("precip_amount", [])) else 0
-    snow = window["snowfall"][idx] if idx < len(window.get("snowfall", [])) else 0
-    prob = window["precip"][idx] if idx < len(window.get("precip", [])) else 0
-    cloud = window["cloud"][idx] if idx < len(window.get("cloud", [])) else None
+    apparent = _at(window.get("apparent_temps"), idx)
+    code = _at(window["codes"], idx, 0)
+    wind = _at(window["winds"], idx, 0)
+    wind_dir = _at(window["wind_dirs"], idx, 0)
+    humidity = _at(window.get("humidity"), idx)
+    dew = _at(window.get("dew_points"), idx)
+    amount = _at(window.get("precip_amount"), idx, 0)
+    snow = _at(window.get("snowfall"), idx, 0)
+    prob = _at(window.get("precip"), idx, 0)
+    cloud = _at(window.get("cloud"), idx)
 
     TBG = bg(*TOOLTIP_BG_RGB)
     TFG = fg(*TOOLTIP_TEXT_RGB)
@@ -288,8 +287,7 @@ def _build_daily_tooltip(data, mouse_col, mouse_row, daily_start, daily_spans, c
     hourly = data.get("hourly", {})
 
     def day_value(key, default=None):
-        values = daily.get(key) or []
-        return values[i] if i < len(values) else default
+        return _at(daily.get(key), i, default)
 
     date = day_value("time", "")
     hours = [j for j, t in enumerate(hourly.get("time") or []) if str(t).startswith(str(date))]
