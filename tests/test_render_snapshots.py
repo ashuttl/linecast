@@ -651,9 +651,10 @@ class TestRadarSnapshot:
         from linecast._runtime import RuntimeConfig
         from linecast.radar import frames as rf
         from linecast.radar import view as radar
+        from linecast.radar import warnings
 
         monkeypatch.setattr(rf, "_source", self.Storm())
-        monkeypatch.setattr(rf._radar_warnings, "covers", lambda bbox: False)
+        monkeypatch.setattr(warnings, "covers", lambda bbox: False)
         monkeypatch.setattr(radar, "get_terminal_size", lambda: (80, 24))
         runtime = RuntimeConfig(live=False, icons="emoji", lang="en", oneline=False)
         # the frame's time is written in the machine's zone

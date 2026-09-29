@@ -74,8 +74,8 @@ from linecast.sky.catalogue import (
     figures_for, milky_way, names_for, resolve_culture, star_names, star_vectors,
     stars,
 )
-from linecast.sky import deep as _sky_deep
-from linecast.sky import objects as _sky_objects
+from linecast.sky import deep as _deep
+from linecast.sky import objects as _objects
 from linecast.sky.i18n import _sk, body_name
 from linecast.sunshine.i18n import sky_phase
 from linecast.terminal.textwidth import char_width
@@ -723,7 +723,7 @@ def _star_limit(scene, omega, cells, fov=FOV_DEFAULT):
     catalogue = stars()
     eye = _view_eye_limit(scene, fov)
     if int(wanted) >= len(catalogue) and eye > 6.5:
-        by_zoom = _sky_deep.magnitude_at(int(wanted) - len(catalogue))
+        by_zoom = _deep.magnitude_at(int(wanted) - len(catalogue))
     else:
         rank = min(len(catalogue) - 1, int(wanted))
         by_zoom = catalogue[rank][2] if rank >= 0 else -10.0
@@ -745,7 +745,7 @@ def _star_candidates(frame, f, cx, cy, aspect, limit, deep=True):
         yield i, mag, bv, vectors[i]
     if deep:
         radius = 2.0 * math.atan(math.hypot(cx, cy * aspect) / (2.0 * f))
-        for i, mag, bv, vector in _sky_deep.candidates(frame[6:9], radius, limit):
+        for i, mag, bv, vector in _deep.candidates(frame[6:9], radius, limit):
             yield -i - 1, mag, bv, vector
 
 
@@ -822,7 +822,7 @@ def render(now_local, lat, lng, runtime, view, fullscreen=False,
         for x, row in tuple(taken):
             taken.update((c, row) for c in (x - 1, x + 1) if 0 <= c < graph_w)
     # Extended light is behind the foreground stars, Moon and planets.
-    object_labels, hits = _sky_objects.paint(
+    object_labels, hits = _objects.paint(
         fb, scene, cam, frame, f, cx, cy, eye_limit, STAR_RGB, aspect)
 
     # --- the Sun ---
@@ -993,7 +993,7 @@ def render(now_local, lat, lng, runtime, view, fullscreen=False,
     for record, col, row, strength in object_labels:
         if strength < 0.15 or (view.fov > 60 and record['mag'] > 4.5):
             continue
-        name = (_sky_objects.object_name(record, lang) if view.fov <= 60 else record['id'])
+        name = (_objects.object_name(record, lang) if view.fov <= 60 else record['id'])
         beside(name, col, row, lerp(fb.cell_bg(col, row), label_ink, 0.65 * strength))
     if view.figures >= 2 and scene.darkness > 0.25:
         name_ink = lerp(NIGHT_RGB, FIGURE_NAME_RGB, scene.darkness)
@@ -1185,7 +1185,7 @@ def _chip(mouse_pos, hits, scene, runtime, cols, rows, graph_w, graph_h, view):
         alt, az = scene.moon_alt, scene.moon_az
     elif kind == 'deep_sky':
         record, alt, az = payload
-        title = _sky_objects.object_name(record, lang_of(runtime))
+        title = _objects.object_name(record, lang_of(runtime))
         major, minor = record['size']
         size = f"{major:g}′" if major == minor else f"{major:g}′ × {minor:g}′"
         size = size.replace(".", setting(lang_of(runtime), "decimal"))
@@ -1207,7 +1207,7 @@ def _chip(mouse_pos, hits, scene, runtime, cols, rows, graph_w, graph_h, view):
             # A culture's name, or the language's own, with the IAU's beside it.
             detail = f"{iau_name} · {detail}"
         if i < 0:
-            _mag, _bv, vector, title = _sky_deep.star(-i - 1)
+            _mag, _bv, vector, title = _deep.star(-i - 1)
         else:
             vector = star_vectors()[i]
         _alt, az = alt_az_of(_mat_apply(scene.catalogue, vector))

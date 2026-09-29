@@ -20,7 +20,7 @@ from linecast.weather.i18n import (
     PRECIP_RUN_DESCS_I18N, felt_index, wmo_label,
     _PRECIP_DESCS_I18N, _PRECIP_PARTITIVES_I18N, _STRINGS, _s, _wmo_icons,
 )
-from linecast.weather import style as _weather_style
+from linecast.weather import style as _style
 from linecast.weather.style import (MUTED, TEXT, WIND_COLOR, _aqhi_color, _aqi_color,
                                      _colored_temp, _india_aqi_color)
 from linecast.weather.sources import _local_now_for_data
@@ -35,7 +35,7 @@ def location_control(name, width, runtime):
 def location_chip(label):
     """The place as a chip, like the tides station pill: half blocks
     round the ends of a lifted surface, the name in the full text color."""
-    edge, surface, ink = _weather_style.CHIP
+    edge, surface, ink = _style.CHIP
     if not surface:  # no color: half blocks alone would read as stray marks
         return f"{TEXT}{label}"
     return f"{edge}\u2590{surface}{ink} {label} {RESET}{edge}\u258c"

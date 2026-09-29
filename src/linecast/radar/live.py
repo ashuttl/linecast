@@ -10,8 +10,8 @@ is in radar.view; the frames and their prefetcher are in radar.frames.
 import os
 import sys
 
-from linecast.radar import frames as _radar_frames
-from linecast.radar import sources as _radar_sources
+from linecast.radar import frames as _frames
+from linecast.radar import sources as _sources
 from linecast.terminal.framebuffer import get_terminal_size
 from linecast._geo import wrap_lon
 from linecast.terminal.live import LiveApp
@@ -106,7 +106,7 @@ class RadarApp(LiveApp):
 
     def intercept(self, action):
         """Route keys to the theme picker; everything else passes through."""
-        source = _radar_frames._source
+        source = _frames._source
         if not self.picker.handle(action, getattr(source, "themes", None),
                                   getattr(source, "theme", None)):
             return False
@@ -114,7 +114,7 @@ class RadarApp(LiveApp):
         if choice is not None:
             self.theme = choice
             # same index, no fetch
-            _radar_frames._source = source.with_theme(choice)
+            _frames._source = source.with_theme(choice)
         return True
 
     def on_drag(self, dcol, drow, done):
@@ -141,16 +141,16 @@ class RadarApp(LiveApp):
         r = _in_conus(self.lat, self.lon)
         if r != self.region:
             self.region = r
-            if getattr(_radar_frames._source, "kind", None) != "lwxr":
-                _radar_frames._source = get_source(
+            if getattr(_frames._source, "kind", None) != "lwxr":
+                _frames._source = get_source(
                     self.lat, self.lon, N_FRAMES, self.theme)
         return True
 
     def play_gate(self):
-        return not _radar_frames._buffering
+        return not _frames._buffering
 
     def render(self, play_frame=0, playing=True, mouse_pos=None, **_):
-        themes = getattr(_radar_frames._source, "themes", None)
+        themes = getattr(_frames._source, "themes", None)
         return render_radar(
             self.lat, self.lon, self.location_name, self.zoom,
             play_frame=play_frame, playing=playing,
@@ -211,7 +211,7 @@ def main():
             print('Unknown radar source. Sources: librewxr, rainviewer, iem.',
                   file=sys.stderr)
             sys.exit(2)
-        _radar_sources.FORCED_SOURCE = source_arg
+        _sources.FORCED_SOURCE = source_arg
 
     # everything from here to the first paint may block on the network
     # (geocoding, the frame index, static-mode frame fetches) — spin
@@ -241,7 +241,7 @@ def main():
             except Exception:
                 location_name = ""
 
-        _radar_frames._source = get_source(lat, lon, N_FRAMES, theme)
+        _frames._source = get_source(lat, lon, N_FRAMES, theme)
 
         if not runtime.live:
             # static: play_frame 0 is the present (newest observed) frame
@@ -252,11 +252,11 @@ def main():
                                     layers=layers, layer=layer)
 
             static_out = render_once()
-            if _radar_frames.frame_load_failed and _radar_frames._fall_back():
+            if _frames.frame_load_failed and _frames._fall_back():
                 # the source answered its index and then could not serve the
                 # tiles; the one we fall to keeps its own frame list, so the
                 # whole render goes again rather than the frame alone
-                _radar_frames.frame_load_failed = False
+                _frames.frame_load_failed = False
                 static_out = render_once()
     finally:
         spin.stop()
@@ -266,6 +266,6 @@ def main():
         return
 
     # a background index refresh that adds a frame repaints the timeline
-    _radar_sources.on_index_refresh = _nudge
+    _sources.on_index_refresh = _nudge
     RadarApp(runtime, lat, lon, location_name, args.zoom, layers, layer,
              theme).run()

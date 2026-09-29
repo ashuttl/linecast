@@ -1232,7 +1232,7 @@ class TestPrintedRoute:
                             lambda query, *a, **k: ends[query])
         route = _maps_route.Route([(-70.2078, 43.6231), (-70.3093, 43.6462)],
                                   1000.0, 600.0, [], "car")
-        monkeypatch.setattr(_maps_live._maps_route, "route",
+        monkeypatch.setattr(_maps_live._route, "route",
                             lambda *a, **k: route)
         drawn = []
         monkeypatch.setattr(_maps_live, "render_map",

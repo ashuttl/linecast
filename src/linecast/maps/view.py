@@ -44,9 +44,9 @@ from linecast.maps import climate as _climate
 from linecast.maps import night_lights as _night_lights
 from linecast.maps import globe as _globe
 from linecast.maps import globe_now
-from linecast.maps import hover as _maps_hover
-from linecast.maps import overscan as _maps_overscan
-from linecast.maps import places as _maps_places
+from linecast.maps import hover as _hover
+from linecast.maps import overscan as _overscan
+from linecast.maps import places as _places
 from linecast.maps import style
 from linecast.maps import ui
 from linecast.terminal.color import fg, RESET, color_mode, BG_PRIMARY
@@ -394,9 +394,9 @@ def _translation(prev, bbox, graph_w, height_cells):
     view is on its way, and a slice is what it can afford; the frame
     that replaces it is the one that has to be right.
     """
-    at = _maps_overscan.locate(_maps_overscan.Frame(prev[0], prev[1],
-                                                    prev[2]),
-                               bbox, graph_w, height_cells, inside=False)
+    at = _overscan.locate(_overscan.Frame(prev[0], prev[1],
+                                          prev[2]),
+                          bbox, graph_w, height_cells, inside=False)
     if at == (0, 0) and (prev[1], prev[2]) == (graph_w, height_cells):
         return None
     return at
@@ -412,7 +412,7 @@ def _reproject_street(prev, bbox, graph_w, height_cells, ground):
     if at is not None:
         dx, dy = at
         player = prev[4]
-        cut = _maps_overscan.shift_crop
+        cut = _overscan.shift_crop
         return (cut(prev[3], dx, dy * 2, graph_w, height_cells * 2, ground),
                 _ShiftedLayer(
                     cut(player.dots, dx, dy, graph_w, height_cells, 0),
@@ -429,7 +429,7 @@ def _shift_cut(layer, dx, dy, graph_w, height_cells):
     """A braille layer sliced into a window that has outrun the margin."""
     if layer is None:
         return None
-    cut = _maps_overscan.shift_crop
+    cut = _overscan.shift_crop
     return _ShiftedLayer(
         cut(layer.dots, dx, dy, graph_w, height_cells, 0),
         cut(layer.color, dx, dy, graph_w, height_cells, None))
@@ -458,7 +458,7 @@ def _reproject_terrain(prev, bbox, graph_w, height_cells):
     at = _translation(prev, bbox, graph_w, height_cells)
     if at is not None:
         dx, dy = at
-        cut = _maps_overscan.shift_crop
+        cut = _overscan.shift_crop
         return (cut(pfill, dx, dy * 2, graph_w, height_cells * 2,
                     BG_PRIMARY),
                 cut(pcoast, dx, dy, graph_w, height_cells, 0),
@@ -491,7 +491,7 @@ def _limb_in(prev):
     A view whose corners are on the disk is a patch of the sphere like
     any other, and a window a few columns over is that patch
     translated, to within the shear a slice already accepts
-    (`_maps_overscan.MAX_SHEAR`): the case is a pan inside the margin
+    (`_overscan.MAX_SHEAR`): the case is a pan inside the margin
     and then a zoom out past the tiles, whose overscan is centred where
     the window was built and not where it now is, and a frame of bare
     ground there is the cut this camera was made to remove.  A view
@@ -511,7 +511,7 @@ def _usable_landing(landed, graph_w, height_cells):
     else came from a terminal that has since been resized, and taking it
     would fit the old shape of the window inside the new one.
     """
-    pw, ph = _maps_overscan.padding(graph_w, height_cells)
+    pw, ph = _overscan.padding(graph_w, height_cells)
     return tuple(landed[1:3]) in ((graph_w, height_cells),
                                   (graph_w + 2 * pw, height_cells + 2 * ph))
 
@@ -559,24 +559,24 @@ def _flat_frame(view, bbox, graph_w, height_cells, block, motion, cap=None):
     it is a crop of the same *ground*, which is not the same thing:
     the built view has turned with the meridians, and the samples are
     there at somewhere other than the offset.  A frame at rest goes
-    and gets them (_maps_overscan.Resample); a frame in motion slices,
+    and gets them (_overscan.Resample); a frame in motion slices,
     and `cap` is what stops the slice being taken so far off the built
     view's centre that a reader can see it swim
-    (_maps_overscan.locate).
+    (_overscan.locate).
     """
     if block:
-        return (_maps_overscan.window_frame(bbox, graph_w, height_cells),
+        return (_overscan.window_frame(bbox, graph_w, height_cells),
                 (0, 0), None)
     last = (_last_street if view == "street" else _last_terrain)[0]
     if last is not None:
-        frame = _maps_overscan.Frame(last[0], last[1], last[2])
-        at = _maps_overscan.locate(frame, bbox, graph_w, height_cells,
-                                   cap=cap)
+        frame = _overscan.Frame(last[0], last[1], last[2])
+        at = _overscan.locate(frame, bbox, graph_w, height_cells,
+                              cap=cap)
         if at is not None:
             return frame, at, last
-    frame, at = _maps_overscan.plan(bbox, graph_w, height_cells, motion)
+    frame, at = _overscan.plan(bbox, graph_w, height_cells, motion)
     if cap is not None and not _margin_is_local(frame):
-        return (_maps_overscan.window_frame(bbox, graph_w, height_cells),
+        return (_overscan.window_frame(bbox, graph_w, height_cells),
                 (0, 0), None)
     return frame, at, None
 
@@ -701,13 +701,13 @@ def _street_planet(view, cam, gw, hc, lang, band):
     coast = (view.coast if view.coast is not None
              else [[0] * gw for _ in range(hc)])
     layer = _ShiftedLayer(coast, [[ink] * gw for _ in range(hc)])
-    overlays = _maps_places.street_overlays(cam, band, palette, lang)
+    overlays = _places.street_overlays(cam, band, palette, lang)
     return fills, layer, overlays
 
 
 # How far out of register a slice may be before the resample is worth
 # taking, in braille dots: a quarter of one, which is the same drift
-# _maps_overscan.SLACK already lets a crop's own cell boundaries have
+# _overscan.SLACK already lets a crop's own cell boundaries have
 # and is well under the width of anything drawn.
 _SLICE_DOTS = 0.25
 
@@ -740,7 +740,7 @@ def _exact_crop(frame, bbox, graph_w, height_cells, at, moving):
         at[1] + height_cells / 2 - frame.hc / 2)
     if shear < _SLICE_DOTS:
         return None
-    return _maps_overscan.resample(frame, bbox, graph_w, height_cells)
+    return _overscan.resample(frame, bbox, graph_w, height_cells)
 
 
 def _render_terrain(bbox, graph_w, height_cells, block, pan_offset,
@@ -771,7 +771,7 @@ def _render_terrain(bbox, graph_w, height_cells, block, pan_offset,
     loading = False
     view = _EMPTY_TERRAIN
     if frame is None:
-        frame = _maps_overscan.window_frame(bbox, graph_w, height_cells)
+        frame = _overscan.window_frame(bbox, graph_w, height_cells)
         at = (0, 0)
     obbox, ogw, ohc = frame
     dx0, dy0 = at
@@ -783,14 +783,14 @@ def _render_terrain(bbox, graph_w, height_cells, block, pan_offset,
     elif block:
         try:
             view = _get_terrain(obbox, ogw, ohc, True,
-                                _maps_overscan.window_hint(
+                                _overscan.window_hint(
                                     frame, graph_w, height_cells))
         except Exception as exc:
             log_failure("maps/elevation", "terrain load", exc, fallback="empty terrain")
             err = str(exc)
     else:
         view = _get_terrain(obbox, ogw, ohc, False,
-                            _maps_overscan.window_hint(
+                            _overscan.window_hint(
                                 frame, graph_w, height_cells))
         loading = view.elev is None
 
@@ -832,16 +832,16 @@ def _render_terrain(bbox, graph_w, height_cells, block, pan_offset,
             rivers = exact.layer(rivers)
             borders = exact.layer(borders)
         else:
-            terrain = _maps_overscan.crop_grid(terrain, dx0, dy0 * 2, graph_w,
-                                               height_cells * 2)
-            elev = _maps_overscan.crop_grid(elev, dx0, dy0 * 2, graph_w,
-                                            height_cells * 2)
-            coast = _maps_overscan.crop_grid(coast, dx0, dy0, graph_w,
-                                             height_cells)
-            rivers = _maps_overscan.crop_layer(rivers, dx0, dy0, graph_w,
-                                               height_cells)
-            borders = _maps_overscan.crop_layer(borders, dx0, dy0, graph_w,
-                                                height_cells)
+            terrain = _overscan.crop_grid(terrain, dx0, dy0 * 2, graph_w,
+                                          height_cells * 2)
+            elev = _overscan.crop_grid(elev, dx0, dy0 * 2, graph_w,
+                                       height_cells * 2)
+            coast = _overscan.crop_grid(coast, dx0, dy0, graph_w,
+                                        height_cells)
+            rivers = _overscan.crop_layer(rivers, dx0, dy0, graph_w,
+                                          height_cells)
+            borders = _overscan.crop_layer(borders, dx0, dy0, graph_w,
+                                           height_cells)
     if terrain is None and loading and _last_terrain[0] is not None:
         stand_in = _terrain_stand_in(_last_terrain[0], bbox, graph_w,
                                      height_cells, wide)
@@ -859,7 +859,7 @@ def _render_terrain(bbox, graph_w, height_cells, block, pan_offset,
     # every zoom rather than only past the tiles.
     cities = {}
     if show_labels:
-        cities = _maps_places.terrain_overlays(
+        cities = _places.terrain_overlays(
             _globe.Camera.for_bbox(bbox, graph_w, height_cells),
             style.band_for(style.z_eff(bbox, height_cells)), lang)
     if terrain is None:
@@ -984,7 +984,7 @@ def _shade_now(buf, lls, sun, canvas, lights, glow=None, night=None):
     return buf
 
 
-def _hover(layer, mouse_pos, pan_offset, lang):
+def _hover_at(layer, mouse_pos, pan_offset, lang):
     """(readout, lit ink cells, lit glyph cells), or ("", None, None).
 
     Nothing is resolved mid-drag: the index is built for the view as it
@@ -1000,7 +1000,7 @@ def _hover(layer, mouse_pos, pan_offset, lang):
     hit = index.at(mouse_pos[0] - 1, mouse_pos[1] - 2)
     if hit is None:
         return "", None, None
-    text = _maps_hover.readout(hit, lang)
+    text = _hover.readout(hit, lang)
     return ((f" · {text}" if text else ""),
             set(hit.cells) or None, set(hit.glyphs) or None)
 
@@ -1030,7 +1030,7 @@ def _render_street(bbox, graph_w, height_cells, block, pan_offset,
     loading = False
     fills = layer = labels = None
     if frame is None:
-        frame = _maps_overscan.window_frame(bbox, graph_w, height_cells)
+        frame = _overscan.window_frame(bbox, graph_w, height_cells)
         at = (0, 0)
     obbox, ogw, ohc = frame
     dx0, dy0 = at
@@ -1047,14 +1047,14 @@ def _render_street(bbox, graph_w, height_cells, block, pan_offset,
         try:
             fills, layer, labels = _get_street(
                 obbox, ogw, ohc, True, lang, reserved,
-                _maps_overscan.window_hint(frame, graph_w, height_cells))
+                _overscan.window_hint(frame, graph_w, height_cells))
         except Exception as exc:
             log_failure("maps/vtiles", "street load", exc, fallback="empty street map")
             err = str(exc)
     else:
         fills, layer, labels = _get_street(
             obbox, ogw, ohc, False, lang, reserved,
-            _maps_overscan.window_hint(frame, graph_w, height_cells))
+            _overscan.window_hint(frame, graph_w, height_cells))
         loading = fills is None
 
     palette = style.palette()
@@ -1077,7 +1077,7 @@ def _render_street(bbox, graph_w, height_cells, block, pan_offset,
             source = exact.ink_source(layer.dots)
             layer = exact.layer(layer)
             if hover is not None:
-                layer.hover = _maps_overscan.ResampledHover(
+                layer.hover = _overscan.ResampledHover(
                     hover, exact, moved, source, layer.dots)
             fills = exact.grid(fills, ground)
         else:
@@ -1085,15 +1085,15 @@ def _render_street(bbox, graph_w, height_cells, block, pan_offset,
             # name straddling an edge is a different word — and the
             # hover index is read through the offset rather than
             # rebuilt for every crop.
-            labels = _maps_overscan.crop_overlays(labels, dx0, dy0, graph_w,
-                                                  height_cells)
-            layer = _maps_overscan.crop_layer(
+            labels = _overscan.crop_overlays(labels, dx0, dy0, graph_w,
+                                             height_cells)
+            layer = _overscan.crop_layer(
                 layer, dx0, dy0, graph_w, height_cells,
-                hover=(_maps_overscan.CroppedHover(hover, dx0, dy0, graph_w,
-                                                   height_cells, labels)
+                hover=(_overscan.CroppedHover(hover, dx0, dy0, graph_w,
+                                              height_cells, labels)
                        if hover is not None else None))
-            fills = _maps_overscan.crop_grid(fills, dx0, dy0 * 2, graph_w,
-                                             height_cells * 2)
+            fills = _overscan.crop_grid(fills, dx0, dy0 * 2, graph_w,
+                                        height_cells * 2)
     if fills is None:
         stand_in = (_street_stand_in(_last_street[0], bbox, graph_w,
                                      height_cells, wide, ground)
@@ -1131,7 +1131,7 @@ def _render_street(bbox, graph_w, height_cells, block, pan_offset,
             night=globe_now.NIGHT_STREET)
         dusk = _ink_dusk(lls, sun, graph_w, height_cells)
 
-    hover, hot, hot_glyphs = _hover(layer, mouse_pos, pan_offset, lang)
+    hover, hot, hot_glyphs = _hover_at(layer, mouse_pos, pan_offset, lang)
 
     overlays = dict(labels) if show_labels else {}
     dx, dy = pan_offset
@@ -1305,11 +1305,11 @@ def prefetch_view(lat, lon, zoom, view, graph_w, height_cells, lang,
             # into next is as likely to be one way as the other — and
             # for terrain that is the only overscan there is, because a
             # margin off centre would not be an exact crop
-            frame, _at = _maps_overscan.plan(bbox, graph_w, height_cells)
+            frame, _at = _overscan.plan(bbox, graph_w, height_cells)
             if not _margin_is_local(frame):
-                frame = _maps_overscan.window_frame(bbox, graph_w,
-                                                    height_cells)
-            hint = _maps_overscan.window_hint(frame, graph_w, height_cells)
+                frame = _overscan.window_frame(bbox, graph_w,
+                                               height_cells)
+            hint = _overscan.window_hint(frame, graph_w, height_cells)
             if view == "street":
                 m_lat, m_lon = marker if marker else (lat, lon)
                 _get_street(frame.bbox, frame.gw, frame.hc, True, lang,
@@ -1397,7 +1397,7 @@ def render_map(lat, lon, location_name, zoom, marker=None, runtime=None,
         ahead = (view == "street" and (
             affine or _globe.crop_dots(
                 lat, cap, graph_w, height_cells,
-                *_maps_overscan.padding(graph_w, height_cells)) < _SLICE_DOTS))
+                *_overscan.padding(graph_w, height_cells)) < _SLICE_DOTS))
         frame, at, source = _flat_frame(
             view, bbox, graph_w, height_cells, block,
             motion if ahead else (0, 0), cap=cap)
@@ -1416,7 +1416,7 @@ def render_map(lat, lon, location_name, zoom, marker=None, runtime=None,
                                        project)
         if route_layer is not None and (frame.gw, frame.hc) != (graph_w,
                                                                 height_cells):
-            route_layer = _maps_overscan.crop_layer(
+            route_layer = _overscan.crop_layer(
                 route_layer, at[0], at[1], graph_w, height_cells)
         draw = functools.partial(
             paint, sun=sun, clouds=clouds, frame=frame, at=at,

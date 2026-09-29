@@ -151,11 +151,11 @@ def test_map_and_radar_footer_hints_reach_the_last_column(monkeypatch, view, lan
     else:
         source = SimpleNamespace(attribution='LibreWXR', current_frames=lambda: [
             SimpleNamespace(time=NOW, future=False)])
-        monkeypatch.setattr(radar._radar_frames, '_source', source)
+        monkeypatch.setattr(radar._frames, '_source', source)
         monkeypatch.setattr(radar, '_get_basemap', lambda *a: SimpleNamespace(
             city_overlays=lambda **kw: {}))
         monkeypatch.setattr(radar, '_load_frame', lambda *a: ([], 0))
-        monkeypatch.setattr(radar._radar_warnings, 'covers', lambda *a: False)
+        monkeypatch.setattr(radar._warnings, 'covers', lambda *a: False)
         monkeypatch.setattr(radar, 'compose', lambda *a, **kw: [''] * 22)
         monkeypatch.setattr(radar, 'has_radar', lambda *a: True)
         output = radar.render_radar(43.68, -70.32, 'Westbrook', 1, runtime=runtime)

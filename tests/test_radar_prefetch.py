@@ -33,7 +33,7 @@ class TestStandDown:
             return True
 
         monkeypatch.setattr(rf, "_safe_load", slow)
-        monkeypatch.setattr(rf._radar_warnings, "covers", lambda bbox: False)
+        monkeypatch.setattr(rf._warnings, "covers", lambda bbox: False)
         monkeypatch.setattr(rf, "_prefetch_key", None)
         rf._ensure_prefetch((0, 0, 1, 1), 80, 20, _frames(40))
         time.sleep(0.12)
@@ -67,7 +67,7 @@ class TestStandDown:
             from linecast.radar import frames as rf
             from linecast.radar.sources import Frame
             rf._safe_load = lambda *a, **k: time.sleep(0.3) or True
-            rf._radar_warnings.covers = lambda bbox: False
+            rf._warnings.covers = lambda bbox: False
             t0 = datetime.datetime(2026, 8, 23, tzinfo=datetime.timezone.utc)
             frames = [Frame(t0 + datetime.timedelta(minutes=5 * i), i)
                       for i in range(40)]
@@ -94,7 +94,7 @@ class TestRetryHold:
                             lambda bbox, gw, hc, f, layer="radar":
                             attempts.append(f.token) or False)
         monkeypatch.setattr(rf, "_nudge", lambda: nudges.append(1))
-        monkeypatch.setattr(rf._radar_warnings, "covers", lambda bbox: False)
+        monkeypatch.setattr(rf._warnings, "covers", lambda bbox: False)
         monkeypatch.setattr(rf, "_fell_back", True)  # the chain is spent
         monkeypatch.setattr(rf, "_prefetch_key", None)
         monkeypatch.setattr(rf, "_retry_key", None)
@@ -162,7 +162,7 @@ class TestStaticRender:
 
         calls = []
         monkeypatch.setattr(rf, "_source", Src())
-        monkeypatch.setattr(rf._radar_warnings, "covers", lambda bbox: False)
+        monkeypatch.setattr(rf._warnings, "covers", lambda bbox: False)
         monkeypatch.setattr(radar, "_ensure_prefetch",
                             lambda *a, **k: calls.append(a))
         monkeypatch.setattr(radar, "get_terminal_size", lambda: (40, 12))
@@ -231,7 +231,7 @@ class TestIncompleteFrames:
         healthy.kind = "rv"
         monkeypatch.setattr(rf, "_source", stalled)
         monkeypatch.setattr(rf, "_fell_back", False)
-        monkeypatch.setattr(rf._radar_sources, "demote", lambda src: healthy)
+        monkeypatch.setattr(rf._sources, "demote", lambda src: healthy)
 
         assert rf._fall_back() is True
         assert rf._source is healthy
@@ -241,7 +241,7 @@ class TestIncompleteFrames:
     def test_no_fall_back_when_the_chain_is_spent(self, monkeypatch):
         monkeypatch.setattr(rf, "_source", self._source({0}))
         monkeypatch.setattr(rf, "_fell_back", False)
-        monkeypatch.setattr(rf._radar_sources, "demote", lambda src: None)
+        monkeypatch.setattr(rf._sources, "demote", lambda src: None)
         assert rf._fall_back() is False
 
     def test_frames_are_keyed_by_source(self, monkeypatch):

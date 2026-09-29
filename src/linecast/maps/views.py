@@ -29,7 +29,7 @@ from linecast.maps import globe as _globe
 from linecast.maps import globe_now
 from linecast.maps import globe_texture
 from linecast.maps import streets
-from linecast.maps import style as _maps_style
+from linecast.maps import style as _style
 from linecast.maps.elevation import elevation_grid
 from linecast.terminal import live as _live
 from linecast.terminal.live import nudge as _nudge_repaint
@@ -496,8 +496,8 @@ def _get_elevation(bbox, gw, hc, block, window=None):
             # two agree where both know and cover for each other's gaps
             if cover is None:
                 cover = [bytearray(gw) for _ in range(hc * 2)]
-            grades = [(lo, _maps_style.COVER_ORDER.index(k) + 1)
-                      for lo, k in _maps_style.COVER_BUILTUP_GRADES]
+            grades = [(lo, _style.COVER_ORDER.index(k) + 1)
+                      for lo, k in _style.COVER_BUILTUP_GRADES]
             settlement = {gid for _, gid in grades}
             floor = grades[-1][0]
             for crow, brow in zip(cover, bu):
@@ -568,7 +568,7 @@ def _get_street_tiles(bbox, gw, hc, block, lang="en", reserved=(),
             bbox, hc, window, None if camera is None else camera.footprint)
         with ThreadPoolExecutor(max_workers=1) as pool:
             bu_job = (pool.submit(_builtup_layer, bbox, gw, hc, camera)
-                      if band >= _maps_style.FILL_DEBUT["builtup"]
+                      if band >= _style.FILL_DEBUT["builtup"]
                       else None)
             tiles = streets.fetch_tiles(keys)
         if not any(tiles.values()):
@@ -757,7 +757,7 @@ def _built_globe(lat0, lon0, zoom, gw, hc):
     return _globe.GlobeView(
         grid, _coast_dots(fine, gw, hc, wet, min_dots=0), zs, atmo,
         _globe.ice_cover(lls, grid,
-                         _maps_style.COVER_ORDER.index("ice") + 1),
+                         _style.COVER_ORDER.index("ice") + 1),
         _globe.border_layer(lat0, lon0, zoom, gw, hc, BORDER_STROKE),
         lls, glow,
         _water_subpixels(wet, gw, hc) if wet is not None else None)

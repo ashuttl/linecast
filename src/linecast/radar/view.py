@@ -32,9 +32,9 @@ import time as _time
 from linecast.terminal.color import fg, RESET
 from linecast.terminal.framebuffer import get_terminal_size
 from linecast.terminal import theme as _theme
-from linecast.radar import frames as _radar_frames
-from linecast.radar import layers as _radar_layers
-from linecast.radar import warnings as _radar_warnings
+from linecast.radar import frames as _frames
+from linecast.radar import layers as _layers
+from linecast.radar import warnings as _warnings
 from linecast.terminal.live import overlay
 from linecast.radar.basemap import DotLayer, _point_in_rings  # noqa: F401 — re-exported
 from linecast.radar.i18n import rs
@@ -90,10 +90,10 @@ def _get_field(bbox, block):
     on a miss and nudges a repaint when the background fetch lands, same as
     radar frames.
     """
-    key = _radar_layers.field_key(bbox)
+    key = _layers.field_key(bbox)
     try:
         return _field_cache.get(key, block,
-                                lambda: _radar_layers.fetch_field(bbox))
+                                lambda: _layers.fetch_field(bbox))
     except Exception as exc:
         log_failure("radar/layers", "condition field", exc, fallback="temp/wind layers off")
         return None
@@ -104,8 +104,8 @@ def _temp_buffer(field, t_idx, bbox, graph_w, height_cells):
     key = (_bbox_key(bbox), graph_w, height_cells, id(field), t_idx,
            _theme.generation)
     return _temp_cache.get(
-        key, lambda: _radar_layers.build_temp_buffer(field, t_idx, bbox,
-                                                     graph_w, height_cells))
+        key, lambda: _layers.build_temp_buffer(field, t_idx, bbox,
+                                               graph_w, height_cells))
 
 
 def render_radar(lat, lon, location_name, zoom, play_frame=0, playing=True,
@@ -114,7 +114,7 @@ def render_radar(lat, lon, location_name, zoom, play_frame=0, playing=True,
                  layers=frozenset(), alerts=True, **_):
     lang = runtime.lang if runtime else "en"
     use_24h = runtime.use_24h if runtime else False
-    source = _radar_frames._source
+    source = _frames._source
     cols, rows = get_terminal_size()
     from linecast.terminal import help as _help
     live = bool(getattr(runtime, 'live', False))
@@ -166,13 +166,13 @@ def render_radar(lat, lon, location_name, zoom, play_frame=0, playing=True,
             radar, echo = _load_frame(bbox, graph_w, height_cells, frame,
                                       layer)
         except Exception as exc:
-            log_failure(_radar_frames.source_tag(), "frame load", exc,
+            log_failure(_frames.source_tag(), "frame load", exc,
                         fallback="blank frame")
             radar = [[None] * graph_w for _ in range(height_cells * 2)]
             echo, err = 0.0, str(exc)
             # main() reads this to decide whether to fall down the source
             # chain and render once more
-            _radar_frames.frame_load_failed = True
+            _frames.frame_load_failed = True
     else:
         # live mode: never block a render on the network — show the nearest
         # cached frame (radar pops in as the prefetcher lands frames)
@@ -198,7 +198,7 @@ def render_radar(lat, lon, location_name, zoom, play_frame=0, playing=True,
                 under = _temp_buffer(field, t_idx, bbox, graph_w,
                                      height_cells)
             if "wind" in layers:
-                wind_ov = _radar_layers.wind_overlays(
+                wind_ov = _layers.wind_overlays(
                     field, t_idx, bbox, graph_w, height_cells)
 
     # storm-based warning outlines valid at the displayed frame's time
@@ -206,16 +206,16 @@ def render_radar(lat, lon, location_name, zoom, play_frame=0, playing=True,
     # A hides them, and the prefetch goes on so they return at once)
     warn_layer = None
     warns = None
-    if alerts and _radar_warnings.covers(bbox) and not frame.future:
+    if alerts and _warnings.covers(bbox) and not frame.future:
         if block:
             try:
-                warns = _radar_warnings.warnings_at(when)
+                warns = _warnings.warnings_at(when)
             except Exception as exc:
-                log_failure("radar/warnings", "fetch", exc, url=_radar_warnings._URL,
+                log_failure("radar/warnings", "fetch", exc, url=_warnings._URL,
                             fallback="no warning outlines")
                 warns = None
         else:
-            warns = _radar_warnings.cached_at(when)
+            warns = _warnings.cached_at(when)
         if warns:
             warn_layer = DotLayer(bbox, graph_w, height_cells)
             for _sev, color, rings, _info in warns:  # least-severe-first: TO wins

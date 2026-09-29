@@ -14,7 +14,7 @@ from linecast.terminal import theme as _theme
 from linecast.maps import climate as _climate
 from linecast.maps import globe_now
 from linecast.maps import hover
-from linecast.maps import style as _maps_style
+from linecast.maps import style as _style
 from linecast.terminal.color import (
     bg, fg, RESET, BOLD, color_mode, interp_stops, BG_PRIMARY,
 )
@@ -188,8 +188,8 @@ def _hypso_band(e, fam=0):
     return stops[0][1]
 
 # land-cover tints by grid index (0 = no cover, stays on the ramp)
-_COVER_RGB = [None] + [_maps_style.COVER_COLOR[k]
-                       for k in _maps_style.COVER_ORDER]
+_COVER_RGB = [None] + [_style.COVER_COLOR[k]
+                       for k in _style.COVER_ORDER]
 
 # A north-west sun 45° up, with two flanking lights a quarter turn to
 # either side: one azimuth lights every NW-SE ridge identically and
@@ -265,7 +265,7 @@ def build_terrain_buffer(elev, bbox, w, h, water=None, cover=None,
     zf = min(24.0, max(2.5, px_m / 150.0))
 
     cos_zen, sin_zen = math.cos(_ZENITH), math.sin(_ZENITH)
-    blend = _maps_style.COVER_BLEND
+    blend = _style.COVER_BLEND
     buf = []
     for y in range(h):
         row = elev[y]
@@ -460,7 +460,7 @@ def compose_map(fills, layer, overlays, graph_w, height_cells,
     map that results is the mode's whole character.
     """
     plain = color_mode() == "none"
-    ribbon_ink = _maps_style.ink("motorway")
+    ribbon_ink = _style.ink("motorway")
     lines = []
     for cy in range(height_cells):
         top_row = fills[cy * 2]
@@ -473,9 +473,9 @@ def compose_map(fills, layer, overlays, graph_w, height_cells,
                 # winning stroke — a route crossing here must not tint
                 # the ribbon cyan.
                 if ut is not None:
-                    ut = lerp_rgb(ut, ribbon_ink, _maps_style.RIBBON_BLEND)
+                    ut = lerp_rgb(ut, ribbon_ink, _style.RIBBON_BLEND)
                 if ub is not None:
-                    ub = lerp_rgb(ub, ribbon_ink, _maps_style.RIBBON_BLEND)
+                    ub = lerp_rgb(ub, ribbon_ink, _style.RIBBON_BLEND)
             ov = overlays.get((cx, cy))
             mask = layer.dots[cy][cx]
             stroke = layer.color[cy][cx]

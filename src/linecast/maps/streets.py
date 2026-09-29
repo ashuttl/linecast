@@ -23,8 +23,8 @@ style; this module only asks it questions.
 """
 
 
-from linecast.maps import hover as _maps_hover
-from linecast.maps import labels as _maps_labels
+from linecast.maps import hover as _hover
+from linecast.maps import labels as _labels
 from linecast.maps import style
 from linecast.maps.mvt import (
     LINESTRING, POLYGON, assemble_polygons, decode_tile,
@@ -837,7 +837,7 @@ def draw_lines(layer, view, bbox, graph_w, height_cells, band, palette,
             masked = hide
         else:
             masked = None
-        label = _maps_labels._name(props, lang)
+        label = _labels._name(props, lang)
         owner = None
         if label:
             owner = by_name.get((key, label))
@@ -1112,7 +1112,7 @@ def water_owners(coast, wet, waters, feats, graph_w, height_cells):
     all it can say, but it can at least say it about one pond instead of
     about every pond on screen.
     """
-    index, regions = _maps_labels.water_regions(wet)
+    index, regions = _labels.water_regions(wet)
     if not regions:
         return None, None
     owner_of, shore = {}, [[None] * graph_w for _ in range(height_cells)]
@@ -1186,7 +1186,7 @@ def build_street_view(bbox, graph_w, height_cells, tiles, band, lang="en",
     # naming the water is what tells the shore which shore it is.
     wet = water_cells(water, graph_w, height_cells)
     marks, texts, waters = {}, {}, {}
-    overlays = _maps_labels.label_overlays(
+    overlays = _labels.label_overlays(
         view, bbox, graph_w, height_cells, band, palette, lang, reserved,
         wet, marks, texts, waters, camera, window)
 
@@ -1205,9 +1205,9 @@ def build_street_view(bbox, graph_w, height_cells, tiles, band, lang="en",
                   owners=coast_owners)
     draw_lines(layer, view, bbox, graph_w, height_cells, band, palette,
                lang, feats, water, camera)
-    layer.hover = _maps_hover.HoverIndex(
+    layer.hover = _hover.HoverIndex(
         layer.owner, feats,
-        _maps_hover.road_names(view, bbox, graph_w, height_cells, band,
-                               lang, camera),
+        _hover.road_names(view, bbox, graph_w, height_cells, band,
+                          lang, camera),
         marks, fill_cells(grid, graph_w, height_cells), texts, shore)
     return fills, layer, overlays

@@ -17,8 +17,8 @@ import time
 from concurrent.futures import ThreadPoolExecutor
 
 from linecast.terminal import theme as _theme
-from linecast.radar import sources as _radar_sources
-from linecast.radar import warnings as _radar_warnings
+from linecast.radar import sources as _sources
+from linecast.radar import warnings as _warnings
 from linecast.terminal.live import nudge as _nudge  # a landed frame repaints the live view
 from linecast.radar.render import _bbox_key, build_radar_buffer
 from linecast.radar.ui import _get_basemap
@@ -188,7 +188,7 @@ def _ensure_prefetch(bbox, gw, hc, frames, start_idx=0, layer="radar"):
         _prefetch_gen += 1
         gen = _prefetch_gen
     ordered = frames[start_idx:] + frames[:start_idx]  # current frame first
-    want_warnings = _radar_warnings.covers(bbox)
+    want_warnings = _warnings.covers(bbox)
 
     def worker():
         loaded = 0
@@ -278,7 +278,7 @@ def _fall_back():
     global _source, _fell_back
     if _fell_back:
         return False
-    nxt = _radar_sources.demote(_source)
+    nxt = _sources.demote(_source)
     if nxt is None:
         _fell_back = True  # nothing to fall to; stop asking
         return False
@@ -301,9 +301,9 @@ def _safe_load(bbox, gw, hc, frame, layer="radar"):
 def _warm_warnings(frame):
     """Prefetch the warning polygons valid at a frame's time (best-effort)."""
     try:
-        if _radar_warnings.cached_at(frame.time) is None:
-            _radar_warnings.warnings_at(frame.time)
+        if _warnings.cached_at(frame.time) is None:
+            _warnings.warnings_at(frame.time)
             _nudge()
     except Exception as exc:
-        log_failure("radar/warnings", "prefetch", exc, url=_radar_warnings._URL,
+        log_failure("radar/warnings", "prefetch", exc, url=_warnings._URL,
                     fallback="frame shown without warnings")

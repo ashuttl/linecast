@@ -18,10 +18,10 @@ import time
 
 from linecast.maps import globe as _globe
 from linecast.maps import globe_now
-from linecast.maps import route as _maps_route
+from linecast.maps import route as _route
 from linecast.maps import style
 from linecast.maps import ui
-from linecast.maps import views as _maps_views
+from linecast.maps import views as _views
 from linecast._geo import wrap_lon
 from linecast.terminal.live import LiveApp, nudge as _nudge_repaint, print_frame
 from linecast._location import country_for_defaults, resolve_location
@@ -897,8 +897,8 @@ class MapApp(LiveApp):
         # wait for — it ends either at a stop, which fetches its own
         # view, or in a coast, whose destination goes to the network at
         # the release.
-        _maps_views.hold_motion(moving, passing=not (self.camera.flying()
-                                                     or self.camera.dragging()))
+        _views.hold_motion(moving, passing=not (self.camera.flying()
+                                                or self.camera.dragging()))
         # A view drawn from the world's own sources repaints
         # synchronously once they are warm: the frame is a few
         # hundredths of a second of arithmetic, and the alternative is
@@ -932,7 +932,7 @@ class MapApp(LiveApp):
     def stop(self):
         self._running = False   # the loop is over; let the ticker park
         self.camera.halt()
-        _maps_views.hold_motion(False)
+        _views.hold_motion(False)
         # tile workers are not daemons, so a queue of prefetched tiles
         # would be a wait between q and the shell
         _vtiles.shutdown()
@@ -957,9 +957,9 @@ def main():
     if args.zoom is None:
         args.zoom = style.DEFAULT_ZOOM[args.view]
 
-    if args.profile not in _maps_route.PROFILES:
+    if args.profile not in _route.PROFILES:
         print(f"maps: invalid profile '{args.profile}' — choose "
-              f"{', '.join(_maps_route.PROFILES)}", file=sys.stderr)
+              f"{', '.join(_route.PROFILES)}", file=sys.stderr)
         sys.exit(2)
 
     if args.search:
@@ -1026,11 +1026,11 @@ def main():
         start = (origin.lat, origin.lon) if origin else home
         if dest is not None:
             try:
-                found = _maps_route.route(args.profile, start,
-                                          (dest.lat, dest.lon))
-            except _maps_route.NoRoute:
+                found = _route.route(args.profile, start,
+                                     (dest.lat, dest.lon))
+            except _route.NoRoute:
                 note = ms('dir_none', runtime.lang)
-            except _maps_route.RouteUnavailable:
+            except _route.RouteUnavailable:
                 note = ms('dir_unavailable', runtime.lang)
         if fit:
             points = ([(la, lo) for lo, la in found.coords] if found is not None

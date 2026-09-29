@@ -508,7 +508,7 @@ class TestLabelToggle:
                                 None, borders)
         monkeypatch.setattr(maps, "_get_globe", lambda *a, **k: view)
         monkeypatch.setattr(maps, "get_terminal_size", lambda: (gw, hc + 2))
-        monkeypatch.setattr(maps._maps_places, "terrain_overlays",
+        monkeypatch.setattr(maps._places, "terrain_overlays",
                             lambda *a, **k: {})
         bbox = (-31.0, -42.5, -29.0, 82.5)
         args = (bbox, gw, hc, True, (0, 0), None, None, None, None,
@@ -539,7 +539,7 @@ class TestLabelToggle:
         monkeypatch.setattr(maps, "_get_elevation", lambda *a: terrain)
         # the names are the gazetteer's at every zoom now, and there is
         # no basemap left to cut for them
-        monkeypatch.setattr(maps._maps_places, "terrain_overlays",
+        monkeypatch.setattr(maps._places, "terrain_overlays",
                             lambda *a, **k: {})
         bbox = (-70.5, 43.5, -69.5, 44.5)
         args = (bbox, gw, hc, True, (0, 0), None, None, None, None,
@@ -616,9 +616,9 @@ class TestStreetRegister:
                             lambda *a, **k: self._view(gw, hc))
         monkeypatch.setattr(maps, "get_terminal_size",
                             lambda: (gw, hc + 2))
-        monkeypatch.setattr(maps._maps_places, "terrain_overlays",
+        monkeypatch.setattr(maps._places, "terrain_overlays",
                             lambda *a, **k: {})
-        monkeypatch.setattr(maps._maps_places, "street_overlays",
+        monkeypatch.setattr(maps._places, "street_overlays",
                             lambda *a, **k: {})
 
         def lights(*a, **k):

@@ -175,9 +175,9 @@ class TestTerrainStandInFrame:
         monkeypatch.setattr(maps, "_last_terrain",
                             [(BBOX, GW, HC, fill, None, None, None, None)])
         named = []
-        real = maps._maps_places.terrain_overlays
+        real = maps._places.terrain_overlays
         monkeypatch.setattr(
-            maps._maps_places, "terrain_overlays",
+            maps._places, "terrain_overlays",
             lambda cam, band, lang="en": named.append(cam) or real(
                 cam, band, lang))
         lines, _r, _h, loading, err = maps._render_terrain(
