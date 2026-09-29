@@ -242,6 +242,16 @@ class StationSearchTests(unittest.TestCase):
         self.assertEqual([m["source"] for m in matches], ["qld"])
         self.assertEqual(matches[0]["id"], matches[0]["name"])
 
+    def test_a_provider_that_raises_leaves_the_others_listed(self):
+        with patch.object(_tides_chs, "fetch_all_stations_chs",
+                          side_effect=TypeError("null in the list")):
+            with patch.object(_tides_noaa, "fetch_all_stations_noaa", return_value=self.NOAA), \
+                 patch.object(_tides_qld, "fetch_all_stations_qld", return_value=self.QLD), \
+                 patch.object(_tides_tidecheck, "is_available", return_value=False), \
+                 patch.object(tides, "resolve_location", return_value=(44.41, -70.03, "US")):
+                matches = tides._find_matching_stations("portland")
+        self.assertEqual([m["id"] for m in matches], ["8418150", "9439221"])
+
     def test_tidecheck_joins_the_pool_when_a_key_is_set(self):
         hit = [{"id": "fes2022-lisbon", "name": "Lisbon, Portugal",
                 "lat": 38.71, "lng": -9.14}]
@@ -392,6 +402,18 @@ class LocationRoutingTests(unittest.TestCase):
                                       ("noaa", f_noaa), ("tidecheck", f_tc))
                  if f.called]
         return picked, asked
+
+    def test_a_provider_that_raises_is_passed_over(self):
+        # the Open-Meteo model is the last resort, and still gets its turn
+        with patch.object(_tides_chs, "find_nearest_station_chs",
+                          side_effect=TypeError("null in the list")), \
+             patch.object(_tides_noaa, "find_nearest_station",
+                          side_effect=KeyError("id")), \
+             patch.object(_tides_tidecheck, "is_available", return_value=False), \
+             patch.object(_tides_openmeteo, "find_nearest_openmeteo",
+                          return_value=("om:45.2500,-66.0600", "Saint John")):
+            picked = tides._station_for_location(45.25, -66.06, "CA", label="Saint John")
+        self.assertEqual(picked, (OPENMETEO, "om:45.2500,-66.0600", "Saint John"))
 
     def test_us_goes_straight_to_noaa(self):
         picked, asked = self._route(43.68, -70.36, "US", noaa=("8418150", "PORTLAND"))

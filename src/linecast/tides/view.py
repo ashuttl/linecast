@@ -147,10 +147,18 @@ def _station_for_location(lat, lng, country_code, label=""):
     order.append(OPENMETEO)
 
     for provider in order:
-        if provider.stationless:
-            station_id, station_name = provider.nearest(lat, lng, label=label)
-        else:
-            station_id, station_name = provider.nearest(lat, lng)
+        # A provider that raises is passed over like one with no station
+        # in reach, so the ones after it, down to the global model, still
+        # get their turn.
+        try:
+            if provider.stationless:
+                station_id, station_name = provider.nearest(lat, lng, label=label)
+            else:
+                station_id, station_name = provider.nearest(lat, lng)
+        except Exception as exc:
+            log_failure(_provider_tag(provider), "nearest station", exc,
+                        fallback="next provider", trace=True)
+            continue
         if station_id is not None:
             return provider, station_id, plain_text(station_name)
     return None, None, None
@@ -339,7 +347,11 @@ def _find_matching_stations(query, cli_location=None):
 
     candidates = []
     for provider in PROVIDERS.values():
-        candidates.extend(provider.search(query, tokens))
+        try:
+            candidates.extend(provider.search(query, tokens))
+        except Exception as exc:
+            log_failure(_provider_tag(provider), "station search", exc,
+                        fallback="its stations left out", trace=True)
 
     here_lat, here_lng, _country = resolve_location(cli_location)
     for c in candidates:
