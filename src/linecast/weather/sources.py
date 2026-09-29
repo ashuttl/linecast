@@ -1799,8 +1799,10 @@ def _parse_jma(data, office_code, area, lang):
     severity_order = {"Extreme": 0, "Severe": 1, "Moderate": 2, "Minor": 3}
     alerts = []
     seen = set()
-    for code in sorted(active_codes, key=lambda c: severity_order.get(
-            _JMA_WARNING_NAMES.get(c, ("", "", "Minor"))[2], 3)):
+    # The codes are a set; within a severity, JMA's own numbering orders
+    # them, so the same warnings come out the same way every run.
+    for code in sorted(active_codes, key=lambda c: (severity_order.get(
+            _JMA_WARNING_NAMES.get(c, ("", "", "Minor"))[2], 3), c)):
         info = _JMA_WARNING_NAMES.get(code)
         if not info:
             continue

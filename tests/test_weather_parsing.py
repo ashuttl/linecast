@@ -457,6 +457,20 @@ class TestJMAAlerts:
         assert alerts[0]["headline"] == self.data["headlineText"]
         assert alerts[0]["description"] == self.data["headlineText"]
 
+    def test_warnings_of_one_severity_keep_a_steady_order(self):
+        # The active codes are gathered in a set, whose order follows the
+        # process's hash seed; sorted by severity alone, a run and the
+        # next listed the same watches differently.
+        from linecast.weather.sources import _fetch_alerts_jma
+        codes = ["19", "16", "15", "14", "13", "12", "10"]
+        data = {"headlineText": "", "reportDatetime": "", "areaTypes": [{"areas": [
+            {"code": "130010", "warnings": [{"code": c, "status": "発表"} for c in codes]}]}]}
+        with answering(data):
+            alerts = _fetch_alerts_jma(35.68, 139.76, lang="en")
+        assert [a["event"] for a in alerts] == [
+            "Heavy Rain Watch", "Heavy Snow Watch", "Wind Snow Watch", "Thunderstorm Watch",
+            "High Wind Watch", "High Wave Watch", "Storm Surge Watch"]
+
     def _alerts_with_urls(self, lat, lng, address=None, data=None):
         from linecast.weather import sources as ws
         urls = []

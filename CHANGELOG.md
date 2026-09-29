@@ -38,6 +38,7 @@ Fixes:
   - Fixed the daily forecast's rain hover saying "through the day" for a day with showers in the small hours and again at night but dry between; it gives the hours they fall between.
   - Fixed alert times on the 12-hour clock leaving out the minutes, so that a warning in force until 3:45pm read "until 3pm". In Greek they are written in words, as in the forecast.
   - Fixed alerts in Canada showing no times with Python 3.10.
+  - Fixed Japanese warnings of the same severity changing places from one run to the next; they keep a steady order.
   - Fixed temperatures just below zero showing as "-0°".
   - Fixed the year view, when the year's past days could not be fetched, drawing each month as though no rain had fallen, and comparing one day's rain in the header with the average for the whole year so far. It leaves both out until the days come.
   - Fixed the year view's label for the average in Thai, "ค่าปกติ", losing its tone mark.
