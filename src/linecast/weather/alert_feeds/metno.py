@@ -23,7 +23,7 @@ def _parse_metno(data):
     """MET Norway's features as normalized alerts, one per event."""
     alerts = []
     seen = set()
-    for feature in data.get("features", []):
+    for feature in data.get("features") or []:
         props = feature.get("properties") or {}
         event = (props.get("event") or "").capitalize()
         severity = props.get("severity") or ""

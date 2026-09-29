@@ -210,7 +210,7 @@ def search_stations_tidecheck(query: str) -> list[dict[str, Any]]:
         return []
 
     # The API returns a bare list; keep the wrapped shape as a fallback
-    stations = data if isinstance(data, list) else data.get("stations", [])
+    stations = data if isinstance(data, list) else (data.get("stations") or [])
     results = []
     for s in stations:
         sid = str(s.get("id", ""))
@@ -247,7 +247,7 @@ def fetch_station_metadata_tidecheck(station_id: str) -> dict[str, Any] | None:
     if not data:
         return None
 
-    station = data.get("station", {})
+    station = data.get("station") or {}
     tz_code = station.get("timezone", "")
 
     meta = {
@@ -349,7 +349,7 @@ def fetch_hilo_range_tidecheck(
     if not data:
         return []
 
-    extremes = data.get("extremes", [])
+    extremes = data.get("extremes") or []
     if not extremes:
         return []
 
@@ -401,7 +401,7 @@ def fetch_y_range_tidecheck(station_id: str, center_date: date,
         if not data:
             return None
         found = []
-        extremes = data.get("extremes", [])
+        extremes = data.get("extremes") or []
         bad = None
         for ex in extremes:
             try:

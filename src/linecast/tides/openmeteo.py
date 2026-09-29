@@ -77,9 +77,9 @@ def _series(data, station_tz):
     """Parse a raw payload to a sorted [(aware_local_dt, height_ft)] list."""
     if not data or not isinstance(data, dict):
         return []
-    hourly = data.get("hourly", {})
-    times = hourly.get("time", [])
-    heights = hourly.get("sea_level_height_msl", [])
+    hourly = data.get("hourly") or {}
+    times = hourly.get("time") or []
+    heights = hourly.get("sea_level_height_msl") or []
     # Open-Meteo stamps the whole response in the zone's offset at the
     # moment of the request, so the hours past a clock change carry the
     # wrong one: each is read as the instant it names, then put on the

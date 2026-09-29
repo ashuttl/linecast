@@ -80,8 +80,8 @@ def _parse(feature_collection):
     when the product carries them.
     """
     out = []
-    for ft in feature_collection.get("features", ()):
-        props = ft.get("properties", {})
+    for ft in feature_collection.get("features") or ():
+        props = ft.get("properties") or {}
         phen = props.get("phenomena")
         if props.get("significance") != "W" or phen not in WARNING_COLORS:
             continue

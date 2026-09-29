@@ -67,11 +67,11 @@ def fetch_station_metadata_noaa(station_id: str) -> dict[str, Any] | None:
 
 def _station_meta(data, station_id):
     """mdapi's answer for a station, as the metadata the view reads."""
-    stations = data.get("stations", [])
+    stations = data.get("stations") or []
     if not stations:
         raise LookupError(f"no station {station_id} in the answer")
     station = stations[0]
-    details = station.get("details", {})
+    details = station.get("details") or {}
     return {
         "id": str(station.get("id", station_id)),
         "name": station.get("name", ""),
@@ -163,7 +163,7 @@ def _prediction_rows(data, row_builder):
     answer, and raising keeps it out of the cache, where it would be
     served as fresh for the next 24 hours.
     """
-    predictions = data.get("predictions", [])
+    predictions = data.get("predictions") or []
     if not predictions:
         error = data.get("error") or {}
         raise ValueError(error.get("message") or "no predictions in the answer")
@@ -264,7 +264,7 @@ def _station_list(data):
     """The stations in mdapi's answer. An answer with none in it is not
     the list: raising keeps it out of the cache, where it would say "no
     station anywhere" for a month."""
-    stations = data.get("stations", [])
+    stations = data.get("stations") or []
     if not stations:
         raise ValueError("no stations in the answer")
     return stations
@@ -374,7 +374,7 @@ def fetch_y_range(station_id: str, center_date: date) -> tuple[float, float] | N
                         fallback="auto-scaled axis")
             return None
         found = []
-        rows = data.get("predictions", []) if data else []
+        rows = (data.get("predictions") or []) if data else []
         bad = None
         for prediction in rows:
             try:

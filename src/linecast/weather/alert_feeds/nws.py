@@ -16,7 +16,7 @@ def fetch(lat, lng, lang="en", address=None):
 
 def _parse_nws(data):
     """NWS's GeoJSON as normalized alerts, actual ones only."""
-    features = data.get("features", [])
+    features = data.get("features") or []
     alerts = []
     for feature in features:
         props = feature.get("properties") or {}

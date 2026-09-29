@@ -18,7 +18,7 @@ def _parse_brightsky(data, lang):
     # Prefer user's language, fall back to English, then German
     prefer_de = lang == "de"
     alerts = []
-    for a in data.get("alerts", []):
+    for a in data.get("alerts") or []:
         severity = (a.get("severity") or "").capitalize()
         if prefer_de:
             event = a.get("event_de") or a.get("event_en") or ""

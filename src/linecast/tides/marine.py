@@ -91,7 +91,7 @@ def parse_marine_current(data: dict[str, Any] | None, target_dt: datetime | None
     if not hourly:
         return None
 
-    times = hourly.get("time", [])
+    times = hourly.get("time") or []
     if not times:
         return None
 
@@ -113,7 +113,7 @@ def parse_marine_current(data: dict[str, Any] | None, target_dt: datetime | None
             best_idx = i
 
     def _val(key):
-        arr = hourly.get(key, [])
+        arr = hourly.get(key) or []
         if best_idx < len(arr):
             return arr[best_idx]
         return None

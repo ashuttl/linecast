@@ -32,7 +32,7 @@ def _parse_eccc(data, lang):
     text_key = f"alert_text_{lang}"
     text_fallback = "alert_text_en" if lang != "en" else "alert_text_fr"
 
-    features = data.get("features", [])
+    features = data.get("features") or []
     alerts = []
     seen_events = set()  # deduplicate by event name
     for feature in features:

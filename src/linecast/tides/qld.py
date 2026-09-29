@@ -170,7 +170,7 @@ def _gauges(data):
     if not data or not isinstance(data, dict):
         raise ValueError("package_search answered with no result")
     stations = []
-    for pkg in data.get("result", {}).get("results", []):
+    for pkg in (data.get("result") or {}).get("results") or []:
         pkg_name = pkg.get("name", "")
         if not pkg_name.endswith(GAUGE_PKG_SUFFIX):
             continue
@@ -180,7 +180,7 @@ def _gauges(data):
         # Data resources are named "<year>—<gauge> ..."; only those
         # loaded into the datastore can be queried.
         years = {}
-        for res in pkg.get("resources", []):
+        for res in pkg.get("resources") or []:
             m = re.match(r"\s*(\d{4})\b", res.get("name") or "")
             if m and res.get("datastore_active") and res.get("id"):
                 years[m.group(1)] = res["id"]
@@ -373,7 +373,7 @@ def _search_datastore(resource_id, dates, fields, limit, timeout=20):
     data = fetch_json(url, timeout=timeout)
     if not data or not isinstance(data, dict):
         return []
-    return data.get("result", {}).get("records", [])
+    return (data.get("result") or {}).get("records") or []
 
 
 def _fetch_pred_chunk(station_name, start_date, end_date):

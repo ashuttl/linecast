@@ -38,7 +38,7 @@ def fetch(lat, lng, lang="en", address=None, *, slug):
 
 def _parse_meteoalarm(data, lat, lng, lang, address):
     """A MeteoAlarm country feed's warnings for the place, normalized."""
-    warnings = data.get("warnings", [])
+    warnings = data.get("warnings") or []
     per_warning_descs = [
         [area.get("areaDesc") or ""
          for info in (w.get("alert") or {}).get("info") or []
