@@ -532,8 +532,8 @@ class TestMoonSnapshot:
         with patch("linecast.moon.disc.time.monotonic",
                    return_value=turn._settle[2] + Turn.SETTLE * 1.01):
             assert turn.matrix() is None
-        turn._ticker.join(timeout=2.0)
-        assert not turn._ticker.is_alive()
+        turn._ticker.thread.join(timeout=2.0)
+        assert not turn._ticker.thread.is_alive()
 
     def test_a_drag_mid_settle_picks_the_disc_up_where_it_is(self):
         from linecast.moon.disc import Turn, _axis_angle

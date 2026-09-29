@@ -23,7 +23,7 @@ from linecast.maps import style
 from linecast.maps import ui
 from linecast.maps import loaders as _loaders
 from linecast._geo import angle_delta, wrap_lon
-from linecast.terminal.live import LiveApp, nudge as _nudge_repaint, print_frame
+from linecast.terminal.live import LiveApp, Ticker, nudge as _nudge_repaint, print_frame
 from linecast._location import country_for_defaults, resolve_location
 from linecast.maps.i18n import ms
 from linecast.maps.motion import Flight, ease_in_out, lon_span
@@ -44,7 +44,6 @@ from linecast.maps.view import (
 )
 
 
-TICK = 1 / 30             # seconds between the ticker's nudges
 ZOOM_EASE = 0.28          # seconds for a zoom step or a key pan to land
 COAST_HALF_LIFE = 0.22    # seconds for a flick's speed to halve
 COAST_REACH = COAST_HALF_LIFE / math.log(2.0)   # a coast's whole run, in
@@ -462,9 +461,8 @@ class MapApp(LiveApp):
             self.routes.set_origin(origin.lat, origin.lon, origin.name)
         if dest is not None:
             self.routes.select(dest.lat, dest.lon, dest.name)
-        self._ticker = None
-        self._lock = threading.Lock()
-        self._running = True
+        # wakes the loop while the camera moves of its own accord
+        self._ticker = Ticker(lambda: self.camera.moving())
         self._help = None          # the loop's help panel, once it is made
         self._destination = None   # a flight's end, until it is asked for
         self._fit()
@@ -511,28 +509,7 @@ class MapApp(LiveApp):
         cam.zoom_max = max_zoom(gw, hc)
         return gw, hc
 
-    # -- the ticker ------------------------------------------------------
-    def _wake(self):
-        """Start the ticker, if something is moving and it is not up."""
-        with self._lock:
-            if self._ticker is None or not self._ticker.is_alive():
-                self._ticker = threading.Thread(target=self._tick, daemon=True)
-                self._ticker.start()
-
-    def _tick(self):
-        """Wake the loop thirty times a second while the camera moves.
-
-        It asks for frames rather than making them: the loop holds each
-        one until the terminal says it read the last, so a terminal
-        that cannot keep up simply gets fewer, and a nudge that arrives
-        during the wait is absorbed into the frame already coming.
-        """
-        while self._running:
-            time.sleep(TICK)
-            _nudge_repaint()
-            if not self.camera.moving():
-                return
-
+    # -- the sky's heartbeat ---------------------------------------------
     def cloud_tick(self):
         """The sky's slow heartbeat.
 
@@ -576,7 +553,7 @@ class MapApp(LiveApp):
         if wide_source(self.camera.lat, heading, gw, hc):
             warm_globe_texture(heading, hc, self.view == "street")
         if self.camera.moving():
-            self._wake()
+            self._ticker.start()
         return True
 
     def on_action(self, key):
@@ -586,7 +563,7 @@ class MapApp(LiveApp):
                           's': (0, -hc * PAN_STEP),
                           'd': (-gw * PAN_STEP, 0)}[key]
             self.camera.pan_by(dcol, drow)
-            self._wake()
+            self._ticker.start()
             return True
         if key == '+':
             return self.zoom_to(self.camera.zoom_heading() / ZOOM_STEP)
@@ -619,7 +596,7 @@ class MapApp(LiveApp):
                     or not globe_warm(self.zoom, hc, self.view == "street")):
                 return False
             self.camera.spin(True)
-            self._wake()
+            self._ticker.start()
             return False  # the first tick is the repaint
         return False
 
@@ -659,7 +636,7 @@ class MapApp(LiveApp):
     def _fly(self, lat, lon, zoom):
         if self.camera.fly_to(lat, lon, zoom):
             self._destination = self.camera.destination()
-            self._wake()
+            self._ticker.start()
 
     def _prefetch_if_descending(self):
         """Ask for the destination once the flight is over the top.
@@ -827,7 +804,7 @@ class MapApp(LiveApp):
                 cam.release()
                 if cam.moving():
                     self._prefetch_coast()
-                    self._wake()
+                    self._ticker.start()
                 return bool(moved)
             self._dragged = True
             return cam.drag(dcol, drow)
@@ -842,7 +819,7 @@ class MapApp(LiveApp):
         cam.release()
         if cam.moving():
             self._prefetch_coast()
-            self._wake()
+            self._ticker.start()
         return bool(changed or had_preview)
 
     def text_mode(self):
@@ -932,7 +909,7 @@ class MapApp(LiveApp):
         super().run()
 
     def stop(self):
-        self._running = False   # the loop is over; let the ticker park
+        self._ticker.stop()   # the loop is over; let the ticker park
         self.camera.halt()
         _loaders.hold_motion(False)
         # tile workers are not daemons, so a queue of prefetched tiles

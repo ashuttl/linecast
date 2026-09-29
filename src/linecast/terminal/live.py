@@ -619,6 +619,53 @@ def nudge():
     _term.nudge()
 
 
+class Ticker:
+    """A thread that wakes the live loop thirty times a second while
+    something on screen is in motion: a disc settling, a flick coasting,
+    a zoom easing in, a clock running.
+
+    It asks for frames rather than making them: the loop holds each one
+    until the terminal says it read the last, so a terminal that cannot
+    keep up simply gets fewer, and a wakeup that arrives during the wait
+    is absorbed into the frame already coming.  The motion is timed off
+    the clock, so fewer frames never make it slower.
+
+    After each wait `step()` runs, then the wakeup goes out.  The step
+    moves on whatever runs off the ticker itself, and says whether
+    anything is still in motion; the wakeup after the step that says
+    not draws the rest, and the thread ends with it.  start() goes with
+    every change that sets something moving, and does nothing while the
+    thread runs; stop() parks the thread for good at its next wakeup.
+    """
+
+    INTERVAL = 1 / 30   # seconds between wakeups
+
+    def __init__(self, step):
+        self.step = step
+        self.thread = None
+        self._lock = threading.Lock()
+        self._stopped = False
+
+    def start(self):
+        """Run the ticker, unless it is running already."""
+        with self._lock:
+            if self.thread is None or not self.thread.is_alive():
+                self.thread = threading.Thread(target=self.run, daemon=True)
+                self.thread.start()
+
+    def stop(self):
+        """The loop is over: end the thread at its next wakeup."""
+        self._stopped = True
+
+    def run(self):
+        while not self._stopped:
+            _time.sleep(self.INTERVAL)
+            moving = self.step()
+            nudge()
+            if not moving:
+                return
+
+
 def live_loop(render_fn, interval=60, mouse=False, on_open=None, scroll_step=15,
               auto_play=False, play_interval=0.6, on_action=None, on_drag=None,
               intercept=None, play_gate=None, on_wheel=None, text_mode=None,

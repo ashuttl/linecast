@@ -16,7 +16,6 @@ horizon and it eases back with a small overshoot, the moon's settle.
 """
 
 import math
-import threading
 import time
 
 from linecast._geo import angle_delta
@@ -36,7 +35,6 @@ from linecast.sky.search import (
     SkySearch, Target, describe_rising, next_rising, search_overlay,
 )
 
-TICK = 1 / 30
 ZOOM_STEP = 1.32          # per + or - press
 ZOOM_EASE = 0.28          # seconds for a zoom to land
 SETTLE = 0.7              # seconds to ease back from past the edge
@@ -259,8 +257,7 @@ class SkyApp(LiveApp):
         self.played = 0.0           # seconds added by play
         self.speed = None           # seconds per second while playing
         self._play_mark = None      # monotonic time of the last play step
-        self._ticker = None
-        self._lock = threading.Lock()
+        self._ticker = _live.Ticker(self._step)
         cols, rows = get_terminal_size()
         from datetime import timezone
         now = now_fn()
@@ -278,24 +275,15 @@ class SkyApp(LiveApp):
         return int(round(self.minutes + self.played / 60.0))
 
     # -- the ticker ------------------------------------------------------
-    def _wake(self):
-        """Start the ticker if anything is moving and it is not running."""
-        with self._lock:
-            if self._ticker is None or not self._ticker.is_alive():
-                self._ticker = threading.Thread(target=self._tick, daemon=True)
-                self._ticker.start()
-
-    def _tick(self):
-        while True:
-            time.sleep(TICK)
-            if self.speed is not None:
-                now = time.monotonic()
-                if self._play_mark is not None:
-                    self.played += (now - self._play_mark) * self.speed
-                self._play_mark = now
-            _live.nudge()
-            if self.speed is None and not self.camera.moving():
-                return
+    def _step(self):
+        """The ticker's step: the clock runs on while playing.  Whether
+        the clock or the camera is still moving."""
+        if self.speed is not None:
+            now = time.monotonic()
+            if self._play_mark is not None:
+                self.played += (now - self._play_mark) * self.speed
+            self._play_mark = now
+        return self.speed is not None or self.camera.moving()
 
     # -- search ----------------------------------------------------------
     def scene_at(self, moment):
@@ -311,7 +299,7 @@ class SkyApp(LiveApp):
             self.camera.fly_to(az, alt)
             self.camera.zoom_to(target.fov(self.camera.fov))
             self.search.close()
-            self._wake()
+            self._ticker.start()
             return True
         rising = next_rising(target, self.scene_at, now)
         self.search.note = describe_rising(target, rising, self.runtime, self.culture)
@@ -330,7 +318,7 @@ class SkyApp(LiveApp):
         self.camera.fly_to(az, max(alt, 8.0))
         self.camera.zoom_to(target.fov(self.camera.fov))
         self.search.close()
-        self._wake()
+        self._ticker.start()
         return True
 
     # -- the tradition ---------------------------------------------------
@@ -424,7 +412,7 @@ class SkyApp(LiveApp):
                 self.speed = SPEEDS[i] if i < len(SPEEDS) else None
             self._play_mark = time.monotonic() if self.speed is not None else None
             if self.speed is not None:
-                self._wake()
+                self._ticker.start()
             return True
         elif key == "m":
             from datetime import timezone
@@ -439,7 +427,7 @@ class SkyApp(LiveApp):
         else:
             return False
         if changed:
-            self._wake()
+            self._ticker.start()
         return changed
 
     def on_drag(self, dcol, drow, done):
@@ -448,7 +436,7 @@ class SkyApp(LiveApp):
         if done:
             moved = self.camera.release()
             if self.camera.moving():
-                self._wake()
+                self._ticker.start()
             return moved
         return self.camera.drag(dcol, drow)
 

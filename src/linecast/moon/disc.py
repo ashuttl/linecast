@@ -5,7 +5,6 @@ and the sky view where the Moon stands.
 """
 
 import math
-import threading
 import time
 
 from linecast.terminal import live as _live
@@ -110,13 +109,12 @@ class Turn:
     surface follows the pointer, so a drag the length of the radius is
     about a radian, and the far side comes round the limb. Letting go
     eases it back to the face it really shows, with a small overshoot.
-    While it settles, a thread wakes the live loop for the frames; the
+    While it settles, a ticker wakes the live loop for the frames; the
     frames themselves are timed, so a slow terminal drops some rather
     than dragging the settle out.
     """
 
     SETTLE = 0.7   # seconds from release to rest
-    TICK = 1 / 30  # wakeups per second while settling
 
     def __init__(self):
         self.radius = 40.0    # the disc's radius in cells, from the last render
@@ -124,7 +122,7 @@ class Turn:
         self._base = None     # orientation when the drag began
         self._held = None     # orientation under the pointer, mid-drag
         self._settle = None   # (axis, angle, started) after a release
-        self._ticker = None
+        self._ticker = _live.Ticker(self._settling)
 
     def drag(self, dcol, drow):
         """The pointer has moved this far, in cells, since the press."""
@@ -151,9 +149,7 @@ class Turn:
         if angle < 1e-3:
             return True
         self._settle = (axis, angle, time.monotonic())
-        if self._ticker is None or not self._ticker.is_alive():
-            self._ticker = threading.Thread(target=self._tick, daemon=True)
-            self._ticker.start()
+        self._ticker.start()
         return True
 
     def matrix(self):
@@ -169,15 +165,11 @@ class Turn:
             return None
         return _rotation(axis, angle * (1.0 - ease_out_back(s)))
 
-    def _tick(self):
-        while True:
-            settle = self._settle
-            if settle is None:
-                return
-            time.sleep(self.TICK)
-            _live.nudge()
-            if time.monotonic() >= settle[2] + self.SETTLE:
-                return   # that wakeup draws the disc at rest
+    def _settling(self):
+        """The ticker's step: whether a settle is still under way.  The
+        wakeup after the last one draws the disc at rest."""
+        settle = self._settle   # once: a drag may clear it meanwhile
+        return settle is not None and time.monotonic() < settle[2] + self.SETTLE
 
 
 _IDENTITY = (1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0)

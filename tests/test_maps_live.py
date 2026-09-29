@@ -27,6 +27,7 @@ from linecast.maps.motion import lon_span
 from linecast.maps.search import Result
 from linecast._xyz import bbox_for
 from linecast.maps.view import MAX_ZOOM_DEG, MIN_ZOOM_DEG, ZOOM_STEP
+from linecast.terminal import live as _live
 
 COLS, ROWS = 100, 42
 GW, HC = COLS, ROWS - 2
@@ -74,6 +75,9 @@ def _quiet(monkeypatch):
                                  Lock=threading.Lock)
     monkeypatch.setattr(_maps_live, "threading", fake)
     monkeypatch.setattr(ui, "threading", fake)
+    # the camera's ticker; a note's timer stays real
+    monkeypatch.setattr(_live, "threading", types.SimpleNamespace(
+        Thread=FakeThread, Timer=threading.Timer, Lock=threading.Lock))
     monkeypatch.setattr(maps, "get_terminal_size", lambda: (COLS, ROWS))
     monkeypatch.setattr(_globe, "warm", lambda zoom, h: False)
     monkeypatch.setattr(globe_texture, "ready", lambda *a, **k: False)
@@ -243,8 +247,8 @@ class TestZoom:
         assert app.zoom_to(flat)
         assert app.zoom == flat * 4 and app.camera.moving()
         assert settle(app)[2] == flat
-        assert [t.target for t in FakeThread.started] == [app._tick,
-                                                          app._tick]
+        assert [t.target for t in FakeThread.started] == [app._ticker.run,
+                                                          app._ticker.run]
 
     def test_an_anchored_street_zoom_toward_the_globe_eases_too(self):
         # anchored at the bottom row, a zoom out carries the centre
@@ -288,7 +292,7 @@ class TestZoom:
         app.zoom_to(2.0)
         app.zoom_to(2.0)
         assert held == [1]
-        assert [t.target for t in FakeThread.started] == [app._tick]
+        assert [t.target for t in FakeThread.started] == [app._ticker.run]
 
     def test_a_globe_zoom_asks_for_the_level_it_is_heading_for(self,
                                                               monkeypatch):
@@ -389,7 +393,7 @@ class TestKeys:
         monkeypatch.setattr(_globe, "warm", lambda zoom, h: h == HC * 4)
         assert app.on_action('r') is False
         assert app.camera.spinning and app.camera.moving()
-        assert FakeThread.started[-1].target == app._tick
+        assert FakeThread.started[-1].target == app._ticker.run
 
     def test_the_spin_turns_the_planet_a_degree_a_second(self, monkeypatch):
         monkeypatch.setattr(_globe, "warm", lambda zoom, h: True)
@@ -513,7 +517,7 @@ class TestDrag:
         assert app.on_drag(-10, 0, True)
         lon_at_release = app.lon
         assert app.camera.moving()
-        assert [t.target for t in FakeThread.started] == [app._tick]
+        assert [t.target for t in FakeThread.started] == [app._ticker.run]
         clock.advance(0.1)
         _lat, lon_soon, _zoom = app.camera.view()
         assert lon_soon > lon_at_release
@@ -1102,41 +1106,39 @@ class TestCamera:
 class TestTicker:
     def test_the_ticker_wakes_the_loop_and_stops_at_rest(self, monkeypatch):
         woke = []
-        monkeypatch.setattr(_maps_live, "_nudge_repaint",
-                            lambda: woke.append(1))
-        monkeypatch.setattr(_maps_live.time, "sleep", lambda s: None)
+        monkeypatch.setattr(_live, "nudge", lambda: woke.append(1))
+        monkeypatch.setattr(_live.Ticker, "INTERVAL", 0)
         app = make(zoom=1.0)
         app.zoom_to(2.0)
         # the camera is moving, so the ticker keeps asking; once a
         # frame has advanced it past the ease, the next tick returns
         app.camera.clock.advance(ZOOM_EASE + 0.01)
         app.camera.view()
-        app._tick()
+        app._ticker.run()
         assert woke == [1] and not app.camera.moving()
 
     def test_the_ticker_parks_when_a_hand_takes_the_map(self, monkeypatch):
         # a drag repaints on its own events; the ticker would only
         # send the same frame again between them
         woke = []
-        monkeypatch.setattr(_maps_live, "_nudge_repaint",
-                            lambda: woke.append(1))
-        monkeypatch.setattr(_maps_live.time, "sleep", lambda s: None)
+        monkeypatch.setattr(_live, "nudge", lambda: woke.append(1))
+        monkeypatch.setattr(_live.Ticker, "INTERVAL", 0)
         app = make(zoom=1.0)
         app.zoom_to(2.0)
         app.on_drag(1, 0, False)
-        app._tick()
+        app._ticker.run()
         assert woke == [1] and app.camera.dragging()
 
     def test_the_ticker_is_started_once_while_it_lives(self, monkeypatch):
         app = make(zoom=1.0)
         live = [True]
-        monkeypatch.setattr(app, "_ticker",
+        monkeypatch.setattr(app._ticker, "thread",
                             types.SimpleNamespace(is_alive=lambda: live[0]))
         app.zoom_to(2.0)
         assert FakeThread.started == []     # one is already up
         live[0] = False
         app.zoom_to(4.0)
-        assert [t.target for t in FakeThread.started] == [app._tick]
+        assert [t.target for t in FakeThread.started] == [app._ticker.run]
 
 
 class TestMapCells:

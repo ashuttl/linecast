@@ -649,7 +649,7 @@ class TestCamera:
         clock = [0.0]
         monkeypatch.setattr(live.time, 'monotonic', lambda: clock[0])
         wakes = []
-        monkeypatch.setattr(live.SkyApp, '_wake', lambda self: wakes.append(True))
+        monkeypatch.setattr(live._live.Ticker, 'start', lambda self: wakes.append(True))
         app = live.SkyApp(lambda: NIGHT, LAT, LNG, _runtime(live=True))
         app.camera = cam = live.Camera(180, 30, 100)
         assert app.intercept('key:' + key) is False
@@ -721,7 +721,7 @@ class TestCamera:
 
     def test_stop_cancels_keyboard_motion(self, monkeypatch):
         from linecast.sky import live
-        monkeypatch.setattr(live.SkyApp, '_wake', lambda self: None)
+        monkeypatch.setattr(live._live.Ticker, 'start', lambda self: None)
         app = live.SkyApp(lambda: NIGHT, LAT, LNG, _runtime(live=True))
         app.on_action('d')
         app.stop()

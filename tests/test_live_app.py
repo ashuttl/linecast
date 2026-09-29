@@ -200,3 +200,58 @@ class TestBusyToast:
             assert 1 <= int(row) <= rows
             assert 1 <= int(col) <= cols
             assert int(col) - 1 + visible_len(text) <= cols
+
+
+class TestTicker:
+    """The ticker the maps camera, the sky and the moon's disc share."""
+
+    @pytest.fixture
+    def woke(self, monkeypatch):
+        woke = []
+        monkeypatch.setattr(_live, 'nudge', lambda: woke.append('wake'))
+        monkeypatch.setattr(_live.Ticker, 'INTERVAL', 0)
+        return woke
+
+    def test_each_step_comes_before_its_wakeup(self, woke):
+        # the step moves the clock on, so the frame it wakes shows it
+        steps = iter([True, True, False])
+        ticker = _live.Ticker(lambda: woke.append('step') or next(steps))
+        ticker.run()
+        assert woke == ['step', 'wake'] * 3
+
+    def test_the_wakeup_after_the_motion_ends_still_goes_out(self, woke):
+        # that frame is the one drawn at rest
+        _live.Ticker(lambda: False).run()
+        assert woke == ['wake']
+
+    def test_stop_parks_it_for_good(self, woke):
+        ticker = _live.Ticker(lambda: True)
+        ticker.stop()
+        ticker.run()
+        assert woke == []
+
+    def test_start_runs_one_thread_at_a_time(self, monkeypatch):
+        started = []
+
+        class Thread:
+            def __init__(self, target, daemon):
+                started.append(target)
+                self.alive = True
+
+            def start(self):
+                pass
+
+            def is_alive(self):
+                return self.alive
+
+        import threading
+        from types import SimpleNamespace
+        monkeypatch.setattr(_live, 'threading', SimpleNamespace(
+            Thread=Thread, Lock=threading.Lock))
+        ticker = _live.Ticker(lambda: True)
+        ticker.start()
+        ticker.start()
+        assert started == [ticker.run]
+        ticker.thread.alive = False
+        ticker.start()
+        assert started == [ticker.run, ticker.run]
