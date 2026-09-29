@@ -26,7 +26,7 @@ from linecast.sky.view import (
     focal_length, render,
 )
 from linecast.terminal.framebuffer import cell_aspect, get_terminal_size
-from linecast._i18n import GEOCODER_UNTRANSLATED, lang_of
+from linecast._i18n import lang_of
 from linecast.sky.picker import CulturePicker, picker_overlay
 from linecast.sky.search import (
     SkySearch, Target, describe_rising, next_rising, search_overlay,
@@ -482,10 +482,5 @@ def place_name(lat, lng, override, lang="en"):
                 override, lang=lang, return_label=True)
     except SystemExit:
         label = ""
-    if not label or lang in GEOCODER_UNTRANSLATED:
-        try:
-            from linecast._geocode import reverse_geocode
-            label = reverse_geocode(lat, lng, lang=lang)[0] or label
-        except Exception:
-            pass
-    return label.split(",")[0].strip() or f"{lat:.2f},{lng:.2f}"
+    from linecast._geocode import place_label
+    return place_label(lat, lng, label, lang).split(",")[0].strip() or f"{lat:.2f},{lng:.2f}"

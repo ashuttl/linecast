@@ -42,7 +42,7 @@ from linecast.terminal.theme import (
     surface_bg,
 )
 from linecast._geo import haversine_nm
-from linecast._i18n import GEOCODER_UNTRANSLATED, fmt_decimal
+from linecast._i18n import fmt_decimal
 from linecast._location import country_for_defaults, resolve_location
 from linecast._plaintext import plain_text
 from linecast._runtime import TidesRuntime, current_runtime, install_banner, set_current
@@ -1326,16 +1326,9 @@ def main():
             if lat is None:
                 print("Could not determine location for tide station lookup.", file=sys.stderr)
                 sys.exit(1)
-            if resolved_label and runtime.lang in GEOCODER_UNTRANSLATED:
-                # The label is English there; Nominatim's name, when it
-                # has one, reads better.
-                try:
-                    from linecast._geocode import reverse_geocode
-                    resolved_label = (reverse_geocode(lat, lng, lang=runtime.lang)[0]
-                                      or resolved_label)
-                except Exception as exc:
-                    log_failure("location/geocoder", "place name", exc,
-                                fallback="the geocoder's label")
+            if resolved_label:
+                from linecast._geocode import place_label
+                resolved_label = place_label(lat, lng, resolved_label, runtime.lang)
 
             # Re-resolve the runtime a cold cache made countryless.
             own = country_for_defaults(args.location, country_code, lat, lng)

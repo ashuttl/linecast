@@ -993,12 +993,8 @@ def main():
         runtime = RuntimeConfig.from_sources(args, country=own)
         set_current(runtime)
 
-    if not location_name:
-        try:
-            from linecast._geocode import reverse_geocode
-            location_name = reverse_geocode(lat, lon, lang=runtime.lang)[0] or ""
-        except Exception:
-            location_name = ""
+    from linecast._geocode import place_label
+    location_name = place_label(lat, lon, location_name, runtime.lang)
 
     # --to and --from resolve through the map's own geocoders, never
     # the weather one: that is settlement-level only and exits the

@@ -100,6 +100,7 @@ Fixes:
   - Fixed `LC_ALL=C` being passed over for the language in `LANG`, such as German with `LANG=de_DE.UTF-8`; linecast speaks English under it, as other programs do.
   - Fixed a list of languages in `LANGUAGE`, as some Linux desktops set it, leaving linecast in English when the first language on it is one linecast does not speak. It reads down the list, as other programs do: `ca:es` is Spanish.
   - Fixed `linecast language` refusing `zh_Hant`, and a region given in numbers, such as `es-419` for Latin American Spanish, which `--lang` takes.
+  - Fixed a place given with `--location` being named in English in Traditional Chinese in the sunshine, moon, radar, and maps views; they name it in Chinese where the map has a name for it, as weather, tides, and sky do.
 - Location:
   - Fixed `--location`, `--to`, `--from`, and `linecast location set` refusing coordinates that start with a minus sign, such as `-33.87,151.21` for Sydney, with Python 3.13 and older.
   - Fixed the moon, sunshine, and sky views saying "Could not determine location" when offline, once an hour had passed since linecast last found where the machine is; with no location saved, they use the last place found.

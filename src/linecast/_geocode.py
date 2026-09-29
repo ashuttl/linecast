@@ -13,7 +13,9 @@ import sys
 
 from linecast._cache import read_cache, write_cache
 from linecast._http import fetch_json
-from linecast._i18n import accept_language, base_language, geocoder_language
+from linecast._i18n import (
+    GEOCODER_UNTRANSLATED, accept_language, base_language, geocoder_language,
+)
 from linecast._log import log_failure
 from linecast._paths import cache_dir
 from linecast._plaintext import plain_text
@@ -99,6 +101,24 @@ def reverse_geocode(lat, lng, lang=None):
         "address": addr,
     })
     return display, country, addr
+
+
+def place_label(lat, lng, label, lang):
+    """The name a view shows for a place.
+
+    *label* is the forward geocoder's name for a place typed with
+    --location, which names what was asked for.  Without one, or in a
+    language the forward geocoder has no names in (GEOCODER_UNTRANSLATED),
+    Nominatim names the coordinates in *lang*, and *label* stands when
+    it has no name.  "" when neither has one; the view says how to show
+    that."""
+    if label and lang not in GEOCODER_UNTRANSLATED:
+        return label
+    try:
+        return reverse_geocode(lat, lng, lang=lang)[0] or label or ""
+    except Exception as exc:
+        log_failure("location/geocoder", "place name", exc, fallback="the typed label")
+        return label or ""
 
 
 def plain_values(mapping):

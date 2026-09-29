@@ -557,15 +557,8 @@ def main():
     # Both views name the place in a corner. The forward geocoder already
     # labeled a place-name override; otherwise the (cached) reverse
     # geocoder names the coordinates, as radar does.
-    location_label = label
-    if not location_label:
-        try:
-            from linecast._geocode import reverse_geocode
-            location_label = reverse_geocode(
-                lat, lng, lang=runtime.lang)[0] or ""
-        except Exception:
-            location_label = ""
-    location_label = (location_label.split(",")[0].strip()
+    from linecast._geocode import place_label
+    location_label = (place_label(lat, lng, label, runtime.lang).split(",")[0].strip()
                       or f"{lat:.2f},{lng:.2f}")
 
     # Day and year keep separate scrub offsets, so flipping between them

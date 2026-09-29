@@ -43,7 +43,7 @@ from linecast.terminal.color import lerp
 from linecast.terminal.textwidth import visible_len
 from linecast.terminal.framebuffer import get_terminal_size, cell_aspect, Framebuffer
 from linecast.terminal.live import live_loop
-from linecast._i18n import fmt_decimal, fmt_duration_parts, lang_of
+from linecast._i18n import GEOCODER_UNTRANSLATED, fmt_decimal, fmt_duration_parts, lang_of
 from linecast._config import saved_location
 from linecast._location import (
     country_for_defaults, location_is_pinned, location_overridden,
@@ -1240,18 +1240,17 @@ def main():
     # Help names the place the Moon is seen from, where the weather's
     # names its sources: a --location by the geocoder's label, a saved
     # location by its own, and an IP location by the (cached) reverse
-    # geocoder, asked off the loop so opening help never waits on the
-    # network; until it answers, the coordinates stand alone.
+    # geocoder, as is a typed place in a language the forward geocoder
+    # has no names in (_geocode.place_label). It is asked off the loop,
+    # so opening help never waits on the network; until it answers, the
+    # label or the coordinates stand alone.
     place = {"name": label}
     if not place["name"] and not location_overridden(args.location):
         place["name"] = (saved_location() or {}).get("label", "")
-    if not place["name"]:
+    if not place["name"] or runtime.lang in GEOCODER_UNTRANSLATED:
         def _name_the_place():
-            try:
-                from linecast._geocode import reverse_geocode
-                place["name"] = reverse_geocode(lat, lng, lang=runtime.lang)[0] or ""
-            except Exception:
-                pass
+            from linecast._geocode import place_label
+            place["name"] = place_label(lat, lng, place["name"], runtime.lang)
         threading.Thread(target=_name_the_place, daemon=True).start()
 
     from linecast.terminal.help import HelpPanel, entries
