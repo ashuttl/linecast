@@ -20,7 +20,9 @@ jobs:
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: "3.x"
-      - run: pip install ruff
+      # the same ruff CONTRIBUTING.md asks for: a new release's rules
+      # arrive when this is moved, not on an unrelated push
+      - run: pip install ruff==0.16.9
       - run: ruff check src tests scripts
 
   test:
@@ -100,7 +102,9 @@ jobs:
               XDG_CONFIG_HOME="$RUNNER_TEMP/home/.config" \
               XDG_CACHE_HOME="$RUNNER_TEMP/home/.cache" \
               WEATHER_UNITS=metric LINECAST_TEMP=1 LINECAST_LANG=fr \
-              LINECAST_THEME=off https_proxy=http://127.0.0.1:1 \
+              LINECAST_THEME=off LINECAST_CELL_ASPECT=2.5 \
+              LINECAST_WEEK_START=sunday LINECAST_RADAR_SOURCE=iem \
+              https_proxy=http://127.0.0.1:1 \
               "$RUNNER_TEMP/venv/bin/python" -m pytest tests -q -p no:cacheprovider
 
   build:

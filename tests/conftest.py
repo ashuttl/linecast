@@ -53,31 +53,45 @@ if sys.platform == "win32":
     SESSION_ENV["USERPROFILE"] = str(HOME)
 os.environ.update(SESSION_ENV)
 
-# Every variable linecast reads that would change what a test sees.
+# Every variable linecast reads that would change what a test sees,
+# beyond the LINECAST_ ones, which _scrubbed() takes by prefix.
 SCRUBBED = (
-    "WEATHER_UNITS", "TIDES_UNITS", "LINECAST_UNITS", "LINECAST_CLOCK",
-    "WEATHER_LOCATION", "WEATHER_NO_SHADING",
-    "TIDE_STATION", "LINECAST_LANG", "LINECAST_ICONS", "LINECAST_TEMP",
+    "WEATHER_UNITS", "TIDES_UNITS", "WEATHER_LOCATION", "WEATHER_NO_SHADING",
+    "TIDE_STATION",
     # the locale decides the language when nothing else does
     "LANGUAGE", "LC_ALL", "LC_MESSAGES", "LANG",
-    "LINECAST_TIDECHECK_KEY", "LINECAST_RADAR_THEME", "LINECAST_RADAR_LAYERS",
-    "LINECAST_RADAR_LAYER", "LINECAST_THEME_WATCH", "LINECAST_THEME_POLL",
-    "LINECAST_THEME_TIMEOUT_MS", "LINECAST_WIDTH_TIMEOUT_MS",
-    "LINECAST_FRAME_SYNC",
-    "LINECAST_LIBREWXR_URL",
     # a probe waits longer for an answer over SSH; the tests are not
     "SSH_CONNECTION", "SSH_TTY", "SSH_CLIENT",
-    "LINECAST_ELEVATION_URL", "LINECAST_BUILTUP_URL",
-    "LINECAST_VECTOR_TILES_URL", "LINECAST_SUNSHINE_YEAR_PALETTE",
-    "LINECAST_COLOR", "NO_COLOR", "CLICOLOR",
-    "CLICOLOR_FORCE", "COLUMNS", "LINES",
+    "NO_COLOR", "CLICOLOR", "CLICOLOR_FORCE", "COLUMNS", "LINES",
     # icon-set detection: a dev running tests inside WezTerm or kitty
     # must see the same "plain" default CI sees
     "TERM_PROGRAM", "KITTY_WINDOW_ID",
-    # who orders right-to-left text, in which digits, and which calendar
-    "LINECAST_BIDI", "LINECAST_DIGITS", "LINECAST_DATES", "TMUX",
+    # who orders right-to-left text
+    "TMUX",
 )
-for _name in SCRUBBED:
+
+# The LINECAST_ variables the harness keeps: the private home above,
+# and its own switches (tests/test_completion.py, test_live_providers.py).
+_KEPT = {*SESSION_ENV, "LINECAST_REQUIRE_SHELLS"}
+
+
+def _scrubbed():
+    """SCRUBBED, and every LINECAST_ variable the harness did not set:
+    a setting in the developer's shell (LINECAST_CELL_ASPECT, say) must
+    not reach a test, and a new variable is covered without a list."""
+    return [*SCRUBBED, *(name for name in os.environ
+                         if name.startswith("LINECAST_") and name not in _KEPT
+                         and not name.startswith("LINECAST_LIVE_"))]
+
+
+# This runs before any test module imports linecast, and it matters for
+# LINECAST_THEME above all, which _theme reads once, at import. Unset,
+# with no terminal to probe, _theme settles on the fallback palette with
+# theme_legacy_mode False: the mode the stored snapshots were rendered
+# in and the one tests/test_theme_reload.py needs. A value inherited
+# from the shell (off, classic) would fix the other palette for the
+# whole session.
+for _name in _scrubbed():
     os.environ.pop(_name, None)
 
 
@@ -90,14 +104,6 @@ def _proxy_names():
 
 for _name in _proxy_names():
     del os.environ[_name]
-
-# LINECAST_THEME is scrubbed here and not per test because _theme reads
-# it once, at import. Unset, with no terminal to probe, _theme settles
-# on the fallback palette with theme_legacy_mode False: the mode the
-# stored snapshots were rendered in and the one tests/test_theme_reload.py
-# needs. A value inherited from the shell (off, classic) would fix the
-# other palette for the whole session.
-os.environ.pop("LINECAST_THEME", None)
 
 
 @pytest.fixture(autouse=True)
@@ -113,7 +119,7 @@ def _private_home(monkeypatch, tmp_path):
     config_dir = tmp_path / "config"
     config_dir.mkdir()
     monkeypatch.setenv("LINECAST_CONFIG_DIR", str(config_dir))
-    for name in (*SCRUBBED, *_proxy_names()):
+    for name in (*_scrubbed(), *_proxy_names()):
         monkeypatch.delenv(name, raising=False)
     monkeypatch.setattr(Path, "home", classmethod(lambda cls: HOME))
     # The right-to-left pass is set up per language by set_current; a

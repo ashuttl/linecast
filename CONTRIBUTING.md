@@ -21,7 +21,7 @@ Run the tests and the lint. Both work without the network and without touching y
 
 ```sh
 uv run --with pytest pytest tests -q
-uvx ruff check src tests scripts
+uvx ruff@0.16.9 check src tests scripts
 ```
 
 The render tests compare each view against a snapshot in `tests/snapshots`. If your change is meant to alter what a view draws, delete the affected snapshot and run the tests again to write a new one, then read the diff.
