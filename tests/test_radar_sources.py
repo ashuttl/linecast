@@ -10,7 +10,7 @@ import time
 
 from linecast.radar import sources
 from linecast.radar import tiles
-from linecast.radar.source import _floor_step, frame_times
+from linecast.radar.iem import _floor_step, frame_times
 from linecast.radar.sources import (
     DEFAULT_THEME, Frame, IEMSource, LibreWXRSource, RainViewerSource,
     RV_THEMES, THEMES, _in_conus, get_source, has_radar, theme_id,

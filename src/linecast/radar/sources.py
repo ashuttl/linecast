@@ -31,7 +31,7 @@ import time
 from typing import Any
 
 from linecast._png import decode_rgba
-from linecast.radar.source import fetch_frame, frame_times
+from linecast.radar.iem import fetch_frame, frame_times
 from linecast.radar import tiles
 from linecast.radar import palettes
 from linecast.radar import ub

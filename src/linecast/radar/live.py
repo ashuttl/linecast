@@ -19,7 +19,7 @@ from linecast._location import country_for_defaults, resolve_location
 from linecast.radar.frames import N_FRAMES, _nudge, _sat_timeline
 from linecast.radar.i18n import rs
 from linecast.radar.render import bbox_for
-from linecast.radar.source import FRAME_STEP
+from linecast.radar.iem import FRAME_STEP
 from linecast.radar.sources import (
     DEFAULT_THEME, THEMES, _in_conus, get_source, theme_id,
 )
