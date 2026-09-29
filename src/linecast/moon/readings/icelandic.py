@@ -8,6 +8,8 @@ turns at midnight: the almanac's calendar is a civil one. The names
 are Icelandic in every language; the week is in the UI language.
 """
 
+from datetime import timedelta
+
 from linecast.astro.calendars.icelandic import (
     has_sumarauki, icelandic_week, icelandic_year, lit_moon_key, month_key,
     moon_key, named_day_key, next_month_start, next_named_day, next_named_moon,
@@ -67,3 +69,23 @@ class Icelandic(Reading):
         # lights it, as the English almanacs name the full moons.
         key = lit_moon_key(at)
         return icelandic_moon_name(key) if key else None
+
+    def cell_label(self, day, ctx, new_moon=None):
+        # The named days on every day they run, the named moons on the
+        # day they are lit, and each month's first day, as the almanac
+        # marks them. A month that opens on a named day or moon gives
+        # the cell to it; the title names the month.
+        key = named_day_key(day)
+        if key:
+            return icelandic_day_name(key), True
+        moon = self.new_moon_name(new_moon) if new_moon else None
+        if moon:
+            return moon, False
+        start, m_key = next_month_start(day - timedelta(days=1))
+        return (icelandic_month_name(m_key), False) if start == day else None
+
+    def span(self, first, last, ctx):
+        # The Icelandic years have no numbers: `Tvímánuður – Haustmánuður`.
+        n1 = icelandic_month_name(month_key(first))
+        n2 = icelandic_month_name(month_key(last))
+        return n1 if n1 == n2 else f"{n1} – {n2}"

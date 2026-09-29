@@ -13,7 +13,8 @@ from linecast.astro.calendars.thai_lunar import (
     next_wan_phra, thai_lunar_date, year_animal_index,
 )
 from linecast.moon.i18n import (
-    thai_festival_name, thai_lunar_label, thai_year_label, wan_phra_label,
+    thai_festival_name, thai_lunar_label, thai_month_label, thai_year_label,
+    wan_phra_label,
 )
 from linecast.moon.readings import Reading
 
@@ -57,3 +58,18 @@ class Thai(Reading):
         elif is_wan_phra(day):
             line = f"{wan_phra_label(False, label_lang)} · {line}"
         return line
+
+    def cell_label(self, day, ctx, new_moon=None):
+        # Festivals and month starts as the other calendars have them,
+        # plus the วันพระ -- the printed Thai calendars mark all four
+        # holy days in every month's grid.
+        label_lang = _label_lang(ctx)
+        key = festival_key(day)
+        if key:
+            return thai_festival_name(key, label_lang), True
+        m, d, doubled = thai_lunar_date(day)
+        if d == 1:
+            return thai_month_label(m, doubled, label_lang), False
+        if ctx.native and is_wan_phra(day):
+            return wan_phra_label(False, label_lang), False
+        return None

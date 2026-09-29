@@ -11,8 +11,9 @@ cells: the 农历 day names, the lunar month starts, the festivals, the pō
 mahina. The wheel or arrows page months; space returns
 to this month. Hovering a day raises a chip with the day's phase,
 moonrise and moonset, and the calendar's line for it, tides-style; a
-click hands the day to the disc view (moon/view.py's `_on_click`, through
-`clicked_day` below).
+click hands the day to the disc view (moon/live.py's MoonApp.on_click,
+through `clicked_day` below). What a calendar says in a cell, the chip
+and the title is its reading's (moon/readings/).
 
 The discs are drawn icon-fashion — north up, the waxing moon lit on the
 right (the southern hemisphere sees it mirrored) — rather than at the
@@ -31,34 +32,13 @@ from linecast.terminal.color import bg, fg
 from linecast.terminal.textwidth import visible_len
 from linecast.terminal.framebuffer import Framebuffer, cell_aspect, get_terminal_size
 from linecast.terminal.live import overlay
-from linecast._i18n import base_language, lang_of, table_for
-from linecast.astro.calendars.lunisolar import (
-    CALENDAR_MERIDIAN_HOURS, calendar_is_native, lunisolar_date,
-)
-from linecast.astro.calendars.hebrew import hebrew_date, holiday_key
-from linecast.astro.calendars.hijri import hijri_date, observance_key
-from linecast.astro.calendars.icelandic import lit_moon_key
-from linecast.astro.calendars.icelandic import month_key as icelandic_month_key
-from linecast.astro.calendars.icelandic import named_day_key
-from linecast.astro.calendars.icelandic import (
-    next_month_start as next_icelandic_month,
-)
+from linecast._i18n import base_language, table_for
 from linecast.astro.calendars import solar_hijri
 from linecast.astro.calendars.civil import (
     SOLAR_HIJRI, civil_calendar, shift_month, solar_hijri_month_title,
 )
-from linecast.moon.i18n import (
-    _day_abbrev, _fmt_month_day, _ms, _zh_day_name, festival_table, gregorian_date_label,
-    hebrew_holiday_name, hebrew_month_name, hijri_era, hijri_month_name,
-    hijri_observance_name, icelandic_day_name, icelandic_month_name, icelandic_moon_name,
-    pacific_night_name, thai_festival_name, thai_month_label, vi_month_label, wan_phra_label,
-    zh_month_label,
-)
+from linecast.moon.i18n import _day_abbrev, _fmt_month_day, _ms, gregorian_date_label
 from linecast._i18n import MONTHS, moon_name
-from linecast.astro.calendars.pacific import PACIFIC_CALENDARS, pacific_night
-from linecast.astro.calendars.thai_lunar import (
-    _festival_key as thai_festival_key, is_wan_phra, thai_lunar_date,
-)
 from linecast.astro.seasons import full_moon_name
 from linecast.moon.phase import (
     SYNODIC_MONTH, moon_cycle_frac, moon_illumination, moon_phase,
@@ -121,41 +101,6 @@ def _gregorian_span(first, last, lang):
     return f"{n1} {first.year} – {n2} {last.year}"
 
 
-def _calendar_span(cal, first, last, lang):
-    """The Hebrew, Hijri, or Icelandic months a civil month runs
-    through, for the title.
-
-    `Elul 5786 – Tishrei 5787`, `Tishrei – Cheshvan 5787`, or a lone
-    `Shevat 5787` for the February that fits inside one month. The
-    printed wall calendars set this under the civil month; here it also
-    covers the month starts the cells cannot show, since Tishrei and
-    Muharram both open on a holiday that takes the cell, as Harpa,
-    Heyannir, Gormánuður, Þorri, and Góa do. The Icelandic years have
-    no numbers: `Tvímánuður – Haustmánuður`.
-    """
-    if cal == "icelandic":
-        n1 = icelandic_month_name(icelandic_month_key(first))
-        n2 = icelandic_month_name(icelandic_month_key(last))
-        return n1 if n1 == n2 else f"{n1} – {n2}"
-    if cal == "hebrew":
-        y1, m1, _ = hebrew_date(first)
-        y2, m2, _ = hebrew_date(last)
-        n1, n2 = hebrew_month_name(y1, m1), hebrew_month_name(y2, m2)
-        era = ""
-    elif cal == "islamic":
-        y1, m1, _ = hijri_date(first)
-        y2, m2, _ = hijri_date(last)
-        n1, n2 = hijri_month_name(m1, lang), hijri_month_name(m2, lang)
-        era = f" {hijri_era(lang)}"
-    else:
-        return None
-    if (y1, m1) == (y2, m2):
-        return f"{n1} {y1}{era}"
-    if y1 == y2:
-        return f"{n1} – {n2} {y1}{era}"
-    return f"{n1} {y1}{era} – {n2} {y2}{era}"
-
-
 def principal_phase_days(year, month, tzinfo):
     """{date: (phase index, local datetime)} for the month's principal phases.
 
@@ -185,81 +130,6 @@ def _phase_days(first, days_in, tzinfo):
                 out[local.date()] = (idx, local)
             t = found + timedelta(days=20)
     return out
-
-
-def _cell_label(day, cal, native, fest, lang="en", israel=False,
-                new_moon=None):
-    """(text, is_festival) for the calendar's line in a day cell, or None.
-
-    A festival names its day in every script. Beyond that only the
-    labels that read at a glance appear: the 农历 day names, which are
-    words, and each lunar month's opening day for Japanese and Korean.
-    The Hijri and Hebrew calendars count their days in the cell's
-    corner instead (render_calendar), and name the month there. The
-    full lunar date lives in the hover chip. *new_moon* is the moment
-    of a new moon that falls on *day*, for the calendars that name it.
-    """
-    if cal in PACIFIC_CALENDARS:
-        night, nights = pacific_night(cal, day)
-        return pacific_night_name(cal, night, nights), False
-    if cal == "islamic":
-        # The month starts ride in the corner with the Hijri day.
-        key = observance_key(day)
-        return (hijri_observance_name(key, lang), True) if key else None
-    if cal == "hebrew":
-        # A holiday names every day it runs, Sukkot's seven and
-        # Hanukkah's eight included, the way a printed calendar does.
-        # The month starts ride in the corner with the Hebrew day.
-        key = holiday_key(day, israel)
-        return (hebrew_holiday_name(key), True) if key else None
-    if cal == "icelandic":
-        # The named days on every day they run, the named moons on the
-        # day they are lit, and each month's first day, as the almanac
-        # marks them. A month that opens on a named day or moon gives
-        # the cell to it; the title names the month.
-        key = named_day_key(day)
-        if key:
-            return icelandic_day_name(key), True
-        moon = lit_moon_key(new_moon) if new_moon else None
-        if moon:
-            return icelandic_moon_name(moon), False
-        start, m_key = next_icelandic_month(day - timedelta(days=1))
-        return (icelandic_month_name(m_key), False) if start == day else None
-    if cal == "thai":
-        # Festivals and month starts as the other calendars have them,
-        # plus the วันพระ — the printed Thai calendars mark all four
-        # holy days in every month's grid.
-        label_lang = "th" if native else "en"
-        key = thai_festival_key(day)
-        if key:
-            return thai_festival_name(key, label_lang), True
-        m, d, doubled = thai_lunar_date(day)
-        if d == 1:
-            return thai_month_label(m, doubled, label_lang), False
-        if native and is_wan_phra(day):
-            return wan_phra_label(False, label_lang), False
-        return None
-    if cal not in CALENDAR_MERIDIAN_HOURS:
-        return None
-    lunar = lunisolar_date(day, CALENDAR_MERIDIAN_HOURS[cal])
-    if lunar is None:
-        return None
-    m, d, leap = lunar
-    if not leap and (m, d) in fest:
-        return fest[(m, d)], True
-    if cal == "chinese" and native:
-        if d == 1:
-            return zh_month_label(m, leap, lang), False
-        return _zh_day_name(d), False
-    if d == 1:
-        if cal == "japanese" and native:
-            return f"{m}月", False
-        if cal == "korean" and native:
-            return f"{m}월", False
-        if cal == "vietnamese" and native:
-            return vi_month_label(m, leap, short=True), False
-        return f"m{m}", False
-    return None
 
 
 def _put(overlays, x, row, text, rgb, bold=False, max_x=None):
@@ -308,11 +178,10 @@ def render_calendar(now_local, lat, lng, runtime, month_offset=0,
     from linecast.moon import palette as moon_palette  # rebuilt on theme reload
     from linecast._runtime import install_banner
 
-    lang = lang_of(runtime)
-    cal = calendar_name
-    native = cal is not None and calendar_is_native(cal, lang)
-    fest = (festival_table(cal, lang if native else "en")
-            if cal in CALENDAR_MERIDIAN_HOURS else {})
+    found = reading(calendar_name)
+    ctx = context(now_local, lat, lng, runtime, calendar_name, israel)
+    lang = ctx.lang
+    dense = found is not None and found.dense(ctx)
     tzinfo = now_local.tzinfo
     today = now_local.date()
 
@@ -379,7 +248,7 @@ def render_calendar(now_local, lat, lng, runtime, month_offset=0,
     # when the row runs short. A Solar Hijri month names the Gregorian
     # months its corner days belong to first, and keeps them longest.
     spans = [_gregorian_span(first, last, lang)] if civil == SOLAR_HIJRI else []
-    spans.append(_calendar_span(cal, first, last, lang))
+    spans.append(found.span(first, last, ctx) if found else None)
     spans = [sp for sp in spans if sp]
     aside = f" · {_ts('space_to_now', runtime)}" if month_offset else ""
     t_w = visible_len(title)
@@ -461,14 +330,12 @@ def render_calendar(now_local, lat, lng, runtime, month_offset=0,
         # edge, where the every-cell rhythm says whose row it is; sparse
         # labels (month starts, festivals) ride just after the day
         # number instead, so they cannot read as another cell's.
-        if cal and cell_h >= 3 and cell_w >= 6:
-            label = _cell_label(
-                d, cal, native, fest, lang, israel,
-                principal[1] if principal and principal[0] == 0 else None)
+        if found and cell_h >= 3 and cell_w >= 6:
+            label = found.cell_label(
+                d, ctx, principal[1] if principal and principal[0] == 0 else None)
             if label:
                 text, is_fest = label
                 ink = P if is_fest else F
-                dense = cal in PACIFIC_CALENDARS or (cal == "chinese" and native)
                 if dense:
                     _put(overlays, x0 + 1, y0 + cell_h - 1,
                          _clip(text, cell_w - 2), ink, max_x=graph_w)
@@ -485,14 +352,9 @@ def render_calendar(now_local, lat, lng, runtime, month_offset=0,
         # 1, so the count and the name change together; the title says
         # which months the numbers belong to.
         right_w = 0
-        if cal in ("hebrew", "islamic") and cell_h >= 3 and cell_w >= 6:
-            if cal == "hebrew":
-                oy, om, od = hebrew_date(d)
-                name = hebrew_month_name(oy, om)
-            else:
-                _oy, om, od = hijri_date(d)
-                name = hijri_month_name(om, lang)
-            text = _corner_text(od, name, cell_w - 2)
+        corner = found.corner(d, ctx) if found and cell_h >= 3 and cell_w >= 6 else None
+        if corner:
+            text = _corner_text(*corner, cell_w - 2)
             right_w = visible_len(text)
             _put(overlays, x0 + cell_w - 1 - right_w,
                  y0 + cell_h - 1, text, F, max_x=graph_w)
@@ -502,9 +364,7 @@ def render_calendar(now_local, lat, lng, runtime, month_offset=0,
         # the solar one, the month's name with its 1. A calendar that
         # labels every day along the bottom edge keeps that edge, and
         # the Gregorian date waits in the hover.
-        if (civil == SOLAR_HIJRI and cell_h >= 3 and cell_w >= 6
-                and not (cal in PACIFIC_CALENDARS
-                         or (cal == "chinese" and native))):
+        if civil == SOLAR_HIJRI and cell_h >= 3 and cell_w >= 6 and not dense:
             room = cell_w - 2 - (right_w + 1 if right_w else 0)
             text = _corner_text(d.day, table_for(MONTHS, lang)[d.month - 1],
                                 room)
@@ -523,8 +383,7 @@ def render_calendar(now_local, lat, lng, runtime, month_offset=0,
     if mouse_pos:
         d = clicked_day(*mouse_pos)
         if d is not None:
-            chip = _hover_chip(d, context(now_local, lat, lng, runtime, cal, israel),
-                               reading(cal), phase_days, mouse_pos, cols, rows)
+            chip = _hover_chip(d, ctx, found, phase_days, mouse_pos, cols, rows)
     return overlay("\n".join(lines), chip)
 
 

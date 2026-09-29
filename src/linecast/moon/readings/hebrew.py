@@ -16,7 +16,7 @@ from linecast.moon.i18n import (
     hebrew_date_hebrew, hebrew_date_label, hebrew_holiday_name, hebrew_month_name,
     rosh_chodesh_label,
 )
-from linecast.moon.readings import Reading, evening
+from linecast.moon.readings import Reading, evening, month_span
 
 
 class Hebrew(Reading):
@@ -62,3 +62,19 @@ class Hebrew(Reading):
         elif rosh_chodesh(day):
             line = f"{rosh_chodesh_label(*rosh_chodesh(day))} · {line}"
         return line
+
+    def cell_label(self, day, ctx, new_moon=None):
+        # A holiday names every day it runs, Sukkot's seven and
+        # Hanukkah's eight included, the way a printed calendar does.
+        # The month starts ride in the corner with the Hebrew day.
+        key = holiday_key(day, ctx.israel)
+        return (hebrew_holiday_name(key), True) if key else None
+
+    def corner(self, day, ctx):
+        year, month, dom = hebrew_date(day)
+        return dom, hebrew_month_name(year, month)
+
+    def span(self, first, last, ctx):
+        (y1, m1, _), (y2, m2, _) = hebrew_date(first), hebrew_date(last)
+        return month_span((y1, m1, hebrew_month_name(y1, m1)),
+                          (y2, m2, hebrew_month_name(y2, m2)))

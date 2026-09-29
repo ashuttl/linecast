@@ -46,3 +46,10 @@ class Pacific(Reading):
         if self.name == "hawaiian":
             line += f" · anahulu {anahulu_name(night)}"
         return line
+
+    def cell_label(self, day, ctx, new_moon=None):
+        night, nights = pacific_night(self.name, day)
+        return pacific_night_name(self.name, night, nights), False
+
+    def dense(self, ctx):
+        return True

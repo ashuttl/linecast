@@ -11,9 +11,10 @@ from linecast.astro.calendars.hijri import (
     days_in_month, hijri_date, next_month_start, next_observance, observance_key,
 )
 from linecast.moon.i18n import (
-    hijri_date_label, hijri_month_name, hijri_observance_name, hijri_sighting_note,
+    hijri_date_label, hijri_era, hijri_month_name, hijri_observance_name,
+    hijri_sighting_note,
 )
-from linecast.moon.readings import Reading, evening
+from linecast.moon.readings import Reading, evening, month_span
 
 
 class Hijri(Reading):
@@ -54,3 +55,18 @@ class Hijri(Reading):
 
     def hover_note(self, ctx):
         return hijri_sighting_note(ctx.lang)
+
+    def cell_label(self, day, ctx, new_moon=None):
+        # The month starts ride in the corner with the Hijri day.
+        key = observance_key(day)
+        return (hijri_observance_name(key, ctx.lang), True) if key else None
+
+    def corner(self, day, ctx):
+        _year, month, dom = hijri_date(day)
+        return dom, hijri_month_name(month, ctx.lang)
+
+    def span(self, first, last, ctx):
+        (y1, m1, _), (y2, m2, _) = hijri_date(first), hijri_date(last)
+        return month_span((y1, m1, hijri_month_name(m1, ctx.lang)),
+                          (y2, m2, hijri_month_name(m2, ctx.lang)),
+                          f" {hijri_era(ctx.lang)}")

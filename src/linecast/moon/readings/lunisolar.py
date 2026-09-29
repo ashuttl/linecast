@@ -11,7 +11,10 @@ and festivals keep its script; in any other, the customary English.
 from linecast.astro.calendars.lunisolar import (
     CALENDAR_MERIDIAN_HOURS, current_term, lunisolar_date, next_lunar_event, next_term,
 )
-from linecast.moon.i18n import festival_table, ja_night_name, lunar_date_label, term_label
+from linecast.moon.i18n import (
+    _zh_day_name, festival_table, ja_night_name, lunar_date_label, term_label,
+    vi_month_label, zh_month_label,
+)
 from linecast.moon.readings import Reading
 
 
@@ -72,3 +75,31 @@ class Lunisolar(Reading):
         festival = self.festivals(ctx).get((m, day_n)) if not leap else None
         parts = [festival] if festival and festival != self.night_name(day, ctx) else []
         return " · ".join([*parts, lunar_date_label(m, day_n, leap, self._label_lang(ctx))])
+
+    def cell_label(self, day, ctx, new_moon=None):
+        # The 农历 day names, which are words, and each lunar month's
+        # opening day, read at a glance; the festivals in every script.
+        lunar = self._lunar(day)
+        if lunar is None:
+            return None
+        m, d, leap = lunar
+        fest = self.festivals(ctx)
+        if not leap and (m, d) in fest:
+            return fest[(m, d)], True
+        if self.name == "chinese" and ctx.native:
+            if d == 1:
+                return zh_month_label(m, leap, ctx.lang), False
+            return _zh_day_name(d), False
+        if d == 1:
+            if self.name == "japanese" and ctx.native:
+                return f"{m}月", False
+            if self.name == "korean" and ctx.native:
+                return f"{m}월", False
+            if self.name == "vietnamese" and ctx.native:
+                return vi_month_label(m, leap, short=True), False
+            return f"m{m}", False
+        return None
+
+    def dense(self, ctx):
+        # The 农历 names every day.
+        return self.name == "chinese" and ctx.native

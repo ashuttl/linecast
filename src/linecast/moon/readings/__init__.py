@@ -5,8 +5,8 @@ it: the Chinese, Japanese, Korean, and Vietnamese lunisolar calendars,
 the Thai, the Pacific calendars that name each night, the Hijri, the
 Hebrew, the old Icelandic, or the Old Farmer's Almanac. Every calendar
 is asked the same questions by every part of the command -- what goes
-in the --json block, and what a day's hover chip in the month grid
-says -- and answers them in its own way.
+in the --json block, and what a day says in its cell of the month grid
+and in its hover chip -- and answers them in its own way.
 
 The calendars' arithmetic is astro/calendars/, one module each, and
 their words are moon/i18n.py. Here each calendar is a Reading, in a
@@ -92,6 +92,53 @@ class Reading:
     def new_moon_name(self, at):
         """The name of the moon a new moon at *at* lights, or None."""
         return None
+
+    def cell_label(self, day, ctx, new_moon=None):
+        """(text, is_festival) for the calendar's line in *day*'s cell of
+        the month grid, or None.
+
+        A festival names its day in every script. Beyond that only the
+        labels that read at a glance appear: the 农历 day names, which
+        are words, and each lunar month's opening day. The Hijri and
+        Hebrew calendars count their days in the cell's corner instead
+        (corner), and name the month there. The full date lives in the
+        hover chip. *new_moon* is the moment of a new moon that falls on
+        *day*, for the calendars that name it."""
+        return None
+
+    def dense(self, ctx):
+        """Whether the calendar labels every day, and so writes along the
+        cells' bottom edges, where the every-cell rhythm says whose row
+        it is, rather than after the day's number."""
+        return False
+
+    def corner(self, day, ctx):
+        """(day number, month name) for the grid cell's far corner, for a
+        calendar that counts its own days there, or None."""
+        return None
+
+    def span(self, first, last, ctx):
+        """The calendar's months the civil month *first*..*last* runs
+        through, for the grid's title, or None.
+
+        The printed wall calendars set this under the civil month; here
+        it also covers the month starts the cells cannot show, since
+        Tishrei and Muharram both open on a holiday that takes the cell,
+        as Harpa, Heyannir, Gormánuður, Þorri, and Góa do."""
+        return None
+
+
+def month_span(first, last, era=""):
+    """A title's span of months from (year, month, name) *first* to
+    *last*: `Elul 5786 – Tishrei 5787`, `Tishrei – Cheshvan 5787`, or a
+    lone `Shevat 5787` for a civil month that fits inside one."""
+    y1, m1, n1 = first
+    y2, m2, n2 = last
+    if (y1, m1) == (y2, m2):
+        return f"{n1} {y1}{era}"
+    if y1 == y2:
+        return f"{n1} – {n2} {y1}{era}"
+    return f"{n1} {y1}{era} – {n2} {y2}{era}"
 
 
 def reading(cal):
