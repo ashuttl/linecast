@@ -154,6 +154,28 @@ class TestFailureModes:
             mr.route("car", WESTBROOK, PORTLAND)
         assert len(seen) == 1
 
+    def test_no_route_sent_as_a_400_is_still_no_route(self, monkeypatch):
+        # OSRM answers every code but Ok with HTTP 400 and the same body
+        from linecast._http import HTTPError
+        refusal = HTTPError("https://example.test/route", 400, "Bad Request", body=(
+            b'{"message":"Impossible route between points","code":"NoRoute"}'))
+        seen = _stub(monkeypatch, refusal)
+        with pytest.raises(mr.NoRoute):
+            mr.route("car", WESTBROOK, PORTLAND)
+        assert len(seen) == 1
+        # and it is remembered, so the next ask costs nothing
+        with pytest.raises(mr.NoRoute):
+            mr.route("car", WESTBROOK, PORTLAND)
+        assert len(seen) == 1
+
+    def test_a_400_without_an_answer_is_unavailable(self, monkeypatch):
+        from linecast._http import HTTPError
+        seen = _stub(monkeypatch, HTTPError("https://example.test/route", 400,
+                                            "Bad Request", body=b"<html>"))
+        with pytest.raises(mr.RouteUnavailable):
+            mr.route("car", WESTBROOK, PORTLAND)
+        assert len(seen) == 2
+
     def test_transport_failure_on_both_hosts_is_unavailable(self, monkeypatch):
         seen = _stub(monkeypatch, urllib.error.URLError("down"))
         with pytest.raises(mr.RouteUnavailable):

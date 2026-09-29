@@ -18,6 +18,7 @@ differently.
 Directions data © OpenStreetMap contributors.
 """
 
+import json
 from typing import Any
 
 from linecast import user_agent
@@ -77,6 +78,21 @@ class Route:
 def _fetch(url, timeout):
     """The raw request: the decoded JSON body, or an exception."""
     return fetch_json(url, headers={"User-Agent": user_agent()}, timeout=timeout)
+
+
+def _refusal(exc):
+    """The body of an OSRM answer that came as an HTTP 400, or None.
+
+    OSRM sends every answer but "Ok" with status 400 and its usual JSON
+    body: {"code": "NoRoute", "message": "Impossible route between
+    points"} is the service's answer, not a failure to reach it."""
+    if getattr(exc, "code", None) != 400:
+        return None
+    try:
+        body = json.loads(getattr(exc, "body", b"") or b"")
+    except ValueError:
+        return None
+    return body if isinstance(body, dict) and body.get("code") else None
 
 
 def _parse(body, profile):
@@ -149,9 +165,11 @@ def route(profile: str, origin: tuple[float, float], dest: tuple[float, float],
         try:
             body = _fetch(url, timeout)
         except _TRANSPORT as exc:
-            log_failure("maps/route", "fetch", exc, url=url, fallback=then)
-            failure = exc
-            continue
+            body = _refusal(exc)
+            if body is None:
+                log_failure("maps/route", "fetch", exc, url=url, fallback=then)
+                failure = exc
+                continue
         try:
             result = _parse(body, profile)
         except NoRoute as exc:
