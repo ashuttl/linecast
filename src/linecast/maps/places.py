@@ -41,7 +41,7 @@ from linecast.maps import globe as _globe
 from linecast.maps import style
 from linecast.radar.basemap import city_name, load_data
 from linecast.terminal.scenes import Memo
-from linecast.terminal.textwidth import cells as text_cells
+from linecast.terminal.textwidth import cells as text_cells, glyphs
 
 # The window a name is written into is this many columns wide and this
 # many rows tall: the planet's crowding rule, unchanged, and the reason
@@ -257,12 +257,9 @@ def _write(taken, col, row, name, gw):
     cut has already been made, and a combining mark rides in its base's
     cell rather than taking one of its own.
     """
-    laid, width = text_cells(name)
-    starts = [c for c, glyph in laid if glyph] + [width]
     kept = []
-    for (c, glyph), end in zip([cell for cell in laid if cell[1]], starts[1:]):
-        # each glyph with the wide one's second column, up to the next
-        span = range(col + 1 + c, col + 1 + end)
+    for c, glyph, w in glyphs(name):
+        span = range(col + 1 + c, col + 1 + c + w)
         if span.stop > gw or any((x, row) in taken for x in span):
             break
         taken.update((x, row) for x in span)

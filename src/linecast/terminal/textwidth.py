@@ -138,6 +138,16 @@ def cells(text, room=None):
     return out, x
 
 
+def glyphs(text):
+    """*text*'s glyphs as (column, glyph, width): cells without the wide
+    glyphs' empty second columns, for a caller that places a glyph at a
+    time and must know how much room each takes."""
+    laid, width = cells(text)
+    starts = [(c, g) for c, g in laid if g]
+    ends = [c for c, _g in starts[1:]] + [width]
+    return [(c, g, end - c) for (c, g), end in zip(starts, ends)]
+
+
 def visible_len(s):
     """Length of a string ignoring ANSI escapes, counting wide/emoji chars as 2."""
     stripped = _OSC.sub('', s)

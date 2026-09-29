@@ -22,7 +22,7 @@ from linecast.terminal import theme as _theme
 from linecast._paths import data_path
 from linecast._log import log_failure
 from linecast.terminal.braille import DOT_BITS, line_dots
-from linecast.terminal.textwidth import char_width
+from linecast.terminal.textwidth import glyphs
 from linecast.terminal.theme import is_light_theme, lerp_rgb
 from linecast._i18n import base_language
 
@@ -557,22 +557,11 @@ class Basemap(DotLayer):
             placed.append((col, row))
             overlays[(col, row)] = ("•", CITY)  # •
             # label to the right, unless it runs off the edge or collides
-            c = col + 1
-            prev = None
-            for ch in name:
-                w = char_width(ch)
-                if w == 0 and prev is not None:
-                    # A combining mark rides in its base's cell.
-                    kept, ink = overlays[prev]
-                    overlays[prev] = (kept + ch, ink)
-                    continue
-                if c + w > self.graph_w:
+            for c, glyph, w in glyphs(name):
+                c += col + 1
+                if c + w > self.graph_w or any((c + k, row) in overlays for k in range(w)):
                     break
-                if (c, row) in overlays or (w == 2 and (c + 1, row) in overlays):
-                    break
-                overlays[(c, row)] = (ch, CITY_LABEL)
-                prev = (c, row)
-                if w == 2:
-                    overlays[(c + 1, row)] = ("", None)  # consumed by wide glyph
-                c += w
+                overlays[(c, row)] = (glyph, CITY_LABEL)
+                for k in range(1, w):
+                    overlays[(c + k, row)] = ("", None)  # consumed by wide glyph
         return overlays
