@@ -131,12 +131,12 @@ def build_payload(data, location_name, country_code, runtime,
         }
         india_value = aqi_current.get("india_aqi")
         if india_value is not None:
-            from linecast.weather.sources import india_aqi_category
+            from linecast.weather.air import india_aqi_category
             aqi_out["india_aqi"] = round(india_value)
             aqi_out["india_aqi_category"] = india_aqi_category(india_value)
         aqhi = aqi_current.get("aqhi")
         if aqhi is not None:
-            from linecast.weather.sources import aqhi_category
+            from linecast.weather.air import aqhi_category
             aqi_out["aqhi"] = aqhi
             aqi_out["aqhi_category"] = aqhi_category(aqhi)
             computed = aqi_current.get("aqhi_source") == "computed"

@@ -81,7 +81,7 @@ def test_open_meteo_geocoder(failures):
 
 
 def test_open_meteo_air_quality(failures):
-    from linecast.weather.sources import fetch_aqi
+    from linecast.weather.air import fetch_aqi
     data = fetch_aqi(*PORTLAND)
     assert failures() == []
     assert data is not None

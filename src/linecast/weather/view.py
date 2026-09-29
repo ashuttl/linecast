@@ -52,10 +52,10 @@ from linecast.weather.style import (
 from linecast.weather.historical import fetch_historical
 from linecast.weather.sources import (
     ALERTS_UNAVAILABLE, AlertList, _local_now_for_data, alert_attribution, alert_source,
-    apply_national_index, fetch_canada_aqhi, fetch_aqi, fetch_alerts, fetch_forecast,
-    forecast_attribution, forecast_date, forecast_is_todays, FORECAST_SOURCE,
-    observation_attribution, observed_credit,
+    fetch_alerts, fetch_forecast, forecast_attribution, forecast_date, forecast_is_todays,
+    FORECAST_SOURCE, observation_attribution, observed_credit,
 )
+from linecast.weather.air import apply_national_index, fetch_canada_aqhi, fetch_aqi
 from linecast._geocode import reverse_geocode, print_search, without_country
 from linecast.weather.cover import sky_condition
 from linecast.weather.humidex import apply_canadian_indices

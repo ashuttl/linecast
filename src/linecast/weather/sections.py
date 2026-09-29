@@ -135,12 +135,12 @@ def render_header(data, width, location_name="", runtime=None, aqi_data=None, hi
     # category word costs the line its fit.
     left_aqi = left_aqi_bare = ""
     if aqhi is not None:
-        from linecast.weather.sources import aqhi_category, fmt_aqhi
+        from linecast.weather.air import aqhi_category, fmt_aqhi
         left_aqi_bare = f"  {MUTED}{_s('aqhi', runtime)} {_aqhi_color(aqhi)}{fmt_aqhi(aqhi)}"
         left_aqi = f"{left_aqi_bare} {aqhi_category(aqhi, lang_of(runtime))}"
     elif aqi_value is not None:
         if india_scale:
-            from linecast.weather.sources import india_aqi_category
+            from linecast.weather.air import india_aqi_category
             color = _india_aqi_color(aqi_value)
             category = india_aqi_category(aqi_value)
             left_aqi_bare = f"  {MUTED}{_s('aqi', runtime)} {color}{aqi_value:.0f}"

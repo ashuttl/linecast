@@ -1730,7 +1730,7 @@ class TestCanadaAqhi:
     published rounding, the words, and the choice among the feeds."""
 
     def test_formula_and_rounding(self):
-        from linecast.weather.sources import aqhi_published, canada_aqhi
+        from linecast.weather.air import aqhi_published, canada_aqhi
         assert canada_aqhi(0, 0, 0) == 0
         assert aqhi_published(canada_aqhi(0, 0, 0)) == 1
         # 20 ppb NO2, 30 ppb O3, 10 µg/m³ PM2.5: 3.72 on the scale
@@ -1740,7 +1740,7 @@ class TestCanadaAqhi:
         assert aqhi_published(12.3) == 12
 
     def test_computed_from_three_hour_means_in_ppb(self):
-        from linecast.weather.sources import canada_aqhi_computed
+        from linecast.weather.air import canada_aqhi_computed
         # 40 µg/m³ NO2 is 21.3 ppb, 50 µg/m³ O3 is 25.5 ppb: with 5 µg/m³
         # of PM2.5 the index is 3.36, published 3.
         assert canada_aqhi_computed(_india_aqi_response(pm2_5=5.0)) == 3
@@ -1750,7 +1750,7 @@ class TestCanadaAqhi:
         assert canada_aqhi_computed(_india_aqi_response(pm2_5=series)) == 5
 
     def test_aqhi_plus_takes_the_hour_s_pm25_over_ten_when_greater(self):
-        from linecast.weather.sources import canada_aqhi_computed
+        from linecast.weather.air import canada_aqhi_computed
         # Two clean hours then a smoke plume: the three-hour mean gives
         # 5, the hour's 85 µg/m³ over ten rounded up gives 9.
         series = [5.0] * 29 + [85.0] + [5.0] * 18
@@ -1760,7 +1760,7 @@ class TestCanadaAqhi:
         assert canada_aqhi_computed(_india_aqi_response(pm2_5=series)) == 11
 
     def test_no_index_without_the_pollutants_for_the_hour(self):
-        from linecast.weather.sources import canada_aqhi_computed
+        from linecast.weather.air import canada_aqhi_computed
         assert canada_aqhi_computed(None) is None
         assert canada_aqhi_computed({"current": {"time": "2026-01-02T05:00"}}) is None
         assert canada_aqhi_computed(_india_aqi_response(current_time="2027-01-01T00:00")) is None
@@ -1768,7 +1768,7 @@ class TestCanadaAqhi:
         assert canada_aqhi_computed(_india_aqi_response(pm2_5=series)) is None
 
     def test_words_and_printing(self):
-        from linecast.weather.sources import aqhi_category, fmt_aqhi
+        from linecast.weather.air import aqhi_category, fmt_aqhi
         assert [aqhi_category(v) for v in (1, 3, 4, 6, 7, 10, 11)] == [
             "Low risk", "Low risk", "Moderate risk", "Moderate risk",
             "High risk", "High risk", "Very high risk"]
@@ -1781,7 +1781,7 @@ class TestCanadaAqhi:
     NOW = datetime(2026, 9, 20, 18, 30, tzinfo=timezone.utc)
 
     def test_the_nearest_community_s_fresh_observation_wins(self):
-        from linecast.weather.sources import pick_aqhi
+        from linecast.weather.air import pick_aqhi
         far = _feature(-79.38, 43.65, aqhi_type="AQHI-Observation", aqhi=6.4,
                        location_name_en="Toronto", observation_datetime="2026-09-20T18:00:00Z")
         near = _feature(-79.87, 43.26, aqhi_type="AQHI-Observation", aqhi=2.6,
@@ -1791,7 +1791,7 @@ class TestCanadaAqhi:
                           "time": "2026-09-20T18:00:00+00:00"}
 
     def test_a_stale_or_distant_observation_is_passed_over(self):
-        from linecast.weather.sources import pick_aqhi
+        from linecast.weather.air import pick_aqhi
         stale = _feature(-79.87, 43.26, aqhi_type="AQHI-Observation", aqhi=9.0,
                          location_name_en="Hamilton", observation_datetime="2026-09-20T15:00:00Z")
         fresh = _feature(-79.38, 43.65, aqhi_type="AQHI-Observation", aqhi=2.0,
@@ -1802,7 +1802,7 @@ class TestCanadaAqhi:
         assert pick_aqhi([stale, distant], [], 43.30, -79.80, self.NOW) is None
 
     def test_the_latest_forecast_for_the_nearest_hour_stands_in(self):
-        from linecast.weather.sources import pick_aqhi
+        from linecast.weather.air import pick_aqhi
         def fc(published, hour, value):
             return _feature(-73.57, 45.50, aqhi_type="AQHI-Forecast", aqhi=value,
                             location_id="EHHUN", location_name_en="Montréal",
@@ -1821,7 +1821,7 @@ class TestCanadaAqhi:
         assert pick_aqhi([], [fc("2026-09-20T10:00:00Z", 10, 5)], 45.52, -73.60, self.NOW) is None
 
     def test_apply_attaches_the_report_or_computes(self):
-        from linecast.weather.sources import apply_national_index
+        from linecast.weather.air import apply_national_index
         data = _india_aqi_response(pm2_5=5.0)
         out = apply_national_index(data, "CA", 45.5, -73.6,
                                    canada={"aqhi": 4, "kind": "observed", "place": "Montréal"})
@@ -1842,12 +1842,12 @@ class TestCanadaAqhi:
         assert data["current"]["india_aqi"] == 100 and "aqhi" not in data["current"]
 
     def test_apply_fetches_when_the_caller_did_not(self, monkeypatch):
-        from linecast.weather import sources as _weather_sources
+        from linecast.weather import air
         calls = []
-        monkeypatch.setattr(_weather_sources, "fetch_canada_aqhi",
+        monkeypatch.setattr(air, "fetch_canada_aqhi",
                             lambda lat, lng, now=None: calls.append((lat, lng)) or
                             {"aqhi": 5, "kind": "observed", "place": "Calgary"})
-        out = _weather_sources.apply_national_index(None, "CA", 51.05, -114.07)
+        out = air.apply_national_index(None, "CA", 51.05, -114.07)
         assert calls == [(51.05, -114.07)] and out["current"]["aqhi"] == 5
 
     def test_header_prints_the_index_with_its_words(self):
@@ -1872,7 +1872,7 @@ class TestCanadaAqhi:
 
 class TestIndiaAqi:
     def test_sub_index_band_edges(self):
-        from linecast.weather.sources import _india_sub_index
+        from linecast.weather.air import _india_sub_index
         assert _india_sub_index("pm2_5", 0) == 0
         assert _india_sub_index("pm2_5", 30) == 50
         assert _india_sub_index("pm2_5", 45) == 75
@@ -1880,38 +1880,38 @@ class TestIndiaAqi:
         assert _india_sub_index("pm10", 365) == 318.75
 
     def test_sub_index_severe_band_caps_at_500(self):
-        from linecast.weather.sources import _india_sub_index
+        from linecast.weather.air import _india_sub_index
         assert round(_india_sub_index("pm2_5", 300), 1) == 438.5
         assert _india_sub_index("pm2_5", 380) == 500
         assert _india_sub_index("pm2_5", 9999) == 500
 
     def test_sub_index_co_in_micrograms(self):
-        from linecast.weather.sources import _india_sub_index
+        from linecast.weather.air import _india_sub_index
         assert _india_sub_index("carbon_monoxide", 2000) == 100  # 2 mg/m³
 
     def test_worst_sub_index_wins(self):
-        from linecast.weather.sources import india_aqi
+        from linecast.weather.air import india_aqi
         assert india_aqi(_india_aqi_response()) == 100  # pm2_5 60 / pm10 100
         assert india_aqi(_india_aqi_response(pm2_5=90.0)) == 200
 
     def test_forecast_hours_are_ignored(self):
-        from linecast.weather.sources import india_aqi
+        from linecast.weather.air import india_aqi
         # 60 up to the current hour (index 29), absurd afterwards
         series = [60.0] * 30 + [999.0] * 18
         assert india_aqi(_india_aqi_response(pm2_5=series)) == 100
 
     def test_no_particulates_no_index(self):
-        from linecast.weather.sources import india_aqi
+        from linecast.weather.air import india_aqi
         none = [None] * 48
         assert india_aqi(_india_aqi_response(pm2_5=none, pm10=none)) is None
 
     def test_old_cached_response_without_hourly_is_none(self):
-        from linecast.weather.sources import india_aqi
+        from linecast.weather.air import india_aqi
         assert india_aqi({"current": {"us_aqi": 150}}) is None
         assert india_aqi(None) is None
 
     def test_apply_only_in_india(self):
-        from linecast.weather.sources import apply_india_aqi
+        from linecast.weather.air import apply_india_aqi
         data = _india_aqi_response()
         apply_india_aqi(data, "US")
         assert "india_aqi" not in data["current"]
@@ -1919,7 +1919,7 @@ class TestIndiaAqi:
         assert data["current"]["india_aqi"] == 100
 
     def test_categories(self):
-        from linecast.weather.sources import india_aqi_category
+        from linecast.weather.air import india_aqi_category
         assert india_aqi_category(40) == "Good"
         assert india_aqi_category(100) == "Satisfactory"
         assert india_aqi_category(150) == "Moderate"
@@ -1931,7 +1931,7 @@ class TestIndiaAqi:
         from linecast.weather.sections import render_header
         forecast = _load("open_meteo_forecast.json")
         aqi_data = _india_aqi_response(pm2_5=300.0)
-        from linecast.weather.sources import apply_india_aqi
+        from linecast.weather.air import apply_india_aqi
         apply_india_aqi(aqi_data, "IN")
         header = render_header(forecast, 120, "Delhi", aqi_data=aqi_data)
         assert "438" in header  # the CPCB number, not us_aqi's 150
