@@ -1027,9 +1027,7 @@ class WeatherApp(LocationMenu, _live.LiveApp):
         floating = self.menu_overlay(cols, rows)
         if panel:
             alert_rows = {}  # a panel click must not open an alert beneath it
-        if floating:
-            body, _, previous = output.partition("\x00")
-            output = _live.overlay(body, previous + floating)
+        output = _live.overlay(output, floating)
         return output, alert_rows
 
     def help_credits(self):

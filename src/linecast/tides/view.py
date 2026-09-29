@@ -1102,9 +1102,7 @@ class TidesApp(LocationMenu, _live.LiveApp):
         )
         cols, rows = get_terminal_size()
         floating = self.menu_overlay(cols, rows)
-        if floating:
-            body, _, previous = output.partition("\x00")
-            output = _live.overlay(body, previous + floating)
+        output = _live.overlay(output, floating)
         return output, {}
 
 

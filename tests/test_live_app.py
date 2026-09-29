@@ -22,6 +22,12 @@ class TestOverlay:
         assert overlay("b", "x", motion=True) == "b\x00\033[?1003hx"
         assert overlay("b", motion=True) == "b\x00\033[?1003h"
 
+    def test_what_already_floats_stays_and_the_switch_goes_first(self):
+        framed = overlay("b", "chip")
+        assert overlay(framed, "menu") == "b\x00chipmenu"
+        assert overlay(framed, "menu", motion=False) == "b\x00\033[?1003lchipmenu"
+        assert overlay(framed) == framed
+
 
 class TestPointerChip:
     """The chip never sits under the pointer glyph, which hangs down-right."""

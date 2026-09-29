@@ -165,13 +165,16 @@ def overlay(body, floating="", motion=None):
     a text field is open, since a torn motion sequence reads as ESC —
     the key guarding the field — True to switch it back on, None to
     leave it as it is.  With nothing floating and no switch, the body
-    comes back untouched.
+    comes back untouched.  A body that already has something floating,
+    a frame a render returned, keeps it: *floating* goes after it, and
+    the switch ahead of both.
     """
     switch = "" if motion is None else ("\033[?1003h" if motion
                                         else "\033[?1003l")
     if not floating and not switch:
         return body
-    return f"{body}\x00{switch}{floating}"
+    body, _, before = body.partition("\x00")
+    return f"{body}\x00{switch}{before}{floating}"
 
 
 def pointer_chip(lines, col, mouse_row, cols, rows, pad_bg="", flip_at=None):

@@ -346,19 +346,18 @@ class SkyApp(LiveApp):
                        offset_minutes=self.offset_minutes(),
                        mouse_pos=None if panel else mouse_pos,
                        location_label=self.location_label, speed=self.speed)
-        body, _sep, floating = frame.partition("\x00")
         if panel:
             # The panel owns the keys; motion reporting is off while one
             # is open, since a torn motion sequence reads as ESC.
             self._panel_was_open = True
             if self.search.open:
-                floating += search_overlay(self.search, cols, rows, self.runtime)
+                floating = search_overlay(self.search, cols, rows, self.runtime)
             else:
-                floating += picker_overlay(self.picker, cols, rows, self.runtime)
-            return _live.overlay(body, floating, motion=False)
+                floating = picker_overlay(self.picker, cols, rows, self.runtime)
+            return _live.overlay(frame, floating, motion=False)
         if self._panel_was_open:
             self._panel_was_open = False
-            return _live.overlay(body, floating, motion=True)
+            return _live.overlay(frame, motion=True)
         return frame
 
     def text_mode(self):
