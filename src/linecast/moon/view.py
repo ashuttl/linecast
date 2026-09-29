@@ -877,10 +877,8 @@ def main():
     app = MoonApp(_now, lat, lng, runtime, calendar_name=cal, israel=israel,
                   month=args.month)
     if not runtime.live:
-        from linecast.terminal.live import print_frame
-        from linecast.terminal.textwidth import calibrate_from_terminal
-        calibrate_from_terminal()
-        print_frame(app.render())
+        from linecast.terminal.live import print_view
+        print_view(app.render)
         return
 
     # Help names the place the Moon is seen from, where the weather's

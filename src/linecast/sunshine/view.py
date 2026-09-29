@@ -535,9 +535,7 @@ def main():
                       year=getattr(args, "year", False), dst=getattr(args, "dst", False),
                       location_label=location_label)
     if not runtime.live:
-        from linecast.terminal.live import print_frame
-        from linecast.terminal.textwidth import calibrate_from_terminal
-        calibrate_from_terminal()
-        print_frame(app.render())
+        from linecast.terminal.live import print_view
+        print_view(app.render)
         return
     app.run()
