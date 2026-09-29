@@ -81,6 +81,14 @@ class TestWeatherOneline:
         plain = _strip_ansi(weather_oneline(data, "Montréal", rt))
         assert "0°C" in plain and "-0" not in plain
 
+    def test_a_wind_that_rounds_to_nothing_is_left_off(self):
+        rt = self._runtime()
+        data = self._sample_data()
+        data["current"]["wind_speed_10m"] = 0.4
+        assert "Wind" not in _strip_ansi(weather_oneline(data, "Tokyo", rt))
+        data["current"]["wind_speed_10m"] = 0.6
+        assert "Wind 1mph" in _strip_ansi(weather_oneline(data, "Tokyo", rt))
+
     def test_imperial_units(self):
         rt = self._runtime(celsius=False, metric=False)
         line = weather_oneline(self._sample_data(), "Portland", rt)

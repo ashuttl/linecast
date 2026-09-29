@@ -78,6 +78,7 @@ Notable changes, by release. Notes for the next release collect under **Unreleas
 - Weather: Fixed the hover on the hourly chart giving an hour of snow the water it melts to, such as "0.12″" for an hour with nearly an inch of snow; it gives the snow, as the daily forecast does.
 - Weather: Fixed the year view's header comparing one day's rain with the average for the whole year so far, such as "13mm · avg 824mm", when the year's past days could not be fetched. It leaves the comparison out until they come.
 - Weather: Fixed the year view drawing each month's precipitation as none at all when the year's past days could not be fetched; a month with its days missing has no running total.
+- Weather: `--oneline` no longer shows "Wind 0mph" when the air is all but still; it leaves the wind out, as it does when there is none.
 
 ## 2.9.2 — 2026-09-27
 

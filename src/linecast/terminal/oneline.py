@@ -60,7 +60,9 @@ def weather_oneline(data, location_name, runtime):
         parts.append(f"{_colored_temp(temp, runtime, deg)}")
     parts.append(f"{TEXT}{icon} {desc}")
 
-    if wind > 0:
+    # A breath of wind that rounds to nothing is calm, and left off as
+    # calm is, not given as "Wind 0mph"
+    if round(wind) > 0:
         from linecast.weather.i18n import _s
         parts.append(f"{WIND_COLOR}{_s('wind', runtime)} {fmt_wind(wind, runtime)}")
 
