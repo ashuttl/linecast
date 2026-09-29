@@ -997,7 +997,7 @@ def main():
     except ValueError as exc:
         parser.error(str(exc))
     fov = max(FOV_MIN, min(FOV_MAX, args.fov)) if args.fov else FOV_DEFAULT
-    culture = resolve_culture(args.culture, lang_of(runtime))
+    culture, _source = resolve_culture(args.culture, lang_of(runtime))
     aim = None
     if args.at:
         from linecast.sky.search import search, targets

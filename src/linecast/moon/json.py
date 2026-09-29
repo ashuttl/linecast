@@ -75,7 +75,7 @@ def build_payload(now_local, lat, lng, runtime, location=None, calendar=None,
     )
     from linecast.astro.calendars.pacific import PACIFIC_CALENDARS
     lang = lang_of(runtime)
-    cal = resolve_calendar(calendar, lang)
+    cal, _source = resolve_calendar(calendar, lang)
     calendar_block = None
     if cal in PACIFIC_CALENDARS:
         # The Pacific calendars have no months-by-number, solar terms,

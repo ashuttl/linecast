@@ -25,7 +25,7 @@ def sky_oneline(now_local, lat, lng, runtime, culture=None):
     from linecast.moon.phase import moon_phase
 
     scene = Scene(now_local.astimezone(timezone.utc), lat, lng)
-    culture = resolve_culture(culture, lang_of(runtime))
+    culture, _source = resolve_culture(culture, lang_of(runtime))
     text, dim = fg(*TEXT_RGB), fg(*DIM_RGB)
     parts = []
     if scene.moon_alt > 0.0:

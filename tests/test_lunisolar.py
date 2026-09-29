@@ -236,21 +236,21 @@ class TestResolveCalendar:
         from linecast.astro.calendars.lunisolar import resolve_calendar
         original = read_config()
         try:
-            assert resolve_calendar(None, "en") is None
-            assert resolve_calendar(None, "zh") == "chinese"
-            assert resolve_calendar(None, "zh-Hant") == "chinese"
-            assert resolve_calendar(None, "vi") == "vietnamese"
-            assert resolve_calendar("korean", "zh") == "korean"
-            assert resolve_calendar("none", "zh") is None
+            assert resolve_calendar(None, "en") == (None, "auto")
+            assert resolve_calendar(None, "zh") == ("chinese", "auto")
+            assert resolve_calendar(None, "zh-Hant") == ("chinese", "auto")
+            assert resolve_calendar(None, "vi") == ("vietnamese", "auto")
+            assert resolve_calendar("korean", "zh") == ("korean", "flag")
+            assert resolve_calendar("none", "zh") == (None, "flag")
 
             saved = dict(original, calendar="japanese")
             write_config(saved)
-            assert resolve_calendar(None, "en") == "japanese"
-            assert resolve_calendar(None, "zh") == "japanese"
-            assert resolve_calendar("chinese", "en") == "chinese"
+            assert resolve_calendar(None, "en") == ("japanese", "config")
+            assert resolve_calendar(None, "zh") == ("japanese", "config")
+            assert resolve_calendar("chinese", "en") == ("chinese", "flag")
 
             write_config(dict(original, calendar="none"))
-            assert resolve_calendar(None, "zh") is None
+            assert resolve_calendar(None, "zh") == (None, "config")
         finally:
             write_config(original)
 

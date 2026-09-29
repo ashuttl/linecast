@@ -167,16 +167,21 @@ CULTURES = {
 
 
 def resolve_culture(flag, lang):
-    """The sky culture to draw, or None for the IAU sky.
+    """The sky culture to draw, and where it came from.
 
-    Precedence: the --culture flag > the `linecast culture` setting > the
-    culture native to the UI language > none. 'none' anywhere in that
-    chain stops it.
+    Returns (name, source): the culture, or None for the IAU sky;
+    source is "flag", "config", or "auto".  Precedence: the --culture
+    flag > the `linecast culture` setting > the culture native to the
+    UI language > none. 'none' anywhere in that chain stops it.
     """
     from linecast._config import saved_culture
-    # The culture a language brings with it, as the moon's calendars do.
-    choice = flag or saved_culture() or setting(lang, "sky_culture")
-    return None if choice in (None, "none", "iau") else choice
+    choice, source = flag, "flag"
+    if not choice:
+        choice, source = saved_culture(), "config"
+    if not choice:
+        # The culture a language brings with it, as the moon's calendars do.
+        choice, source = setting(lang, "sky_culture"), "auto"
+    return (None if choice in (None, "none", "iau") else choice), source
 
 
 def _load_cultures():

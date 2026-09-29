@@ -49,15 +49,20 @@ def calendar_is_native(cal, lang):
 
 
 def resolve_calendar(flag, lang):
-    """The calendar the moon command should show, or None for none.
+    """The calendar the moon command shows, and where it came from.
 
-    Precedence: the --calendar flag > the `linecast calendar` setting >
-    the calendar native to the UI language > none. 'none' anywhere in
-    that chain stops it.
+    Returns (name, source): the calendar, or None for none; source is
+    "flag", "config", or "auto".  Precedence: the --calendar flag > the
+    `linecast calendar` setting > the calendar native to the UI
+    language > none. 'none' anywhere in that chain stops it.
     """
     from linecast._config import saved_calendar
-    choice = flag or saved_calendar() or setting(lang, "calendar")
-    return None if choice in (None, "none") else choice
+    choice, source = flag, "flag"
+    if not choice:
+        choice, source = saved_calendar(), "config"
+    if not choice:
+        choice, source = setting(lang, "calendar"), "auto"
+    return (None if choice in (None, "none") else choice), source
 
 _MEAN_DEG_PER_DAY = 360.0 / 365.2422
 

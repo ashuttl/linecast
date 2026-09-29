@@ -1074,14 +1074,14 @@ class TestCultures:
 
     def test_resolution_follows_flag_setting_language(self):
         from linecast import _config
-        assert sky.resolve_culture("norse", "en") == "norse"
-        assert sky.resolve_culture(None, "zh") == "chinese"
-        assert sky.resolve_culture(None, "en") is None
-        assert sky.resolve_culture("none", "zh") is None
+        assert sky.resolve_culture("norse", "en") == ("norse", "flag")
+        assert sky.resolve_culture(None, "zh") == ("chinese", "auto")
+        assert sky.resolve_culture(None, "en") == (None, "auto")
+        assert sky.resolve_culture("none", "zh") == (None, "flag")
         _config.write_config({"culture": "maori"})
-        assert sky.resolve_culture(None, "zh") == "maori"
+        assert sky.resolve_culture(None, "zh") == ("maori", "config")
         _config.write_config({"culture": "none"})
-        assert sky.resolve_culture(None, "zh") is None
+        assert sky.resolve_culture(None, "zh") == (None, "config")
 
     def test_a_culture_draws_and_names_the_status(self):
         scene = Scene(NIGHT.astimezone(timezone.utc), LAT, LNG)

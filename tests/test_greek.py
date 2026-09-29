@@ -174,5 +174,5 @@ def test_sky_names_and_defaults_are_localization_only():
     ursa = next(record for record in records if record["id"] == "UMa")
     assert sky.constellation_name(ursa, "el") == "Μεγάλη Άρκτος"
     assert sky.star_names("el")[0] == ("Σείριος", "α CMa")
-    assert resolve_calendar(None, "el") is None
+    assert resolve_calendar(None, "el") == (None, "auto")
     assert resolve_hours(None, "el") == (None, "auto")

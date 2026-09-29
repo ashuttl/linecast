@@ -1063,7 +1063,7 @@ def main():
     # resolved once here: the views draw every frame with its name.
     # The Hebrew holidays follow the place shown; the check costs a
     # reverse geocode for an override, so only that calendar pays it.
-    cal = resolve_calendar(args.calendar, lang_of(runtime))
+    cal, _source = resolve_calendar(args.calendar, lang_of(runtime))
     israel = cal == "hebrew" and keeps_israel_days(country, lat, lng)
 
     if runtime.json_mode:

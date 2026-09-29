@@ -32,8 +32,8 @@ def moon_oneline(now_local, lat, lng, runtime, calendar=None):
     name = moon_name(idx, runtime)
     illum = moon_illumination(now_local)
     lang = lang_of(runtime)
-    cal_name, aside = calendar_headline(
-        resolve_calendar(calendar, lang), now_local, lat, lng, runtime, lang)
+    cal, _source = resolve_calendar(calendar, lang)
+    cal_name, aside = calendar_headline(cal, now_local, lat, lng, runtime, lang)
     if cal_name:
         name = cal_name
 

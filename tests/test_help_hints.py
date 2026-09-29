@@ -87,10 +87,10 @@ def test_live_image_views_offer_help_without_adding_rows(monkeypatch, view, lang
         output = year.render_year(43.68, -70.32, NOW, runtime, fullscreen=True)
     elif view == 'moon':
         output = moon.render(NOW, 43.68, -70.32, runtime, fullscreen=True,
-                             calendar_name=resolve_calendar(None, lang))
+                             calendar_name=resolve_calendar(None, lang)[0])
     else:
         output = calendar.render_calendar(NOW, 43.68, -70.32, runtime, fullscreen=True,
-                                          calendar_name=resolve_calendar(None, lang))
+                                          calendar_name=resolve_calendar(None, lang)[0])
     body = plain(output)
     assert '?' in body
     assert len(body.splitlines()) == rows

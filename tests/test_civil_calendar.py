@@ -112,7 +112,7 @@ def _grid(now, lang="fa", month_offset=0, mouse_pos=None, calendar=None,
                return_value=(100, 32)):
         out = render_calendar(now, 35.69, 51.39, _runtime(lang, week_start),
                               month_offset=month_offset, mouse_pos=mouse_pos,
-                              calendar_name=resolve_calendar(calendar, lang))
+                              calendar_name=resolve_calendar(calendar, lang)[0])
     parts = out.split("\x00", 1)
     strip = lambda s: re.sub(r"\x1b\[[^a-zA-Z]*[a-zA-Z]", "", s)  # noqa: E731
     return strip(parts[0]).split("\n"), strip(parts[1]) if len(parts) > 1 else ""

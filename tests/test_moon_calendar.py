@@ -41,7 +41,7 @@ def _render(cols, rows, lang="en", calendar=None, mouse_pos=None,
                return_value=(cols, rows)):
         out = render_calendar(now, lat, lng, runtime, fullscreen=True,
                               mouse_pos=mouse_pos, month_offset=month_offset,
-                              calendar_name=resolve_calendar(calendar, lang),
+                              calendar_name=resolve_calendar(calendar, lang)[0],
                               israel=israel)
     parts = out.split("\x00", 1)
     body = _strip_ansi(parts[0]).split("\n")

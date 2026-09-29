@@ -440,28 +440,21 @@ def _collect_preferences():
         location, location_source = "auto (IP geolocation)", "auto"
     from linecast._runtime import resolve_lang
     language, language_source = resolve_lang(None, env)
-    from linecast._config import saved_calendar
-    from linecast._i18n import setting
-    saved_cal = saved_calendar()
-    if saved_cal is not None:
-        calendar, calendar_source = saved_cal, "config"
-    else:
-        native = setting(language, "calendar")
-        calendar = native or "none"
-        calendar_source = f"auto: {language}" if native else "auto"
-    from linecast._config import saved_culture
-    saved_culture_ = saved_culture()
-    if saved_culture_ is not None:
-        culture, culture_source = saved_culture_, "config"
-    else:
-        native = setting(language, "sky_culture")
-        culture = native or "none"
-        culture_source = f"auto: {language}" if native else "auto"
+    from linecast.astro.calendars.lunisolar import resolve_calendar
     from linecast.astro.hours import resolve_hours
-    hours, hours_source = resolve_hours(None, language)
-    if hours_source == "auto" and hours:
-        hours_source = f"auto: {language}"
-    hours = hours or "none"
+    from linecast.sky.catalogue import resolve_culture
+
+    def in_force(resolver):
+        """What the resolver picks with no flag, "none" for none, and
+        where it came from, naming the language where that chose."""
+        value, source = resolver(None, language)
+        if source == "auto" and value:
+            source = f"auto: {language}"
+        return value or "none", source
+
+    calendar, calendar_source = in_force(resolve_calendar)
+    culture, culture_source = in_force(resolve_culture)
+    hours, hours_source = in_force(resolve_hours)
     from linecast.terminal.bidi import resolve_digits
     from linecast.astro.calendars.civil import SOLAR_HIJRI, resolve_dates
     dates, dates_source = resolve_dates(language, env)

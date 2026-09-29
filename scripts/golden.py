@@ -469,7 +469,7 @@ CALENDARS = ("chinese", "hawaiian", "islamic", "hebrew", "icelandic", "thai",
 def _calendar(ctx, flag=None):
     """The calendar the moon's main() resolves from --calendar *flag*."""
     from linecast.astro.calendars.lunisolar import resolve_calendar
-    return resolve_calendar(flag, ctx.lang)
+    return resolve_calendar(flag, ctx.lang)[0]
 
 
 @scene("moon-print")
