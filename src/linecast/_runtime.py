@@ -134,7 +134,7 @@ def resolve_units(namespace=None, environ=None, legacy_env="WEATHER_UNITS",
         if name is None:
             continue
         value = env.get(name, "").strip().lower()
-        if value in ("metric", "imperial"):
+        if value in _config.UNITS_CHOICES:
             return value, name
     saved = _config.saved_units()
     if saved is not None:
@@ -154,10 +154,10 @@ def resolve_clock(namespace=None, environ=None, country=_UNSET):
     default for *country*, looked up as resolve_units does.
     """
     env = _environ(environ)
-    if namespace is not None and getattr(namespace, "clock", None) in ("12", "24"):
+    if namespace is not None and getattr(namespace, "clock", None) in _config.CLOCK_CHOICES:
         return namespace.clock, "flag"
     value = env.get("LINECAST_CLOCK", "").strip()
-    if value in ("12", "24"):
+    if value in _config.CLOCK_CHOICES:
         return value, "LINECAST_CLOCK"
     saved = _config.saved_clock()
     if saved is not None:

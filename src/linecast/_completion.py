@@ -11,9 +11,11 @@ parsers accept free text.
 
 from __future__ import annotations
 
-from linecast._config import DIGITS_CHOICES
-from linecast._config import DATES_CHOICES
-from linecast._config import CALENDAR_CHOICES, CULTURE_CHOICES, HOURS_CHOICES
+from linecast._commands import COMMAND_NAMES, VIEW_NAMES
+from linecast._config import (
+    CALENDAR_CHOICES, CLOCK_CHOICES, CULTURE_CHOICES, DATES_CHOICES, DIGITS_CHOICES,
+    HOURS_CHOICES, ICON_SETS, UNITS_CHOICES, WEEK_STARTS,
+)
 from linecast._i18n import LANGUAGE_CODES, VARIANTS
 
 # --lang accepts any code; the parser lists these in its help text but
@@ -23,32 +25,27 @@ LANG_CODES = (*LANGUAGE_CODES, *VARIANTS)
 SHELLS = ("bash", "zsh", "fish", "nu", "nushell")
 
 # The argparse-driven commands, in the order their flags are emitted.
-COMMANDS = ("weather", "sunshine", "moon", "sky", "tides", "radar", "maps")
+COMMANDS = VIEW_NAMES
 
 GLOBAL_FLAGS = ("--help", "-h", "--version", "-v")
-TOP_LEVEL_COMMANDS = ("weather", "sunshine", "moon", "sky", "tides", "radar", "maps",
-                      "location", "language", "units", "clock", "week", "dates", "digits",
-                      "icons",
-                      "calendar",
-                      "culture", "hours", "link", "doctor",
-                      "completion")
+TOP_LEVEL_COMMANDS = COMMAND_NAMES
 LOCATION_SUBCOMMANDS = ("show", "set", "auto", "search")
 LOCATION_FLAGS = ("--help", "-h", "--version")
 # `linecast language` takes the codes linecast has strings for; the
 # list is _i18n's so the two cannot drift.
 LANGUAGE_SUBCOMMANDS = ("show", *LANGUAGE_CODES, *VARIANTS, "auto")
 LANGUAGE_FLAGS = ("--help", "-h", "--version")
-UNITS_SUBCOMMANDS = ("show", "metric", "imperial", "auto")
+UNITS_SUBCOMMANDS = ("show", *UNITS_CHOICES, "auto")
 UNITS_FLAGS = ("--help", "-h", "--version")
-CLOCK_SUBCOMMANDS = ("show", "12", "24", "auto")
+CLOCK_SUBCOMMANDS = ("show", *CLOCK_CHOICES, "auto")
 CLOCK_FLAGS = ("--help", "-h", "--version")
-WEEK_SUBCOMMANDS = ("show", "monday", "sunday", "saturday", "auto")
+WEEK_SUBCOMMANDS = ("show", *WEEK_STARTS, "auto")
 WEEK_FLAGS = ("--help", "-h", "--version")
 DATES_SUBCOMMANDS = ("show", *DATES_CHOICES, "auto")
 DATES_FLAGS = ("--help", "-h", "--version")
 DIGITS_SUBCOMMANDS = ("show", *DIGITS_CHOICES, "auto")
 DIGITS_FLAGS = ("--help", "-h", "--version")
-ICONS_SUBCOMMANDS = ("show", "nerd", "emoji", "plain", "auto")
+ICONS_SUBCOMMANDS = ("show", *ICON_SETS, "auto")
 ICONS_FLAGS = ("--help", "-h", "--version")
 # `linecast calendar` takes the same names as moon's --calendar, plus
 # show and auto; the list is _config's so the two cannot drift.
@@ -59,7 +56,7 @@ CALENDAR_FLAGS = ("--help", "-h", "--version")
 CULTURE_SUBCOMMANDS = ("show", *CULTURE_CHOICES, "auto")
 CULTURE_FLAGS = ("--help", "-h", "--version")
 # `linecast hours` takes the same names as sunshine's --hours, plus show
-# and auto; the list is _runtime's so the two cannot drift.
+# and auto; the list is _config's so the two cannot drift.
 HOURS_SUBCOMMANDS = ("show", *HOURS_CHOICES, "auto")
 HOURS_FLAGS = ("--help", "-h", "--version")
 DOCTOR_FLAGS = ("--help", "-h", "--version", "--offline", "--json", "--debug")

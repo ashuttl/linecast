@@ -17,7 +17,7 @@ import os
 
 from linecast._commands import formatter_class
 from linecast._runtime import VersionAction, resolve_units
-from linecast._config import read_config, save_config, saved_units
+from linecast._config import UNITS_CHOICES, read_config, save_config, saved_units
 
 
 def _cmd_show():
@@ -73,7 +73,7 @@ def main():
     sub.add_parser("auto", help="clear the saved units and use your country's")
     args = parser.parse_args()
 
-    if args.action in ("metric", "imperial"):
+    if args.action in UNITS_CHOICES:
         _cmd_set(args.action)
     elif args.action == "auto":
         _cmd_auto()

@@ -16,7 +16,7 @@ import os
 
 from linecast._commands import formatter_class
 from linecast._runtime import VersionAction, resolve_clock
-from linecast._config import read_config, save_config, saved_clock
+from linecast._config import CLOCK_CHOICES, read_config, save_config, saved_clock
 
 
 def _cmd_show():
@@ -67,7 +67,7 @@ def main():
     sub.add_parser("auto", help="clear the saved clock and use your country's")
     args = parser.parse_args()
 
-    if args.action in ("12", "24"):
+    if args.action in CLOCK_CHOICES:
         _cmd_set(args.action)
     elif args.action == "auto":
         _cmd_auto()

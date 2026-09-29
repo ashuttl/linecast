@@ -47,6 +47,10 @@ HOUSEKEEPING = (
 )
 
 BLURB = dict(VIEWS + SETTINGS + HOUSEKEEPING)
+# The names alone: the views are the commands with a short name of their
+# own (linecast link), and all three are what the completions offer.
+VIEW_NAMES = tuple(name for name, _blurb in VIEWS)
+COMMAND_NAMES = tuple(BLURB)
 
 
 def formatter_class():

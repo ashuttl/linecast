@@ -3,7 +3,7 @@
 import errno
 import os
 import sys
-from linecast._commands import help_text
+from linecast._commands import VIEW_NAMES, help_text
 from linecast._completion import available_shells, completion_help, render_completion
 
 
@@ -62,7 +62,7 @@ HIDDEN = {
 # distro packages that link or copy the binary under a short name. Only
 # these dispatch: the utility commands (location, units, doctor) have no
 # standalone spelling to honour.
-STANDALONE = ("weather", "sunshine", "moon", "sky", "tides", "radar", "maps")
+STANDALONE = VIEW_NAMES
 
 
 def _run(cmd, args):

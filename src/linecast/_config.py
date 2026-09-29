@@ -77,18 +77,24 @@ def save_config(data: dict[str, Any]) -> None:
         sys.exit(f"Could not save settings to {config_file()}: {exc.strerror or exc}")
 
 
+UNITS_CHOICES = ("metric", "imperial")
+
+
 def saved_units() -> str | None:
     """Return 'metric' or 'imperial' saved via `linecast units`, or None."""
     units = read_config().get("units")
-    if isinstance(units, str) and units.strip().lower() in ("metric", "imperial"):
+    if isinstance(units, str) and units.strip().lower() in UNITS_CHOICES:
         return units.strip().lower()
     return None
+
+
+CLOCK_CHOICES = ("12", "24")
 
 
 def saved_clock() -> str | None:
     """Return '12' or '24' saved via `linecast clock`, or None."""
     clock = read_config().get("clock")
-    if str(clock).strip() in ("12", "24"):
+    if str(clock).strip() in CLOCK_CHOICES:
         return str(clock).strip()
     return None
 

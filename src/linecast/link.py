@@ -18,10 +18,10 @@ import os
 import sys
 
 from linecast import _runtime
-from linecast._commands import formatter_class
+from linecast._commands import VIEW_NAMES, formatter_class
 from linecast._runtime import VersionAction
 
-SHORT_NAMES = ("weather", "sunshine", "moon", "sky", "tides", "radar", "maps")
+SHORT_NAMES = VIEW_NAMES
 
 
 def _binary():
