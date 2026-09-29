@@ -280,6 +280,18 @@ class TestZoomRange:
         assert fit_view([(43.0, -70.0)], gw, hc)[2] == MIN_ZOOM_DEG
         assert fit_view([(-60.0, -170.0), (60.0, 170.0)], gw, hc)[2] == max_zoom(gw, hc)
 
+    def test_fit_view_takes_the_short_way_across_the_antimeridian(self):
+        # Taveuni, where the 180th meridian crosses the island's road:
+        # two ends a quarter of a degree apart, not the planet's width
+        gw, hc = 100, 40
+        lat, lon, zoom = fit_view([(-16.93, 179.88), (-16.69, -179.88)],
+                                  gw, hc)
+        assert abs(lon) == pytest.approx(180.0)
+        assert zoom < 1.0
+        # and a centre past the line comes back into range
+        assert fit_view([(-16.9, 179.9), (-16.8, -179.7)], gw, hc)[1] \
+            == pytest.approx(-179.9)
+
     def test_the_step_walks_the_whole_range_in_a_sane_number_of_presses(self):
         assert ZOOM_STEP == 1.5
         presses = math.log(4.0 / MIN_ZOOM_DEG) / math.log(ZOOM_STEP)

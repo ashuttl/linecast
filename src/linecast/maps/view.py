@@ -55,6 +55,7 @@ from linecast.terminal.framebuffer import cell_aspect, get_terminal_size
 from linecast.terminal.graphics import visible_len
 from linecast.terminal.live import overlay
 from linecast.maps.i18n import ms
+from linecast.maps.motion import lon_delta
 from linecast.maps.paint import (  # noqa: F401 — the inks and composers
     BATHY_STOPS, BORDER_STROKE, COAST_STROKE, HYPSO_FAMILIES, LABEL_DARK,
     LABEL_LIGHT, LAKE_FILL, MARKER, build_terrain_buffer,
@@ -77,6 +78,7 @@ from linecast.radar.render import bbox_for
 from linecast.radar.ui import (
     CROSSHAIR, DIM, MUTED, _panned_place, _shift_grid,
 )
+from linecast._geo import wrap_lon
 from linecast._runtime import log_failure
 from linecast.terminal.scenes import Memo
 
@@ -140,9 +142,13 @@ def fit_view(points, gw, hc, margin=0.15):
     frame rather than on it.  Clamped to the same range the keys walk.
     """
     lats = [p[0] for p in points]
-    lons = [p[1] for p in points]
+    # each longitude the short way round from the first, so two ends
+    # either side of the antimeridian are a few degrees apart and not
+    # the width of the planet
+    first = points[0][1]
+    lons = [first + lon_delta(first, p[1]) for p in points]
     lat_c = max(-80.0, min(80.0, (min(lats) + max(lats)) / 2))
-    lon_c = (min(lons) + max(lons)) / 2
+    lon_c = wrap_lon((min(lons) + max(lons)) / 2)
     lat_span = max(lats) - min(lats)
     # The width in the zoom's own unit, degrees of latitude down the
     # screen: hc*2 sub-pixels tall, each cell_aspect/2 cell widths.
@@ -172,7 +178,12 @@ def _get_route_layer(route, bbox, gw, hc, project=None):
         ink = style.palette().get("route",
                                         style.PALETTE_DARK["route"])
         rank = style.LINE_STYLES["route"][3]
-        layer._draw_lines([route.coords], ink, width=2, rank=rank,
+        # measured the short way round from the view's middle, so a
+        # route across the antimeridian stays on the view it crosses
+        mid = (bbox[0] + bbox[2]) / 2
+        coords = [(mid + lon_delta(mid, lon), lat)
+                  for lon, lat in route.coords]
+        layer._draw_lines([coords], ink, width=2, rank=rank,
                           project=project)
         return layer
 
@@ -1188,6 +1199,9 @@ def _shift_layer(layer, dx, dy):
 def _marker_cell(bbox, graph_w, height_cells, m_lat, m_lon):
     """The home marker's cell, or None when it is off view."""
     minlon, minlat, maxlon, maxlat = bbox
+    # a bbox across the antimeridian runs past 180; so does the mark
+    mid = (minlon + maxlon) / 2
+    m_lon = mid + lon_delta(mid, m_lon)
     mcol = int((m_lon - minlon) / (maxlon - minlon) * graph_w)
     mrow = int((maxlat - m_lat) / (maxlat - minlat) * height_cells)
     if 0 <= mcol < graph_w and 0 <= mrow < height_cells:

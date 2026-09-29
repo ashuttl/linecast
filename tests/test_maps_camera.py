@@ -578,6 +578,30 @@ class TestEveryLayerIsTheCameras:
         x, y = cam.project(coords[0][0], coords[0][1], gw * 2, hc * 4)
         assert turned.dots[int(y) // 4][int(x) // 2]
 
+    def test_a_street_view_across_the_antimeridian_keeps_its_marks(self):
+        # Taveuni at street scale: the box runs past 180, and a road,
+        # a mark and a destination on the far side of the line are on
+        # the same screen, not the far side of the planet
+        gw, hc = 60, 10
+        bbox = bbox_for(-16.8, 179.99, 0.1, gw, hc)
+        assert bbox[2] > 180.0
+        assert maps._marker_cell(bbox, gw, hc, -16.8, -179.98) == (
+            maps._marker_cell(bbox, gw, hc, -16.8, 180.02))
+        col, _row = maps._marker_cell(bbox, gw, hc, -16.8, -179.98)
+        assert gw // 2 < col < gw
+        maps._route_layer_cache.clear()
+        route = Route([(179.95, -16.80), (179.99, -16.79),
+                       (-179.99, -16.78), (-179.95, -16.77)],
+                      1.0, 1.0, [], "car")
+        layer = maps._get_route_layer(route, bbox, gw, hc)
+        maps._route_layer_cache.clear()
+        inked = {x for row in layer.dots for x, v in enumerate(row) if v}
+        # on past the line, and never a bar run from the crossing to
+        # the left edge
+        line = int((180.0 - bbox[0]) / (bbox[2] - bbox[0]) * gw)
+        assert max(inked) > line + 5
+        assert min(inked) > 0
+
     def test_render_map_hands_the_terrain_route_to_the_camera(
             self, monkeypatch):
         seen = []
