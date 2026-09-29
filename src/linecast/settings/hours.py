@@ -17,7 +17,8 @@ import argparse
 
 from linecast._config import read_config, save_config, saved_hours
 from linecast._commands import formatter_class
-from linecast._runtime import HOURS_CHOICES, VersionAction
+from linecast._runtime import VersionAction
+from linecast._config import HOURS_CHOICES
 
 _SET = {
     "halachic": "the zmanim by the Gr\"a: twelve hours from sunrise "

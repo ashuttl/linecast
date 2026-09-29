@@ -12,10 +12,10 @@ from unittest.mock import patch
 import pytest
 
 from linecast.astro.calendars.civil import (
-    GREGORIAN, SOLAR_HIJRI, civil_calendar, dates_choice, resolve_dates,
-    shift_month, solar_hijri_date_label, solar_hijri_day_month,
-    solar_hijri_day_of_year, solar_hijri_month_title,
+    GREGORIAN, SOLAR_HIJRI, civil_calendar, resolve_dates, shift_month, solar_hijri_date_label,
+    solar_hijri_day_month, solar_hijri_day_of_year, solar_hijri_month_title,
 )
+from linecast._config import dates_choice
 from linecast._runtime import RuntimeConfig
 
 IRST = timezone(timedelta(hours=3, minutes=30))

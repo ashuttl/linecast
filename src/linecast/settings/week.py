@@ -16,7 +16,8 @@ import argparse
 import os
 
 from linecast._commands import formatter_class
-from linecast._runtime import WEEK_STARTS, VersionAction, resolve_week_start
+from linecast._runtime import VersionAction, resolve_week_start
+from linecast._config import WEEK_STARTS
 from linecast._config import read_config, save_config, saved_week_start
 
 

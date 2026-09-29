@@ -7,7 +7,6 @@ from pathlib import Path
 from typing import Any
 
 from linecast._paths import config_root
-from linecast._runtime import HOURS_CHOICES, WEEK_STARTS
 from linecast._log import log_failure
 
 
@@ -94,6 +93,13 @@ def saved_clock() -> str | None:
     return None
 
 
+# The day a printed calendar opens the week on. Monday nearly
+# everywhere; Sunday and Saturday where the wall calendars say so,
+# after CLDR's week data. Australia and China are left on Monday,
+# where their calendars mostly are whatever CLDR says.
+WEEK_STARTS = ("monday", "sunday", "saturday")
+
+
 def saved_week_start() -> str | None:
     """Return 'monday', 'sunday' or 'saturday' saved via `linecast week`, or None."""
     week = read_config().get("week")
@@ -102,22 +108,47 @@ def saved_week_start() -> str | None:
     return None
 
 
+DATES_CHOICES = ("gregorian", "solar-hijri")
+
+
+def dates_choice(value):
+    """A setting's value as DATES_CHOICES spells it, or None.
+
+    Case and the separator are forgiven: solar_hijri, Solar-Hijri."""
+    if not isinstance(value, str):
+        return None
+    value = value.strip().lower().replace("_", "-")
+    return value if value in DATES_CHOICES else None
+
+
 def saved_dates() -> str | None:
     """Return 'gregorian' or 'solar-hijri' saved via `linecast dates`, or None."""
-    from linecast.astro.calendars.civil import dates_choice
     return dates_choice(read_config().get("dates"))
+
+
+DIGITS_CHOICES = ("latin", "native")
+
+
+def digits_choice(value):
+    """A setting's value as DIGITS_CHOICES spells it, or None."""
+    if not isinstance(value, str):
+        return None
+    value = value.strip().lower()
+    return value if value in DIGITS_CHOICES else None
 
 
 def saved_digits() -> str | None:
     """Return 'latin' or 'native' saved via `linecast digits`, or None."""
-    from linecast.terminal.bidi import digits_choice
     return digits_choice(read_config().get("digits"))
+
+
+ICON_SETS = ("nerd", "emoji", "plain")
 
 
 def saved_icons() -> str | None:
     """Return 'nerd', 'emoji' or 'plain' saved via `linecast icons`, or None."""
     icons = read_config().get("icons")
-    if isinstance(icons, str) and icons.strip().lower() in ("nerd", "emoji", "plain"):
+    if isinstance(icons, str) and icons.strip().lower() in ICON_SETS:
         return icons.strip().lower()
     return None
 
@@ -149,6 +180,25 @@ def saved_calendar() -> str | None:
     if isinstance(cal, str) and cal.strip().lower() in CALENDAR_CHOICES:
         return cal.strip().lower()
     return None
+
+
+# The systems of hours sunshine can read the day in, by the names
+# `linecast hours` and `sunshine --hours` take. A hyphen separates a
+# tradition from an opinion or method within it: halachic-mga is the
+# Magen Avraham's day, alot to tzeit, where halachic is the Gr"a's.
+# islamic-<method> pins a prayer-time convention where the place's
+# country would pick one, and islamic-hanafi or -shafii the school
+# whose Asr is listed. swahili is the one a language brings: `auto`
+# reads the day in it with --lang sw.
+HOURS_CHOICES = ("halachic", "halachic-mga", "roman", "japanese", "islamic",
+                 "swahili",
+                 "islamic-mwl", "islamic-isna", "islamic-egypt", "islamic-makkah",
+                 "islamic-karachi", "islamic-tehran", "islamic-turkey",
+                 "islamic-singapore", "islamic-jakim", "islamic-kemenag",
+                 "islamic-france", "islamic-russia", "islamic-kuwait",
+                 "islamic-qatar", "islamic-dubai", "islamic-jordan",
+                 "islamic-morocco", "islamic-algeria", "islamic-tunisia",
+                 "islamic-oman", "islamic-hanafi", "islamic-shafii", "none")
 
 
 def saved_hours() -> str | None:

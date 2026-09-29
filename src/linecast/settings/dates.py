@@ -13,7 +13,8 @@ JSON output keeps ISO Gregorian dates whatever this says.
 import argparse
 import os
 
-from linecast.astro.calendars.civil import DATES_CHOICES, SOLAR_HIJRI, resolve_dates
+from linecast.astro.calendars.civil import SOLAR_HIJRI, resolve_dates
+from linecast._config import DATES_CHOICES
 from linecast._commands import formatter_class
 from linecast._config import read_config, save_config, saved_dates
 from linecast._runtime import VersionAction, resolve_lang

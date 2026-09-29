@@ -36,10 +36,6 @@ LAYERS = {
 
 # (importer, imported module): the upward imports that stand for now.
 UPWARD = {
-    # the choices move to _config (2.1)
-    ("_config", "_runtime"): "2.1",
-    # the choices move to _config (2.1)
-    ("_config", "astro.calendars.civil"): "2.1", ("_config", "terminal.bidi"): "2.1",
     # the unit labels' words, and radar's themes for its parser (kept)
     ("_runtime", "weather.i18n"): "2.4",
     ("_runtime", "radar.sources"): "kept: radar_parser's choices, asked for lazily",

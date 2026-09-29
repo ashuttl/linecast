@@ -15,7 +15,8 @@ Unicode when piped).
 import argparse
 
 from linecast._commands import formatter_class
-from linecast._runtime import ICON_SETS, VersionAction
+from linecast._runtime import VersionAction
+from linecast._config import ICON_SETS
 from linecast._config import read_config, save_config, saved_icons
 
 _DESCRIBE = {

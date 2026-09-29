@@ -18,6 +18,7 @@ import os
 from datetime import datetime
 
 from linecast.astro.calendars import solar_hijri
+from linecast._config import dates_choice
 from linecast._i18n import base_language, setting
 
 GREGORIAN = "gregorian"
@@ -25,18 +26,7 @@ SOLAR_HIJRI = "solar_hijri"
 
 # The settings' spellings, as `linecast dates` and LINECAST_DATES take
 # them, and the calendar each names.
-DATES_CHOICES = ("gregorian", "solar-hijri")
 _CHOICE_CALENDAR = {"gregorian": GREGORIAN, "solar-hijri": SOLAR_HIJRI}
-
-
-def dates_choice(value):
-    """A setting's value as DATES_CHOICES spells it, or None.
-
-    Case and the separator are forgiven: solar_hijri, Solar-Hijri."""
-    if not isinstance(value, str):
-        return None
-    value = value.strip().lower().replace("_", "-")
-    return value if value in DATES_CHOICES else None
 
 
 def resolve_dates(lang, environ=None):

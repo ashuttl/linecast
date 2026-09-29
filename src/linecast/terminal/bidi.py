@@ -51,6 +51,8 @@ import os
 import re
 import unicodedata
 
+from linecast._config import digits_choice
+
 # ---------------------------------------------------------------------------
 # Configuration
 # ---------------------------------------------------------------------------
@@ -78,17 +80,6 @@ _mirror_request = False
 # The settings' spellings, as `linecast digits` and LINECAST_DIGITS take
 # them: "native" is the language's own digits where it has them,
 # "latin" 0-9 in every language.
-DIGITS_CHOICES = ("latin", "native")
-
-
-def digits_choice(value):
-    """A setting's value as DIGITS_CHOICES spells it, or None."""
-    if not isinstance(value, str):
-        return None
-    value = value.strip().lower()
-    return value if value in DIGITS_CHOICES else None
-
-
 def resolve_digits(lang, environ=None):
     """(choice, source) for *lang*: "native" or "latin", and
     "LINECAST_DIGITS", "config", or "auto".

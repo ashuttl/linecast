@@ -13,6 +13,8 @@ import re
 import sys
 
 from linecast._commands import BLURB, formatter_class, parser_class
+from linecast import _config
+from linecast._config import HOURS_CHOICES, ICON_SETS, WEEK_STARTS
 from linecast._i18n import LANGUAGE_CODES, LOCALE_CODES, VARIANTS
 from linecast._log import debug_enabled, debug_log, set_debug
 
@@ -91,30 +93,8 @@ def default_clock(country=None):
     return "12" if country in TWELVE_HOUR_COUNTRIES else "24"
 
 
-# The day a printed calendar opens the week on. Monday nearly
-# everywhere; Sunday and Saturday where the wall calendars say so,
-# after CLDR's week data. Australia and China are left on Monday,
-# where their calendars mostly are whatever CLDR says.
-WEEK_STARTS = ("monday", "sunday", "saturday")
 WEEK_START_WEEKDAY = {"monday": 0, "saturday": 5, "sunday": 6}  # date.weekday()
 
-# The systems of hours sunshine can read the day in, by the names
-# `linecast hours` and `sunshine --hours` take. A hyphen separates a
-# tradition from an opinion or method within it: halachic-mga is the
-# Magen Avraham's day, alot to tzeit, where halachic is the Gr"a's.
-# islamic-<method> pins a prayer-time convention where the place's
-# country would pick one, and islamic-hanafi or -shafii the school
-# whose Asr is listed. swahili is the one a language brings: `auto`
-# reads the day in it with --lang sw.
-HOURS_CHOICES = ("halachic", "halachic-mga", "roman", "japanese", "islamic",
-                 "swahili",
-                 "islamic-mwl", "islamic-isna", "islamic-egypt", "islamic-makkah",
-                 "islamic-karachi", "islamic-tehran", "islamic-turkey",
-                 "islamic-singapore", "islamic-jakim", "islamic-kemenag",
-                 "islamic-france", "islamic-russia", "islamic-kuwait",
-                 "islamic-qatar", "islamic-dubai", "islamic-jordan",
-                 "islamic-morocco", "islamic-algeria", "islamic-tunisia",
-                 "islamic-oman", "islamic-hanafi", "islamic-shafii", "none")
 SUNDAY_FIRST_COUNTRIES = frozenset((
     "US", "CA", "BR", "MX", "IL", "IN", "JP", "KR", "PH", "SA", "TW", "HK", "ZA",
 ))
@@ -156,8 +136,7 @@ def resolve_units(namespace=None, environ=None, legacy_env="WEATHER_UNITS",
         value = env.get(name, "").strip().lower()
         if value in ("metric", "imperial"):
             return value, name
-    from linecast._config import saved_units
-    saved = saved_units()
+    saved = _config.saved_units()
     if saved is not None:
         return saved, "config"
     if country is _UNSET:
@@ -180,8 +159,7 @@ def resolve_clock(namespace=None, environ=None, country=_UNSET):
     value = env.get("LINECAST_CLOCK", "").strip()
     if value in ("12", "24"):
         return value, "LINECAST_CLOCK"
-    from linecast._config import saved_clock
-    saved = saved_clock()
+    saved = _config.saved_clock()
     if saved is not None:
         return saved, "config"
     if country is _UNSET:
@@ -205,8 +183,7 @@ def resolve_week_start(namespace=None, environ=None, country=_UNSET):
     value = env.get("LINECAST_WEEK_START", "").strip().lower()
     if value in WEEK_STARTS:
         return value, "LINECAST_WEEK_START"
-    from linecast._config import saved_week_start
-    saved = saved_week_start()
+    saved = _config.saved_week_start()
     if saved is not None:
         return saved, "config"
     if country is _UNSET:
@@ -259,8 +236,7 @@ def resolve_lang(namespace=None, environ=None):
         code = language_of(value)
         if code is not None:
             return code, source
-    from linecast._config import saved_language
-    saved = saved_language()
+    saved = _config.saved_language()
     if saved is not None:
         return saved, "config"
     # The first of LC_ALL, LC_MESSAGES, and LANG that is set is the
@@ -503,7 +479,7 @@ def moon_parser():
     # the old name, still taken, not offered
     p.add_argument("--grid", dest="month", action="store_true",
                     help=argparse.SUPPRESS)
-    from linecast._config import CALENDAR_CHOICES as calendars
+    calendars = _config.CALENDAR_CHOICES
     p.add_argument("--calendar", metavar="NAME", choices=calendars, default=None,
                     help=f"{', '.join(calendars[:-1])}, or {calendars[-1]}\n"
                          "Adds a traditional calendar and its festivals, or "
@@ -530,10 +506,9 @@ def sky_parser():
     p.add_argument("--fov", metavar="DEGREES", type=float, default=None,
                     help="how many degrees of sky across the screen, 6 to "
                          "236 (default 110; zoom live with + and -)")
-    from linecast._config import CULTURE_CHOICES
-    p.add_argument("--culture", metavar="NAME", choices=CULTURE_CHOICES, default=None,
-                    help=f"{', '.join(CULTURE_CHOICES[:-1])}, or "
-                         f"{CULTURE_CHOICES[-1]}\n"
+    p.add_argument("--culture", metavar="NAME", choices=_config.CULTURE_CHOICES, default=None,
+                    help=f"{', '.join(_config.CULTURE_CHOICES[:-1])}, or "
+                         f"{_config.CULTURE_CHOICES[-1]}\n"
                          "Draws another tradition's constellations and star "
                          "names in place of the IAU's; t steps through them "
                          "live. Default: your language's own sky, if any; "
@@ -606,11 +581,10 @@ def _log_startup():
     its files live."""
     import platform
     from linecast import __version__
-    from linecast._config import config_file
     from linecast._paths import cache_root
     debug_log(f"linecast {__version__}, python {platform.python_version()}, "
               f"{sys.platform} {platform.machine()}; cache {cache_root()}; "
-              f"settings {config_file()}")
+              f"settings {_config.config_file()}")
 
 
 def doctor_parser():
@@ -653,9 +627,6 @@ def _resolve_live(ns):
 # ---------------------------------------------------------------------------
 # Runtime config dataclasses
 # ---------------------------------------------------------------------------
-ICON_SETS = ("nerd", "emoji", "plain")
-
-
 def _interactive_utf8(stream):
     """Whether *stream* is an interactive UTF-8 terminal — the setting
     emoji are known to render in."""
@@ -725,8 +696,7 @@ def resolve_icons(namespace=None, environ=None):
     env_pref = env.get("LINECAST_ICONS", "").strip().lower()
     if env_pref in ICON_SETS:
         return env_pref, "LINECAST_ICONS"
-    from linecast._config import saved_icons
-    saved = saved_icons()
+    saved = _config.saved_icons()
     if saved is not None:
         return saved, "config"
     return default_icons(env), "auto"
