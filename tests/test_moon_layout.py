@@ -72,7 +72,7 @@ class TestCorners:
         assert lines[1].startswith(" 94% illuminated")
         assert lines[0].rstrip().endswith("Below the horizon")
         assert _info_row(lines, "Moonrise") < 4
-        assert _info_row(lines, "Day 16.3 of 29.5") > 30
+        assert _info_row(lines, "Day 16.3 of 29.6") > 30
         assert lines[_info_row(lines, "Full Pink Moon")].startswith(" Full Pink Moon")
         assert lines[-1].rstrip().endswith("in 14.8d")
         assert "Spring equinox" in lines[-1]

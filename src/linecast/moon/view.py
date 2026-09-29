@@ -648,8 +648,12 @@ def render(now_local, lat, lng, runtime, fullscreen=False, offset_minutes=0,
         return _ms('in_days', runtime, days=fmt_decimal(days, 1, runtime))
 
     illum_txt = _ms('illuminated', runtime, pct=f'{illum * 100:.0f}')
+    # Out of this month's own length, from the new moon before to the one
+    # after: months run 29.3 to 29.8 days, and a mean 29.5 under an age
+    # of 29.8 is a day past the end
+    lunation = age + (new_dt - now_local).total_seconds() / 86400.0
     age_txt = _ms('age', runtime, age=fmt_decimal(age, 1, runtime),
-                  total=fmt_decimal(SYNODIC_MONTH, 1, runtime))
+                  total=fmt_decimal(lunation, 1, runtime))
     alt_txt = _ms('above_horizon', runtime, alt=f'{alt:.0f}')
     # After "Up now" the long phrase is redundant — being up is the whole
     # claim — so the altitude goes short and spends the room on where to

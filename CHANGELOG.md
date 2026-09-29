@@ -39,6 +39,7 @@ Notable changes, by release. Notes for the next release collect under **Unreleas
 - Moon, sky: Fixed times and dates past the next change of clock being an hour off where the location comes from the network rather than a setting, which could put a new or full moon on the wrong day.
 - Moon: In the last day before a full or new moon, an equinox or a solstice, the wait is given in hours and minutes, as it is for moonrise and moonset. It read "in 0.0d" for the last hour.
 - Moon: Fixed Blue Moons being missed, or named where there was none, when the two full moons of a month fell close to 29½ days apart, as in March 2029 in East Asia.
+- Moon: The Moon's age is given out of the length of this month, from new moon to new moon, rather than the average of 29.5 days, which the age could pass: "Day 29.8 of 29.5".
 - Maps: Directions between two places with no road between them say "no route" rather than "directions unavailable", and are not asked for again.
 - Radar, maps: `--zoom` with zero, a negative number, or anything not a number of degrees now says so rather than ending in a Python traceback.
 - Maps: Fixed a search that found nothing as you typed, with Enter pressed before it answered, stopping at "no results" instead of looking the name up, as Enter pressed afterwards does.
