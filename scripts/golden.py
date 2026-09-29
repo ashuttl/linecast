@@ -140,6 +140,9 @@ def _stop_the_clock():
     shim.__dict__.update(dt.__dict__)
     shim.datetime, shim.date = FrozenDatetime, FrozenDate
     swap = {id(dt.datetime): FrozenDatetime, id(dt.date): FrozenDate, id(dt): shim}
+    # A function that imports datetime as it runs, as the bare command's
+    # line about the Moon does, finds the stopped clock too.
+    dt.datetime, dt.date = FrozenDatetime, FrozenDate
     for name, mod in list(sys.modules.items()):
         if name != "linecast" and not name.startswith("linecast."):
             continue
