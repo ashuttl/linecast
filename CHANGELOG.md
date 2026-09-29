@@ -53,6 +53,7 @@ Fixes:
   - Fixed the Moon's age passing the length of the month, as in "Day 29.8 of 29.5"; it is given out of this month's own length, from new moon to new moon.
   - Fixed the countdown to a new or full moon, an equinox, or a solstice reading "in 0.0d" in its last hour. In the last day the wait is given in hours and minutes, as it is for moonrise and moonset.
   - In a window too short to draw the month view's discs, each day's phase sits beside its own date; it sat just before the next day's and read as that day's.
+  - Fixed the almanac's lines in Thai breaking sooner than they needed to, as though each vowel and tone mark took a column of its own, which split the best fishing times across two lines.
 - Moon, sky: Fixed times and dates past the next change of clock being an hour off where the location comes from the network rather than a setting, which could put a new or full moon on the wrong day.
 - Sunshine:
   - Fixed the day view's scale south of the equator, which drew a winter day's arc as high as a summer day's.

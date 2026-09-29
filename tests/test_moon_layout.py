@@ -323,3 +323,13 @@ class TestMoonAlone:
             os.close(w)
         assert ("t", "hide / show the text") in entries("moon", "en")
         assert not any(mark == "t" for mark, _ in filter(None, entries("moon_calendar", "en")))
+
+
+def test_the_counsel_is_wrapped_by_the_cells_it_takes():
+    # Thai's vowel and tone marks ride on their letters; counted as
+    # columns, they broke this line in two, between the pair of times
+    from linecast.moon.view import _wrap
+    from linecast.terminal.textwidth import visible_len
+    text = "โซลูนาร์ช่วงหลัก 01:44 · 14:06  ช่วงรอง 07:30 · 20:55"
+    assert visible_len(text) <= 48 < len(text)
+    assert len(_wrap(text, 48, 28)) == 1

@@ -38,7 +38,7 @@ from datetime import datetime, timedelta, timezone
 from typing import NamedTuple
 
 from linecast._timefmt import fmt_time_dt
-from linecast.terminal.textwidth import cells, pad, visible_len
+from linecast.terminal.textwidth import cells, pad, visible_len, wrap_display_width
 from linecast.terminal.framebuffer import get_terminal_size, cell_aspect, Framebuffer
 from linecast._i18n import GEOCODER_UNTRANSLATED, fmt_decimal, fmt_duration_parts, lang_of
 from linecast._config import saved_location
@@ -281,13 +281,18 @@ def _wrap(text, width, least=None):
 
     With *least*, the text takes as few lines as *width* allows but is
     set no wider than those lines need, and never narrower than *least*
-    — so a counsel that fits beside the table keeps to its edge.
+    — so a counsel that fits beside the table keeps to its edge.  Text
+    with a wide glyph in it is measured in cells, as it is drawn.
     """
+    if visible_len(text) == len(text):
+        wrap = textwrap.wrap
+    else:
+        wrap = wrap_display_width
     if least is not None and least < width:
-        count = len(textwrap.wrap(text, width))
+        count = len(wrap(text, width))
         width = next(w for w in range(least, width + 1)
-                     if len(textwrap.wrap(text, w)) <= count)
-    lines = textwrap.wrap(text, width)
+                     if len(wrap(text, w)) <= count)
+    lines = wrap(text, width)
     if len(lines) > 1 and " " not in lines[-1]:
         head, last = lines[-2].rsplit(" ", 1)
         lines[-2:] = [head, f"{last} {lines[-1]}"]
