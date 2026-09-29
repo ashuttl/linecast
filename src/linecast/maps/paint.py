@@ -162,7 +162,7 @@ def _rebuild():
     """
     global COAST_STROKE, BORDER_STROKE, LABEL_DARK, LABEL_LIGHT, MARKER
     global LAKE_FILL, RIVER_STROKE, HYPSO_FAMILIES, BATHY_STOPS
-    global _SHADOW_TINT, _LIGHT_TINT
+    global _COVER_RGB, _SHADOW_TINT, _LIGHT_TINT
     # geography over terrain: dark strokes cut into the colour fill (the
     # radar palette's dim-on-dark strokes vanish against light terrain)
     COAST_STROKE = themed((22, 32, 52))
@@ -186,6 +186,12 @@ def _rebuild():
                       for fam in _HYPSO_FAMILIES_RAW]
     BATHY_STOPS = [(m, themed(c)) for m, c in _BATHY_RAW]
 
+    # land-cover tints by grid index (0 = no cover, stays on the ramp),
+    # as style has already inked them: its hook was registered first,
+    # when paint imported it, and so runs first
+    _COVER_RGB = [None] + [_style.COVER_COLOR[k]
+                           for k in _style.COVER_ORDER]
+
     # aerial perspective on land: shadow does not just darken, it cools
     # toward slate; full light warms faintly toward sun-colour.  Both are
     # small nudges after the multiply — the ramp still owns the hue.
@@ -204,10 +210,6 @@ def _hypso_band(e, fam=0):
         if e >= lim:
             return c
     return stops[0][1]
-
-# land-cover tints by grid index (0 = no cover, stays on the ramp)
-_COVER_RGB = [None] + [_style.COVER_COLOR[k]
-                       for k in _style.COVER_ORDER]
 
 # A north-west sun 45° up, with two flanking lights a quarter turn to
 # either side: one azimuth lights every NW-SE ridge identically and

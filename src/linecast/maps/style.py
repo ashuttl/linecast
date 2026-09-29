@@ -587,7 +587,16 @@ COVER_COLOR = {
     "suburb":  (168, 156, 178),
     "core":    (108, 90, 140),
 }
-COVER_COLOR = {k: themed(v) for k, v in COVER_COLOR.items()}
+_COVER_COLOR_RAW = COVER_COLOR
+
+
+def _rebuild_cover():
+    global COVER_COLOR
+    COVER_COLOR = {k: themed(v) for k, v in _COVER_COLOR_RAW.items()}
+
+
+_rebuild_cover()
+_theme.on_reload(_rebuild_cover)
 
 # a covered sub-pixel takes its class colour outright: flat fields,
 # bounded edges, no naturalistic mixing

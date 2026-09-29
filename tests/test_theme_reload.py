@@ -89,6 +89,18 @@ class TestApply:
         _theme._apply(DARK[0], DARK[1], green)
         assert _maps_style.PALETTE_DARK["water"] != canonical
 
+    def test_land_cover_follows_the_ansi_hues(self, restore_theme, monkeypatch):
+        from linecast.maps import paint
+        monkeypatch.setattr(_color, "_COLOR_MODE", "truecolor")
+        _theme._apply(*DARK)
+        canonical = _maps_style.COVER_COLOR["wood"]
+        green = tuple((40, 160, 70) if 1 <= i <= 6 or 9 <= i <= 14 else c
+                      for i, c in enumerate(DARK[2]))
+        _theme._apply(DARK[0], DARK[1], green)
+        wood = _maps_style.COVER_COLOR["wood"]
+        assert wood != canonical
+        assert paint._COVER_RGB[_maps_style.COVER_ORDER.index("wood") + 1] == wood
+
     def test_track_imports_finds_the_copied_names(self):
         import types
         src = types.ModuleType("linecast._track_imports_probe")

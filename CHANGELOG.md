@@ -100,6 +100,7 @@ Fixes:
   - Fixed elevations in languages that write a decimal comma, where "5,094 m" read as five metres; they are grouped with a space, "5 094 m". A distance just short of a kilometre reads "1.0 km" rather than "1,000 m".
   - Fixed the names of neighbourhoods, parks, and water in Persian, and in other right-to-left scripts, being drawn letter by letter with their words in the wrong order.
   - Fixed the space around the globe keeping the old background after the terminal's theme changed.
+  - Fixed the woods, fields, sand, ice, and towns on the terrain map and the globe keeping the old theme's colors after the terminal's theme changed.
 - Radar, maps:
   - `--zoom` with zero, a negative number, or anything not a number of degrees now says so rather than ending in a Python traceback.
   - `--help` no longer offers `--oneline`, which printed the whole frame; neither view has a single line to give.
