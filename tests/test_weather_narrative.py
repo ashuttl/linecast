@@ -2000,6 +2000,24 @@ class TestPastPrecipitation:
         assert past_precip_sentence(hourly, NOON + timedelta(minutes=26), runtime) == (
             "24.0\u00a0mm of rain in the last 24 hours")
 
+    def test_the_kind_named_is_one_that_came_to_enough_to_say(self):
+        from linecast.weather.sections import past_precip_sentence
+
+        def said(rows):
+            hours = [NOON - timedelta(hours=k) for k in range(len(rows), 0, -1)]
+            return past_precip_sentence(
+                {"time": [h.isoformat(timespec="minutes") for h in hours],
+                 "precipitation": [r[0] for r in rows], "snowfall": [r[1] for r in rows],
+                 "weather_code": [r[2] for r in rows]},
+                NOON, _runtime(celsius=True, metric=True))
+
+        # three hours of a dusting, then a wet evening: the rain's sentence
+        assert said([(0.2, 0.14, 71)] * 3 + [(8.0, 0, 65), (7.0, 0, 65)]) == \
+            "15.6\u00a0mm of rain in the last 24 hours"
+        # a real snowfall, then drizzle too light to name: the snow's
+        assert said([(0.8, 0.8, 73)] * 2 + [(0.2, 0, 51)] * 3) == \
+            "1.6\u00a0cm of snow in the last 24 hours"
+
     # The Portland morning again: the model had 3.5 mm of drizzle in the
     # last day, and the Jetport's gauge caught more than half an inch
     MODEL_NIGHT = {"time": [(NOON - timedelta(hours=k)).isoformat(timespec="minutes")

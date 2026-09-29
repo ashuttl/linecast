@@ -1621,12 +1621,16 @@ def past_precip_sentence(hourly, now, runtime, station=None):
     # A tenth of an inch, 2.5 mm, before it is worth a sentence: less
     # than that is a damp pavement, and nobody reports it.  Snow from a
     # centimetre.
-    if total_precip < (2.5 if runtime.metric else 0.1) and total_snow_cm < 1:
+    worth_water = total_precip >= (2.5 if runtime.metric else 0.1)
+    worth_snow = total_snow_cm >= 1
+    if not worth_water and not worth_snow:
         return ""
 
-    # Determine dominant type and format amount
+    # The kind that fell most hours, among those that came to enough to
+    # say: a dusting before a wet evening is the rain's sentence
     metric_sep = _prose_sep(runtime)
-    if snow_hours >= rain_hours and snow_hours >= mix_hours:
+    if worth_snow and (not worth_water or (snow_hours >= rain_hours
+                                           and snow_hours >= mix_hours)):
         # Show snow accumulation
         if runtime.metric:
             amt = f"{fmt_decimal(total_snow_cm, 1, runtime)}{metric_sep}{_s('unit_cm', runtime)}"
