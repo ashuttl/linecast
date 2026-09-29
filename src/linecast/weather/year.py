@@ -30,6 +30,7 @@ the outer band is named by its span, never called a record.
 import calendar
 from dataclasses import dataclass
 from datetime import date, timedelta
+from typing import NamedTuple
 
 from linecast._i18n import fmt_decimal
 from linecast.terminal import live as _live
@@ -443,6 +444,44 @@ def _normal_to_date(climate, today, starts, ends):
     return total
 
 
+class _YearAxes(NamedTuple):
+    """The temperature panel's scale, and the year across both panels."""
+    width: int     # the panels' width, in cells
+    n: int         # the year's days
+    n_temp: int    # the temperature panel's rows
+    lo: float      # the scale's bottom and top, in degrees
+    hi: float
+    dots: int      # the temperature panel's rows in braille dots
+
+    def ty(self, v):
+        """Degrees as a dot row from the panel's top, unrounded."""
+        return (self.hi - v) / (self.hi - self.lo) * self.dots
+
+    def ydot(self, v):
+        """Degrees as the dot row that draws them."""
+        return max(0, min(self.dots - 1, int(self.ty(v))))
+
+    def cell_of(self, k):
+        """The column day k falls in."""
+        return min(self.width - 1, int((k + 0.5) / self.n * self.width))
+
+
+class _Precip(NamedTuple):
+    """The precipitation panel's figures and its scale."""
+    rows: int          # the panel's rows
+    top: int           # dots kept at the top for the totals' labels
+    full: float        # the amount the scale's top stands for
+    cum: list          # each day's running total for its month; None where there is none
+    month_of: list     # each day's month, 0 for January
+    normals: tuple     # the ten years' average total for each month, or Nones
+
+    def py(self, v):
+        """An amount as the dot row that draws it."""
+        dots = self.rows * 4
+        return max(0, min(dots - 1,
+                          int(self.top + (1 - v / self.full) * (dots - 1 - self.top) + 0.5)))
+
+
 def render_year(climate, days, runtime, *, location_name="", location_menu=False,
                 mouse_pos=None, live=False, footer="", hint="", colors=COLORS[0]):
     """The year view, sized to the terminal: a header, the temperature
@@ -486,46 +525,11 @@ def render_year(climate, days, runtime, *, location_name="", location_menu=False
     tick_labels = [f"{v}°" for v in ticks]
     gutter = max(visible_len(t) for t in tick_labels) + 1
     width = max(20, cols - gutter)
-    dots = n_temp * 4
+    axes = _YearAxes(width, n, n_temp, lo, hi, n_temp * 4)
 
-    def ty(v):
-        return (hi - v) / (hi - lo) * dots
-
-    def ydot(v):
-        return max(0, min(dots - 1, int(ty(v))))
-
-    def cell_of(k):
-        return min(width - 1, int((k + 0.5) / n * width))
-
-    # --- the bands: half-block fields ---
-    # Each column's (outer top, outer bottom, average high, average low),
-    # in dots from the top; None where the ten years have nothing.
-    edges = [None] * width
-    temp_fb = Framebuffer(width, n_temp)
-    if climate:
-        def values(series, span):
-            return [series[slots[k]] for k in span if series[slots[k]] is not None]
-
-        for x in range(width):
-            span = _span(x, width, n)
-            tops, bots = values(climate.top, span), values(climate.bottom, span)
-            nhs = values(climate.normal_high, span)
-            nls = values(climate.normal_low, span)
-            bands = []
-            if tops and bots and nhs and nls:
-                edges[x] = (ty(max(tops)), ty(min(bots)),
-                            ty(sum(nhs) / len(nhs)), ty(sum(nls) / len(nls)))
-                bands = [(edges[x][0], edges[x][1], RANGE_RGB),
-                         (edges[x][2], edges[x][3], NORMAL_RGB)]
-            for spy in range(n_temp * 2):
-                a, b = spy * 2, spy * 2 + 2   # the sub-pixel, in dots
-                for y0, y1, ink in bands:
-                    cover = max(0.0, min(b, y1) - max(a, y0)) / 2
-                    if cover > 0:
-                        temp_fb.set_pixel(x, spy, ink, cover)
-
-    # --- the days: braille bars ---
-    bars = _Bars(width, n_temp)
+    # --- the bands, the days, and the grid under them ---
+    edges, temp_fb = _temp_bands(climate, slots, axes)
+    bars = _day_bars(days, axes)
 
     def bar_ink(cell, row, observed):
         if colored:
@@ -537,163 +541,29 @@ def render_year(climate, days, runtime, *, location_name="", location_menu=False
                 rgb = _fringed(rgb, row * 4 + 2, edges[cell])
         return rgb if observed else lerp_rgb(rgb, _theme.theme_bg, _FORECAST_FADE)
 
-    def extreme_ink(v):
-        return _style._temp_color(v, runtime) if colored else PLAIN_RGB
-
-    temp_dots = _Braille(width, n_temp)   # the grid lines under the bars
-    hottest = coldest = None   # (value, day) of the year's extremes so far
-    if days:
-        for i in range(width * 2):
-            span = _span(i, width * 2, n)
-            his = [days.highs[k] for k in span if days.highs[k] is not None]
-            los = [days.lows[k] for k in span if days.lows[k] is not None]
-            if not his or not los:
-                continue
-            for y in range(ydot(max(his)), ydot(min(los)) + 1):
-                bars.fill(i, y, span.start <= days.today)
-        for k in range(days.today + 1):
-            if days.highs[k] is not None and (hottest is None or days.highs[k] > hottest[0]):
-                hottest = (days.highs[k], k)
-            if days.lows[k] is not None and (coldest is None or days.lows[k] < coldest[0]):
-                coldest = (days.lows[k], k)
-
     # Grid lines at the labelled degrees and the month boundaries, dotted
     # and faint, yielding to the bars.
+    temp_dots = _Braille(width, n_temp)
     for v in ticks:
-        y = ydot(v)
+        y = axes.ydot(v)
         for i in range(0, width * 2, 2):
             temp_dots.dot(i, y, GRID_RGB, guide=True)
     month_dots = [min(width * 2 - 1, round(s / n * width * 2)) for s in starts[1:]]
-    for i in month_dots:
-        for y in range(0, dots, 2):
-            temp_dots.dot(i, y, GRID_RGB, guide=True)
+    _month_lines(temp_dots, month_dots, axes.dots)
 
     # --- precipitation: braille running totals against the averages ---
-    pdots_n = n_precip * 4
-    # The top row is kept for the totals' labels while there are rows
-    # enough to give one up.
-    ptop = 4 if n_precip >= 3 else 0
-    cum = [None] * n
-    month_of = []
-    for m in range(12):
-        month_of += [m] * (ends[m] - starts[m])
-        if not days:
-            continue
-        gone = range(starts[m], min(ends[m], days.today))
-        # A month the archive left more than a couple of days out of has
-        # no running total: its missing days would draw as dry ones, and
-        # a year the archive did not send as a year without rain.
-        if sum(days.precip[k] is None for k in gone) > 2:
-            continue
-        run = 0.0
-        for k in gone:
-            run += days.precip[k] or 0.0
-            cum[k] = run
-    normals = climate.month_precip if climate else (None,) * 12
-    pvalues = [v for v in cum if v is not None] + [v for v in normals if v is not None]
-    pmax = max(pvalues + [25.0 if runtime.metric else 1.0]) * 1.05
+    precip = _precip_scale(days, climate, starts, ends, n_precip, runtime)
+    precip_dots = _precip_dots(days, precip, starts, axes, runtime)
+    _month_lines(precip_dots, month_dots, n_precip * 4)
 
-    def py(v):
-        return max(0, min(pdots_n - 1,
-                          int(ptop + (1 - v / pmax) * (pdots_n - 1 - ptop) + 0.5)))
-
-    precip_dots = _Braille(width, n_precip)
-    prev = None   # (dot row, month, day) of the last column's running total
-    for i in range(width * 2):
-        k = min(n - 1, _span(i, width * 2, n)[-1])
-        if cum[k] is None:
-            prev = None
-            continue
-        y = py(cum[k])
-        same_month = prev is not None and prev[1] == month_of[k]
-        # The days this column adds to the total; a step that is mostly
-        # snow's water is drawn in the snow's ink, and takes its cell
-        added = range(prev[2] + 1 if same_month else starts[month_of[k]], k + 1)
-        water = sum(days.precip[d] or 0 for d in added)
-        snowy = bool(water > 0 and days.snow and mostly_snow(
-            sum(days.snow[d] or 0 for d in added), water, runtime))
-        ink = SNOW_RGB if snowy else PRECIP_RGB
-        precip_dots.dot(i, y, ink, wins=snowy)
-        if same_month:
-            for yy in range(min(prev[0], y), max(prev[0], y) + 1):
-                precip_dots.dot(i, yy, ink, wins=snowy)
-        prev = (y, month_of[k], k)
-    for i in range(width * 2):
-        span = _span(i, width * 2, n)
-        normal = normals[month_of[min(n - 1, span[len(span) // 2])]]
-        if normal is not None:
-            precip_dots.dot(i, py(normal), PRECIP_NORMAL_RGB, guide=True)
-    for i in month_dots:
-        for y in range(0, pdots_n, 2):
-            precip_dots.dot(i, y, GRID_RGB, guide=True)
-
-    # --- hover ---
-    # A window with a column for every day hovers a day.  Narrower, a
-    # column holds two or three, and the one in its middle would leave
-    # the others out of reach -- a storm on one of them, say -- so the
-    # hover takes the calendar week the column falls in, opening on the
-    # reader's first day of the week (`linecast week`).
-    hover_x = hovered = None
-    x_today = cell_of(today) if today is not None else None
-    if mouse_pos:
-        gx, gy = mouse_pos[0] - 1 - gutter, mouse_pos[1] - 1
-        if 0 <= gx < width and 1 <= gy <= n_temp + 1 + n_precip:
-            hover_x = gx
-            k = min(n - 1, int((gx + 0.5) / width * n))
-            if width >= n:
-                hovered = range(k, k + 1)
-            else:
-                from linecast._runtime import WEEK_START_WEEKDAY
-                opens = WEEK_START_WEEKDAY.get(getattr(runtime, "week_start", None), 0)
-                first = k - ((jan1 + timedelta(days=k)).weekday() - opens) % 7
-                hovered = range(max(0, first), min(n, first + 7))
+    hover_x, hovered = _hovered_days(mouse_pos, gutter, axes, n_precip, jan1, runtime)
+    x_today = axes.cell_of(today) if today is not None else None
 
     # --- overlays: labels, then hairlines where nothing else is ---
     temp_over, precip_over = {}, {}
-    if hottest:
-        v, k = hottest
-        text = f"{round(v)}°"
-        _place(temp_over, bars.free, n_temp, text, cell_of(k) - len(text) // 2,
-               ydot(v) // 4 - 1, extreme_ink(v), width)
-    if coldest:
-        v, k = coldest
-        text = f"{round(v)}°"
-        _place(temp_over, bars.free, n_temp, text, cell_of(k) - len(text) // 2,
-               ydot(v) // 4 + 1, extreme_ink(v), width)
-    # The bands' names where this year has not reached, at the chart's
-    # right end as the paper's legend is: the average in its band, the
-    # span in the outer band above it.  Hovering says the rest.
-    reached = max((c for c in range(width) for r in range(n_temp)
-                   if not bars.free(c, r)), default=-1)
-    if climate:
-        legend = ((_s("avg", runtime), 2, 3, NORMAL_LABEL_RGB),
-                  (f"{climate.span[0]}–{climate.span[1]}", 0, 2, RANGE_LABEL_RGB))
-        for text, upper, lower, ink in legend:
-            x = width - 1 - visible_len(text)
-            cols_under = [edges[c] for c in range(x, x + visible_len(text))]
-            if x <= reached + 1 or None in cols_under:
-                continue
-            top = max(e[upper] for e in cols_under)
-            bottom = min(e[lower] for e in cols_under)
-            inside = [r for r in range(n_temp) if top <= r * 4 + 2 <= bottom]
-            if inside:
-                _place(temp_over, bars.free, n_temp, text, x,
-                       inside[len(inside) // 2], ink, width)
-    if ptop:
-        for m in range(12):
-            first, last = cell_of(starts[m]), cell_of(ends[m] - 1)
-            if days and starts[m] < days.today:
-                k_end = min(ends[m], days.today) - 1
-                if cum[k_end] is not None:
-                    text = _fmt_amount(cum[k_end], runtime)
-                    end = cell_of(k_end)
-                    x = max(first + 1, end - visible_len(text) + 1)
-                    _place(precip_over, precip_dots.free, n_precip, text, x,
-                           py(cum[k_end]) // 4 - 1, PRECIP_RGB, last + 1)
-            if normals[m] is not None:
-                text = _fmt_amount(normals[m], runtime)
-                _place(precip_over, precip_dots.free, n_precip, text, first + 1,
-                       py(normals[m]) // 4 - 1, PRECIP_NORMAL_RGB, last + 1)
+    _temp_labels(temp_over, bars, days, climate, edges, axes, runtime, colored)
+    if precip.top:
+        _precip_labels(precip_over, precip_dots, days, precip, starts, ends, axes, runtime)
 
     hairlines = [(x_today, _style.CHART_NOW_RGB)]
     if hover_x != x_today:
@@ -716,14 +586,14 @@ def render_year(climate, days, runtime, *, location_name="", location_menu=False
     dim = _style.DIM
     label_at = {}
     for v, text in zip(ticks, tick_labels):
-        label_at.setdefault(ydot(v) // 4, text)
+        label_at.setdefault(axes.ydot(v) // 4, text)
     lines = [_header(climate, days, runtime, cols, location_name, location_menu)]
     for row, body in enumerate(temp_fb.render(temp_over)):
         text = label_at.get(row, "")
         lines.append(f"{dim}{' ' * (gutter - 1 - visible_len(text))}{text} {RESET}{body}")
     lines.append(" " * gutter + _month_axis(starts, n, width, runtime,
-                                            this_month=month_of[today] if today is not None
-                                            else None))
+                                            this_month=precip.month_of[today]
+                                            if today is not None else None))
     for body in precip_fb.render(precip_over):
         lines.append(" " * gutter + body)
     if hint:
@@ -736,6 +606,218 @@ def render_year(climate, days, runtime, *, location_name="", location_menu=False
         tip = _tooltip(climate, days, hovered, jan1, slots, runtime, hover_x + gutter,
                        mouse_pos[1], cols, rows)
     return overlay(_on_the_page(lines, cols), tip)
+
+
+def _temp_bands(climate, slots, axes):
+    """The ten years' bands as half-block fields: their highest high to
+    lowest low, and inside it their average high to average low.
+    Returns each column's (outer top, outer bottom, average high,
+    average low), in dots from the top and None where the ten years
+    have nothing, and the Framebuffer the bands are drawn in."""
+    width, n_temp = axes.width, axes.n_temp
+    edges = [None] * width
+    temp_fb = Framebuffer(width, n_temp)
+    if not climate:
+        return edges, temp_fb
+
+    def known(series, span):
+        return [series[slots[k]] for k in span if series[slots[k]] is not None]
+
+    for x in range(width):
+        span = _span(x, width, axes.n)
+        tops, bots = known(climate.top, span), known(climate.bottom, span)
+        nhs = known(climate.normal_high, span)
+        nls = known(climate.normal_low, span)
+        bands = []
+        if tops and bots and nhs and nls:
+            edges[x] = (axes.ty(max(tops)), axes.ty(min(bots)),
+                        axes.ty(sum(nhs) / len(nhs)), axes.ty(sum(nls) / len(nls)))
+            bands = [(edges[x][0], edges[x][1], RANGE_RGB),
+                     (edges[x][2], edges[x][3], NORMAL_RGB)]
+        for spy in range(n_temp * 2):
+            a, b = spy * 2, spy * 2 + 2   # the sub-pixel, in dots
+            for y0, y1, ink in bands:
+                cover = max(0.0, min(b, y1) - max(a, y0)) / 2
+                if cover > 0:
+                    temp_fb.set_pixel(x, spy, ink, cover)
+    return edges, temp_fb
+
+
+def _day_bars(days, axes):
+    """This year's days as braille bars from their lows to their highs,
+    two dot columns to a cell; the days from today on are the forecast's."""
+    bars = _Bars(axes.width, axes.n_temp)
+    if not days:
+        return bars
+    for i in range(axes.width * 2):
+        span = _span(i, axes.width * 2, axes.n)
+        his = [days.highs[k] for k in span if days.highs[k] is not None]
+        los = [days.lows[k] for k in span if days.lows[k] is not None]
+        if not his or not los:
+            continue
+        for y in range(axes.ydot(max(his)), axes.ydot(min(los)) + 1):
+            bars.fill(i, y, span.start <= days.today)
+    return bars
+
+
+def _extremes(days):
+    """(value, day) of the year's hottest high and coldest low so far,
+    today's included; None for each while there are none."""
+    hottest = coldest = None
+    if not days:
+        return hottest, coldest
+    for k in range(days.today + 1):
+        if days.highs[k] is not None and (hottest is None or days.highs[k] > hottest[0]):
+            hottest = (days.highs[k], k)
+        if days.lows[k] is not None and (coldest is None or days.lows[k] < coldest[0]):
+            coldest = (days.lows[k], k)
+    return hottest, coldest
+
+
+def _month_lines(layer, month_dots, dots):
+    """The month boundaries down a panel's braille `layer`, dotted and
+    faint, at the dot columns `month_dots`; `dots` is its height."""
+    for i in month_dots:
+        for y in range(0, dots, 2):
+            layer.dot(i, y, GRID_RGB, guide=True)
+
+
+def _precip_scale(days, climate, starts, ends, n_precip, runtime):
+    """The _Precip for a panel of `n_precip` rows: each month's running
+    total, the ten years' monthly averages, and a scale to hold both."""
+    # The top row is kept for the totals' labels while there are rows
+    # enough to give one up.
+    top = 4 if n_precip >= 3 else 0
+    cum = [None] * ends[-1]      # ends[-1] is the year's length
+    month_of = []
+    for m in range(12):
+        month_of += [m] * (ends[m] - starts[m])
+        if not days:
+            continue
+        gone = range(starts[m], min(ends[m], days.today))
+        # A month the archive left more than a couple of days out of has
+        # no running total: its missing days would draw as dry ones, and
+        # a year the archive did not send as a year without rain.
+        if sum(days.precip[k] is None for k in gone) > 2:
+            continue
+        run = 0.0
+        for k in gone:
+            run += days.precip[k] or 0.0
+            cum[k] = run
+    normals = climate.month_precip if climate else (None,) * 12
+    amounts = [v for v in cum if v is not None] + [v for v in normals if v is not None]
+    full = max(amounts + [25.0 if runtime.metric else 1.0]) * 1.05
+    return _Precip(n_precip, top, full, cum, month_of, normals)
+
+
+def _precip_dots(days, precip, starts, axes, runtime):
+    """The running totals as braille lines, each month's climbing from
+    its 1st, and the months' averages as faint rules behind them."""
+    width, n = axes.width, axes.n
+    cum, month_of = precip.cum, precip.month_of
+    dots = _Braille(width, precip.rows)
+    prev = None   # (dot row, month, day) of the last column's running total
+    for i in range(width * 2):
+        k = min(n - 1, _span(i, width * 2, n)[-1])
+        if cum[k] is None:
+            prev = None
+            continue
+        y = precip.py(cum[k])
+        same_month = prev is not None and prev[1] == month_of[k]
+        # The days this column adds to the total; a step that is mostly
+        # snow's water is drawn in the snow's ink, and takes its cell
+        added = range(prev[2] + 1 if same_month else starts[month_of[k]], k + 1)
+        water = sum(days.precip[d] or 0 for d in added)
+        snowy = bool(water > 0 and days.snow and mostly_snow(
+            sum(days.snow[d] or 0 for d in added), water, runtime))
+        ink = SNOW_RGB if snowy else PRECIP_RGB
+        dots.dot(i, y, ink, wins=snowy)
+        if same_month:
+            for yy in range(min(prev[0], y), max(prev[0], y) + 1):
+                dots.dot(i, yy, ink, wins=snowy)
+        prev = (y, month_of[k], k)
+    for i in range(width * 2):
+        span = _span(i, width * 2, n)
+        normal = precip.normals[month_of[min(n - 1, span[len(span) // 2])]]
+        if normal is not None:
+            dots.dot(i, precip.py(normal), PRECIP_NORMAL_RGB, guide=True)
+    return dots
+
+
+def _hovered_days(mouse_pos, gutter, axes, n_precip, jan1, runtime):
+    """The column under the pointer and the days it hovers, or (None,
+    None) off the panels.
+
+    A window with a column for every day hovers a day.  Narrower, a
+    column holds two or three, and the one in its middle would leave
+    the others out of reach -- a storm on one of them, say -- so the
+    hover takes the calendar week the column falls in, opening on the
+    reader's first day of the week (`linecast week`)."""
+    if not mouse_pos:
+        return None, None
+    width, n = axes.width, axes.n
+    gx, gy = mouse_pos[0] - 1 - gutter, mouse_pos[1] - 1
+    if not (0 <= gx < width and 1 <= gy <= axes.n_temp + 1 + n_precip):
+        return None, None
+    k = min(n - 1, int((gx + 0.5) / width * n))
+    if width >= n:
+        return gx, range(k, k + 1)
+    from linecast._runtime import WEEK_START_WEEKDAY
+    opens = WEEK_START_WEEKDAY.get(getattr(runtime, "week_start", None), 0)
+    first = k - ((jan1 + timedelta(days=k)).weekday() - opens) % 7
+    return gx, range(max(0, first), min(n, first + 7))
+
+
+def _temp_labels(over, bars, days, climate, edges, axes, runtime, colored):
+    """Into the temperature panel's overlays: the year's hottest high
+    and coldest low so far, above and below their bars, and the bands'
+    names where this year has not reached."""
+    width, n_temp = axes.width, axes.n_temp
+    for extreme, step in zip(_extremes(days), (-1, 1)):
+        if extreme:
+            v, k = extreme
+            text = f"{round(v)}°"
+            ink = _style._temp_color(v, runtime) if colored else PLAIN_RGB
+            _place(over, bars.free, n_temp, text, axes.cell_of(k) - len(text) // 2,
+                   axes.ydot(v) // 4 + step, ink, width)
+    # The bands' names where this year has not reached, at the chart's
+    # right end as the paper's legend is: the average in its band, the
+    # span in the outer band above it.  Hovering says the rest.
+    if not climate:
+        return
+    reached = max((c for c in range(width) for r in range(n_temp)
+                   if not bars.free(c, r)), default=-1)
+    legend = ((_s("avg", runtime), 2, 3, NORMAL_LABEL_RGB),
+              (f"{climate.span[0]}–{climate.span[1]}", 0, 2, RANGE_LABEL_RGB))
+    for text, upper, lower, ink in legend:
+        x = width - 1 - visible_len(text)
+        cols_under = [edges[c] for c in range(x, x + visible_len(text))]
+        if x <= reached + 1 or None in cols_under:
+            continue
+        top = max(e[upper] for e in cols_under)
+        bottom = min(e[lower] for e in cols_under)
+        inside = [r for r in range(n_temp) if top <= r * 4 + 2 <= bottom]
+        if inside:
+            _place(over, bars.free, n_temp, text, x, inside[len(inside) // 2], ink, width)
+
+
+def _precip_labels(over, dots, days, precip, starts, ends, axes, runtime):
+    """Into the precipitation panel's overlays: each month's total so
+    far at the end of its line, and its average over its rule."""
+    for m in range(12):
+        first, last = axes.cell_of(starts[m]), axes.cell_of(ends[m] - 1)
+        if days and starts[m] < days.today:
+            k_end = min(ends[m], days.today) - 1
+            if precip.cum[k_end] is not None:
+                text = _fmt_amount(precip.cum[k_end], runtime)
+                end = axes.cell_of(k_end)
+                x = max(first + 1, end - visible_len(text) + 1)
+                _place(over, dots.free, precip.rows, text, x,
+                       precip.py(precip.cum[k_end]) // 4 - 1, PRECIP_RGB, last + 1)
+        if precip.normals[m] is not None:
+            text = _fmt_amount(precip.normals[m], runtime)
+            _place(over, dots.free, precip.rows, text, first + 1,
+                   precip.py(precip.normals[m]) // 4 - 1, PRECIP_NORMAL_RGB, last + 1)
 
 
 def _on_the_page(lines, cols):
