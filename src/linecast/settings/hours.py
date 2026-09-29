@@ -13,12 +13,8 @@ Precedence: sunshine's --hours flag > this setting > the language's
 own (swahili with --lang sw) > none.
 """
 
-import argparse
-
-from linecast._config import read_config, save_config, saved_hours
-from linecast._commands import formatter_class
-from linecast._parsers import VersionAction
-from linecast._config import HOURS_CHOICES
+from linecast._config import saved_hours
+from linecast.settings._command import forget, remember, run, show
 
 _SET = {
     "halachic": "the zmanim by the Gr\"a: twelve hours from sunrise "
@@ -51,22 +47,15 @@ def _islamic_set(choice):
 
 def _cmd_show():
     saved = saved_hours()
-    if saved == "none":
-        print("none  [fixed]")
-        print("Run 'linecast hours auto' to clear the setting.")
-    elif saved is not None:
-        print(f"{saved}  [fixed]")
-        print("Run 'linecast hours auto' to clear the setting.")
-    else:
-        print("auto  [swahili with --lang sw, else none]")
-        print("Run 'linecast hours halachic', 'halachic-mga', 'roman', "
-              "'japanese', 'islamic', or 'swahili' to read the day in one.")
+    show(saved or "auto", "config" if saved else "auto",
+         ("swahili with --lang sw, else none",
+          "Run 'linecast hours halachic', 'halachic-mga', 'roman', "
+          "'japanese', 'islamic', or 'swahili' to read the day in one."),
+         "Run 'linecast hours auto' to clear the setting.")
 
 
 def _cmd_set(choice):
-    config = read_config()
-    config["hours"] = choice
-    save_config(config)
+    remember("hours", choice)
     if choice == "none":
         print("Hours turned off; sunshine keeps the civil clock")
     elif choice.startswith("islamic"):
@@ -76,53 +65,33 @@ def _cmd_set(choice):
 
 
 def _cmd_auto():
-    config = read_config()
-    if config.pop("hours", None) is not None:
-        save_config(config)
+    forget("hours")
     print("Hours set to auto (swahili with --lang sw, else none)")
 
 
 def main():
-    parser = argparse.ArgumentParser(
-        prog="linecast hours",
-        usage="%(prog)s [show | <hours> | auto]",
-        description="Show or set the system of hours sunshine reads the day in",
-        formatter_class=formatter_class(),
-    )
-    parser.add_argument("--version", action=VersionAction)
-    sub = parser.add_subparsers(dest="action", metavar="<hours>")
-    sub.add_parser("show", help="show the current hours setting (default)")
-    sub.add_parser("halachic",
-                   help="the zmanim by the Gr\"a: sunrise to sunset in "
-                        "twelve, with the day's marks")
-    sub.add_parser("halachic-mga",
-                   help="the zmanim by the Magen Avraham: alot to tzeit, "
-                        "seventy-two minutes either side")
-    sub.add_parser("roman", help="twelve horae by day, four vigiliae by night")
-    sub.add_parser("japanese",
-                   help="不定時法 — six koku of day and six of night, by "
-                        "the Edo bells")
-    sub.add_parser("islamic",
-                   help="the prayer times, Fajr to Isha, by the country's "
-                        "convention, and the fast in Ramadan")
-    sub.add_parser("islamic-hanafi", help="the same, with the Hanafi Asr")
-    sub.add_parser("islamic-shafii", help="the same, with the Shafi'i Asr")
     from linecast.astro.hours.prayer_times import METHODS
-    for key, (name, _fajr, _isha, _maghrib) in METHODS.items():
-        sub.add_parser(f"islamic-{key}", help=f"the {name} convention")
-    sub.add_parser("swahili",
-                   help="Swahili time: saa 1 asubuhi at seven, saa 1 usiku "
-                        "at seven in the evening")
-    sub.add_parser("none", help="no hours, whatever the language")
-    sub.add_parser("auto", help="clear the saved hours and follow the language")
-    args = parser.parse_args()
-
-    if args.action in HOURS_CHOICES:
-        _cmd_set(args.action)
-    elif args.action == "auto":
-        _cmd_auto()
-    else:
-        _cmd_show()
+    run("linecast hours", "%(prog)s [show | <hours> | auto]",
+        "Show or set the system of hours sunshine reads the day in",
+        (("show", "show the current hours setting (default)"),
+         ("halachic", "the zmanim by the Gr\"a: sunrise to sunset in "
+                      "twelve, with the day's marks"),
+         ("halachic-mga", "the zmanim by the Magen Avraham: alot to tzeit, "
+                          "seventy-two minutes either side"),
+         ("roman", "twelve horae by day, four vigiliae by night"),
+         ("japanese", "不定時法 — six koku of day and six of night, by "
+                      "the Edo bells"),
+         ("islamic", "the prayer times, Fajr to Isha, by the country's "
+                     "convention, and the fast in Ramadan"),
+         ("islamic-hanafi", "the same, with the Hanafi Asr"),
+         ("islamic-shafii", "the same, with the Shafi'i Asr"),
+         *((f"islamic-{key}", f"the {name} convention")
+           for key, (name, _fajr, _isha, _maghrib) in METHODS.items()),
+         ("swahili", "Swahili time: saa 1 asubuhi at seven, saa 1 usiku "
+                     "at seven in the evening"),
+         ("none", "no hours, whatever the language"),
+         ("auto", "clear the saved hours and follow the language")),
+        _cmd_set, _cmd_auto, _cmd_show, metavar="<hours>")
 
 
 if __name__ == "__main__":

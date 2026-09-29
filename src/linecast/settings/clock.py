@@ -11,13 +11,11 @@ write it, judged by the saved location or the machine's IP; 24-hour
 elsewhere).
 """
 
-import argparse
 import os
 
-from linecast._commands import formatter_class
 from linecast._runtime import resolve_clock
-from linecast._parsers import VersionAction
-from linecast._config import CLOCK_CHOICES, read_config, save_config, saved_clock
+from linecast._config import saved_clock
+from linecast.settings._command import forget, remember, run, show
 
 
 def _cmd_show():
@@ -25,55 +23,32 @@ def _cmd_show():
     from linecast._location import own_country
     country = own_country()
     clock, source = resolve_clock(None, os.environ, country)
-    if source == "auto":
-        where = country or "country unknown, so 24-hour"
-        print(f"{clock}-hour  [auto: {where}]")
-        print("Run 'linecast clock 12' or 'linecast clock 24' to fix it.")
-    elif source == "config":
-        print(f"{clock}-hour  [fixed]")
-        print("Run 'linecast clock auto' to return to the default.")
-    else:
-        print(f"{clock}-hour  [{source}]")
-        saved = saved_clock()
-        if saved is not None:
-            print(f"The saved setting ({saved}-hour) is overridden by {source}.")
+    saved = saved_clock()
+    show(f"{clock}-hour", source,
+         (f"auto: {country or 'country unknown, so 24-hour'}",
+          "Run 'linecast clock 12' or 'linecast clock 24' to fix it."),
+         "Run 'linecast clock auto' to return to the default.",
+         saved and f"{saved}-hour")
 
 
 def _cmd_set(clock):
-    config = read_config()
-    config["clock"] = clock
-    save_config(config)
+    remember("clock", clock)
     print(f"Clock set to {clock}-hour")
 
 
 def _cmd_auto():
-    config = read_config()
-    if config.pop("clock", None) is not None:
-        save_config(config)
+    forget("clock")
     print("Clock set to auto (follows the country)")
 
 
 def main():
-    parser = argparse.ArgumentParser(
-        prog="linecast clock",
-        usage="%(prog)s [show | 12 | 24 | auto]",
-        description="Show or set the preferred clock style (12-hour or 24-hour)",
-        formatter_class=formatter_class(),
-    )
-    parser.add_argument("--version", action=VersionAction)
-    sub = parser.add_subparsers(dest="action")
-    sub.add_parser("show", help="show the current clock setting (default)")
-    sub.add_parser("12", help="12-hour clock everywhere")
-    sub.add_parser("24", help="24-hour clock everywhere")
-    sub.add_parser("auto", help="clear the saved clock and use your country's")
-    args = parser.parse_args()
-
-    if args.action in CLOCK_CHOICES:
-        _cmd_set(args.action)
-    elif args.action == "auto":
-        _cmd_auto()
-    else:
-        _cmd_show()
+    run("linecast clock", "%(prog)s [show | 12 | 24 | auto]",
+        "Show or set the preferred clock style (12-hour or 24-hour)",
+        (("show", "show the current clock setting (default)"),
+         ("12", "12-hour clock everywhere"),
+         ("24", "24-hour clock everywhere"),
+         ("auto", "clear the saved clock and use your country's")),
+        _cmd_set, _cmd_auto, _cmd_show)
 
 
 if __name__ == "__main__":

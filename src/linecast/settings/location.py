@@ -13,7 +13,8 @@ import sys
 
 from linecast._commands import formatter_class, parser_class
 from linecast._parsers import VersionAction
-from linecast._config import read_config, save_config, saved_location
+from linecast._config import saved_location
+from linecast.settings._command import forget, remember
 
 
 def _parse_latlng(text):
@@ -58,16 +59,12 @@ def _cmd_set(query):
         label = ", ".join(parts)
         country = (r.get("country_code") or "").upper()
 
-    config = read_config()
-    config["location"] = {"lat": lat, "lng": lng, "label": label, "country": country}
-    save_config(config)
+    remember("location", {"lat": lat, "lng": lng, "label": label, "country": country})
     print(f"Location set to {label} ({lat:.4f},{lng:.4f})")
 
 
 def _cmd_auto():
-    config = read_config()
-    if config.pop("location", None) is not None:
-        save_config(config)
+    forget("location")
     print("Location set to auto (IP geolocation)")
 
 

@@ -9,38 +9,27 @@ Precedence: sky's --culture flag > this setting > the culture native to
 the UI language (--lang zh) > the IAU sky.
 """
 
-import argparse
-
-from linecast._config import (
-    CULTURE_CHOICES, read_config, save_config, saved_culture,
-)
-from linecast._commands import formatter_class
-from linecast._parsers import VersionAction
+from linecast._config import CULTURE_CHOICES, saved_culture
+from linecast.settings._command import forget, remember, run, show
 
 _NATURAL = "chinese with --lang zh; the IAU sky otherwise"
 
 
 def _cmd_show():
     saved = saved_culture()
-    if saved == "none":
-        print("none  [fixed]")
-        print("Run 'linecast culture auto' to follow the language again.")
-    elif saved is not None:
-        print(f"{saved}  [fixed]")
-        print("Run 'linecast culture auto' to follow the language instead.")
-    else:
-        print(f"auto  [{_NATURAL}]")
-        print("Run 'linecast culture NAME' to fix one; 'linecast culture --help' "
-              "lists them.")
+    show(saved or "auto", "config" if saved else "auto",
+         (_NATURAL,
+          "Run 'linecast culture NAME' to fix one; 'linecast culture --help' "
+          "lists them."),
+         "Run 'linecast culture auto' to follow the language again." if saved == "none"
+         else "Run 'linecast culture auto' to follow the language instead.")
 
 
 def _cmd_set(choice):
     from linecast._runtime import resolve_lang
     from linecast.sky.catalogue import culture_title
     lang = resolve_lang()[0]
-    config = read_config()
-    config["culture"] = choice
-    save_config(config)
+    remember("culture", choice)
     if choice == "none":
         print("Culture turned off; the sky keeps the IAU constellations and names")
     else:
@@ -49,9 +38,7 @@ def _cmd_set(choice):
 
 
 def _cmd_auto():
-    config = read_config()
-    if config.pop("culture", None) is not None:
-        save_config(config)
+    forget("culture")
     print(f"Culture set to auto ({_NATURAL})")
 
 
@@ -59,28 +46,15 @@ def main():
     from linecast._runtime import resolve_lang
     from linecast.sky.catalogue import culture_title
     lang = resolve_lang()[0]
-    parser = argparse.ArgumentParser(
-        prog="linecast culture",
-        usage="%(prog)s [show | <culture> | auto]",
-        description="Show or set the sky culture the sky command draws: whose "
-                    "constellations and star names it uses",
-        formatter_class=formatter_class(),
-    )
-    parser.add_argument("--version", action=VersionAction)
-    sub = parser.add_subparsers(dest="action", metavar="<culture>")
-    sub.add_parser("show", help="show the current culture setting (default)")
-    for choice in CULTURE_CHOICES:
-        if choice != "none":
-            sub.add_parser(choice, help=culture_title(choice, lang))
-    sub.add_parser("none", help="the IAU sky, whatever the language")
-    sub.add_parser("auto", help="clear the saved culture and follow the language")
-    args = parser.parse_args()
-    if args.action in (None, "show"):
-        _cmd_show()
-    elif args.action == "auto":
-        _cmd_auto()
-    else:
-        _cmd_set(args.action)
+    run("linecast culture", "%(prog)s [show | <culture> | auto]",
+        "Show or set the sky culture the sky command draws: whose "
+        "constellations and star names it uses",
+        (("show", "show the current culture setting (default)"),
+         *((choice, culture_title(choice, lang))
+           for choice in CULTURE_CHOICES if choice != "none"),
+         ("none", "the IAU sky, whatever the language"),
+         ("auto", "clear the saved culture and follow the language")),
+        _cmd_set, _cmd_auto, _cmd_show, metavar="<culture>")
 
 
 if __name__ == "__main__":

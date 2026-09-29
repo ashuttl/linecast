@@ -12,12 +12,8 @@ terminal bundles them, emoji on other interactive terminals, plain
 Unicode when piped).
 """
 
-import argparse
-
-from linecast._commands import formatter_class
-from linecast._parsers import VersionAction
-from linecast._config import ICON_SETS
-from linecast._config import read_config, save_config, saved_icons
+from linecast._config import saved_icons
+from linecast.settings._command import forget, remember, run, show
 
 _DESCRIBE = {
     "nerd": "Nerd Font glyphs",
@@ -31,56 +27,33 @@ def _cmd_show():
     import os
     from linecast._runtime import resolve_icons
     icons, source = resolve_icons(None, os.environ)
-    if source == "auto":
-        print(f"{icons}  [auto]")
-        print("Detected from the terminal; piped output is always plain.")
-        print("Run 'linecast icons nerd|emoji|plain' to fix it.")
-    elif source == "config":
-        print(f"{icons}  [fixed]")
-        print("Run 'linecast icons auto' to return to the default.")
-    else:
-        print(f"{icons}  [{source}]")
-        saved = saved_icons()
-        if saved is not None:
-            print(f"The saved setting ({saved}) is overridden by {source}.")
+    show(icons, source,
+         ("auto",
+          "Detected from the terminal; piped output is always plain.",
+          "Run 'linecast icons nerd|emoji|plain' to fix it."),
+         "Run 'linecast icons auto' to return to the default.",
+         saved_icons())
 
 
 def _cmd_set(icons):
-    config = read_config()
-    config["icons"] = icons
-    save_config(config)
+    remember("icons", icons)
     print(f"Icons set to {icons} ({_DESCRIBE[icons]})")
 
 
 def _cmd_auto():
-    config = read_config()
-    if config.pop("icons", None) is not None:
-        save_config(config)
+    forget("icons")
     print("Icons set to auto (detected from the terminal)")
 
 
 def main():
-    parser = argparse.ArgumentParser(
-        prog="linecast icons",
-        usage="%(prog)s [show | nerd | emoji | plain | auto]",
-        description="Show or set the preferred icon set",
-        formatter_class=formatter_class(),
-    )
-    parser.add_argument("--version", action=VersionAction)
-    sub = parser.add_subparsers(dest="action")
-    sub.add_parser("show", help="show the current icons setting (default)")
-    sub.add_parser("nerd", help="Nerd Font glyphs everywhere (your font must be a Nerd Font)")
-    sub.add_parser("emoji", help="standard emoji everywhere")
-    sub.add_parser("plain", help="plain Unicode everywhere")
-    sub.add_parser("auto", help="clear the saved icons and detect from the terminal")
-    args = parser.parse_args()
-
-    if args.action in ICON_SETS:
-        _cmd_set(args.action)
-    elif args.action == "auto":
-        _cmd_auto()
-    else:
-        _cmd_show()
+    run("linecast icons", "%(prog)s [show | nerd | emoji | plain | auto]",
+        "Show or set the preferred icon set",
+        (("show", "show the current icons setting (default)"),
+         ("nerd", "Nerd Font glyphs everywhere (your font must be a Nerd Font)"),
+         ("emoji", "standard emoji everywhere"),
+         ("plain", "plain Unicode everywhere"),
+         ("auto", "clear the saved icons and detect from the terminal")),
+        _cmd_set, _cmd_auto, _cmd_show)
 
 
 if __name__ == "__main__":

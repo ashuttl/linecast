@@ -18,7 +18,8 @@ from linecast._i18n import (
 from linecast._commands import formatter_class
 from linecast._runtime import LOCALE_VARS, resolve_lang
 from linecast._parsers import VersionAction
-from linecast._config import read_config, save_config, saved_language
+from linecast._config import saved_language
+from linecast.settings._command import forget, remember, show
 
 
 def _describe(code):
@@ -28,44 +29,32 @@ def _describe(code):
                                     "except where a provider has it")
 
 
-def _list_languages():
-    print("Run 'linecast language <code>' to pick one of:")
-    print("  " + ", ".join(f"{code} {name}" for code, name in LANGUAGES))
-    print("  or a regional variant: "
-          + ", ".join(f"{code} {name}" for code, name in VARIANT_NAMES.items()))
+def _languages():
+    """The lines that list the languages to pick from."""
+    return ("Run 'linecast language <code>' to pick one of:",
+            "  " + ", ".join(f"{code} {name}" for code, name in LANGUAGES),
+            "  or a regional variant: "
+            + ", ".join(f"{code} {name}" for code, name in VARIANT_NAMES.items()))
 
 
 def _cmd_show():
     """What the next run will use, and why."""
     lang, source = resolve_lang(None, os.environ)
-    if source == "default":
-        print(f"{lang}  {_describe(lang)}  [default]")
-        _list_languages()
-    elif source in LOCALE_VARS:
-        print(f"{lang}  {_describe(lang)}  [auto: {source}={os.environ[source]}]")
-        _list_languages()
-    elif source == "config":
-        print(f"{lang}  {_describe(lang)}  [fixed]")
-        print("Run 'linecast language auto' to follow the terminal's language.")
-    else:
-        print(f"{lang}  {_describe(lang)}  [{source}]")
-        saved = saved_language()
-        if saved is not None:
-            print(f"The saved setting ({saved}) is overridden by {source}.")
+    # The terminal's locale decides by default, and English without one
+    tag = f"auto: {source}={os.environ[source]}" if source in LOCALE_VARS else "default"
+    show(f"{lang}  {_describe(lang)}", source, (tag, *_languages()),
+         "Run 'linecast language auto' to follow the terminal's language.",
+         saved_language(), defaults=("default", *LOCALE_VARS))
 
 
 def _cmd_set(lang):
     lang = canonical_language(lang)
-    config = read_config()
-    config["language"] = lang
-    save_config(config)
+    remember("language", lang)
     print(f"Language set to {lang} ({_describe(lang)})")
 
 
 def _cmd_auto():
-    config = read_config()
-    if config.pop("language", None) is not None:
-        save_config(config)
+    forget("language")
     lang, source = resolve_lang(None, os.environ)
     if source in LOCALE_VARS:
         print(f"Language set to auto ({lang} {_describe(lang)}, from {source})")

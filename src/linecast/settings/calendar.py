@@ -13,141 +13,97 @@ native to the UI language (--lang zh, ja, ko, vi, th, fa, or is) >
 none.
 """
 
-import argparse
-
-from linecast._config import (
-    CALENDAR_CHOICES, read_config, save_config, saved_calendar,
-)
-from linecast._commands import formatter_class
-from linecast._parsers import VersionAction
+from linecast._config import saved_calendar
+from linecast.settings._command import forget, remember, run, show
 
 _NATURAL = ("chinese with --lang zh, japanese with ja, "
             "korean with ko, vietnamese with vi, thai with th, islamic "
             "with fa, icelandic with is; none otherwise")
 
+# What the moon shows once a calendar is set; the lunisolar four
+# (chinese, japanese, korean, vietnamese) share _LUNISOLAR.
+_SET = {
+    "hawaiian": "the moon names each night — the pō mahina, its anahulu, "
+                "and its counsel — in every language",
+    "samoan": "the moon names each night by the American Samoa lunar "
+              "calendar — Masina Fou to Masina Maunā — in every language",
+    "chamorro": "the moon names each night by the Guam lunar calendar — "
+                "Sinahen Håcha to Sinahi — in every language",
+    "refaluwasch": "the moon names each night by the CNMI lunar calendar, "
+                   "the CHamoru name with the Refaluwasch beside it, in "
+                   "every language",
+    "islamic": "the moon shows the Hijri date by the Umm al-Qura calendar, "
+               "the coming month, and the next observance in every language",
+    "hebrew": "the moon shows the Hebrew date, the coming month, and the "
+              "next holiday in every language",
+    "icelandic": "the moon shows the week of summer or winter, the month, "
+                 "and the named days and moons of the old Icelandic "
+                 "calendar in every language",
+    "thai": "the moon shows its lunar date, the coming วันพระ, and the next "
+            "festival in every language",
+    "almanac": "the moon shows the Old Farmer's gardening rule and the "
+               "day's solunar periods in every language",
+}
+_LUNISOLAR = ("the moon shows its lunar date, solar term, and next festival "
+              "in every language")
+
 
 def _cmd_show():
     saved = saved_calendar()
-    if saved == "none":
-        print("none  [fixed]")
-        print("Run 'linecast calendar auto' to follow the language again.")
-    elif saved is not None:
-        print(f"{saved}  [fixed]")
-        print("Run 'linecast calendar auto' to follow the language instead.")
-    else:
-        print(f"auto  [{_NATURAL}]")
-        print("Run 'linecast calendar chinese', 'japanese', 'korean', "
-              "'vietnamese', 'thai', 'hawaiian', 'samoan', 'chamorro', "
-              "'refaluwasch', "
-              "'islamic', 'hebrew', 'icelandic', or 'almanac' to fix one.")
+    show(saved or "auto", "config" if saved else "auto",
+         (_NATURAL,
+          "Run 'linecast calendar chinese', 'japanese', 'korean', "
+          "'vietnamese', 'thai', 'hawaiian', 'samoan', 'chamorro', "
+          "'refaluwasch', "
+          "'islamic', 'hebrew', 'icelandic', or 'almanac' to fix one."),
+         "Run 'linecast calendar auto' to follow the language again." if saved == "none"
+         else "Run 'linecast calendar auto' to follow the language instead.")
 
 
 def _cmd_set(choice):
-    config = read_config()
-    config["calendar"] = choice
-    save_config(config)
+    remember("calendar", choice)
     if choice == "none":
         print("Calendar turned off; the moon panel keeps the phase lines only")
-    elif choice == "hawaiian":
-        print("Calendar set to hawaiian: the moon names each night — "
-              "the pō mahina, its anahulu, and its counsel — in every "
-              "language")
-    elif choice == "samoan":
-        print("Calendar set to samoan: the moon names each night by the "
-              "American Samoa lunar calendar — Masina Fou to Masina Maunā "
-              "— in every language")
-    elif choice == "chamorro":
-        print("Calendar set to chamorro: the moon names each night by the "
-              "Guam lunar calendar — Sinahen Håcha to Sinahi — in every "
-              "language")
-    elif choice == "refaluwasch":
-        print("Calendar set to refaluwasch: the moon names each night by "
-              "the CNMI lunar calendar, the CHamoru name with the "
-              "Refaluwasch beside it, in every language")
-    elif choice == "islamic":
-        print("Calendar set to islamic: the moon shows the Hijri date by "
-              "the Umm al-Qura calendar, the coming month, and the next "
-              "observance in every language")
-    elif choice == "hebrew":
-        print("Calendar set to hebrew: the moon shows the Hebrew date, "
-              "the coming month, and the next holiday in every language")
-    elif choice == "icelandic":
-        print("Calendar set to icelandic: the moon shows the week of "
-              "summer or winter, the month, and the named days and "
-              "moons of the old Icelandic calendar in every language")
-    elif choice == "thai":
-        print("Calendar set to thai: the moon shows its lunar date, "
-              "the coming วันพระ, and the next festival in every "
-              "language")
-    elif choice == "almanac":
-        print("Calendar set to almanac: the moon shows the Old Farmer's "
-              "gardening rule and the day's solunar periods in every "
-              "language")
     else:
-        print(f"Calendar set to {choice}: the moon shows its lunar date, "
-              f"solar term, and next festival in every language")
+        print(f"Calendar set to {choice}: {_SET.get(choice, _LUNISOLAR)}")
 
 
 def _cmd_auto():
-    config = read_config()
-    if config.pop("calendar", None) is not None:
-        save_config(config)
+    forget("calendar")
     print(f"Calendar set to auto ({_NATURAL})")
 
 
 def main():
-    parser = argparse.ArgumentParser(
-        prog="linecast calendar",
-        usage="%(prog)s [show | <calendar> | auto]",
-        description="Show or set the traditional calendar the moon follows",
-        formatter_class=formatter_class(),
-    )
-    parser.add_argument("--version", action=VersionAction)
-    sub = parser.add_subparsers(dest="action", metavar="<calendar>")
-    sub.add_parser("show", help="show the current calendar setting (default)")
-    sub.add_parser("chinese", help="农历 — months from new moons at UTC+8")
-    sub.add_parser("japanese", help="旧暦 — the same rules at UTC+9")
-    sub.add_parser("korean", help="음력 — the same rules at UTC+9")
-    sub.add_parser("vietnamese", help="âm lịch — the same rules at UTC+7")
-    sub.add_parser("thai",
-                   help="จันทรคติไทย — the Suriyayart arithmetic, with "
-                        "วันพระ and festivals")
-    sub.add_parser("hawaiian",
-                   help="Kaulana Mahina — nights counted from the first "
-                        "visible crescent over Hawaiʻi")
-    sub.add_parser("samoan",
-                   help="American Samoa — nights counted from the first "
-                        "visible crescent over Pago Pago")
-    sub.add_parser("chamorro",
-                   help="Guam — nights counted from the first visible "
-                        "crescent over Hagåtña")
-    sub.add_parser("refaluwasch",
-                   help="CNMI — the same nights, CHamoru and Refaluwasch "
-                        "names together")
-    sub.add_parser("islamic",
-                   help="Umm al-Qura — the Hijri date by Saudi Arabia's "
-                        "civil rule, with Ramadan, the Eids, and the "
-                        "other observances")
-    sub.add_parser("hebrew",
-                   help="Hebrew — the date by the fixed calendar, with "
-                        "Rosh Hashanah, Pesach, and the other holidays")
-    sub.add_parser("icelandic",
-                   help="Misseristal — the old Icelandic calendar's weeks "
-                        "of summer and winter, its months from Harpa to "
-                        "Einmánuður, and its named days and moons")
-    sub.add_parser("almanac",
-                   help="Old Farmer's Almanac — gardening by the moon "
-                        "and solunar periods")
-    sub.add_parser("none", help="no calendar lines, whatever the language")
-    sub.add_parser("auto", help="clear the saved calendar and follow the language")
-    args = parser.parse_args()
-
-    if args.action in CALENDAR_CHOICES:
-        _cmd_set(args.action)
-    elif args.action == "auto":
-        _cmd_auto()
-    else:
-        _cmd_show()
+    run("linecast calendar", "%(prog)s [show | <calendar> | auto]",
+        "Show or set the traditional calendar the moon follows",
+        (("show", "show the current calendar setting (default)"),
+         ("chinese", "农历 — months from new moons at UTC+8"),
+         ("japanese", "旧暦 — the same rules at UTC+9"),
+         ("korean", "음력 — the same rules at UTC+9"),
+         ("vietnamese", "âm lịch — the same rules at UTC+7"),
+         ("thai", "จันทรคติไทย — the Suriyayart arithmetic, with "
+                  "วันพระ and festivals"),
+         ("hawaiian", "Kaulana Mahina — nights counted from the first "
+                      "visible crescent over Hawaiʻi"),
+         ("samoan", "American Samoa — nights counted from the first "
+                    "visible crescent over Pago Pago"),
+         ("chamorro", "Guam — nights counted from the first visible "
+                      "crescent over Hagåtña"),
+         ("refaluwasch", "CNMI — the same nights, CHamoru and Refaluwasch "
+                         "names together"),
+         ("islamic", "Umm al-Qura — the Hijri date by Saudi Arabia's "
+                     "civil rule, with Ramadan, the Eids, and the "
+                     "other observances"),
+         ("hebrew", "Hebrew — the date by the fixed calendar, with "
+                    "Rosh Hashanah, Pesach, and the other holidays"),
+         ("icelandic", "Misseristal — the old Icelandic calendar's weeks "
+                       "of summer and winter, its months from Harpa to "
+                       "Einmánuður, and its named days and moons"),
+         ("almanac", "Old Farmer's Almanac — gardening by the moon "
+                     "and solunar periods"),
+         ("none", "no calendar lines, whatever the language"),
+         ("auto", "clear the saved calendar and follow the language")),
+        _cmd_set, _cmd_auto, _cmd_show, metavar="<calendar>")
 
 
 if __name__ == "__main__":

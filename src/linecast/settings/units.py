@@ -12,13 +12,11 @@ imperial in the United States, judged by the saved location or the
 machine's IP).
 """
 
-import argparse
 import os
 
-from linecast._commands import formatter_class
 from linecast._runtime import resolve_units
-from linecast._parsers import VersionAction
-from linecast._config import UNITS_CHOICES, read_config, save_config, saved_units
+from linecast._config import saved_units
+from linecast.settings._command import forget, remember, run, show
 
 
 def _cmd_show():
@@ -26,25 +24,15 @@ def _cmd_show():
     from linecast._location import own_country
     country = own_country()
     units, source = resolve_units(None, os.environ, "WEATHER_UNITS", country)
-    if source == "auto":
-        where = country or "country unknown, so metric"
-        print(f"{units}  [auto: {where}]")
-        print("Run 'linecast units metric' or 'linecast units imperial' "
-              "to fix it.")
-    elif source == "config":
-        print(f"{units}  [fixed]")
-        print("Run 'linecast units auto' to return to the default.")
-    else:
-        print(f"{units}  [{source}]")
-        saved = saved_units()
-        if saved is not None:
-            print(f"The saved setting ({saved}) is overridden by {source}.")
+    show(units, source,
+         (f"auto: {country or 'country unknown, so metric'}",
+          "Run 'linecast units metric' or 'linecast units imperial' to fix it."),
+         "Run 'linecast units auto' to return to the default.",
+         saved_units())
 
 
 def _cmd_set(units):
-    config = read_config()
-    config["units"] = units
-    save_config(config)
+    remember("units", units)
     if units == "metric":
         print("Units set to metric (celsius, km/h or m/s, mm, metres)")
     else:
@@ -52,34 +40,18 @@ def _cmd_set(units):
 
 
 def _cmd_auto():
-    config = read_config()
-    if config.pop("units", None) is not None:
-        save_config(config)
+    forget("units")
     print("Units set to auto (metric; imperial in the US)")
 
 
 def main():
-    parser = argparse.ArgumentParser(
-        prog="linecast units",
-        usage="%(prog)s [show | metric | imperial | auto]",
-        description="Show or set the preferred measurement units",
-        formatter_class=formatter_class(),
-    )
-    parser.add_argument("--version", action=VersionAction)
-    sub = parser.add_subparsers(dest="action")
-    sub.add_parser("show", help="show the current units setting (default)")
-    sub.add_parser("metric", help="celsius, km/h (m/s in some languages), mm, "
-                                  "and metres everywhere")
-    sub.add_parser("imperial", help="fahrenheit, mph, inches, and feet everywhere")
-    sub.add_parser("auto", help="clear the saved units and use your country's")
-    args = parser.parse_args()
-
-    if args.action in UNITS_CHOICES:
-        _cmd_set(args.action)
-    elif args.action == "auto":
-        _cmd_auto()
-    else:
-        _cmd_show()
+    run("linecast units", "%(prog)s [show | metric | imperial | auto]",
+        "Show or set the preferred measurement units",
+        (("show", "show the current units setting (default)"),
+         ("metric", "celsius, km/h (m/s in some languages), mm, and metres everywhere"),
+         ("imperial", "fahrenheit, mph, inches, and feet everywhere"),
+         ("auto", "clear the saved units and use your country's")),
+        _cmd_set, _cmd_auto, _cmd_show)
 
 
 if __name__ == "__main__":
