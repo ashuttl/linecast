@@ -64,7 +64,7 @@ def fetch_station_metadata_noaa(station_id: str) -> dict[str, Any] | None:
     if not data:
         return None
     if "timezone_abbr" in data:
-        return data
+        return _with_reference_clock(data)
 
     stations = data.get("stations", [])
     if not stations:
@@ -82,7 +82,28 @@ def fetch_station_metadata_noaa(station_id: str) -> dict[str, Any] | None:
         "observedst": bool(station.get("observedst", False)),
     }
     write_cache(cache_file, meta)
-    return meta
+    return _with_reference_clock(meta)
+
+
+def _with_reference_clock(meta):
+    """A subordinate station's metadata, with its reference station's clock.
+
+    mdapi names no zone for a subordinate station and says it keeps no
+    summer time, but NOAA's local-time predictions for it are on its
+    reference station's clock: Back Cove's are on Portland's EDT, and
+    Veracruz's on Tampico's CDT.  Taken where the two keep the same
+    standard offset; elsewhere the offset alone stands.
+    """
+    if meta.get("timezone_abbr"):
+        return meta
+    ref = next((str(s.get("reference_id") or "") for s in fetch_all_stations_noaa()
+                if str(s.get("id", "")) == str(meta.get("id"))), "")
+    ref_meta = fetch_station_metadata_noaa(ref) if ref and ref != meta.get("id") else None
+    if (not ref_meta or not ref_meta.get("timezone_abbr")
+            or ref_meta.get("timezonecorr") != meta.get("timezonecorr")):
+        return meta
+    return {**meta, "timezone_abbr": ref_meta["timezone_abbr"],
+            "observedst": ref_meta.get("observedst", False)}
 
 
 def _prediction_url(station_id, begin_date, end_date, interval):

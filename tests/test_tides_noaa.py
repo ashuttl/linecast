@@ -373,5 +373,35 @@ class MetadataTests(unittest.TestCase):
         self.assertEqual(write_cache.call_args.args[0].name, "station_meta_9414290.json")
 
 
+    def test_a_subordinate_station_keeps_its_reference_stations_clock(self):
+        # mdapi gives Back Cove no zone and no summer time; NOAA's
+        # local times for it are Portland's EDT all the same
+        cached = {
+            "8418175": {"id": "8418175", "name": "Back Cove", "state": "ME",
+                        "timezone_abbr": "", "timezonecorr": -5, "observedst": False},
+            "8418150": {"id": "8418150", "name": "Portland", "state": "ME",
+                        "timezone_abbr": "EST", "timezonecorr": -5, "observedst": True},
+            "TEC5647": {"id": "TEC5647", "name": "Belize City", "state": "",
+                        "timezone_abbr": "", "timezonecorr": -6, "observedst": False},
+        }
+        stations = [
+            {"id": "8418175", "type": "S", "reference_id": "8418150"},
+            {"id": "8418150", "type": "R", "reference_id": ""},
+            {"id": "TEC5647", "type": "S", "reference_id": "8418150"},
+        ]
+        with patch.object(noaa, "fetch_json_cached",
+                          side_effect=lambda path, *a, **k: cached[path.stem.split("_")[-1]]), \
+             patch.object(noaa, "fetch_all_stations_noaa", return_value=stations):
+            back_cove = noaa.fetch_station_metadata_noaa("8418175")
+            belize = noaa.fetch_station_metadata_noaa("TEC5647")
+
+        self.assertEqual(back_cove["timezone_abbr"], "EST")
+        self.assertTrue(back_cove["observedst"])
+        from linecast.tides.view import _station_tzinfo
+        self.assertEqual(_station_tzinfo(back_cove).key, "America/New_York")
+        # a reference on another standard offset lends no clock
+        self.assertEqual(belize["timezone_abbr"], "")
+        self.assertEqual(_station_tzinfo(belize).utcoffset(None).total_seconds(), -6 * 3600)
+
 if __name__ == "__main__":
     unittest.main()

@@ -70,6 +70,7 @@ Notable changes, by release. Notes for the next release collect under **Unreleas
 - Radar: Fixed the map in a view that crosses the 180th meridian, such as Fiji's or the Aleutians', leaving out the land and cities on the far side of it.
 - Radar: Fixed the temperature and wind layers never loading in a view that crosses the 180th meridian.
 - Tides: Fixed the line marking now, midnight, or the pointer cutting through the time of a high or low tide it passed, so that 11:10a read "11:1│a"; the time is written whole, as the height already was.
+- Tides: Fixed most NOAA stations picked with `--station`, such as Back Cove in Portland, Maine, running an hour behind through summer time: the chart drew now an hour early, and `--json` gave a fixed offset for the time zone.
 
 ## 2.9.2 — 2026-09-27
 
