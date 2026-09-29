@@ -41,7 +41,7 @@ from linecast.maps import globe as _globe
 from linecast.maps import style
 from linecast.radar.basemap import city_name, load_data
 from linecast.terminal.scenes import Memo
-from linecast.terminal.textwidth import char_width
+from linecast.terminal.textwidth import cells as text_cells
 
 # The window a name is written into is this many columns wide and this
 # many rows tall: the planet's crowding rule, unchanged, and the reason
@@ -246,15 +246,7 @@ def _walk(cities, cam, band, lang, upper_pop, taken, placed, out, skip,
 def _claim(taken, col, row, text):
     """Claim the cells a name already cut by `_write` stands in."""
     taken.add((col, row))
-    c = col + 1
-    for ch in text:
-        w = char_width(ch)
-        if w == 0:
-            continue
-        taken.add((c, row))
-        if w == 2:
-            taken.add((c + 1, row))
-        c += w
+    taken.update((col + 1 + c, row) for c, _glyph in text_cells(text)[0])
 
 
 def _write(taken, col, row, name, gw):
@@ -265,24 +257,16 @@ def _write(taken, col, row, name, gw):
     cut has already been made, and a combining mark rides in its base's
     cell rather than taking one of its own.
     """
-    c = col + 1
+    laid, width = text_cells(name)
+    starts = [c for c, glyph in laid if glyph] + [width]
     kept = []
-    prev = None
-    for ch in name:
-        w = char_width(ch)
-        if w == 0 and prev is not None:
-            kept.append(ch)   # a combining mark rides in its base's cell
-            continue
-        if c + w > gw:
+    for (c, glyph), end in zip([cell for cell in laid if cell[1]], starts[1:]):
+        # each glyph with the wide one's second column, up to the next
+        span = range(col + 1 + c, col + 1 + end)
+        if span.stop > gw or any((x, row) in taken for x in span):
             break
-        if (c, row) in taken or (w == 2 and (c + 1, row) in taken):
-            break
-        taken.add((c, row))
-        kept.append(ch)
-        prev = ch
-        if w == 2:
-            taken.add((c + 1, row))
-        c += w
+        taken.update((x, row) for x in span)
+        kept.append(glyph)
     return "".join(kept)
 
 
@@ -299,19 +283,10 @@ def _emit(entries, ink_of, wide_fill):
     for col, row, text, entry in entries:
         dot_ink, label_ink, bold = ink_of(entry)
         overlays[(col, row)] = (style.GLYPH_GENERIC, dot_ink, bold)
-        c = col + 1
-        prev = None
-        for ch in text:
-            w = char_width(ch)
-            if w == 0 and prev is not None:
-                kept = overlays[prev]
-                overlays[prev] = (kept[0] + ch,) + kept[1:]
-                continue
-            overlays[(c, row)] = (ch, label_ink, bold)
-            prev = (c, row)
-            if w == 2:
-                overlays[(c + 1, row)] = wide_fill(label_ink, bold)
-            c += w          # `_write`'s own step, so the two agree
+        # textwidth.cells is `_write`'s own layout, so the two agree
+        for c, glyph in text_cells(text)[0]:
+            overlays[(col + 1 + c, row)] = ((glyph, label_ink, bold) if glyph
+                                            else wide_fill(label_ink, bold))
     return overlays
 
 

@@ -46,7 +46,7 @@ from linecast.maps import globe as _globe
 from linecast.maps import places, style
 from linecast.radar.basemap import marine_region
 from linecast.terminal.braille import line_dots
-from linecast.terminal.textwidth import char_width, visible_len
+from linecast.terminal.textwidth import cells as text_cells, visible_len
 from linecast.maps.vtiles import iter_layer
 from linecast._i18n import base_language, setting
 
@@ -877,26 +877,13 @@ def _emit(overlays, occ, row, col, text, ink, bold, mark=None):
     every cell the label lands on, so a pointer anywhere along the text
     finds the whole of it.
     """
-    occ.claim(row, col, visible_len(text))
-    c = col
-    prev = None
-    for ch in text:
-        if char_width(ch) == 0 and prev is not None:
-            # A combining mark (a Thai vowel sign, say) rides in its
-            # base's cell rather than claiming the next one.
-            kept, i, b = overlays[prev]
-            overlays[prev] = (kept + ch, i, b)
-            continue
-        overlays[(c, row)] = (ch, ink, bold)
-        prev = (c, row)
+    laid, width = text_cells(text)
+    occ.claim(row, col, width)
+    for c, glyph in laid:
+        cell = (col + c, row)
+        overlays[cell] = (glyph, ink, bold if glyph else False)
         if mark is not None:
-            mark[0][(c, row)] = mark[1]
-        if char_width(ch) == 2:
-            overlays[(c + 1, row)] = ("", ink, False)
-            if mark is not None:
-                mark[0][(c + 1, row)] = mark[1]
-            c += 1
-        c += 1
+            mark[0][cell] = mark[1]
 
 
 def _text_mark(texts, name):
