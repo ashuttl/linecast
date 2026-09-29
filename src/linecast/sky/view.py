@@ -41,6 +41,7 @@ arcminutes, which is finer than a cell at the closest zoom.
 
 import math
 import sys
+from collections import namedtuple
 from datetime import datetime, timezone
 
 from linecast.terminal.braille import DOT_BITS
@@ -516,118 +517,75 @@ def _screen_up_deg(v_cam, lens):
     return math.degrees(math.atan2(p1[0] - p0[0], -(p1[1] - p0[1]) * lens.aspect))
 
 
-def render(now_local, lat, lng, runtime, view, fullscreen=False,
-           offset_minutes=0, mouse_pos=None, location_label="", speed=None,
-           today=None):
-    """One frame of the sky.
+# A star gathered for the frame: how far it stands above the limit,
+# where it falls in sub-pixels and in cells, how it is drawn, and its
+# catalogue index, altitude and magnitude for the pointer.
+_Star = namedtuple("_Star", "above sx sy col row glyph color bold index alt mag")
 
-    *view* says where the observer looks; *speed* is the live view's
-    play rate in seconds per second, or None; *today* is the user's own
-    date, for the clock's weekday. Returns the frame, with the pointer's
-    chip floating over it when the pointer rests on something.
-    """
-    cols, rows = get_terminal_size()
-    hint = install_banner()
-    graph_w = max(20, cols)
-    reserve = (1 if hint else 0) + (0 if fullscreen else 3)
-    graph_h = max(6, rows - reserve)
-    total_spy = graph_h * 2
 
-    moment_utc = now_local.astimezone(timezone.utc)
-    scene = Scene(moment_utc, lat, lng)
-    # A sub-pixel's height in cell widths: 1.0 on the 2:1 cell that
-    # makes a half-block's two sub-pixels square, and whatever the font
-    # really has where the terminal says.  The field of view is set
-    # across the width; the height follows the screen's true shape.
-    lens = Lens(camera_matrix(view.az, view.alt), focal_length(graph_w, view.fov),
-                graph_w / 2.0, total_spy / 2.0, cell_aspect() / 2.0)
-    cam, f, cx, cy, aspect = lens
-    frame = mat_mul(cam, scene.catalogue)   # the J2000 catalogue to camera
-    lang = lang_of(runtime)
-
-    figures = figures_for(view.culture, lang) if view.culture else constellations()
-    names = names_for(view.culture, lang) if view.culture else star_names(lang)
-
-    fb = Framebuffer(graph_w, graph_h, bg_color=NIGHT_RGB)
-    omega = _paint_sky(fb, scene, lens)
-    limit = _star_limit(scene, omega, graph_w * graph_h, view.fov)
-    eye_limit = _view_eye_limit(scene, view.fov)
-    overlays = {}
-    taken = set()
-    status_labels = []
-    if fullscreen:
-        from linecast.terminal.help import hint as help_hint, paint_text
-        help_label = help_hint(lang, graph_w)
-        room = max(0, graph_w - visible_len(help_label) - 2)
-        status_labels = _status_line(scene, now_local, runtime, view, room, location_label,
-                                     offset_minutes, speed, today, layout=True)
-        status_labels.append((graph_w - visible_len(help_label), help_label))
-        for x, text in status_labels:
-            paint_text(fb, overlays, text, x, graph_h - 1, TEXT_RGB)
-        taken.update(overlays)
-        # A cell of air beside the labels; the rest of the row remains sky.
-        for x, row in tuple(taken):
-            taken.update((c, row) for c in (x - 1, x + 1) if 0 <= c < graph_w)
-    # Extended light is behind the foreground stars, Moon and planets.
-    object_labels, hits = _objects.paint(fb, scene, lens, frame, eye_limit, STAR_RGB)
-
-    # --- the Sun ---
-    sun_cam = mat_apply(cam, scene.sun)
+def _draw_sun(fb, scene, lens, hits):
+    """The Sun's glow and disc, cut by the skyline as it rises and sets."""
+    sun_cam = mat_apply(lens.cam, scene.sun)
     sun_at = lens.project(sun_cam) if scene.sun_alt > -3.0 else None
-    if sun_at is not None:
-        sx, sy = sun_at
-        radius = max(2.0, f * math.tan(math.radians(0.267)) * 2.0)
-        glow = max(10.0, radius * 6.0)
-        lift = max(0.0, min(1.0, (scene.sun_alt + 3.0) / 6.0))
-        _glow(fb, sx, sy, SUN_GLOW_RGB, glow, 0.9 * lift, lens)
-        if scene.sun_alt > -0.9:
-            _behind_the_horizon(fb, sx, sy, radius, lens,
-                                lambda: _draw_disc(fb, sx, sy, radius, SUN_DOT_RGB,
-                                                   aspect))
-        hits.append((sx, sy, "sun", None))
+    if sun_at is None:
+        return
+    sx, sy = sun_at
+    radius = max(2.0, lens.f * math.tan(math.radians(0.267)) * 2.0)
+    glow = max(10.0, radius * 6.0)
+    lift = max(0.0, min(1.0, (scene.sun_alt + 3.0) / 6.0))
+    _glow(fb, sx, sy, SUN_GLOW_RGB, glow, 0.9 * lift, lens)
+    if scene.sun_alt > -0.9:
+        _behind_the_horizon(fb, sx, sy, radius, lens,
+                            lambda: _draw_disc(fb, sx, sy, radius, SUN_DOT_RGB,
+                                               lens.aspect))
+    hits.append((sx, sy, "sun", None))
 
-    # --- the Moon ---
-    moon_cam = mat_apply(cam, scene.moon)
+
+def _draw_moon(fb, scene, lens, hits):
+    """The Moon in its phase, turned as it stands in the sky, and cut by
+    the skyline as it rises and sets.
+
+    At night the Moon owns its patch of sky, with a halo, its maria, and
+    earthshine on the night side. By day it is washed out: the sunlit
+    surface near white with the maria faint, the night side the sky
+    itself, and a grey zone along the terminator the only sign of the
+    dark half."""
+    moon_cam = mat_apply(lens.cam, scene.moon)
     moon_at = lens.project(moon_cam) if scene.moon_alt > -1.0 else None
-    if moon_at is not None:
-        mx, my = moon_at
-        radius = max(2.2, f * math.tan(math.radians(0.26)) * 2.0)
-        illum = scene.moon_illum
-        # At night the Moon owns its patch of sky, with a halo, its maria,
-        # and earthshine on the night side. By day it is washed out: the
-        # sunlit surface near white with the maria faint, the night side
-        # the sky itself, and a grey zone along the terminator the only
-        # sign of the dark half.
-        dark = scene.darkness
-        if dark > 0.0:
-            _glow(fb, mx, my, MOON_GLOW_RGB, max(3.0, radius * 1.8),
-                  (0.12 + 0.28 * illum) * dark, lens)
-        cell = fb.cell_bg(max(0, min(graph_w - 1, int(mx))),
-                          max(0, min(graph_h - 1, int(my) // 2)))
-        up = _screen_up_deg(moon_cam, lens)
-        _behind_the_horizon(fb, mx, my, radius, lens, lambda: _draw_moon_disc(
-            fb, int(round(mx)), int(round(my)), radius, illum,
-            up + scene.moon_limb, up + scene.moon_axis, None,
-            night=lerp(cell, darken(NIGHT_RGB, 0.5), dark),
-            lit=lerp((253, 253, 255), MOON_LIT_RGB, dark),
-            contrast=0.35 + 0.65 * dark, earthshine=dark,
-            dusk=0.4 * (1.0 - dark), aspect=aspect))
-        hits.append((mx, my, "moon", None))
+    if moon_at is None:
+        return
+    mx, my = moon_at
+    radius = max(2.2, lens.f * math.tan(math.radians(0.26)) * 2.0)
+    illum = scene.moon_illum
+    dark = scene.darkness
+    if dark > 0.0:
+        _glow(fb, mx, my, MOON_GLOW_RGB, max(3.0, radius * 1.8),
+              (0.12 + 0.28 * illum) * dark, lens)
+    cell = fb.cell_bg(max(0, min(fb.graph_w - 1, int(mx))),
+                      max(0, min(fb.graph_h - 1, int(my) // 2)))
+    up = _screen_up_deg(moon_cam, lens)
+    _behind_the_horizon(fb, mx, my, radius, lens, lambda: _draw_moon_disc(
+        fb, int(round(mx)), int(round(my)), radius, illum,
+        up + scene.moon_limb, up + scene.moon_axis, None,
+        night=lerp(cell, darken(NIGHT_RGB, 0.5), dark),
+        lit=lerp((253, 253, 255), MOON_LIT_RGB, dark),
+        contrast=0.35 + 0.65 * dark, earthshine=dark,
+        dusk=0.4 * (1.0 - dark), aspect=lens.aspect))
+    hits.append((mx, my, "moon", None))
 
-    # --- the stars, gathered ---
-    # Everything with a cell is gathered first and laid down in order of
-    # its claim: planets and the bright stars, then the names, then the
-    # faint stars, then the constellation figures in whatever cells are
-    # left, so a name never covers a bright star and a figure never
-    # covers a name.
-    label_limit = _label_limit(view.fov)
+
+def _gather_stars(fb, scene, lens, frame, limit, eye_limit):
+    """The stars bright enough to draw, as _Stars in catalogue order, the
+    first to reach a cell keeping it."""
+    _cam, f, cx, cy, aspect = lens
+    graph_w, total_spy = fb.graph_w, fb.total_spy
     dim, mid, bright = STAR_DIM_RGB, STAR_RGB, STAR_BRIGHT_RGB
     m0, m1, m2, m3, m4, m5, m6, m7, m8 = frame
     u0, u1, u2 = lens.up
     # The stars fade in at the edge of what the eye can see; where the
     # zoom sets the limit there is nothing to fade toward.
     fading = eye_limit < limit + 0.7
-    gathered = []   # (above, sx, sy, col, row, glyph, color, bold, i, alt, mag)
+    gathered = []
     seen_cells = set()
     candidates = _star_candidates(frame, lens, limit + 0.5,
                                   deep=eye_limit > scene.eye_limit)
@@ -671,47 +629,52 @@ def render(now_local, lat, lng, runtime, view, fullscreen=False,
             color = lerp(color, _star_tint(bv), 0.35 * tone)
         if fading and above < 0.5:
             color = lerp(fb.cell_bg(col, row), color, (above + 0.5) / 1.0)
-        gathered.append((above, sx, sy, col, row, glyph, color, bold, i, alt, mag))
+        gathered.append(_Star(above, sx, sy, col, row, glyph, color, bold, i, alt, mag))
+    return gathered
 
-    def place_star(entry):
-        _above, sx, sy, col, row, glyph, color, bold, i, alt, mag = entry
-        if (col, row) in taken:
-            return
-        overlays[(col, row)] = (glyph, color, bold)
-        taken.add((col, row))
-        hits.append((sx, sy, "star", (i, alt, mag)))
 
-    # --- the planets, and the bright stars ---
-    label_ink = LABEL_RGB
-    planet_labels = []
+def _place_star(star, overlays, taken, hits):
+    """*star* in its cell, unless something has claimed it first."""
+    if (star.col, star.row) in taken:
+        return
+    overlays[(star.col, star.row)] = (star.glyph, star.color, star.bold)
+    taken.add((star.col, star.row))
+    hits.append((star.sx, star.sy, "star", (star.index, star.alt, star.mag)))
+
+
+def _place_planets(fb, scene, lens, limit, eye_limit, runtime, overlays, taken, hits):
+    """Each planet bright enough to see, in its cell. Returns their names
+    to be placed beside them, as (name, col, row, ink)."""
+    labels = []
     for key, vec, alt, az, mag in scene.planets:
         if alt < -0.5:
             continue
         fade = (eye_limit + 0.8 - (mag + extinction(alt))) / 1.0
         if fade <= 0.0 or mag > limit + 0.8:
             continue
-        p = lens.project(mat_apply(cam, vec))
+        p = lens.project(mat_apply(lens.cam, vec))
         if p is None:
             continue
         col, row = int(p[0]), int(p[1]) // 2
-        if not (0 <= col < graph_w and 0 <= row < graph_h) or (col, row) in taken:
+        if not (0 <= col < fb.graph_w and 0 <= row < fb.graph_h) or (col, row) in taken:
             continue
         cell = fb.cell_bg(col, row)
         overlays[(col, row)] = (_PLANET_GLYPH, lerp(cell, _PLANET_RGB[key], min(1.0, fade)),
                                 True)
         taken.add((col, row))
         hits.append((p[0], p[1], "planet", (key, alt, az, mag)))
-        planet_labels.append((body_name(key, runtime), col, row,
-                              lerp(cell, label_ink, min(1.0, fade))))
-    for entry in gathered:
-        if entry[0] >= 3.0:
-            place_star(entry)
+        labels.append((body_name(key, runtime), col, row,
+                       lerp(cell, LABEL_RGB, min(1.0, fade))))
+    return labels
 
-    # --- the compass, along the horizon ---
-    # The cardinal points first, so they win the room from the others.
-    marks = sorted(compass_marks(runtime, view.culture), key=lambda m: not m[2])
+
+def _place_compass(fb, lens, runtime, culture, overlays, taken):
+    """The compass's names along the horizon, the cardinal points first
+    so they win the room from the others."""
+    graph_w, graph_h = fb.graph_w, fb.graph_h
+    marks = sorted(compass_marks(runtime, culture), key=lambda m: not m[2])
     for az, label, bold in marks:
-        p = lens.project(mat_apply(cam, horizontal_vector(az, 0.0)))
+        p = lens.project(mat_apply(lens.cam, horizontal_vector(az, 0.0)))
         if p is None:
             continue
         # The label sits on the row under the horizon, or on the edge row
@@ -722,74 +685,171 @@ def render(now_local, lat, lng, runtime, view, fullscreen=False,
         _put_text(overlays, taken, label, col, row, lighten(cell, 0.45),
                   bold, graph_w, graph_h, pad=1)
 
-    # --- the names ---
-    def beside(text, col, row, ink):
-        if not _put_text(overlays, taken, text, col + 2, row, ink, False, graph_w, graph_h):
-            _put_text(overlays, taken, text, col - 1 - visible_len(text), row, ink,
-                      False, graph_w, graph_h)
 
+def _beside(overlays, taken, text, col, row, ink, graph_w, graph_h):
+    """*text* just right of the thing at (col, row), or just left of it
+    where the right has no room."""
+    if not _put_text(overlays, taken, text, col + 2, row, ink, False, graph_w, graph_h):
+        _put_text(overlays, taken, text, col - 1 - visible_len(text), row, ink,
+                  False, graph_w, graph_h)
+
+
+def _name_constellations(fb, figures, frame, lens, darkness, culture, lang,
+                         overlays, taken):
+    """Each constellation's name over its middle, where its figure has
+    room on the screen."""
+    graph_w, graph_h = fb.graph_w, fb.graph_h
+    name_ink = lerp(NIGHT_RGB, FIGURE_NAME_RGB, darkness)
+    to_observer = mat_transpose(lens.cam)
+    for record in figures:
+        if not record["lines"]:
+            continue
+        at = mat_apply(frame, record["at"])
+        if at[2] < 0.0:
+            continue
+        p = lens.project(at)
+        if p is None:
+            continue
+        e, n, u = mat_apply(to_observer, at)
+        if u < 0.02:
+            continue
+        # Only a constellation with room on screen is named: its
+        # figure's spread, projected, must be several cells.
+        spread = 0.0
+        px0, py0 = p
+        for line in record["lines"]:
+            for v in line:
+                q = lens.project(mat_apply(frame, v))
+                if q is not None:
+                    spread = max(spread, math.hypot(q[0] - px0, q[1] - py0))
+        if spread < 10.0:
+            continue
+        name = record["name"] if culture else constellation_name(record, lang)
+        if setting(lang, "capitals"):
+            name = upper(name, lang)
+        col = int(round(px0 - visible_len(name) / 2.0))
+        row = int(py0) // 2
+        cell = fb.cell_bg(max(0, min(graph_w - 1, col)), max(0, min(graph_h - 1, row)))
+        _put_text(overlays, taken, name, col, row, lerp(cell, name_ink, 0.9), False,
+                  graph_w, graph_h)
+
+
+def _figure_dots(figures, frame, lens, graph_w, graph_h):
+    """The constellation figures' lines as braille: a cell's dot bits by
+    cell."""
+    dots = {}
+    for record in figures:
+        for line in record["lines"]:
+            pts = [mat_apply(frame, v) for v in line]
+            for a, b in zip(pts, pts[1:]):
+                _plot_arc(dots, a, b, lens, graph_w, graph_h)
+    return dots
+
+
+def render(now_local, lat, lng, runtime, view, fullscreen=False,
+           offset_minutes=0, mouse_pos=None, location_label="", speed=None,
+           today=None):
+    """One frame of the sky.
+
+    *view* says where the observer looks; *speed* is the live view's
+    play rate in seconds per second, or None; *today* is the user's own
+    date, for the clock's weekday. Returns the frame, with the pointer's
+    chip floating over it when the pointer rests on something.
+    """
+    cols, rows = get_terminal_size()
+    hint = install_banner()
+    graph_w = max(20, cols)
+    reserve = (1 if hint else 0) + (0 if fullscreen else 3)
+    graph_h = max(6, rows - reserve)
+    total_spy = graph_h * 2
+
+    moment_utc = now_local.astimezone(timezone.utc)
+    scene = Scene(moment_utc, lat, lng)
+    # A sub-pixel's height in cell widths: 1.0 on the 2:1 cell that
+    # makes a half-block's two sub-pixels square, and whatever the font
+    # really has where the terminal says.  The field of view is set
+    # across the width; the height follows the screen's true shape.
+    lens = Lens(camera_matrix(view.az, view.alt), focal_length(graph_w, view.fov),
+                graph_w / 2.0, total_spy / 2.0, cell_aspect() / 2.0)
+    frame = mat_mul(lens.cam, scene.catalogue)   # the J2000 catalogue to camera
+    lang = lang_of(runtime)
+
+    figures = figures_for(view.culture, lang) if view.culture else constellations()
+    names = names_for(view.culture, lang) if view.culture else star_names(lang)
+
+    fb = Framebuffer(graph_w, graph_h, bg_color=NIGHT_RGB)
+    omega = _paint_sky(fb, scene, lens)
+    limit = _star_limit(scene, omega, graph_w * graph_h, view.fov)
+    eye_limit = _view_eye_limit(scene, view.fov)
+    overlays = {}
+    taken = set()
+    status_labels = []
+    if fullscreen:
+        from linecast.terminal.help import hint as help_hint, paint_text
+        help_label = help_hint(lang, graph_w)
+        room = max(0, graph_w - visible_len(help_label) - 2)
+        status_labels = _status_line(scene, now_local, runtime, view, room, location_label,
+                                     offset_minutes, speed, today, layout=True)
+        status_labels.append((graph_w - visible_len(help_label), help_label))
+        for x, text in status_labels:
+            paint_text(fb, overlays, text, x, graph_h - 1, TEXT_RGB)
+        taken.update(overlays)
+        # A cell of air beside the labels; the rest of the row remains sky.
+        for x, row in tuple(taken):
+            taken.update((c, row) for c in (x - 1, x + 1) if 0 <= c < graph_w)
+    # Extended light is behind the foreground stars, Moon and planets.
+    object_labels, hits = _objects.paint(fb, scene, lens, frame, eye_limit, STAR_RGB)
+
+    _draw_sun(fb, scene, lens, hits)
+    _draw_moon(fb, scene, lens, hits)
+
+    # Everything with a cell is gathered first and laid down in order of
+    # its claim: planets and the bright stars, then the names, then the
+    # faint stars, then the constellation figures in whatever cells are
+    # left, so a name never covers a bright star and a figure never
+    # covers a name.
+    stars = _gather_stars(fb, scene, lens, frame, limit, eye_limit)
+
+    # --- the planets, and the bright stars ---
+    planet_labels = _place_planets(fb, scene, lens, limit, eye_limit, runtime,
+                                   overlays, taken, hits)
+    for star in stars:
+        if star.above >= 3.0:
+            _place_star(star, overlays, taken, hits)
+
+    # --- the compass, along the horizon ---
+    _place_compass(fb, lens, runtime, view.culture, overlays, taken)
+
+    # --- the names ---
     for name, col, row, ink in planet_labels:
-        beside(name, col, row, ink)
-    for entry in sorted(gathered, key=lambda e: e[10]):
-        _above, sx, sy, col, row, glyph, color, bold, i, alt, mag = entry
-        if mag > label_limit:
+        _beside(overlays, taken, name, col, row, ink, graph_w, graph_h)
+    label_limit = _label_limit(view.fov)
+    for star in sorted(stars, key=lambda star: star.mag):
+        if star.mag > label_limit:
             break
-        if i in names and names[i][0] and (col, row) in taken:
-            beside(names[i][0], col, row, lerp(fb.cell_bg(col, row), label_ink, 0.85))
+        col, row = star.col, star.row
+        if star.index in names and names[star.index][0] and (col, row) in taken:
+            _beside(overlays, taken, names[star.index][0], col, row,
+                    lerp(fb.cell_bg(col, row), LABEL_RGB, 0.85), graph_w, graph_h)
     for record, col, row, strength in object_labels:
         if strength < 0.15 or (view.fov > 60 and record['mag'] > 4.5):
             continue
         name = (_objects.object_name(record, lang) if view.fov <= 60 else record['id'])
-        beside(name, col, row, lerp(fb.cell_bg(col, row), label_ink, 0.65 * strength))
+        _beside(overlays, taken, name, col, row,
+                lerp(fb.cell_bg(col, row), LABEL_RGB, 0.65 * strength), graph_w, graph_h)
     if view.figures >= 2 and scene.darkness > 0.25:
-        name_ink = lerp(NIGHT_RGB, FIGURE_NAME_RGB, scene.darkness)
-        for record in figures:
-            if not record["lines"]:
-                continue
-            at = mat_apply(frame, record["at"])
-            if at[2] < 0.0:
-                continue
-            p = lens.project(at)
-            if p is None:
-                continue
-            e, n, u = mat_apply(mat_transpose(cam), at)
-            if u < 0.02:
-                continue
-            # Only a constellation with room on screen is named: its
-            # figure's spread, projected, must be several cells.
-            spread = 0.0
-            px0, py0 = p
-            for line in record["lines"]:
-                for v in line:
-                    q = lens.project(mat_apply(frame, v))
-                    if q is not None:
-                        spread = max(spread, math.hypot(q[0] - px0, q[1] - py0))
-            if spread < 10.0:
-                continue
-            name = record["name"] if view.culture else constellation_name(record, lang)
-            if setting(lang, "capitals"):
-                name = upper(name, lang)
-            col = int(round(px0 - visible_len(name) / 2.0))
-            row = int(py0) // 2
-            cell = fb.cell_bg(max(0, min(graph_w - 1, col)), max(0, min(graph_h - 1, row)))
-            _put_text(overlays, taken, name, col, row, lerp(cell, name_ink, 0.9), False,
-                      graph_w, graph_h)
+        _name_constellations(fb, figures, frame, lens, scene.darkness,
+                             view.culture, lang, overlays, taken)
 
     # --- the faint stars ---
-    for entry in gathered:
-        if entry[0] < 3.0:
-            place_star(entry)
+    for star in stars:
+        if star.above < 3.0:
+            _place_star(star, overlays, taken, hits)
 
     # --- the constellation figures, in the cells left over ---
     if view.figures and scene.darkness > 0.05:
-        dots = {}
-        for record in figures:
-            for line in record["lines"]:
-                pts = [mat_apply(frame, v) for v in line]
-                for a, b in zip(pts, pts[1:]):
-                    _plot_arc(dots, a, b, lens, graph_w, graph_h)
         strength = 0.6 * scene.darkness
-        for (col, row), bits in dots.items():
+        for (col, row), bits in _figure_dots(figures, frame, lens, graph_w, graph_h).items():
             if (col, row) in taken:
                 continue
             cell = fb.cell_bg(col, row)
