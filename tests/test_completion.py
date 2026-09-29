@@ -373,64 +373,89 @@ class CompletionScriptTests(unittest.TestCase):
     def test_calendar_subcommands_track_its_parser(self):
         """`linecast calendar` takes the calendar names moon's --calendar
         takes, plus show and auto; every shell offers them all."""
-        from linecast._completion import CALENDAR_SUBCOMMANDS
+        from linecast._completion import SETTING_SUBCOMMANDS
+        words = SETTING_SUBCOMMANDS["calendar"]
         moon_choices = self._moon_calendar_choices()
-        self.assertEqual(set(CALENDAR_SUBCOMMANDS), moon_choices | {"show", "auto"})
+        self.assertEqual(set(words), moon_choices | {"show", "auto"})
         bash = render_completion("bash")
         zsh = render_completion("zsh")
         fish = render_completion("fish")
         nu = render_completion("nu")
-        joined = " ".join(CALENDAR_SUBCOMMANDS)
+        joined = " ".join(words)
         self.assertIn(f'COMPREPLY+=( $(compgen -W "{joined}" -- "$cur") )', bash)
         self.assertIn(f"compadd -- {joined}", zsh)
         self.assertIn(f"complete -c linecast -f -n '__fish_seen_subcommand_from calendar' "
                       f"-a '{joined}'", fish)
-        for sub in CALENDAR_SUBCOMMANDS:
+        for sub in words:
             self.assertIn(f'export extern "linecast calendar {sub}"', nu)
             self.assertNotIn(f'export extern "calendar {sub}"', nu)
 
     def test_hours_subcommands_track_its_parser(self):
         """`linecast hours` takes the names sunshine's --hours takes,
         plus show and auto; every shell offers them all."""
-        from linecast._completion import HOURS_SUBCOMMANDS
+        from linecast._completion import SETTING_SUBCOMMANDS
+        words = SETTING_SUBCOMMANDS["hours"]
         choices = None
         for action in _parsers.sunshine_parser()._actions:
             if "--hours" in action.option_strings:
                 choices = set(action.choices)
         self.assertIsNotNone(choices, "sunshine has no --hours")
-        self.assertEqual(set(HOURS_SUBCOMMANDS), choices | {"show", "auto"})
+        self.assertEqual(set(words), choices | {"show", "auto"})
         bash = render_completion("bash")
         zsh = render_completion("zsh")
         fish = render_completion("fish")
         nu = render_completion("nu")
-        joined = " ".join(HOURS_SUBCOMMANDS)
+        joined = " ".join(words)
         self.assertIn(f'COMPREPLY+=( $(compgen -W "{joined}" -- "$cur") )', bash)
         self.assertIn(f"compadd -- {joined}", zsh)
         self.assertIn(f"complete -c linecast -f -n '__fish_seen_subcommand_from hours' "
                       f"-a '{joined}'", fish)
-        for sub in HOURS_SUBCOMMANDS:
+        for sub in words:
             self.assertIn(f'export extern "linecast hours {sub}"', nu)
             self.assertNotIn(f'export extern "hours {sub}"', nu)
 
     def test_language_subcommands_list_every_language(self):
         """`linecast language` takes every code linecast has strings for,
         plus show and auto; every shell offers them all."""
-        from linecast._completion import LANGUAGE_SUBCOMMANDS
+        from linecast._completion import SETTING_SUBCOMMANDS
+        words = SETTING_SUBCOMMANDS["language"]
         from linecast._i18n import LANGUAGE_CODES, VARIANTS
-        self.assertEqual(set(LANGUAGE_SUBCOMMANDS),
+        self.assertEqual(set(words),
                          set(LANGUAGE_CODES) | set(VARIANTS) | {"show", "auto"})
         bash = render_completion("bash")
         zsh = render_completion("zsh")
         fish = render_completion("fish")
         nu = render_completion("nu")
-        joined = " ".join(LANGUAGE_SUBCOMMANDS)
+        joined = " ".join(words)
         self.assertIn(f'COMPREPLY+=( $(compgen -W "{joined}" -- "$cur") )', bash)
         self.assertIn(f"compadd -- {joined}", zsh)
         self.assertIn(f"complete -c linecast -f -n '__fish_seen_subcommand_from language' "
                       f"-a '{joined}'", fish)
-        for sub in LANGUAGE_SUBCOMMANDS:
+        for sub in words:
             self.assertIn(f'export extern "linecast language {sub}"', nu)
             self.assertNotIn(f'export extern "language {sub}"', nu)
+
+    def test_settings_track_the_dispatcher(self):
+        """The completions' table of settings names every settings
+        command the dispatcher lists, in its order, and every shell
+        offers each one's words after its name."""
+        from linecast._commands import SETTINGS
+        from linecast._completion import SETTING_SUBCOMMANDS
+        self.assertEqual(tuple(SETTING_SUBCOMMANDS), tuple(name for name, _ in SETTINGS))
+        bash = render_completion("bash")
+        zsh = render_completion("zsh")
+        fish = render_completion("fish")
+        nu = render_completion("nu")
+        for name, words in SETTING_SUBCOMMANDS.items():
+            joined = " ".join(words)
+            with self.subTest(setting=name):
+                self.assertIn(f'    {name})\n      _linecast_complete_flags --help -h --version\n'
+                              f'      COMPREPLY+=( $(compgen -W "{joined}" -- "$cur") )', bash)
+                self.assertIn(f"    {name})\n      _linecast_add_flags --help -h --version\n"
+                              f"      compadd -- {joined}", zsh)
+                self.assertIn(f"complete -c linecast -f -n '__fish_seen_subcommand_from {name}' "
+                              f"-a '{joined}'", fish)
+                self.assertIn(f'export extern "linecast {name}" [', nu)
 
     def _moon_calendar_choices(self):
         for action in _parsers.moon_parser()._actions:
