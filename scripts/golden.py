@@ -801,15 +801,15 @@ def _(ctx):
 @scene("tides-app", size=(100, 30))
 def _(ctx):
     from datetime import date
-    from linecast.tides import view as tides
+    from linecast.tides.live import TidesApp
     from linecast.tides.providers import NOAA
     _mirror(True)
     preds, hilo = _tide_data()
     # a week either side of the stopped clock, as main() fetches, so the
     # app has no edge to widen toward
-    app = tides.TidesApp(NOAA, "8418150", "Portland, ME", None, None,
-                         ctx.runtime("TidesRuntime", live=True, **_feet(ctx)), preds, hilo,
-                         date(2026, 2, 26), date(2026, 3, 12), y_range=(-0.8, 10.4))
+    app = TidesApp(NOAA, "8418150", "Portland, ME", None, None,
+                   ctx.runtime("TidesRuntime", live=True, **_feet(ctx)), preds, hilo,
+                   date(2026, 2, 26), date(2026, 3, 12), y_range=(-0.8, 10.4))
     frames = [ctx.live(app.render()), ctx.live(app.render(mouse_pos=(60, 14))),
               ctx.live(app.render(), app.help_panel())]
     app.locations.start()

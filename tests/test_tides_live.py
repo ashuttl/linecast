@@ -5,8 +5,9 @@ from datetime import date, datetime, timedelta
 from types import SimpleNamespace
 from unittest.mock import patch
 
+from linecast.tides import live as _tides_live
 from linecast.tides import view as tides
-from linecast.tides.view import TidesApp
+from linecast.tides.live import TidesApp
 
 NOW = datetime(2026, 3, 5, 12, 0, 0)
 TODAY = NOW.date()
@@ -43,7 +44,7 @@ def _app():
 class TestExpand:
     def test_no_expansion_while_the_window_is_inside_the_range(self):
         app, provider = _app()
-        with patch.object(tides, "_station_now", return_value=NOW):
+        with patch.object(_tides_live, "_station_now", return_value=NOW):
             app.expand_for(0)
             app.expand_for(24 * 60)
             app.expand_for(-24 * 60)
@@ -54,7 +55,7 @@ class TestExpand:
 
     def test_scrolling_near_the_end_expands_a_week_past_the_view(self):
         app, provider = _app()
-        with patch.object(tides, "_station_now", return_value=NOW):
+        with patch.object(_tides_live, "_station_now", return_value=NOW):
             app.expand_for(6 * 24 * 60)
             app._worker.join(1.0)
         view_start = tides._live_window_start(
@@ -73,7 +74,7 @@ class TestExpand:
 
     def test_scrolling_near_the_start_expands_a_week_before_the_view(self):
         app, provider = _app()
-        with patch.object(tides, "_station_now", return_value=NOW):
+        with patch.object(_tides_live, "_station_now", return_value=NOW):
             app.expand_for(-6 * 24 * 60)
             app._worker.join(1.0)
         view_start = tides._live_window_start(
@@ -88,7 +89,7 @@ class TestExpand:
     def test_an_empty_fetch_keeps_the_range_and_waits_before_retrying(self):
         app, provider = _app()
         provider.answer = []   # the providers answer empty on a dead network
-        with patch.object(tides, "_station_now", return_value=NOW):
+        with patch.object(_tides_live, "_station_now", return_value=NOW):
             app.expand_for(6 * 24 * 60)
             app._worker.join(1.0)
             calls = len(provider.calls)
@@ -105,8 +106,8 @@ class TestRender:
         app, provider = _app()
         provider.gate = threading.Event()
         old_predictions, old_hilo = app.predictions, app.hilo
-        with patch.object(tides, "_station_now", return_value=NOW), \
-             patch.object(tides, "render", return_value="frame") as render:
+        with patch.object(_tides_live, "_station_now", return_value=NOW), \
+             patch.object(_tides_live, "render", return_value="frame") as render:
             out = app.render(offset_minutes=6 * 24 * 60, mouse_pos=(4, 5))
             provider.gate.set()
             app._worker.join(1.0)
@@ -155,7 +156,7 @@ class TestLocations:
         app, provider = _app()
         provider.gate = threading.Event()
         old = app.predictions
-        with patch.object(tides, "_station_now", return_value=NOW):
+        with patch.object(_tides_live, "_station_now", return_value=NOW):
             app.expand_for(6 * 24 * 60)
             app.station_id = "om:1"
             provider.gate.set()

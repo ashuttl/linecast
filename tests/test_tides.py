@@ -161,8 +161,9 @@ class HeaderNameTests(unittest.TestCase):
     already written the way its language writes it."""
 
     def _header(self, name):
+        from linecast._parsers import tides_parser
         runtime = TidesRuntime.from_sources(
-            tides.tides_parser().parse_args(["--print"]), environ={})
+            tides_parser().parse_args(["--print"]), environ={})
         return re.sub(r"\033\[[0-9;]*m", "", tides._render_header_line(80, name, runtime))
 
     def test_capitals_are_title_cased(self):
