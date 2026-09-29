@@ -159,60 +159,33 @@ def render_header(data, width, location_name="", runtime=None, aqi_data=None, hi
         from linecast.terminal.textwidth import fit
         loc_part = location_chip(fit(location_name, max(0, min(width - 4, width // 2))))
 
-    def _join_right(*parts):
-        filled = [p for p in parts if p]
-        return "  ".join(filled) if filled else ""
-
-    def _assemble(left, right):
-        if not right:
-            return f"{left}{RESET}"
-        pad = width - visible_len(left) - visible_len(right)
-        if pad >= 2:  # the two halves keep the gap the parts within them do
-            return f"{left}{' ' * pad}{right}{RESET}"
-        return None  # doesn't fit
-
-    left = left_core + left_feels + left_hist + left_humidity + left_aqi
-
-    # Try full header
-    right = _join_right(wind_part, loc_part)
-    result = _assemble(left, right)
-    if result:
-        return result
-
-    # Drop humidity
-    left = left_core + left_feels + left_hist + left_aqi
-    right = _join_right(wind_part, loc_part)
-    result = _assemble(left, right)
-    if result:
-        return result
-
-    # Drop the air quality category word, keeping the number
-    if left_aqi_bare != left_aqi:
-        left = left_core + left_feels + left_hist + left_aqi_bare
-        result = _assemble(left, right)
+    # The first rung that fits is the line.  The left side gives up the
+    # humidity, the air quality's category word, then its number, then
+    # the historical comparison; past that, the location, the feels-like
+    # and the wind take turns.  A rung the same as the one above it (no
+    # category word to drop) fails again.
+    feels = left_core + left_feels
+    rungs = [
+        (feels + left_hist + left_humidity + left_aqi, (wind_part, loc_part)),
+        (feels + left_hist + left_aqi, (wind_part, loc_part)),
+        (feels + left_hist + left_aqi_bare, (wind_part, loc_part)),
+        (feels + left_hist, (wind_part, loc_part)),
+        (feels, (wind_part, loc_part)),
+    ]
+    if location_menu:
+        # The live location is a control: keep it even when conditions are long.
+        rungs += [(feels, (loc_part,)), (left_core, (loc_part,))]
+    else:
+        rungs += [(feels, (wind_part,)),
+                  (left_core, (wind_part, loc_part)),
+                  (left_core, (wind_part,)),
+                  (left_core, (loc_part,))]
+    for left, right in rungs:
+        result = _assemble(left, right, width)
         if result:
             return result
 
-    # Drop AQI
-    left = left_core + left_feels + left_hist
-    right = _join_right(wind_part, loc_part)
-    result = _assemble(left, right)
-    if result:
-        return result
-
-    # Drop historical comparison
-    left = left_core + left_feels
-    right = _join_right(wind_part, loc_part)
-    result = _assemble(left, right)
-    if result:
-        return result
-
     if location_menu:
-        # The live location is a control: keep it even when conditions are long.
-        for compact in (left_core + left_feels, left_core):
-            result = _assemble(compact, loc_part)
-            if result:
-                return result
         from linecast.terminal.textwidth import fit
         room = max(0, width - visible_len(loc_part) - 1)
         core = f"{icon} {name}" + (f" {round(temp)}{deg}" if temp is not None else "")
@@ -220,33 +193,21 @@ def render_header(data, width, location_name="", runtime=None, aqi_data=None, hi
         return f"{TEXT}{plain}{' ' * max(0, width - visible_len(plain) - visible_len(loc_part))}" \
                f"{loc_part}{RESET}"
 
-    # Drop location
-    right = _join_right(wind_part)
-    result = _assemble(left, right)
-    if result:
-        return result
+    # Last resort: the conditions alone
+    return f"{left_core}{RESET}"
 
-    # Drop feels-like
-    left = left_core
-    right = _join_right(wind_part, loc_part)
-    result = _assemble(left, right)
-    if result:
-        return result
 
-    # Drop feels-like + location
-    right = _join_right(wind_part)
-    result = _assemble(left, right)
-    if result:
-        return result
-
-    # Minimal: just conditions + temp, location on right
-    right = _join_right(loc_part)
-    result = _assemble(left, right)
-    if result:
-        return result
-
-    # Last resort: left only
-    return f"{left}{RESET}"
+def _assemble(left, right, width):
+    """`left`, and the `right` parts at the far end of `width` with at
+    least two cells between, or None when they do not fit.  With nothing
+    at the right, `left` alone, however long."""
+    right = "  ".join(part for part in right if part)
+    if not right:
+        return f"{left}{RESET}"
+    pad = width - visible_len(left) - visible_len(right)
+    if pad >= 2:  # the two halves keep the gap the parts within them do
+        return f"{left}{' ' * pad}{right}{RESET}"
+    return None
 
 
 # ---------------------------------------------------------------------------
