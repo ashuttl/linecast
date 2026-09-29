@@ -18,11 +18,13 @@ Usage: weather [--print] [--oneline] [--json] [--location LAT,LNG | PLACE] [--se
                [--no-shading] [--lang fr] [--classic-colors]
 """
 
+import functools
 import math
 import sys
 import threading
 import time as _t
 from datetime import datetime
+from typing import NamedTuple
 
 from linecast.terminal import live as _live
 from linecast.terminal import theme as _theme
@@ -119,12 +121,14 @@ def credit_row(cols, lang, country_code="", observed=None, runtime=None, tz_name
 
 
 def _build_hover_tooltip(data, mouse_col, mouse_row, hourly_start, hourly_end, cols, rows,
-                         runtime, offset_minutes=0):
+                         runtime, offset_minutes=0, now=None):
     """Build a tooltip overlay for mouse hover on the hourly chart.
 
     Returns cursor-positioned escape sequences to draw the tooltip, or "".
     mouse_col/mouse_row are 1-based terminal coordinates.
     hourly_start/hourly_end are 0-based line indices in the output.
+    `now` is the local time where the forecast is for, local_now's by
+    default.
     """
     # Check if mouse is over the hourly section (convert 1-based row to 0-based)
     line_idx = mouse_row - 1
@@ -137,7 +141,8 @@ def _build_hover_tooltip(data, mouse_col, mouse_row, hourly_start, hourly_end, c
         return ""
 
     hourly = data.get("hourly", {})
-    now = local_now(data)
+    if now is None:
+        now = local_now(data)
     window = _prepare_hourly_window(hourly, now, graph_w, offset_minutes=offset_minutes)
     if window is None:
         return ""
@@ -262,7 +267,7 @@ def _precip_kind_lower(code, runtime):
 
 
 def _build_daily_tooltip(data, mouse_col, mouse_row, daily_start, daily_spans, cols, rows,
-                         runtime):
+                         runtime, now=None):
     """A chip for the part of a daily row under the pointer.
 
     Each part of the row answers for itself: the day's name and icon give
@@ -272,7 +277,8 @@ def _build_daily_tooltip(data, mouse_col, mouse_row, daily_start, daily_spans, c
     gusts.  Returns
     cursor-positioned escapes, or "" when the pointer is elsewhere.
     mouse_col/mouse_row are 1-based terminal coordinates; daily_start is
-    the 0-based line index of the first daily row.
+    the 0-based line index of the first daily row.  `now` is the local
+    time where the forecast is for, local_now's by default.
     """
     k = mouse_row - 1 - daily_start
     if not (0 <= k < len(daily_spans)):
@@ -310,7 +316,7 @@ def _build_daily_tooltip(data, mouse_col, mouse_row, daily_start, daily_spans, c
     code = day_value("weather_code", 0) or 0
 
     # Every chip opens with the day it speaks for, in dim type.
-    now_local = local_now(data)
+    now_local = local_now(data) if now is None else now
     if date == now_local.date().isoformat():
         name = _s("today", runtime)
     else:
@@ -437,62 +443,38 @@ def forecast_notice(data, runtime, live=False, fetching=False, failed_at=None):
     return f"{ALERT_AMBER}{text} {hint}{RESET}"
 
 
-def render_from_data(data, alerts, runtime, location_name="", offset_minutes=0, mouse_pos=None,
-                     active_alert=None, modal_scroll=0, aqi_data=None, historical=None,
-                     notice=None, country_code="", location_menu=False):
-    """Build the complete weather dashboard from preloaded data.
+class _Layout(NamedTuple):
+    """How the dashboard shares out the window's rows (_budget)."""
+    narrative: int              # the prose lines kept
+    daily: int                  # the daily rows kept
+    blank_after_header: bool    # the spacing rows kept
+    blank_before_daily: bool
+    blank_before_credit: bool
+    hourly: int                 # the hourly section's rows in all
+    braille: int                # the temperature curve's rows
+    precip: int                 # the precipitation bar's rows
+    cloud: bool                 # the rows under the curve that keep their row
+    wind: bool
+    uv: bool
 
-    `notice` is a line for under the header -- forecast_notice's, when
-    the forecast is not today's. `country_code` names the alerts' source
-    in the live view's credit row."""
-    if not data:
-        return f"{TEXT}Could not fetch weather data.{RESET}", {}
 
-    cols, rows = get_terminal_size()
-    now_local = local_now(data)
-    tz_name = data.get("timezone", "")
+def _budget(data, runtime, rows, fixed, narrative, daily, chart_labels):
+    """The _Layout for a window `rows` high.  `fixed` is the rows there
+    at any height (the header, the notice, the alerts, the install hint,
+    the credit row), `narrative` and `daily` the prose lines and daily
+    rows on offer, and `chart_labels` the (wind, UV) rows the chart's
+    labels would take at this width (hourly.label_rows).
 
-    # Pre-render fixed-height sections to budget graph rows accurately
-    alert_lines, alert_spans = (
-        render_alerts_mapped(alerts, width=cols, runtime=runtime, tz_name=tz_name)
-        if alerts else ([], []))
-    # Under the badges, or alone where they would be: a word when the
-    # alert service could not be asked. Never a click target.
-    alert_note = alerts_notice(alerts, cols, runtime=runtime, tz_name=tz_name)
-    if alert_note:
-        alert_lines = [*alert_lines, alert_note]
-    narrative = narrative_lines(data, now_local, cols, runtime)
-    daily_lines_rendered, daily_spans = render_daily_mapped(data, cols, runtime, now=now_local)
-
-    hint = install_banner()
-
+    The full dataset decides the optional rows, so the layout stays
+    stable while scrolling.  The series can hold nulls, so the stats
+    are over the hours that have a value."""
     hourly = data.get("hourly", {})
-
-    # Check full dataset for optional rows so layout stays stable while
-    # scrolling.  The series can hold nulls, so the stats are over the
-    # hours that have a value.  The wind and UV rows are what the chart
-    # will draw for this width: UV adds no row when its labels can share
-    # the wind's.
-    graph_w = max(10, cols)
-    window = _prepare_hourly_window(hourly, now_local, graph_w, offset_minutes=offset_minutes)
-    wind_rows, uv_rows = label_rows(window, graph_w, runtime) if window else (0, 0)
+    wind_rows, uv_rows = chart_labels
     precip_peak = max(_present(hourly.get("precipitation")), default=0)
     has_precip_graph = precip_peak > 0
     has_cloud_data = bool(_present(hourly.get("cloud_cover")))
-
-    # Count non-hourly lines precisely
-    non_hourly = 1  # header
-    if notice:
-        non_hourly += 1
-    non_hourly += len(narrative)
-    non_hourly += len(daily_lines_rendered)
-    if alert_lines:
-        non_hourly += 1 + len(alert_lines)  # blank + alerts
-    if hint:
-        non_hourly += 1
     live = getattr(runtime, 'live', False)
-    if live:
-        non_hourly += 1  # the credit and help row
+    non_hourly = fixed + narrative + daily
 
     # The shortest the hourly section will render: the day line, the ticks,
     # two rows of braille, and the precipitation row when the data calls
@@ -510,8 +492,6 @@ def render_from_data(data, alerts, runtime, location_name="", offset_minutes=0, 
     # window with room to spare.
     comfortable = hourly_floor - 2 + CURVE_ROWS_COMFORTABLE + optional_rows
     spacing = min(2, max(0, rows - non_hourly - comfortable))
-    blank_before_daily = spacing >= 1   # keeps two blocks of text apart
-    blank_after_header = spacing >= 2
     non_hourly += spacing
     blank_before_credit = live and rows - non_hourly - 1 >= comfortable
     if blank_before_credit:
@@ -522,14 +502,13 @@ def render_from_data(data, alerts, runtime, location_name="", offset_minutes=0, 
     # days furthest out.
     short = hourly_floor - (rows - non_hourly)
     if short > 0 and narrative:
-        dropped = min(short, len(narrative))
-        narrative = narrative[:len(narrative) - dropped]
+        dropped = min(short, narrative)
+        narrative -= dropped
         non_hourly -= dropped
         short -= dropped
-    if short > 0 and len(daily_lines_rendered) > MIN_DAILY_ROWS:
-        dropped = min(short, len(daily_lines_rendered) - MIN_DAILY_ROWS)
-        daily_lines_rendered = daily_lines_rendered[:-dropped]
-        daily_spans = daily_spans[:-dropped]
+    if short > 0 and daily > MIN_DAILY_ROWS:
+        dropped = min(short, daily - MIN_DAILY_ROWS)
+        daily -= dropped
         non_hourly -= dropped
 
     # All remaining rows go to hourly section: today_line(1) + tick(1) +
@@ -571,7 +550,79 @@ def render_from_data(data, alerts, runtime, location_name="", offset_minutes=0, 
     else:
         show_uv = True
 
-    n_braille = max(2, remaining_for_temp)
+    return _Layout(narrative, daily, spacing >= 2, spacing >= 1, blank_before_credit,
+                   hourly_budget, max(2, remaining_for_temp), n_precip_braille,
+                   has_cloud_row, has_wind_row, show_uv)
+
+
+def _hover_column(mouse_pos, hourly_start, hourly_end, graph_w, window):
+    """The chart column of the hour under the pointer, where the hover
+    line is drawn, or None when the pointer is not over the chart."""
+    if not mouse_pos or not window:
+        return None
+    if not hourly_start <= mouse_pos[1] - 1 < hourly_end:   # 1-based → 0-based
+        return None
+    col = mouse_pos[0] - 1  # 1-based terminal col → 0-based graph col
+    if not 0 <= col < graph_w:
+        return None
+    n = len(window["temps"])
+    total_hours = window["total_hours"]
+    idx = int(col / max(1, graph_w - 1) * total_hours + 0.5)
+    idx = max(0, min(n - 1, idx))
+    return int(idx / max(1, total_hours) * (graph_w - 1))
+
+
+def render_from_data(data, alerts, runtime, location_name="", offset_minutes=0, mouse_pos=None,
+                     active_alert=None, modal_scroll=0, aqi_data=None, historical=None,
+                     notice=None, country_code="", location_menu=False, now=None):
+    """Build the complete weather dashboard from preloaded data.
+
+    `notice` is a line for under the header -- forecast_notice's, when
+    the forecast is not today's. `country_code` names the alerts' source
+    in the live view's credit row.  `now` is the local time where the
+    forecast is for, local_now's by default; every part of the frame,
+    the hover chips included, reads this one clock."""
+    if not data:
+        return f"{TEXT}Could not fetch weather data.{RESET}", {}
+
+    cols, rows = get_terminal_size()
+    now_local = local_now(data) if now is None else now
+    tz_name = data.get("timezone", "")
+
+    # Pre-render fixed-height sections to budget graph rows accurately
+    alert_lines, alert_spans = (
+        render_alerts_mapped(alerts, width=cols, runtime=runtime, tz_name=tz_name)
+        if alerts else ([], []))
+    # Under the badges, or alone where they would be: a word when the
+    # alert service could not be asked. Never a click target.
+    alert_note = alerts_notice(alerts, cols, runtime=runtime, tz_name=tz_name)
+    if alert_note:
+        alert_lines = [*alert_lines, alert_note]
+    narrative = narrative_lines(data, now_local, cols, runtime)
+    daily_lines_rendered, daily_spans = render_daily_mapped(data, cols, runtime, now=now_local)
+
+    hint = install_banner()
+    live = getattr(runtime, 'live', False)
+
+    # The wind and UV rows are what the chart will draw for this width:
+    # UV adds no row when its labels can share the wind's.
+    graph_w = max(10, cols)
+    window = _prepare_hourly_window(data.get("hourly", {}), now_local, graph_w,
+                                    offset_minutes=offset_minutes)
+    fixed = 1  # header
+    if notice:
+        fixed += 1
+    if alert_lines:
+        fixed += 1 + len(alert_lines)  # blank + alerts
+    if hint:
+        fixed += 1
+    if live:
+        fixed += 1  # the credit and help row
+    layout = _budget(data, runtime, rows, fixed, len(narrative), len(daily_lines_rendered),
+                     label_rows(window, graph_w, runtime) if window else (0, 0))
+    narrative = narrative[:layout.narrative]
+    daily_lines_rendered = daily_lines_rendered[:layout.daily]
+    daily_spans = daily_spans[:layout.daily]
 
     lines = []
 
@@ -580,62 +631,40 @@ def render_from_data(data, alerts, runtime, location_name="", offset_minutes=0, 
                                historical=historical, location_menu=location_menu, now=now_local))
     if notice:
         lines.append(notice)
-    if blank_after_header:
+    if layout.blank_after_header:
         lines.append("")
 
     # Hourly — first pass without hover to establish line boundaries
     hourly_start = len(lines)
-    hourly_lines = render_hourly(
-        data, cols, n_braille_rows=n_braille, n_precip_rows=n_precip_braille,
-        now=now_local, runtime=runtime, offset_minutes=offset_minutes,
-        show_cloud=has_cloud_row, show_wind=has_wind_row, show_uv=show_uv,
-        historical=historical,
+    chart = functools.partial(
+        render_hourly, data, cols, n_precip_rows=layout.precip, now=now_local,
+        runtime=runtime, offset_minutes=offset_minutes, show_cloud=layout.cloud,
+        show_wind=layout.wind, show_uv=layout.uv, historical=historical,
     )
+    n_braille = layout.braille
+    hourly_lines = chart(n_braille_rows=n_braille)
 
     # Adjust if hourly used more/fewer lines than budgeted, giving the
     # difference to or taking it from the curve.
-    if len(hourly_lines) != hourly_budget:
-        adjusted = max(2, n_braille - (len(hourly_lines) - hourly_budget))
+    if len(hourly_lines) != layout.hourly:
+        adjusted = max(2, n_braille - (len(hourly_lines) - layout.hourly))
         if adjusted != n_braille:
             n_braille = adjusted
-            hourly_lines = render_hourly(
-                data, cols, n_braille_rows=n_braille, n_precip_rows=n_precip_braille,
-                now=now_local, runtime=runtime, offset_minutes=offset_minutes,
-                show_cloud=has_cloud_row, show_wind=has_wind_row, show_uv=show_uv,
-                historical=historical,
-            )
+            hourly_lines = chart(n_braille_rows=n_braille)
 
     hourly_end = hourly_start + len(hourly_lines)
 
-    # Compute hover column only if mouse is within hourly section
-    hover_graph_col = None
-    if mouse_pos:
-        mouse_row_idx = mouse_pos[1] - 1  # 1-based → 0-based
-        if hourly_start <= mouse_row_idx < hourly_end:
-            mouse_col_raw = mouse_pos[0] - 1  # 1-based terminal col → 0-based graph col
-            if 0 <= mouse_col_raw < graph_w:
-                if window:
-                    n = len(window["temps"])
-                    total_hours = window["total_hours"]
-                    idx = int(mouse_col_raw / max(1, graph_w - 1) * total_hours + 0.5)
-                    idx = max(0, min(n - 1, idx))
-                    hover_graph_col = int(idx / max(1, total_hours) * (graph_w - 1))
-
     # Re-render hourly with hover indicator if needed
+    hover_graph_col = _hover_column(mouse_pos, hourly_start, hourly_end, graph_w, window)
     if hover_graph_col is not None:
-        hourly_lines = render_hourly(
-            data, cols, n_braille_rows=n_braille, n_precip_rows=n_precip_braille,
-            now=now_local, runtime=runtime, hover_col=hover_graph_col,
-            offset_minutes=offset_minutes, show_cloud=has_cloud_row,
-            show_wind=has_wind_row, show_uv=show_uv, historical=historical,
-        )
+        hourly_lines = chart(n_braille_rows=n_braille, hover_col=hover_graph_col)
 
     lines.extend(hourly_lines)
 
     # Feels-like, comparative, and precipitation prose
     lines.extend(narrative)
 
-    if blank_before_daily:
+    if layout.blank_before_daily:
         lines.append("")
 
     # Daily
@@ -654,7 +683,7 @@ def render_from_data(data, alerts, runtime, location_name="", offset_minutes=0, 
     if hint:
         lines.append(hint)
     if live:
-        if blank_before_credit:
+        if layout.blank_before_credit:
             lines.append("")
         observed = (data.get("current") or {}).get("observed")
         lines.append(credit_row(cols, runtime.lang, country_code, observed, runtime,
@@ -680,9 +709,10 @@ def render_from_data(data, alerts, runtime, location_name="", offset_minutes=0, 
             data, mouse_col, mouse_row,
             hourly_start, hourly_end,
             cols, rows, runtime,
-            offset_minutes=offset_minutes,
+            offset_minutes=offset_minutes, now=now_local,
         ) or _build_daily_tooltip(
             data, mouse_col, mouse_row, daily_start, daily_spans, cols, rows, runtime,
+            now=now_local,
         )
     output = _live.overlay(output, overlay)
 
