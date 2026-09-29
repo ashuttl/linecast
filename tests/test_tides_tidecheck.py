@@ -267,6 +267,31 @@ class HiloRangeTests(unittest.TestCase):
         self.assertEqual(len(result), 2)
         self.assertEqual(result[0][2], "H")
 
+    def test_fetched_extremes_are_placed_as_cached_ones_are(self):
+        # Lisbon's clocks go back at 2am on 25 October: 27 hours pass
+        # between these two, which the wall clock counts as 26
+        from datetime import datetime
+        from zoneinfo import ZoneInfo
+        lisbon = ZoneInfo("Europe/Lisbon")
+        raw_data = {"extremes": [
+            {"time": "2026-10-24T11:00:00Z", "height": 1.8, "type": "high"},
+            {"time": "2026-10-25T14:00:00Z", "height": 0.3, "type": "low"},
+        ]}
+        with patch.dict("os.environ", {"LINECAST_TIDECHECK_KEY": "k"}), \
+             patch.object(tc, "read_cache", return_value=None), \
+             patch.object(tc, "_fetch_tides_raw", return_value=raw_data), \
+             patch.object(tc, "write_cache") as write_cache:
+            fetched = tc.fetch_hilo_range_tidecheck(
+                "fes2022-lisbon", date(2026, 10, 24), date(2026, 10, 25), lisbon)
+        rows = write_cache.call_args.args[1]
+        with patch.dict("os.environ", {"LINECAST_TIDECHECK_KEY": "k"}), \
+             patch.object(tc, "read_cache", return_value=rows):
+            cached = tc.fetch_hilo_range_tidecheck(
+                "fes2022-lisbon", date(2026, 10, 24), date(2026, 10, 25), lisbon)
+        start = datetime(2026, 10, 24, 12, 0, tzinfo=lisbon)
+        for points in (fetched, cached):
+            self.assertEqual([(p[0] - start).total_seconds() / 3600 for p in points], [0, 27])
+
 
 class TidesRangeTests(unittest.TestCase):
     """Tests for fetch_tides_range_tidecheck."""

@@ -379,7 +379,10 @@ def fetch_hilo_range_tidecheck(
 
     cache_rows = [{"dt": dt.isoformat(), "v": v, "t": t} for dt, v, t in labeled]
     write_cache(cache_file, cache_rows)
-    return labeled
+    # Read back from the rows, as the next run will read them: aware in
+    # a fixed offset, so a time past a change of clock is placed by the
+    # hours that have passed, not by the wall clock.
+    return [(parse_cached_dt(r["dt"], station_tz), r["v"], r["t"]) for r in cache_rows]
 
 
 def fetch_y_range_tidecheck(station_id: str, center_date: date,

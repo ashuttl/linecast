@@ -70,7 +70,7 @@ Fixes:
   - Fixed `--oneline` naming high and low tide in English in every language.
   - Fixed the waves and swell running past the edge of a narrow window, as they did in Thai. Where both do not fit, the swell is left out.
   - Fixed Canadian stations showing no tides for a day after a run without a connection; offline, they keep the last predictions fetched.
-  - Fixed Canadian stations placing the tides an hour off past a change of clock on a run that had just fetched them; they fall where they do when read from the cache.
+  - Fixed Canadian stations, and TideCheck's, placing the tides an hour off past a change of clock on a run that had just fetched them; they fall where they do when read from the cache.
 - Sky:
   - Fixed dawn and dusk being named the wrong way round south of the equator, in the languages that name the morning and evening twilight apart, such as Polish and Swedish.
   - Fixed the names on the chart in Thai losing their vowel and tone marks, so that "ตะวันออก" read "ตะวนออก".
