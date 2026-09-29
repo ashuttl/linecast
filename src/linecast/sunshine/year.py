@@ -326,6 +326,15 @@ def render_year(lat, lng, now, runtime, tz=None, fullscreen=False,
             ch, sun.corner_label_ink(fb.cell_bg(x, graph_h - 1)), False)
 
     sun_row = spy_now // 2
+    # Near midnight the sun is on a row of labels.  Over half of a wide
+    # glyph (a CJK month, or place name) it takes the whole glyph, and
+    # the other half shows the sky; else the row comes out a cell long
+    # or short.
+    under = overlays.get((x_today, sun_row))
+    if under is not None and under[0] == "":
+        overlays.pop((x_today - 1, sun_row), None)
+    elif under is not None and char_width(under[0][0]) == 2:
+        overlays.pop((x_today + 1, sun_row), None)
     overlays[(x_today, sun_row)] = (icons["sun_char"], inks.SUN_DOT_RGB)
     if fullscreen:
         from linecast.terminal.help import paint_hint

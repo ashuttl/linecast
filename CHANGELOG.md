@@ -84,6 +84,7 @@ Notable changes, by release. Notes for the next release collect under **Unreleas
 - Tides: Fixed the waves and swell running past the edge of a narrow window, as they did in Thai, which names the points of the compass in words. Where both do not fit, the swell is left out.
 - Weather: Fixed the year view's label for the average in Thai, "ค่าปกติ", losing its tone mark.
 - Sky: Fixed the names on the chart in Thai, of the planets, the constellations and the points of the compass, losing their vowel and tone marks, so that "ตะวันออก" read "ตะวนออก".
+- Sunshine: Fixed the year view in Chinese, Japanese and Korean drawing a row a column too long or too short near midnight, when the sun sat on a month's or the place's name.
 
 ## 2.9.2 — 2026-09-27
 

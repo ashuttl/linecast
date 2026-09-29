@@ -351,6 +351,24 @@ class TestMonthAxis:
         assert "Jan" not in line
         assert line.strip().startswith("J")
 
+    def test_the_sun_on_a_wide_label_leaves_the_row_its_width(self):
+        # Near midnight the sun sits on the labels' rows: on the second
+        # half of 12月 (December 15th), on the first half of 8月 (August
+        # 5th), on the place's name at the top (November 20th).
+        from linecast.terminal.textwidth import visible_len
+        tokyo = ZoneInfo("Asia/Tokyo")
+        runtime = _runtime(lang="ja", use_24h=True)
+        for now in (datetime(2026, 12, 15, 23, 50, tzinfo=tokyo),
+                    datetime(2026, 8, 5, 23, 50, tzinfo=tokyo),
+                    datetime(2026, 11, 20, 0, 10, tzinfo=tokyo)):
+            with patch.object(year, "get_terminal_size", return_value=(80, 24)), \
+                 patch.object(solar, "_local_today", return_value=now.date()):
+                out = year.render_year(35.68, 139.69, now, runtime, tz=tokyo,
+                                       location_label="東京都")
+            lines = _strip(out).rstrip("\n").split("\n")
+            assert "●" in lines[0] + lines[-1], now
+            assert all(visible_len(line) == 80 for line in lines), now
+
     def test_the_axis_never_runs_past_the_field(self):
         for graph_w in (30, 40, 71, 72, 98, 200):
             cells = year._month_axis_cells(2026, 365, graph_w, _runtime())
