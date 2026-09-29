@@ -1040,7 +1040,8 @@ def main():
     runtime = RuntimeConfig.from_sources(args)
     set_current(runtime)
 
-    lat, lng, country = resolve_location(args.location, lang=runtime.lang)
+    lat, lng, country, label = resolve_location(args.location, lang=runtime.lang,
+                                                return_label=True)
     if lat is None:
         print("Could not determine location.", file=sys.stderr)
         sys.exit(1)
@@ -1084,7 +1085,7 @@ def main():
         return
 
     from linecast.sky.live import SkyApp, place_name
-    label = place_name(lat, lng, args.location, lang=runtime.lang)
+    label = place_name(lat, lng, label, lang=runtime.lang)
     if not runtime.live:
         now = _now()
         cols, rows = get_terminal_size()

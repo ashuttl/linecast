@@ -459,16 +459,9 @@ class SkyApp(LiveApp):
         self.camera._fly = self.camera._pan = self.camera._zoom = None
 
 
-def place_name(lat, lng, override, lang="en"):
-    """The place for the status line: the geocoder's label for a place-name
-    override, else the (cached) reverse geocoder's, else the coordinates."""
-    from linecast._location import resolve_location
-    label = ""
-    try:
-        if override:
-            _lat, _lng, _country, label = resolve_location(
-                override, lang=lang, return_label=True)
-    except SystemExit:
-        label = ""
+def place_name(lat, lng, label="", lang="en"):
+    """The place for the status line: *label*, the geocoder's for a place
+    named with --location, else the (cached) reverse geocoder's, else the
+    coordinates."""
     from linecast._geocode import place_label
     return place_label(lat, lng, label, lang).split(",")[0].strip() or f"{lat:.2f},{lng:.2f}"

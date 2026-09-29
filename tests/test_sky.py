@@ -450,6 +450,23 @@ class TestPrinted:
         sky.main()
         assert calls == ["measure", "draw", "frame"]
 
+    def test_a_named_place_is_looked_up_once(self, monkeypatch):
+        from linecast import _geocode
+        from linecast.terminal import live as _live, textwidth
+        asked, drawn = [], []
+        monkeypatch.setattr(sys, "argv", ["linecast-sky", "--print", "--location", "Portland"])
+        monkeypatch.setattr(_geocode, "geocode_first",
+                            lambda query, lang="en": asked.append(query)
+                            or (43.66, -70.26, "Portland, Maine"))
+        monkeypatch.setattr(sky, "country_for_defaults", lambda *a: None)
+        monkeypatch.setattr(sky, "location_tzinfo", lambda lat, lng: ZoneInfo("America/New_York"))
+        monkeypatch.setattr(textwidth, "calibrate_from_terminal", lambda: None)
+        monkeypatch.setattr(sky, "render", lambda *a, **k: drawn.append(k) or "frame")
+        monkeypatch.setattr(_live, "print_frame", lambda text: None)
+        sky.main()
+        assert asked == ["Portland"]
+        assert drawn[0]["location_label"] == "Portland"
+
 
 # ---------------------------------------------------------------------------
 # The catalogue

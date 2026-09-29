@@ -74,6 +74,7 @@ Fixes:
   - Fixed the names on the chart in Thai losing their vowel and tone marks, so that "ตะวันออก" read "ตะวนออก".
   - Fixed `--oneline` ignoring `--culture`, so that `--culture hawaiian` did not give the directions by the star compass's houses as the view does.
   - Fixed `--print` not asking the terminal how wide it draws emoji and other symbols, as the live view does, so a row holding one could run past the edge.
+  - Fixed `--location` with a place name looking the place up twice before the sky opened; it looks it up once.
 - Radar:
   - Fixed a view that crosses the 180th meridian, such as Fiji's or the Aleutians', leaving out the land and cities on the far side of it, and never loading the temperature and wind layers.
   - Fixed `radar --help`, which named the wrong keys for the satellite and wind layers.
