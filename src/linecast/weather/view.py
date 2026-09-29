@@ -60,6 +60,7 @@ from linecast.weather.render import (
     build_alert_modal,
     fmt_precip_amount,
     fmt_snow_amount,
+    mostly_snow,
     narrative_lines,
     render_alerts_mapped,
     render_daily_mapped,
@@ -377,7 +378,8 @@ def _build_daily_tooltip(data, mouse_col, mouse_row, daily_start, daily_spans, c
         # Full color here, unlike the hourly chip: the fade explains the
         # bar it sits under, and the daily rows have no such bar.  A snowy
         # day's amount is its snow, as the row gives it.
-        shown = (fmt_snow_amount(snow, runtime) if _precip_type(code) == "Snow" and snow > 0
+        shown = (fmt_snow_amount(snow, runtime)
+                 if _precip_type(code) == "Snow" and mostly_snow(snow, total, runtime)
                  else fmt_precip_amount(total, runtime))
         amount = f"{ink}{shown}{TFG}" if total > 0 else ""
         if prob > 0:

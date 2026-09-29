@@ -40,6 +40,7 @@ from linecast.terminal.graphics import (
 from linecast.terminal.textwidth import char_width
 from linecast.terminal.theme import ensure_contrast, lerp_rgb, surface_bg
 from linecast.weather import style as _style
+from linecast.weather.daily import mostly_snow
 from linecast.weather.i18n import _s, _wmo_icons
 
 # Days either side of a date that its average is taken over.
@@ -55,9 +56,6 @@ _PRECIP_SHARE = 0.28
 COLORS = ("fringe", "colored", "plain")
 # How far a forecast day's bar fades toward the page.
 _FORECAST_FADE = 0.5
-# Open-Meteo's snowfall is seven times the snow's water: 7 cm of snow to
-# 10 mm of water, 3.5 in to 0.5 in.
-_SNOW_PER_WATER = 7
 
 
 def _rebuild():
@@ -219,11 +217,6 @@ def year_days(archive, forecast, today):
             highs[k], lows[k], precip[k], codes[k], snow[k] = hi, lo, pr, code, sn
     return YearDays(today.year, t, tuple(highs), tuple(lows), tuple(precip),
                     tuple(codes), tuple(snow))
-
-
-def _snow_water(snow, metric):
-    """The water in a snowfall, in the precipitation's unit (mm from cm)."""
-    return (snow or 0) / _SNOW_PER_WATER * (10 if metric else 1)
 
 
 def fetch_year(lat, lng, today, runtime, stale=None):
@@ -611,8 +604,8 @@ def render_year(climate, days, runtime, *, location_name="", location_menu=False
         # snow's water is drawn in the snow's ink, and takes its cell
         added = range(prev[2] + 1 if same_month else starts[month_of[k]], k + 1)
         water = sum(days.precip[d] or 0 for d in added)
-        snowy = bool(water > 0 and days.snow and 2 * sum(
-            _snow_water(days.snow[d], runtime.metric) for d in added) >= water)
+        snowy = bool(water > 0 and days.snow and mostly_snow(
+            sum(days.snow[d] or 0 for d in added), water, runtime))
         ink = SNOW_RGB if snowy else PRECIP_RGB
         precip_dots.dot(i, y, ink, wins=snowy)
         if same_month:
@@ -844,7 +837,7 @@ def _tooltip(climate, days, span, jan1, slots, runtime, col, mouse_row, cols, ro
                                   pad_bg=tbg, flip_at=col + 2)
     water = sum(present(days.precip))
     snow = sum(present(days.snow)) if days.snow else 0
-    if snow >= (0.3 if runtime.metric else 0.1):
+    if snow >= (0.3 if runtime.metric else 0.1) and mostly_snow(snow, water, runtime):
         # The snow as it lay, and under it the water the days' snow and
         # rain came to, which is what the running total adds
         lines.append(f"{tbg}{fg(*SNOW_RGB)} {_wmo_icons(runtime).get(73, '')} "

@@ -145,6 +145,12 @@ class TestDailySnow:
     def test_ten_and_more_go_without_their_tenth(self):
         assert re.search(r"Snow 12″", _snow_row(30.5, 43.2, metric=False))
 
+    def test_a_flurry_in_a_day_of_rain_keeps_the_water(self):
+        # 0.1 cm of snow in 15.7 mm of precipitation, the day coded as
+        # snow: its amount is the rain's, not "Snow 0.0″"
+        assert re.search(r"Snow 0\.62″", _snow_row(0.1, 15.7, metric=False))
+        assert re.search(r"Snow 16 ?mm", _snow_row(0.1, 15.7, metric=True))
+
     def test_a_forecast_without_snowfall_keeps_the_water(self):
         # A forecast cached before the snowfall was asked for
         assert re.search(r"Snow 0\.50″", _snow_row(8.9, 12.7, metric=False,

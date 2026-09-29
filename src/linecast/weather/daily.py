@@ -145,7 +145,7 @@ def render_daily_mapped(data, width, runtime=None, now=None):
         snow_i = (snowfall[i] if i < len(snowfall) else 0) or 0
         if precip_i >= (1 if runtime.metric else 0.04):
             ptype = _s(_precip_type(wmo_i), runtime)
-            if _precip_type(wmo_i) == "Snow" and snow_i > 0:
+            if _precip_type(wmo_i) == "Snow" and mostly_snow(snow_i, precip_i, runtime):
                 # A snowy day's amount is the snow, as it lies, not the
                 # water it melts to: "Snow 3.5″", not "Snow 0.50″"
                 precip_amt = fmt_snow_amount(snow_i, runtime)
@@ -386,6 +386,24 @@ def render_daily_mapped(data, width, runtime=None, now=None):
         spans.append({"index": i, "cols": cols})
 
     return lines, spans
+
+
+# Open-Meteo's snowfall is seven times the snow's water: 7 cm of snow to
+# 10 mm of water, 3.5 in to 0.5 in.
+SNOW_PER_WATER = 7
+
+
+def snow_water(snow, runtime):
+    """The water in a snowfall, in the precipitation's unit (mm from cm)."""
+    return (snow or 0) / SNOW_PER_WATER * (10 if runtime.metric else 1)
+
+
+def mostly_snow(snow, water, runtime):
+    """Whether snow, melted, is at least half of an amount of water: a
+    day given as the depth of its snow rather than its water.  A day
+    coded as snow for a flurry in a day of rain is still its rain."""
+    melted = snow_water(snow, runtime)
+    return melted > 0 and 2 * melted >= (water or 0)
 
 
 def fmt_snow_amount(amount, runtime):
