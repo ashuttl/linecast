@@ -787,6 +787,36 @@ class TestCamera:
         assert app.speed is None and app.minutes == 0 and app.played == 0.0
         app.stop()
 
+    def test_a_reset_mid_step_waits_for_the_step(self, monkeypatch):
+        # The ticker's thread runs the clock on while the loop's resets
+        # it.  A reset that landed as the step read the clock stopped
+        # the clock under it: TypeError, and the ticker was gone.
+        import threading
+        from linecast.sky import live
+        monkeypatch.setattr(live._live.Ticker, 'start', lambda self: None)
+        loop = []
+
+        class Racing(live.SkyApp):
+            @property
+            def played(self):
+                if not loop and self.speed is not None:
+                    loop.append(threading.Thread(target=self.intercept,
+                                                 args=("reset",)))
+                    loop[0].start()
+                    loop[0].join(0.1)   # as far as it gets while the step runs
+                return self.__dict__["_played"]
+
+            @played.setter
+            def played(self, value):
+                self.__dict__["_played"] = value
+
+        app = Racing(lambda: NIGHT, LAT, LNG, _runtime(live=True))
+        app.on_action("p")
+        app._play_mark -= 1.0
+        app._step()
+        loop[0].join()
+        assert (app.minutes, app.played, app.speed, app._play_mark) == (0, 0.0, None, None)
+
     def test_the_wheel_scrubs_time(self):
         from linecast.sky.live import SkyApp
         app = SkyApp(lambda: NIGHT, LAT, LNG, _runtime(live=True))

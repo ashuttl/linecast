@@ -16,6 +16,7 @@ horizon and it eases back with a small overshoot, the moon's settle.
 """
 
 import math
+import threading
 import time
 
 from linecast._geo import angle_delta
@@ -257,6 +258,9 @@ class SkyApp(LiveApp):
         self.played = 0.0           # seconds added by play
         self.speed = None           # seconds per second while playing
         self._play_mark = None      # monotonic time of the last play step
+        # The ticker's thread runs the clock on; the keys reset it on the
+        # loop's.  Each holds this while it reads and writes the three.
+        self._clock_lock = threading.Lock()
         self._ticker = _live.Ticker(self._step)
         cols, rows = get_terminal_size()
         from datetime import timezone
@@ -278,12 +282,14 @@ class SkyApp(LiveApp):
     def _step(self):
         """The ticker's step: the clock runs on while playing.  Whether
         the clock or the camera is still moving."""
-        if self.speed is not None:
-            now = time.monotonic()
-            if self._play_mark is not None:
-                self.played += (now - self._play_mark) * self.speed
-            self._play_mark = now
-        return self.speed is not None or self.camera.moving()
+        with self._clock_lock:
+            playing = self.speed is not None
+            if playing:
+                now = time.monotonic()
+                if self._play_mark is not None:
+                    self.played += (now - self._play_mark) * self.speed
+                self._play_mark = now
+        return playing or self.camera.moving()
 
     # -- search ----------------------------------------------------------
     def scene_at(self, moment):
@@ -311,9 +317,10 @@ class SkyApp(LiveApp):
         rising, and the view turns to the thing."""
         from datetime import timedelta
         when, target = self.search.jump
-        self.minutes = int(round((when + timedelta(minutes=25) - self.now_fn())
-                                 .total_seconds() / 60.0))
-        self.played = 0.0
+        minutes = int(round((when + timedelta(minutes=25) - self.now_fn())
+                            .total_seconds() / 60.0))
+        with self._clock_lock:
+            self.minutes, self.played = minutes, 0.0
         alt, az = target.place(self.scene_at(self.moment()))
         self.camera.fly_to(az, max(alt, 8.0))
         self.camera.zoom_to(target.fov(self.camera.fov))
@@ -378,8 +385,9 @@ class SkyApp(LiveApp):
             self.minutes -= self.scroll_step
             return True
         if action == "reset":
-            self.minutes, self.played, self.speed = 0, 0.0, None
-            self._play_mark = None
+            with self._clock_lock:
+                self.minutes, self.played, self.speed = 0, 0.0, None
+                self._play_mark = None
             return True
         return False
 
@@ -405,12 +413,13 @@ class SkyApp(LiveApp):
             cam.figures = (cam.figures + 2) % 3   # 2 → 1 → 0 → 2
             return True
         elif key == "p":
-            if self.speed is None:
-                self.speed = SPEEDS[0]
-            else:
-                i = SPEEDS.index(self.speed) + 1 if self.speed in SPEEDS else 0
-                self.speed = SPEEDS[i] if i < len(SPEEDS) else None
-            self._play_mark = time.monotonic() if self.speed is not None else None
+            with self._clock_lock:
+                if self.speed is None:
+                    self.speed = SPEEDS[0]
+                else:
+                    i = SPEEDS.index(self.speed) + 1 if self.speed in SPEEDS else 0
+                    self.speed = SPEEDS[i] if i < len(SPEEDS) else None
+                self._play_mark = time.monotonic() if self.speed is not None else None
             if self.speed is not None:
                 self._ticker.start()
             return True
@@ -444,7 +453,8 @@ class SkyApp(LiveApp):
         return False
 
     def stop(self):
-        self.speed = None
+        with self._clock_lock:
+            self.speed = None
         self.camera._coast = self.camera._settle = None
         self.camera._fly = self.camera._pan = self.camera._zoom = None
 
