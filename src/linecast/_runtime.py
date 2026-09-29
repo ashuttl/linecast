@@ -429,7 +429,7 @@ class VersionAction(argparse.Action):
 
 
 def _base_parser(prog, description, units=None, clock=False, json=False,
-                 temperature_scale=False):
+                 temperature_scale=False, oneline=True):
     """A view command's parser, with its help page in sections.
 
     The command adds its own flags straight to the parser, and they
@@ -438,7 +438,8 @@ def _base_parser(prog, description, units=None, clock=False, json=False,
     sections in the order they are made.  *units* is the pair of help
     strings for --metric and --imperial; *temperature_scale* adds
     --celsius and --fahrenheit beside them; *clock* adds --24h and
-    --12h; *json* adds --json to the output section.
+    --12h; *json* adds --json to the output section; *oneline* offers
+    --oneline, for the views that have a line to give.
     """
     p = parser_class()(prog=prog, usage="%(prog)s [options]",
                        description=description, add_help=False,
@@ -489,8 +490,11 @@ def _base_parser(prog, description, units=None, clock=False, json=False,
                         help="print once, instead of the live view")
     # live is the default in a terminal; the flag is still taken
     output.add_argument("--live", action="store_true", help=argparse.SUPPRESS)
-    output.add_argument("--oneline", action="store_true",
-                        help="a single line, for a status bar or prompt")
+    if oneline:
+        output.add_argument("--oneline", action="store_true",
+                            help="a single line, for a status bar or prompt")
+    else:
+        p.set_defaults(oneline=False)
     if json:
         output.add_argument("--json", dest="json_mode", action="store_true",
                             help="machine-readable JSON output (implies --print)")
@@ -624,7 +628,7 @@ def radar_parser():
     p = _base_parser("linecast radar", BLURB["radar"],
                       units=("metric units: celsius, kilometres",
                              "imperial units: fahrenheit, miles"),
-                      clock=True)
+                      clock=True, oneline=False)
     p.add_argument("--location", metavar="PLACE", default=None,
                     help="location as 'lat,lng' or place name")
     p.add_argument("--search", metavar="QUERY", default=None,
@@ -654,7 +658,8 @@ def radar_parser():
 def maps_parser():
     p = _base_parser("linecast maps", BLURB["maps"],
                       units=("metric units: kilometres and metres",
-                             "imperial units: miles and feet"))
+                             "imperial units: miles and feet"),
+                      oneline=False)
     p.add_argument("--location", metavar="PLACE", default=None,
                     help="location as 'lat,lng' or place name")
     p.add_argument("--search", metavar="QUERY", default=None,

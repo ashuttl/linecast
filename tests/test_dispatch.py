@@ -134,6 +134,13 @@ class Argv0DispatchTests(unittest.TestCase):
             with self.subTest(prog=parser.prog):
                 self.assertIn(parser.description, self._unwrapped_help("/usr/bin/linecast"))
 
+    def test_oneline_is_offered_only_by_the_views_that_have_a_line(self):
+        from linecast import _runtime
+        for name in ("weather", "sunshine", "moon", "sky", "tides", "radar", "maps"):
+            help_page = getattr(_runtime, f"{name}_parser")().format_help()
+            with self.subTest(view=name):
+                self.assertEqual("--oneline" in help_page, name not in ("radar", "maps"))
+
     def test_help_ends_with_the_moon_tonight(self):
         # The one thing the help page can say about the sky without a
         # place or a network: the phase, from the clock alone.
