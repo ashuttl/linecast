@@ -1,4 +1,7 @@
-"""Shared rendering helpers for tides chart layout."""
+"""The tide chart's parts, which tides/view.py lays out: the window of
+predictions a frame shows and the height at any moment in it, the
+daylight shading, the midnight dividers and the day names, the moon's
+rises and sets, the hour ticks, and the now and hover chips."""
 
 from datetime import timedelta, timezone
 

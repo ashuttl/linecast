@@ -51,7 +51,7 @@ from linecast.tides.tidecheck import budget_line as tidecheck_budget_line
 from linecast.tides.providers import (
     CHS, HKO, NOAA, OPENMETEO, PROVIDERS, QLD, TIDECHECK, provider_for_id,
 )
-from linecast.tides.render import (
+from linecast.tides.chart import (
     build_now_tooltip,
     build_tide_hover_tooltip,
     compute_daylight_window,

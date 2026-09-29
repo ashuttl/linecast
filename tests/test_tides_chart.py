@@ -2,7 +2,7 @@ from datetime import datetime, timedelta, timezone
 import re
 from types import SimpleNamespace
 
-from linecast.tides.render import (
+from linecast.tides.chart import (
     compute_daylight_window,
     compute_moon_labels,
     render_day_label_line,

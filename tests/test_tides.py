@@ -13,7 +13,7 @@ from linecast.tides import openmeteo as _tides_openmeteo
 from linecast.tides import qld as _tides_qld
 from linecast.tides import tidecheck as _tides_tidecheck
 from linecast._runtime import TidesRuntime
-from linecast.tides.render import prepare_tide_window
+from linecast.tides.chart import prepare_tide_window
 from linecast.tides.providers import (
     CHS, HKO, NOAA, OPENMETEO, PROVIDERS, QLD, TIDECHECK, provider_for_id,
 )

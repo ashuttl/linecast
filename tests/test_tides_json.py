@@ -8,7 +8,7 @@ from zoneinfo import ZoneInfo
 from linecast._runtime import TidesRuntime
 from linecast._parsers import tides_parser
 from linecast.tides.json import build_payload
-from linecast.tides.render import interp_height
+from linecast.tides.chart import interp_height
 
 FIXED_NOW = datetime(2026, 8, 14, 12, 0)
 
