@@ -127,7 +127,7 @@ def ramp(now, rt, width):
 def curve(now, rt, width):
     """C: illuminated fraction as a braille curve, the app's chart idiom."""
     from linecast.terminal.braille import build_braille_curve
-    from linecast.moon.view import moon_illumination
+    from linecast.moon.phase import moon_illumination
 
     last_new, _next_new, _full, t = _lunation(now)
     vals = [moon_illumination(last_new + timedelta(days=SYNODIC_MONTH * i
@@ -145,7 +145,7 @@ def curve(now, rt, width):
 
 def bars(now, rt, width):
     """D: illuminated fraction as a block ramp."""
-    from linecast.moon.view import moon_illumination
+    from linecast.moon.phase import moon_illumination
 
     last_new, _next_new, _full, t = _lunation(now)
     blocks = " ▁▂▃▄▅▆▇█"

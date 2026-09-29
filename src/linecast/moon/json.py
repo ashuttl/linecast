@@ -30,13 +30,10 @@ def build_payload(now_local, lat, lng, runtime, location=None, calendar=None,
     from linecast.astro.ephemeris import (
         _moon_altitude_deg, _moon_azimuth_deg, moon_age_days,
     )
-    from linecast.moon.view import (
-        HORIZON_THRESHOLD_DEG,
-        _next_phase_local,
-        moon_illumination,
-        upcoming_moon_events,
+    from linecast.moon.phase import (
+        HORIZON_THRESHOLD_DEG, SYNODIC_MONTH, moon_cycle_frac, moon_illumination,
+        moon_phase, next_phase_local, upcoming_moon_events,
     )
-    from linecast.moon.phase import SYNODIC_MONTH, moon_cycle_frac, moon_phase
 
     idx, _name, icon = moon_phase(now_local, runtime)
     frac = moon_cycle_frac(now_local)
@@ -54,9 +51,9 @@ def build_payload(now_local, lat, lng, runtime, location=None, calendar=None,
     ]
 
     # The same searched moments the panel prints, so the two agree.
-    full_dt = _next_phase_local(moment_utc, 0.5, now_local)
+    full_dt = next_phase_local(moment_utc, 0.5, now_local)
     next_full = full_dt.date().isoformat()
-    next_new = _next_phase_local(moment_utc, 0.0, now_local).date().isoformat()
+    next_new = next_phase_local(moment_utc, 0.0, now_local).date().isoformat()
 
     event, event_utc = next_season_event(now_local)
     event_kind = ("march_equinox", "june_solstice",

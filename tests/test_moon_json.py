@@ -6,7 +6,7 @@ from datetime import datetime, timedelta, timezone
 from linecast.moon.json import build_payload
 from linecast._runtime import RuntimeConfig
 from linecast._parsers import moon_parser
-from linecast.moon.view import moon_illumination, upcoming_moon_events
+from linecast.moon.phase import moon_illumination, upcoming_moon_events
 from linecast.terminal.glyphs import _EMOJI_ICONS, _NERD_ICONS
 from linecast.moon.phase import SYNODIC_MONTH, moon_cycle_frac
 

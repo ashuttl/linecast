@@ -98,51 +98,19 @@ from linecast.astro.ephemeris import (
     _moon_altitude_deg, _moon_azimuth_deg, _moon_events_for_local_date,
     _moon_parallactic_deg, _moon_ra_dec, _moon_transits_for_local_date,
     moon_age_days,
-    mat_apply, moon_axis_deg, moon_bright_limb_deg, moon_illuminated_fraction,
-    next_moon_phase_utc, precess_to_j2000,
+    mat_apply, moon_axis_deg, moon_bright_limb_deg, precess_to_j2000,
 )
 from linecast.moon.disc import Turn, _draw_moon_disc
 from linecast.moon.palette import (
     MOON_GLOW_RGB, MOON_NIGHT_RGB, PANEL_AMBER_RGB, PANEL_DIM_RGB, PANEL_MUTED_RGB,
     PANEL_PURPLE_RGB, PANEL_TEXT_RGB, SKY_RGB, STAR_BRIGHT_RGB, STAR_DIM_RGB, STAR_RGB,
 )
-from linecast.moon.phase import SYNODIC_MONTH, moon_cycle_frac, moon_phase
-
-# Matches the rise/set threshold in _moon_events_for_local_date: net effect
-# of refraction and lunar parallax puts the geometric event at +0.125°.
-HORIZON_THRESHOLD_DEG = 0.125
+from linecast.moon.phase import (
+    HORIZON_THRESHOLD_DEG, SYNODIC_MONTH, moon_cycle_frac, moon_illumination, moon_phase,
+    next_phase_local, upcoming_moon_events,
+)
 
 _theme.track_imports(globals(), "linecast.moon.palette")
-
-
-def moon_illumination(dt):
-    """Illuminated fraction of the lunar disc, in [0, 1]."""
-    if dt.tzinfo is None:
-        dt = dt.replace(tzinfo=timezone.utc)
-    return moon_illuminated_fraction(dt.astimezone(timezone.utc))
-
-
-def upcoming_moon_events(now_local, lat, lng):
-    """Next (moonrise, moonset) datetimes strictly after *now_local*.
-
-    Scans up to three local calendar days. At high latitudes the Moon can
-    stay up (or down) for days, so either value may still be None, and
-    a date can hold two moonrises, so today's are searched from now on.
-    """
-    tzinfo = now_local.tzinfo
-    next_rise = None
-    next_set = None
-    for offset in range(3):
-        day = now_local.date() + timedelta(days=offset)
-        rise, sset = _moon_events_for_local_date(day, lat, lng, tzinfo,
-                                                 since=now_local)
-        if next_rise is None and rise is not None:
-            next_rise = rise
-        if next_set is None and sset is not None:
-            next_set = sset
-        if next_rise is not None and next_set is not None:
-            break
-    return next_rise, next_set
 
 
 def _fmt_countdown(delta, lang="en"):
@@ -497,20 +465,6 @@ def _panel_overlays(panel, x0, row0, graph_w):
     return overlays
 
 
-def _next_phase_local(moment_utc, target_frac, now_local):
-    """Next new or full moon, in the observer's timezone.
-
-    Falls back to a mean-synodic estimate if the search comes up empty,
-    so the panel still has a date to print.
-    """
-    found = next_moon_phase_utc(moment_utc, target_frac)
-    if found is None:
-        frac = moon_cycle_frac(now_local)
-        ahead = ((target_frac - frac) % 1.0) * SYNODIC_MONTH
-        return now_local + timedelta(days=ahead)
-    return found.astimezone(now_local.tzinfo)
-
-
 def calendar_headline(cal, now_local, lat, lng, runtime, lang):
     """(name, aside) the calendar puts in the headline, either None.
 
@@ -614,8 +568,8 @@ def render(now_local, lat, lng, runtime, fullscreen=False, offset_minutes=0,
         _draw_moon_disc(fb, cx, cy, radius, illum, limb, axis, rotation,
                         night=MOON_NIGHT_RGB, aspect=aspect)
 
-    full_dt = _next_phase_local(moment_utc, 0.5, now_local)
-    new_dt = _next_phase_local(moment_utc, 0.0, now_local)
+    full_dt = next_phase_local(moment_utc, 0.5, now_local)
+    new_dt = next_phase_local(moment_utc, 0.0, now_local)
     event, event_utc = next_season_event(now_local)
     event_local = event_utc.astimezone(now_local.tzinfo)
     year_len = 366 if calendar.isleap(now_local.year) else 365

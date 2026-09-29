@@ -302,10 +302,11 @@ def render_calendar(now_local, lat, lng, runtime, month_offset=0,
                     fullscreen=False, mouse_pos=None, calendar_name=None,
                     israel=False):
     """Build the calendar view: a month grid of shaded phase discs."""
-    from linecast.moon import view as _moon
     from linecast.moon import disc
     from linecast.moon import palette as moon_palette  # rebuilt on theme reload
-    from linecast.moon.phase import moon_cycle_frac, moon_phase, SYNODIC_MONTH
+    from linecast.moon.phase import (
+        moon_cycle_frac, moon_illumination, moon_phase, SYNODIC_MONTH,
+    )
     from linecast._runtime import install_banner
 
     lang = lang_of(runtime)
@@ -408,7 +409,7 @@ def render_calendar(now_local, lat, lng, runtime, month_offset=0,
         x0 = left + c * cell_w
         y0 = row0 + wk * cell_h
         noon = datetime.combine(d, time(12), tzinfo=tzinfo)
-        illum = _moon.moon_illumination(noon)
+        illum = moon_illumination(noon)
         principal = phase_days.get(d)
 
         # Today's whole cell sits on a faintly moonlit field — the way a
@@ -567,11 +568,11 @@ def _hover_chip(d, now_local, lat, lng, runtime, cal, native, fest,
                 phase_days, mouse_pos, cols, rows,
                 moon_phase, moon_cycle_frac, SYNODIC_MONTH, israel=False):
     """The hovered day, read in full: date, phase, rise and set, calendar."""
-    from linecast.moon import view as _moon
+    from linecast.moon.phase import moon_illumination
 
     tzinfo = now_local.tzinfo
     noon = datetime.combine(d, time(12), tzinfo=tzinfo)
-    illum = _moon.moon_illumination(noon)
+    illum = moon_illumination(noon)
     principal = phase_days.get(d)
     lang = lang_of(runtime)
     lunar = (lunisolar_date(d, CALENDAR_MERIDIAN_HOURS[cal])
