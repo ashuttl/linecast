@@ -442,6 +442,7 @@ class MapApp(LiveApp):
                  profile, origin=None, dest=None, fit=False):
         self.runtime = runtime
         self.home = (lat, lon)      # the marker
+        self.start = (lat, lon, zoom)   # where n and space go back to
         self.location_name = location_name
         self.camera = Camera(lat, lon, zoom)
         self.pan_preview = (0, 0)
@@ -753,9 +754,12 @@ class MapApp(LiveApp):
         if action == 'key:p':
             return routes.cycle_profile()
         if action == 'reset':
-            # n / space: the one deliberately destructive key.
+            # n / space: the one deliberately destructive key.  The
+            # route goes, and the view flies back to where it opened
+            # (the loop's own reset is a time offset maps never reads)
             routes.clear()
-            return False        # and the loop still recentres
+            self._fly(*self.start)
+            return False        # and the loop repaints
         return False
 
     def on_click(self, col, row):

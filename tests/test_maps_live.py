@@ -702,6 +702,15 @@ class TestIntercept:
         assert app.intercept('reset') is False
         assert app.routes.dest is None and not app.routes.panel
 
+    def test_reset_flies_back_to_where_the_map_opened(self):
+        # "back to start", as the help says: the loop's own reset is a
+        # time offset, which the map never reads
+        app = make(zoom=0.05, lat=43.68, lon=-70.37)
+        app.camera.jump_to(40.7, -74.0, 2.0)
+        app.intercept('reset')
+        assert app.camera.flying()
+        assert settle(app) == pytest.approx((43.68, -70.37, 0.05))
+
     def test_anything_else_passes_through(self):
         assert make().intercept('key:x') is False
 
