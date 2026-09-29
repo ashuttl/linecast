@@ -13,6 +13,7 @@ from linecast._i18n import fmt_decimal
 from linecast._http import fetch_json_cached
 from linecast._paths import cache_dir
 from linecast._runtime import TidesRuntime
+from linecast.terminal.textwidth import truncate_display_width, visible_len
 
 MARINE_CACHE_MAX_AGE = 3600  # 1 hour
 
@@ -186,7 +187,14 @@ def format_marine_line(marine: dict[str, Any] | None, runtime: TidesRuntime,
     if not parts:
         return ""
 
-    return " · ".join(parts)
+    # The swell goes where both will not fit, as Thai's compass words at
+    # sixty columns will not; the waves alone are cut short as a last resort.
+    line = parts[0]
+    for part in parts[1:]:
+        if visible_len(f"{line} · {part}") > width:
+            break
+        line = f"{line} · {part}"
+    return truncate_display_width(line, width)
 
 
 def _format_height(meters, runtime):

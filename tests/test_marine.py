@@ -4,6 +4,7 @@ from unittest.mock import patch
 
 from linecast.tides import marine
 from linecast._runtime import TidesRuntime
+from linecast.terminal.textwidth import visible_len
 
 
 class CompassDirectionTests(unittest.TestCase):
@@ -201,6 +202,21 @@ class FormatMarineLineTests(unittest.TestCase):
         }
         line = marine.format_marine_line(marine_info, self._runtime())
         self.assertNotIn("Swell", line)
+
+    def test_a_narrow_line_leaves_out_the_swell(self):
+        # Thai names the points in words: both parts come to 66 columns.
+        marine_info = {
+            "wave_height": 1.4, "wave_period": 10, "wave_direction": 45,
+            "swell_height": 1.4, "swell_period": 9, "swell_direction": 45,
+        }
+        runtime = self._runtime(lang="th", metric=True)
+        wide = marine.format_marine_line(marine_info, runtime, width=80)
+        self.assertIn(" · ", wide)
+        narrow = marine.format_marine_line(marine_info, runtime, width=60)
+        self.assertLessEqual(visible_len(narrow), 60)
+        self.assertEqual(narrow, wide.split(" · ")[0])
+        self.assertLessEqual(visible_len(
+            marine.format_marine_line(marine_info, runtime, width=20)), 20)
 
 
 class FormatHeightTests(unittest.TestCase):
