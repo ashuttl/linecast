@@ -26,6 +26,8 @@ uvx ruff@0.16.9 check src tests scripts
 
 The render tests compare each view against a snapshot in `tests/snapshots`. If your change is meant to alter what a view draws, delete the affected snapshot and run the tests again to write a new one, then read the diff.
 
+The snapshots compare the text alone. For a change that should not alter what linecast draws at all, `uv run python scripts/golden.py check` renders every view before and after it, colours and overlays included, in four languages and three themes, and names any that differ.
+
 ## Translations
 
 The strings are in [src/linecast/locales](src/linecast/locales), one file per language. `en.py` is the reference: it has every key, with notes on what each one is for, and a key another language leaves out reads in English. To correct a translation, edit that language's file. The files hold data alone, names in capitals set to literals, with comments; keep them that way, and the tests will tell you if something slipped in.
