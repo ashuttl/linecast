@@ -108,7 +108,10 @@ def _load_marshalled(path):
         data = json.load(fh)
     try:
         cached.parent.mkdir(parents=True, exist_ok=True)
-        for old in cached.parent.glob("basemap_*.marshal"):
+        # Only this interpreter's older copies: marshal's format is the
+        # Python version's, and another Python on the machine (the .pyz
+        # under the system's, say) keeps a copy of its own.
+        for old in cached.parent.glob(f"basemap_{sys.implementation.cache_tag}_*.marshal"):
             old.unlink(missing_ok=True)
         _cache.write_bytes_atomic(cached, marshal.dumps(data))
     except Exception as exc:

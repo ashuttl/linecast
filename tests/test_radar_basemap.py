@@ -535,3 +535,29 @@ class TestDotLayerRank:
         layer.or_mask([[0x80, 0]], self.GREEN, 90)
         assert layer.color[0][1] == self.RED     # no mask bit in this cell
         assert layer.rank[0][1] == 5
+
+
+class TestMarshalledBasemap:
+    def test_another_pythons_copy_is_left_alone(self, tmp_path, monkeypatch):
+        """Each interpreter keeps its own parsed copy, since marshal's
+        format is the Python version's: a new copy replaces this
+        interpreter's older one and no other."""
+        import gzip
+        import json
+        import sys
+        from linecast._paths import cache_dir
+
+        monkeypatch.setenv("LINECAST_CACHE_DIR", str(tmp_path / "cache"))
+        source = tmp_path / "basemap.json.gz"
+        with gzip.open(source, "wt", encoding="utf-8") as fh:
+            json.dump({"borders": []}, fh)
+        root = cache_dir()
+        root.mkdir(parents=True)
+        tag = sys.implementation.cache_tag
+        mine, theirs = root / f"basemap_{tag}_1.marshal", root / "basemap_other-399_1.marshal"
+        mine.write_bytes(b"stale")
+        theirs.write_bytes(b"theirs")
+        assert basemap_mod._load_marshalled(source) == {"borders": []}
+        assert not mine.exists()
+        assert theirs.read_bytes() == b"theirs"
+        assert len(list(root.glob(f"basemap_{tag}_*.marshal"))) == 1
