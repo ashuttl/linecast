@@ -96,9 +96,9 @@ MUTATIONS = list(_mutations())
 
 def _render(data, cols, rows, runtime, mouse_pos=None):
     with patch("linecast.weather.view.get_terminal_size", return_value=(cols, rows)), \
-         patch("linecast.weather.view._local_now_for_data", return_value=NOW), \
-         patch("linecast.weather.hourly._local_now_for_data", return_value=NOW), \
-         patch("linecast.weather.daily._local_now_for_data", return_value=NOW):
+         patch("linecast.weather.view.local_now", return_value=NOW), \
+         patch("linecast.weather.hourly.local_now", return_value=NOW), \
+         patch("linecast.weather.daily.local_now", return_value=NOW):
         output, _ = weather.render_from_data(
             data, [], runtime, location_name="Toronto", historical=HIST,
             mouse_pos=mouse_pos)

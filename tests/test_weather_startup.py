@@ -20,7 +20,7 @@ weather.fetch_forecast = lambda *a, **k: {"v": 1}
 weather.fetch_aqi = lambda *a, **k: {"aqi": 1}
 weather.fetch_historical = lambda *a, **k: "history"
 weather.fetch_alerts = lambda *a, **k: []
-weather._local_now_for_data = lambda data: datetime.now()
+weather.local_now = lambda data: datetime.now()
 
 started = threading.Event()
 def stuck(*a, **k):

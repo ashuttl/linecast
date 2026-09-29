@@ -62,8 +62,8 @@ def _weather_render(cols, rows, runtime, fixture="open_meteo_forecast.json",
     data = _load_fixture(fixture)
 
     with patch("linecast.weather.view.get_terminal_size", return_value=(cols, rows)), \
-         patch("linecast.weather.view._local_now_for_data", return_value=FIXED_NOW), \
-         patch("linecast.weather.hourly._local_now_for_data", return_value=FIXED_NOW):
+         patch("linecast.weather.view.local_now", return_value=FIXED_NOW), \
+         patch("linecast.weather.hourly.local_now", return_value=FIXED_NOW):
         output, _ = render_from_data(
             data, alerts=[], runtime=runtime,
             location_name=location_name, historical=historical,

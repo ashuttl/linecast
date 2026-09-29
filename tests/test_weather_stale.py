@@ -12,8 +12,8 @@ from unittest.mock import patch
 import pytest
 
 from linecast.weather import view as weather
-from linecast.weather import sources as _weather_sources
-from linecast.weather.sources import forecast_date, forecast_is_todays
+from linecast.weather import forecast as _forecast
+from linecast.weather.forecast import forecast_date, forecast_is_todays
 from linecast.weather.sections import comparative_sentence, render_header
 from linecast.weather.historical import HistoricalAverages
 from linecast.weather.view import WeatherApp, forecast_notice
@@ -45,15 +45,15 @@ class TestForecastDate:
 
 class TestForecastIsTodays:
     def test_true_on_the_day_it_was_made(self):
-        with patch.object(_weather_sources, "_local_now_for_data", return_value=MADE):
+        with patch.object(_forecast, "local_now", return_value=MADE):
             assert forecast_is_todays(FIXTURE)
 
     def test_false_on_a_later_day(self):
-        with patch.object(_weather_sources, "_local_now_for_data", return_value=LATER):
+        with patch.object(_forecast, "local_now", return_value=LATER):
             assert not forecast_is_todays(FIXTURE)
 
     def test_false_at_midnight_after(self):
-        with patch.object(_weather_sources, "_local_now_for_data",
+        with patch.object(_forecast, "local_now",
                           return_value=datetime(2026, 3, 6, 0, 0)):
             assert not forecast_is_todays(FIXTURE)
 
@@ -63,55 +63,55 @@ class TestForecastIsTodays:
     def test_is_the_cache_test_for_the_forecast(self):
         runtime = SimpleNamespace(celsius=True, metric=True, wind_unit="km/h",
                                   wind_unit_param="kmh")
-        with patch.object(_weather_sources, "fetch_json_cached",
+        with patch.object(_forecast, "fetch_json_cached",
                           return_value={"ok": 1}) as cached:
-            assert _weather_sources.fetch_forecast(43.0, -70.0, runtime) == {"ok": 1}
+            assert _forecast.fetch_forecast(43.0, -70.0, runtime) == {"ok": 1}
         assert cached.call_args.kwargs["fresh"] is forecast_is_todays
 
 
 class TestForecastNotice:
     def test_nothing_on_the_day_it_was_made(self):
-        with patch.object(weather, "_local_now_for_data", return_value=MADE):
+        with patch.object(weather, "local_now", return_value=MADE):
             assert forecast_notice(FIXTURE, _runtime()) is None
 
     def test_nothing_for_data_without_days(self):
         assert forecast_notice({"timezone": "UTC"}, _runtime()) is None
 
     def test_names_the_day_and_says_to_run_again(self):
-        with patch.object(weather, "_local_now_for_data", return_value=LATER):
+        with patch.object(weather, "local_now", return_value=LATER):
             line = _strip(forecast_notice(FIXTURE, _runtime()))
         assert line == ("This forecast is from Thursday; a newer one could not be "
                         "fetched. Run again to retry.")
 
     def test_live_offers_the_key(self):
-        with patch.object(weather, "_local_now_for_data", return_value=LATER):
+        with patch.object(weather, "local_now", return_value=LATER):
             line = _strip(forecast_notice(FIXTURE, _runtime(), live=True))
         assert line.endswith("Press r to retry.")
 
     def test_a_failed_retry_shows_when(self):
-        with patch.object(weather, "_local_now_for_data", return_value=LATER):
+        with patch.object(weather, "local_now", return_value=LATER):
             line = _strip(forecast_notice(
                 FIXTURE, _runtime(), live=True, failed_at=datetime(2026, 3, 7, 14, 32)))
         assert "could not be fetched at 2:32p." in line
-        with patch.object(weather, "_local_now_for_data", return_value=LATER):
+        with patch.object(weather, "local_now", return_value=LATER):
             line = _strip(forecast_notice(
                 FIXTURE, _runtime(use_24h=True), live=True,
                 failed_at=datetime(2026, 3, 7, 14, 32)))
         assert "could not be fetched at 14:32." in line
 
     def test_while_fetching_says_so(self):
-        with patch.object(weather, "_local_now_for_data", return_value=LATER):
+        with patch.object(weather, "local_now", return_value=LATER):
             line = _strip(forecast_notice(FIXTURE, _runtime(), live=True, fetching=True))
         assert line == "Fetching a newer forecast…"
 
     def test_a_week_or_more_ago_gives_the_date(self):
-        with patch.object(weather, "_local_now_for_data",
+        with patch.object(weather, "local_now",
                           return_value=datetime(2026, 3, 12, 9, 0)):
             line = _strip(forecast_notice(FIXTURE, _runtime()))
         assert line.startswith("This forecast is from 2026-03-12".replace("12", "05"))
 
     def test_the_day_is_in_the_users_language(self):
-        with patch.object(weather, "_local_now_for_data", return_value=LATER):
+        with patch.object(weather, "local_now", return_value=LATER):
             line = _strip(forecast_notice(FIXTURE, _runtime(lang="fr")))
         assert "jeudi" in line
         assert "prévision" in line and "Relancez" in line   # one-shot: run again
@@ -119,8 +119,8 @@ class TestForecastNotice:
     def test_the_line_sits_under_the_header(self):
         runtime = weather.WeatherRuntime.defaults()
         with patch("linecast.weather.view.get_terminal_size", return_value=(100, 30)), \
-             patch("linecast.weather.view._local_now_for_data", return_value=LATER), \
-             patch("linecast.weather.hourly._local_now_for_data", return_value=LATER):
+             patch("linecast.weather.view.local_now", return_value=LATER), \
+             patch("linecast.weather.hourly.local_now", return_value=LATER):
             notice = forecast_notice(FIXTURE, runtime)
             output, _ = weather.render_from_data(FIXTURE, [], runtime,
                                                  location_name="Toronto", notice=notice)
@@ -175,7 +175,7 @@ class TestHistoricalComparisonDates:
         daily = dict(FIXTURE["daily"], temperature_2m_max=[20, 20, 40, 60, 40, 20, 20, 20])
         data = dict(FIXTURE, daily=daily)
         hist = HistoricalAverages(avg_high=40, avg_low=20, avg_precip=0, years=10)
-        with patch.object(_weather_sources, "datetime") as clock:
+        with patch.object(_forecast, "datetime") as clock:
             clock.now.return_value = now
             header = _strip(render_header(data, 200, runtime=weather.WeatherRuntime.defaults(),
                                           historical=hist))
@@ -210,7 +210,7 @@ class TestRetryKey:
              patch.object(weather, "fetch_alerts", return_value=[]), \
              patch.object(weather, "reverse_geocode", return_value=("", "US", {})), \
              patch.object(weather, "fetch_aqi", return_value=None), \
-             patch.object(_weather_sources, "datetime") as dt:
+             patch.object(_forecast, "datetime") as dt:
             dt.now.return_value = LATER
             app.on_action("r")
             app._worker.join(1.0)
@@ -224,7 +224,7 @@ class TestRetryKey:
              patch.object(weather, "fetch_alerts", return_value=[]), \
              patch.object(weather, "reverse_geocode", return_value=("", "US", {})), \
              patch.object(weather, "fetch_aqi", return_value=None), \
-             patch.object(_weather_sources, "datetime") as dt:
+             patch.object(_forecast, "datetime") as dt:
             dt.now.return_value = MADE
             app.on_action("r")
             app._worker.join(1.0)
@@ -259,7 +259,7 @@ class TestRetryKey:
         app.data = FIXTURE
         with patch.object(weather, "render_from_data",
                           return_value=("out", {})) as render, \
-             patch.object(weather, "_local_now_for_data", return_value=LATER), \
+             patch.object(weather, "local_now", return_value=LATER), \
              patch("time.monotonic", return_value=1001.0):
             app.render()
         notice = _strip(render.call_args.kwargs["notice"])

@@ -24,7 +24,7 @@ from linecast.weather.hourly import (
     _prepare_hourly_window,
     render_hourly,
 )
-from linecast.weather.sources import wall_clock
+from linecast.weather.forecast import wall_clock
 
 TORONTO = ZoneInfo("America/Toronto")
 WIDTH = 97  # 48 hours shown
@@ -223,7 +223,7 @@ class TestArchiveDay:
                           return_value={"timezone": "Pacific/Kiritimati"}), \
              patch.object(weather, "fetch_aqi", return_value=None), \
              patch.object(weather, "fetch_alerts", return_value=[]), \
-             patch.object(weather, "_local_now_for_data", return_value=there), \
+             patch.object(weather, "local_now", return_value=there), \
              patch.object(weather, "fetch_historical", return_value=HIST) as hist:
             runtime = WeatherRuntime(live=False, icons="emoji", lang="en", oneline=False)
             result = weather.gather(1.87, -157.4, "KI", runtime)

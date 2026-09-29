@@ -211,7 +211,7 @@ class TestHoverTooltip:
             .read_text(encoding="utf-8"))
         runtime = WeatherRuntime(live=False, icons="emoji", lang="en",
                                  oneline=False, celsius=False, metric=False)
-        with patch.object(weather, "_local_now_for_data",
+        with patch.object(weather, "local_now",
                           return_value=datetime(2026, 3, 5, 14, 30)):
             overlay = weather._build_hover_tooltip(
                 data, 40, mouse_row, 2, rows - 1, 80, rows, runtime)

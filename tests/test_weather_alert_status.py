@@ -196,8 +196,8 @@ class TestView:
         runtime = WeatherRuntime(live=False, icons="emoji", lang=lang, oneline=False,
                                  celsius=False, metric=False, shading=False)
         with patch("linecast.weather.view.get_terminal_size", return_value=(cols, rows)), \
-             patch("linecast.weather.view._local_now_for_data", return_value=NOW), \
-             patch("linecast.weather.hourly._local_now_for_data", return_value=NOW):
+             patch("linecast.weather.view.local_now", return_value=NOW), \
+             patch("linecast.weather.hourly.local_now", return_value=NOW):
             output, row_map = render_from_data(data, alerts=alerts, runtime=runtime,
                                                location_name="Portland")
         return output.split("\x00", 1)[0], row_map

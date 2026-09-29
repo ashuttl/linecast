@@ -51,9 +51,11 @@ from linecast.weather.style import (
 )
 from linecast.weather.historical import fetch_historical
 from linecast.weather.sources import (
-    ALERTS_UNAVAILABLE, AlertList, _local_now_for_data, alert_attribution, alert_source,
-    fetch_alerts, fetch_forecast, forecast_attribution, forecast_date, forecast_is_todays,
-    FORECAST_SOURCE, observation_attribution, observed_credit,
+    ALERTS_UNAVAILABLE, AlertList, alert_attribution, alert_source, fetch_alerts,
+    forecast_attribution, observation_attribution, observed_credit,
+)
+from linecast.weather.forecast import (
+    local_now, fetch_forecast, forecast_date, forecast_is_todays, FORECAST_SOURCE,
 )
 from linecast.weather.air import apply_national_index, fetch_canada_aqhi, fetch_aqi
 from linecast._geocode import reverse_geocode, print_search, without_country
@@ -133,7 +135,7 @@ def _build_hover_tooltip(data, mouse_col, mouse_row, hourly_start, hourly_end, c
         return ""
 
     hourly = data.get("hourly", {})
-    now = _local_now_for_data(data)
+    now = local_now(data)
     window = _prepare_hourly_window(hourly, now, graph_w, offset_minutes=offset_minutes)
     if window is None:
         return ""
@@ -310,7 +312,7 @@ def _build_daily_tooltip(data, mouse_col, mouse_row, daily_start, daily_spans, c
     code = day_value("weather_code", 0) or 0
 
     # Every chip opens with the day it speaks for, in dim type.
-    now_local = _local_now_for_data(data)
+    now_local = local_now(data)
     if date == now_local.date().isoformat():
         name = _s("today", runtime)
     else:
@@ -417,7 +419,7 @@ def forecast_notice(data, runtime, live=False, fetching=False, failed_at=None):
     made = forecast_date(data)
     if made is None:
         return None
-    now_local = _local_now_for_data(data)
+    now_local = local_now(data)
     if made == now_local.date():
         return None
     if fetching:
@@ -449,7 +451,7 @@ def render_from_data(data, alerts, runtime, location_name="", offset_minutes=0, 
         return f"{TEXT}Could not fetch weather data.{RESET}", {}
 
     cols, rows = get_terminal_size()
-    now_local = _local_now_for_data(data)
+    now_local = local_now(data)
     tz_name = data.get("timezone", "")
 
     # Pre-render fixed-height sections to budget graph rows accurately
@@ -778,7 +780,7 @@ class WeatherApp(_live.LiveApp):
                     self.alerts, self.aqi = alerts, aqi
                     self.fetched = _t.monotonic()
                     self.attempted = (None if forecast_is_todays(self.data)
-                                      else _local_now_for_data(self.data))
+                                      else local_now(self.data))
         _live.nudge()
         # The refresh is also the climate scale's next chance: a
         # location that arrived without one keeps asking every interval.
@@ -803,7 +805,7 @@ class WeatherApp(_live.LiveApp):
         historical = None
         try:
             historical = fetch_historical(
-                lat, lng, _local_now_for_data(data).date(),
+                lat, lng, local_now(data).date(),
                 celsius=getattr(self.runtime, "celsius", False),
                 metric=getattr(self.runtime, "metric", False), stale=stale)
         except Exception as exc:
@@ -857,7 +859,7 @@ class WeatherApp(_live.LiveApp):
         still the old one's.  Called with the state lock held."""
         if not self.year_view or not self.data or self._loading is not None:
             return
-        today = _local_now_for_data(self.data).date()
+        today = local_now(self.data).date()
         asked = self._year_asked
         if asked and asked[:2] == (self._generation, today):
             # A fetch still out for another place or day is left to
@@ -876,7 +878,7 @@ class WeatherApp(_live.LiveApp):
 
     def _render_year(self, mouse_pos):
         from linecast.weather.year import COLORS, render_year, year_days
-        today = _local_now_for_data(self.data).date()
+        today = local_now(self.data).date()
         # The place's own year; while a new place loads, the old one's
         # chart stays up, as the forecast does.
         year = self._year if self._year and self._year[0] == (self.lat, self.lng) else None
@@ -1012,7 +1014,7 @@ class WeatherApp(_live.LiveApp):
         with self._state_lock:
             cols, _ = get_terminal_size()
             window = _prepare_hourly_window(
-                self.data.get("hourly", {}), _local_now_for_data(self.data),
+                self.data.get("hourly", {}), local_now(self.data),
                 max(10, cols), offset_minutes=offset_minutes)
             return window["offset_minutes"] if window else 0
 
@@ -1252,7 +1254,7 @@ def gather(lat, lng, country_code, runtime, geo_label="", stale=None):
     # deadline, the first answer stands: its year's extremes are the
     # same, and only the day's averages are a day off.
     if result["data"]:
-        there = _local_now_for_data(result["data"]).date()
+        there = local_now(result["data"]).date()
         if there != today:
             again = _settle(
                 _submit(fetch_historical, lat, lng, there,
@@ -1358,7 +1360,7 @@ def _main():
     elif args.year:
         from linecast.terminal.textwidth import calibrate_from_terminal
         from linecast.weather.year import fetch_year, render_year, year_days
-        today = _local_now_for_data(data).date()
+        today = local_now(data).date()
         with Spinner():
             climate, archive = fetch_year(lat, lng, today, runtime)
         calibrate_from_terminal()

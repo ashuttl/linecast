@@ -61,7 +61,7 @@ def _today_span():
 # Open-Meteo
 # ---------------------------------------------------------------------------
 def test_open_meteo_forecast(failures):
-    from linecast.weather.sources import fetch_forecast
+    from linecast.weather.forecast import fetch_forecast
     data = fetch_forecast(*PORTLAND)
     assert failures() == []
     assert data is not None

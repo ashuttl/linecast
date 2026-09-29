@@ -25,7 +25,7 @@ from linecast._i18n import DAY_NAMES, FULL_DAY_NAMES
 from linecast.weather import style as _style
 from linecast.weather.style import (MUTED, TEXT, WIND_COLOR, _aqhi_color, _aqi_color,
                                      _colored_temp, _india_aqi_color)
-from linecast.weather.sources import _local_now_for_data
+from linecast.weather.forecast import local_now
 
 
 def location_control(name, width, runtime):
@@ -87,7 +87,7 @@ def render_header(data, width, location_name="", runtime=None, aqi_data=None, hi
             hi_temps = daily.get("temperature_2m_max") or []
             lo_temps = daily.get("temperature_2m_min") or []
             # A cached forecast's second entry may no longer be today.
-            today = (now if now is not None else _local_now_for_data(data)).date().isoformat()
+            today = (now if now is not None else local_now(data)).date().isoformat()
             index = next((i for i, day in enumerate(daily.get("time") or [])
                           if day == today), -1)
             if (0 <= index < min(len(hi_temps), len(lo_temps))

@@ -164,8 +164,8 @@ def _render(cols, rows, live=True, country_code="IE"):
     runtime = WeatherRuntime(live=live, icons="emoji", lang="en", oneline=False,
                              celsius=False, metric=False)
     with patch("linecast.weather.view.get_terminal_size", return_value=(cols, rows)), \
-         patch("linecast.weather.view._local_now_for_data", return_value=FIXED_NOW), \
-         patch("linecast.weather.hourly._local_now_for_data", return_value=FIXED_NOW):
+         patch("linecast.weather.view.local_now", return_value=FIXED_NOW), \
+         patch("linecast.weather.hourly.local_now", return_value=FIXED_NOW):
         output, _ = weather.render_from_data(data, alerts=[], runtime=runtime,
                                              location_name="Dublin",
                                              country_code=country_code)
@@ -195,8 +195,8 @@ class TestLiveView:
         runtime = WeatherRuntime(live=True, icons="emoji", lang="ja", oneline=False,
                                  celsius=True, metric=True)
         with patch("linecast.weather.view.get_terminal_size", return_value=(120, 40)), \
-             patch("linecast.weather.view._local_now_for_data", return_value=FIXED_NOW), \
-             patch("linecast.weather.hourly._local_now_for_data", return_value=FIXED_NOW):
+             patch("linecast.weather.view.local_now", return_value=FIXED_NOW), \
+             patch("linecast.weather.hourly.local_now", return_value=FIXED_NOW):
             output, _ = weather.render_from_data(data, alerts=[], runtime=runtime,
                                                  location_name="新宿区", country_code="JP")
         last = plain(output).split("\n")[-1]

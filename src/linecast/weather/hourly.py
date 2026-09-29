@@ -14,7 +14,7 @@ from linecast._i18n import is_rtl, lang_of, table_for
 from linecast.weather.historical import temperature_scale
 from linecast.weather.i18n import _s
 from linecast._i18n import FULL_DAY_NAMES
-from linecast.weather.sources import _local_now_for_data
+from linecast.weather.forecast import local_now
 from linecast.weather.style import (
     CHART_BG_DAY_RGB,
     CHART_BG_NIGHT_RGB,
@@ -1299,7 +1299,7 @@ def render_hourly(data, width, n_braille_rows=2, n_precip_rows=0, now=None, runt
     daily = data.get("daily", {})
     sun_events = _parse_sun_events(daily)
     if now is None:
-        now = _local_now_for_data(data)
+        now = local_now(data)
 
     graph_w = max(10, width)
     window = _prepare_hourly_window(data.get("hourly", {}), now, graph_w,

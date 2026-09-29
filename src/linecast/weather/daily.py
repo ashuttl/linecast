@@ -10,7 +10,7 @@ from linecast._runtime import WeatherRuntime, current_runtime
 from linecast.weather.cover import sky_condition
 from linecast.weather.i18n import _s, _wmo_icons, fmt_wind, precip_unit_label, wmo_label
 from linecast._i18n import DAY_NAMES, FULL_DAY_NAMES
-from linecast.weather.sources import _local_now_for_data
+from linecast.weather.forecast import local_now
 from linecast.weather.style import (
     DIM, MUTED, TEXT, WIND_COLOR, _knockout_ink, _precip_color, _precip_type, _temp_color,
 )
@@ -60,7 +60,7 @@ def render_daily_mapped(data, width, runtime=None, now=None):
     if runtime is None:
         runtime = current_runtime(WeatherRuntime)
     if now is None:
-        now = _local_now_for_data(data)
+        now = local_now(data)
     daily = data.get("daily", {})
     times = daily.get("time", [])
     hi_temps = daily.get("temperature_2m_max", [])

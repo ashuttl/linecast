@@ -191,18 +191,18 @@ def runtime_for(lang, metric):
 
 def fetch_set(name, places=PLACES, out=None):
     """Fetch every place in km/h and freeze it under `name`."""
-    from linecast.weather import sources
+    from linecast.weather import forecast
     root = sets_root() / name
     root.mkdir(parents=True, exist_ok=True)
     out = out or sys.stdout
     index = []
     for place, lat, lng, units in places:
         metric = units == "m"
-        data = sources.fetch_forecast(lat, lng, runtime_for("en", metric))
+        data = forecast.fetch_forecast(lat, lng, runtime_for("en", metric))
         if not data:
             print(f"failed  {place}", file=out)
             continue
-        now = sources._local_now_for_data(data)
+        now = forecast.local_now(data)
         slug = slug_of(place)
         record = {"name": place, "lat": lat, "lng": lng, "metric": metric,
                   "now": now.isoformat(), "data": data}

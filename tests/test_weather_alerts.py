@@ -100,8 +100,8 @@ class TestDashboardFits:
 
         data = json.loads((FIXTURES / "open_meteo_forecast.json").read_text())
         with patch("linecast.weather.view.get_terminal_size", return_value=(cols, rows)), \
-             patch("linecast.weather.view._local_now_for_data", return_value=NOW), \
-             patch("linecast.weather.hourly._local_now_for_data", return_value=NOW):
+             patch("linecast.weather.view.local_now", return_value=NOW), \
+             patch("linecast.weather.hourly.local_now", return_value=NOW):
             output, row_map = render_from_data(
                 data, alerts=alerts, runtime=_runtime(lang=lang),
                 location_name="Hachijojima, Tokyo",

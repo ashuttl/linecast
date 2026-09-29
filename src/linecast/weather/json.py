@@ -12,9 +12,8 @@ from datetime import datetime
 from linecast.weather.cover import sky_condition
 from linecast.weather.i18n import _wmo_icons, wmo_label
 from linecast.weather.sections import comparative_sentence, narrative_text
-from linecast.weather.sources import (
-    FORECAST_SOURCE, _local_now_for_data, alert_source, alerts_status, forecast_date,
-)
+from linecast.weather.forecast import FORECAST_SOURCE, local_now, forecast_date
+from linecast.weather.sources import alert_source, alerts_status
 
 SCHEMA_VERSION = 1
 
@@ -58,7 +57,7 @@ def build_payload(data, location_name, country_code, runtime,
     """Build the `weather --json` payload dict from preloaded data."""
     data = data or {}
     if now is None:
-        now = _local_now_for_data(data)
+        now = local_now(data)
 
     current = data.get("current") or {}
     cur_code = current.get("weather_code")

@@ -166,7 +166,7 @@ def test_a_missed_second_ask_keeps_the_first_answer():
          patch.object(weather, "fetch_forecast", return_value={"v": 1}), \
          patch.object(weather, "fetch_aqi", return_value=None), \
          patch.object(weather, "fetch_alerts", return_value=[]), \
-         patch.object(weather, "_local_now_for_data", return_value=tomorrow), \
+         patch.object(weather, "local_now", return_value=tomorrow), \
          patch.object(weather, "fetch_historical", side_effect=fetch_historical) as fh:
         result = weather.gather(35.68, 139.69, "JP", weather.WeatherRuntime.defaults(),
                                 geo_label="Tokyo", stale=lambda: False)
@@ -186,7 +186,7 @@ def _gather_with_a_hung_archive(runtime):
          patch.object(weather, "fetch_forecast", return_value={"v": 1}), \
          patch.object(weather, "fetch_aqi", return_value=None), \
          patch.object(weather, "fetch_alerts", return_value=[]), \
-         patch.object(weather, "_local_now_for_data", return_value=datetime.now()), \
+         patch.object(weather, "local_now", return_value=datetime.now()), \
          patch.object(weather, "fetch_historical", side_effect=stuck), \
          patch.object(weather, "_CLIMATE_PATIENCE", 0.1), \
          patch.object(weather, "_FETCH_CEILING", 1.0):
@@ -235,7 +235,7 @@ def test_a_location_that_arrives_without_its_climate_gets_it_afterwards(no_sleep
     view = app()
     result = dict(data={"new": 1}, name="Paris", country_code="FR")
     with patch.object(weather, "gather", return_value=result), \
-         patch.object(weather, "_local_now_for_data", return_value=datetime(2026, 9, 19, 12)), \
+         patch.object(weather, "local_now", return_value=datetime(2026, 9, 19, 12)), \
          patch.object(weather, "fetch_historical", return_value="later") as fh, \
          patch.object(weather._live, "nudge") as nudge:
         view._choose_location(place())
@@ -263,7 +263,7 @@ def test_a_late_climate_for_a_place_the_user_has_left_is_dropped():
         assert stale()
         return "stale answer"
 
-    with patch.object(weather, "_local_now_for_data", return_value=datetime(2026, 9, 18)), \
+    with patch.object(weather, "local_now", return_value=datetime(2026, 9, 18)), \
          patch.object(weather, "fetch_historical", side_effect=fetch_historical):
         with view._state_lock:
             view._start_climate()
@@ -282,7 +282,7 @@ def test_the_refresh_asks_again_until_the_climate_arrives(no_sleep):
          patch.object(weather, "fetch_aqi", return_value=None), \
          patch.object(weather, "reverse_geocode", return_value=("", "US", {})), \
          patch.object(weather, "forecast_is_todays", return_value=True), \
-         patch.object(weather, "_local_now_for_data", return_value=datetime(2026, 9, 18)), \
+         patch.object(weather, "local_now", return_value=datetime(2026, 9, 18)), \
          patch.object(weather, "fetch_historical", return_value="at last"):
         view._start_refresh()
         view._worker.join(2)
@@ -292,7 +292,7 @@ def test_the_refresh_asks_again_until_the_climate_arrives(no_sleep):
 
 
 def test_a_view_that_starts_without_its_climate_asks_at_once():
-    with patch.object(weather, "_local_now_for_data", return_value=datetime(2026, 9, 18)), \
+    with patch.object(weather, "local_now", return_value=datetime(2026, 9, 18)), \
          patch.object(weather, "fetch_historical", return_value="soon"):
         view = app(historical=None)
         join_climate(view)

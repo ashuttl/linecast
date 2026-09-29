@@ -17,7 +17,7 @@ def make_app(monkeypatch, count=120, width=80):
         "time": [(start + timedelta(hours=i)).isoformat() for i in range(count)],
         "temperature_2m": list(range(count)),
     }
-    monkeypatch.setattr(weather, "_local_now_for_data", lambda data: now)
+    monkeypatch.setattr(weather, "local_now", lambda data: now)
     monkeypatch.setattr(weather, "get_terminal_size", lambda: (width, 24))
     app = weather.WeatherApp({"hourly": hourly}, [], None, 43, -70,
                              SimpleNamespace(lang="en"))
