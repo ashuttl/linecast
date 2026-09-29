@@ -165,6 +165,62 @@ def _table(head, rows, wait=True):
     return lines
 
 
+class _RowMaker:
+    """The panel's _Rows, as counted from one moment.
+
+    The ink says how near a row is: the day's rows, and anything else
+    due within a day, in full; the rest muted. A wait is taken from the
+    moment in UTC: two times in the one zone subtract as wall clocks, an
+    hour out across a change of clock.
+    """
+
+    def __init__(self, now_local, moment_utc, runtime):
+        self.now_local = now_local
+        self.moment_utc = moment_utc
+        self.runtime = runtime
+        self.lang = lang_of(runtime)
+        self.today = now_local.date()
+
+    def _ink(self, at):
+        return PANEL_TEXT_RGB if at - self.moment_utc < timedelta(days=1) else PANEL_MUTED_RGB
+
+    def timed(self, label, dt, mark):
+        """An instant within a day or two: the clock time, the weekday
+        once it is not today's, and the wait to the minute."""
+        runtime = self.runtime
+        if dt is None:
+            return _Row(self.now_local + timedelta(days=36500), label, "—", "",
+                        PANEL_TEXT_RGB, mark)
+        when = fmt_time_dt(dt, use_24h=runtime.use_24h)
+        if dt.date() != self.today:
+            when = f"{when} {_day_abbrev(dt, runtime)}"
+        wait = _ms('in_time', runtime, dur=_fmt_countdown(dt - self.moment_utc, self.lang))
+        return _Row(dt, label, when, wait, PANEL_TEXT_RGB, mark)
+
+    def instant(self, label, dt):
+        """An instant further off: the date, and the wait in days to a
+        tenth, which says roughly when in the day.  Within the day the
+        wait is to the minute, as the day's rows give it: the last hour
+        before a full moon is not "in 0.0d"."""
+        runtime = self.runtime
+        wait = dt - self.moment_utc
+        if wait < timedelta(days=1):
+            wait_txt = _ms('in_time', runtime, dur=_fmt_countdown(wait, self.lang))
+        else:
+            wait_txt = _ms('in_days', runtime,
+                           days=fmt_decimal(wait.total_seconds() / 86400.0, 1, runtime))
+        return _Row(dt, label, _fmt_month_day(dt, runtime), wait_txt, self._ink(dt))
+
+    def day(self, label, day, wait=None):
+        """Something kept on a day — a festival, a month's first day:
+        the date, and the wait in whole days."""
+        at = datetime.combine(day, datetime.min.time(), self.now_local.tzinfo)
+        gap = (day - self.today).days
+        return _Row(at, label, _fmt_month_day(day, self.runtime),
+                    wait or _ms('in_days', self.runtime, days=str(gap)),
+                    self._ink(at))
+
+
 def solar_hijri_rows(now_local, runtime):
     """(observance kept today, rows) for the panel where the dates are
     Solar Hijri; the first may be None.
@@ -392,10 +448,6 @@ def render(now_local, lat, lng, runtime, fullscreen=False, offset_minutes=0,
     # Text pieces shared by every layout.
     T, M, D = PANEL_TEXT_RGB, PANEL_MUTED_RGB, PANEL_DIM_RGB
     A, P = PANEL_AMBER_RGB, PANEL_PURPLE_RGB
-    today = now_local.date()
-
-    def in_days(days):
-        return _ms('in_days', runtime, days=fmt_decimal(days, 1, runtime))
 
     illum_txt = _ms('illuminated', runtime, pct=f'{moon.illum * 100:.0f}')
     # Out of this month's own length, from the new moon before to the one
@@ -425,51 +477,12 @@ def render(now_local, lat, lng, runtime, fullscreen=False, offset_minutes=0,
     # principal phases), and the year (the season and the calendar's
     # days). A table opens with where the present stands in its cycle;
     # something a calendar keeps today joins that line rather than
-    # counting down to itself. The ink says how near a row is: the day's
-    # rows, and anything else due within a day, in full; the rest muted.
-    # A wait is taken from the moment in UTC: two times in the one zone
-    # subtract as wall clocks, an hour out across a change of clock.
-    def at_day(day):
-        return datetime.combine(day, datetime.min.time(), now_local.tzinfo)
-
-    def ink_for(at):
-        return T if at - moon.moment_utc < timedelta(days=1) else M
-
-    def timed_row(label, dt, mark):
-        """An instant within a day or two: the clock time, the weekday
-        once it is not today's, and the wait to the minute."""
-        if dt is None:
-            return _Row(now_local + timedelta(days=36500), label, "—", "", T, mark)
-        when = fmt_time_dt(dt, use_24h=runtime.use_24h)
-        if dt.date() != today:
-            when = f"{when} {_day_abbrev(dt, runtime)}"
-        wait = _ms('in_time', runtime, dur=_fmt_countdown(dt - moon.moment_utc, lang))
-        return _Row(dt, label, when, wait, T, mark)
-
-    def instant_row(label, dt):
-        """An instant further off: the date, and the wait in days to a
-        tenth, which says roughly when in the day.  Within the day the
-        wait is to the minute, as the day's rows give it: the last hour
-        before a full moon is not "in 0.0d"."""
-        wait = dt - moon.moment_utc
-        if wait < timedelta(days=1):
-            wait_txt = _ms('in_time', runtime, dur=_fmt_countdown(wait, lang))
-        else:
-            wait_txt = in_days(wait.total_seconds() / 86400.0)
-        return _Row(dt, label, _fmt_month_day(dt, runtime), wait_txt, ink_for(dt))
-
-    def day_row(label, day, wait=None):
-        """Something kept on a day — a festival, a month's first day:
-        the date, and the wait in whole days."""
-        gap = (day - today).days
-        return _Row(at_day(day), label, _fmt_month_day(day, runtime),
-                    wait or _ms('in_days', runtime, days=str(gap)),
-                    ink_for(at_day(day)))
-
-    day_rows = [timed_row(_ms('moonrise', runtime), moon.rise, ("↑", A)),
-                timed_row(_ms('moonset', runtime), moon.sset, ("↓", P))]
-    month_rows = [instant_row(full_label, moon.full), instant_row(new_label, moon.new)]
-    year_rows = [instant_row(_season_label(moon.season, lat, runtime), moon.season_at)]
+    # counting down to itself.
+    make = _RowMaker(now_local, moon.moment_utc, runtime)
+    day_rows = [make.timed(_ms('moonrise', runtime), moon.rise, ("↑", A)),
+                make.timed(_ms('moonset', runtime), moon.sset, ("↓", P))]
+    month_rows = [make.instant(full_label, moon.full), make.instant(new_label, moon.new)]
+    year_rows = [make.instant(_season_label(moon.season, lat, runtime), moon.season_at)]
     month_now, year_now = [], []    # (text, rgb): what the calendar keeps today
 
     # Where the dates are Solar Hijri the day of the year is too, and the
@@ -498,9 +511,9 @@ def render(now_local, lat, lng, runtime, fullscreen=False, offset_minutes=0,
             if isinstance(item, Now):
                 stands.append((item.text, T if item.today else M))
             elif isinstance(item, Instant):
-                rows.append(instant_row(item.label, item.at))
+                rows.append(make.instant(item.label, item.at))
             else:
-                rows.append(day_row(item.label, item.day, item.wait))
+                rows.append(make.day(item.label, item.day, item.wait))
 
     # The headline has room for one aside: the calendar's own — the
     # lunar date, the anahulu, or the almanac's half of the month.
