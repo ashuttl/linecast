@@ -7,7 +7,7 @@ from linecast.terminal import theme as _theme
 from linecast.terminal.color import RESET, bg, fg
 from linecast.terminal.textwidth import visible_len
 from linecast.terminal.help_i18n import hs
-from linecast.terminal.textwidth import char_widths
+from linecast.terminal.textwidth import glyphs
 
 
 def hint(lang='en', width=80):
@@ -34,24 +34,17 @@ def footer(line, width, lang='en'):
 def paint_text(fb, overlays, text, x, row, color=None):
     """Readable text on the image's own cells, including wide and combining glyphs."""
     color = color or _theme.surface_bg(0.55)
-    prev = None
-    for ch, width in zip(text, char_widths(text)):
-        if width == 0:
-            if prev is not None:
-                base, ink, bold = overlays[prev]
-                overlays[prev] = (base + ch, ink, bold)
-            continue
-        if x < 0 or x + width > fb.graph_w or not 0 <= row < fb.graph_h:
+    for c, glyph, width in glyphs(text):
+        cx = x + c
+        if cx < 0 or cx + width > fb.graph_w or not 0 <= row < fb.graph_h:
             break
-        cell = fb.cell_bg(x, row)
+        cell = fb.cell_bg(cx, row)
         ink = _theme.ensure_contrast(color, cell, 4.5)
         if _theme.contrast_ratio(ink, cell) < 4.5:
             ink = _theme.best_contrast(((0, 0, 0), (255, 255, 255)), cell, 4.5)
-        overlays[(x, row)] = (ch, ink, False)
-        prev = (x, row)
+        overlays[(cx, row)] = (glyph, ink, False)
         for extra in range(1, width):
-            overlays[(x + extra, row)] = ('', ink, False)
-        x += width
+            overlays[(cx + extra, row)] = ('', ink, False)
 
 
 def paint_hint(fb, overlays, lang='en', rows=None):
