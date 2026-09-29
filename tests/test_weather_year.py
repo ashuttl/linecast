@@ -335,6 +335,28 @@ class TestChart:
         assert year.SNOW_RGB in braille_inks
         assert year.PRECIP_RGB in braille_inks
 
+    def _running_totals(self, days):
+        """The precipitation panel's cells in the running totals' ink."""
+        from linecast.terminal import color as _color
+        with patch.object(_color, "_COLOR_MODE", "truecolor"):
+            out = _render(_climate(), days, size=(120, 34))
+        lines = out.split("\n")
+        axis = next(i for i, line in enumerate(lines) if "Jan" in _strip(line)
+                    and "Dec" in _strip(line))
+        ink = "\x1b[38;2;{};{};{}m".format(*year.PRECIP_RGB)
+        return sum(line.count(ink) for line in lines[axis + 1:])
+
+    def test_a_month_the_archive_left_out_has_no_running_total(self):
+        # Without the archive the forecast's day before today is all of
+        # September there is, and nothing at all of the months before
+        forecast = _archive(TODAY - timedelta(days=1), TODAY + timedelta(days=6),
+                            precip=lambda d: 0.3)
+        assert self._running_totals(year.year_days(None, forecast, TODAY)) == 0
+        # A month two days short keeps its line
+        days = year.year_days(_archive(date(2026, 1, 1), TODAY - timedelta(days=3)),
+                              None, TODAY)
+        assert self._running_totals(days) > 0
+
     def _column(self, days, k):
         """The 1-based terminal column over day k, found from the chart's
         own month axis: January's label starts where the chart does."""

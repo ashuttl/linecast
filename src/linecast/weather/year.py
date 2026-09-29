@@ -585,8 +585,14 @@ def render_year(climate, days, runtime, *, location_name="", location_menu=False
         month_of += [m] * (ends[m] - starts[m])
         if not days:
             continue
+        gone = range(starts[m], min(ends[m], days.today))
+        # A month the archive left more than a couple of days out of has
+        # no running total: its missing days would draw as dry ones, and
+        # a year the archive did not send as a year without rain.
+        if sum(days.precip[k] is None for k in gone) > 2:
+            continue
         run = 0.0
-        for k in range(starts[m], min(ends[m], days.today)):
+        for k in gone:
             run += days.precip[k] or 0.0
             cum[k] = run
     normals = climate.month_precip if climate else (None,) * 12
