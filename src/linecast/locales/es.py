@@ -363,6 +363,9 @@ TIDES = {
     "tide_model": "Modelo de mareas de Open-Meteo",
     "no_tides": "No hay predicciones de marea para {name}.",
     "load_failed": "No se pudieron cargar las mareas de {name}. Inténtalo de nuevo.",
+    "high": "Pleamar",
+    "low": "Bajamar",
+    "no_data": "Sin datos de marea",
 }
 
 

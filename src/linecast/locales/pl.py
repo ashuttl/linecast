@@ -406,6 +406,9 @@ TIDES = {
     "tide_model": "Model pływów Open-Meteo",
     "no_tides": "Brak prognozy pływów dla {name}.",
     "load_failed": "Nie udało się wczytać pływów dla {name}. Spróbuj ponownie.",
+    "high": "Przypływ",
+    "low": "Odpływ",
+    "no_data": "Brak danych o pływach",
 }
 
 

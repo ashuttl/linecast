@@ -402,6 +402,9 @@ TIDES = {
     "tide_model": "Open-Meteon vuorovesimalli",
     "no_tides": "Paikalle {name} ei ole vuorovesiennustetta.",
     "load_failed": "Paikan {name} vuorovesiä ei voitu ladata. Yritä uudelleen.",
+    "high": "Nousuvesi",
+    "low": "Laskuvesi",
+    "no_data": "Ei vuorovesitietoja",
 }
 
 

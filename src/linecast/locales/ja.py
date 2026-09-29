@@ -364,6 +364,9 @@ TIDES = {
     "tide_model": "Open-Meteo 潮汐モデル",
     "no_tides": "{name}の潮汐予測はありません。",
     "load_failed": "{name}の潮汐を取得できませんでした。もう一度お試しください。",
+    "high": "満潮",
+    "low": "干潮",
+    "no_data": "潮汐データなし",
 }
 
 

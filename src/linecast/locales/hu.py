@@ -511,6 +511,9 @@ TIDES = {
     "period": " @ {s}\u00a0mp",
     "no_tides": "Ehhez a helyhez nincs árapály-előrejelzés: {name}.",
     "load_failed": "Nem sikerült betölteni az árapály-adatokat: {name}. Próbálja újra.",
+    "high": "Dagály",
+    "low": "Apály",
+    "no_data": "Nincs árapály-adat",
 }
 
 

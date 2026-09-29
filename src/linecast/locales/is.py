@@ -367,6 +367,9 @@ TIDES = {
     "tide_model": "Sjávarfallalíkan Open-Meteo",
     "no_tides": "Engin sjávarfallaspá fyrir {name}.",
     "load_failed": "Ekki tókst að hlaða sjávarföllum fyrir {name}. Reyndu aftur.",
+    "high": "Flóð",
+    "low": "Fjara",
+    "no_data": "Engin sjávarfallagögn",
 }
 
 

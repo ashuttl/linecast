@@ -412,6 +412,9 @@ TIDES = {
     "tide_model": "Slapový model Open-Meteo",
     "no_tides": "Pro {name} není předpověď přílivu a odlivu.",
     "load_failed": "Nepodařilo se načíst příliv a odliv pro {name}. Zkuste to znovu.",
+    "high": "Příliv",
+    "low": "Odliv",
+    "no_data": "Žádné údaje o přílivu a odlivu",
 }
 
 

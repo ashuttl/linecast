@@ -352,6 +352,9 @@ TIDES = {
     "tide_model": "Model pasang surut Open-Meteo",
     "no_tides": "Tidak ada prakiraan pasang surut untuk {name}.",
     "load_failed": "Tidak dapat memuat pasang surut untuk {name}. Silakan coba lagi.",
+    "high": "Pasang",
+    "low": "Surut",
+    "no_data": "Tidak ada data pasang surut",
 }
 
 

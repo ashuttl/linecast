@@ -366,6 +366,9 @@ TIDES = {
     "tide_model": "Model de maree Open-Meteo",
     "no_tides": "Nu există prognoză de maree pentru {name}.",
     "load_failed": "Nu s-au putut încărca mareele pentru {name}. Încercați din nou.",
+    "high": "Flux",
+    "low": "Reflux",
+    "no_data": "Fără date de maree",
 }
 
 

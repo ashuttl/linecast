@@ -359,6 +359,9 @@ TIDES = {
     "tide_model": "Open-Meteo-Gezeitenmodell",
     "no_tides": "Keine Gezeitenvorhersage für {name}.",
     "load_failed": "Gezeiten für {name} konnten nicht geladen werden. Bitte erneut versuchen.",
+    "high": "Hochwasser",
+    "low": "Niedrigwasser",
+    "no_data": "Keine Gezeitendaten",
 }
 
 

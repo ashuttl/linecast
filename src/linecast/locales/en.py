@@ -486,6 +486,13 @@ TIDES = {
     # The live view's location menu: a place without tides, or a failed load.
     "no_tides": "No tide predictions for {name}.",
     "load_failed": "Could not load tides for {name}. Please try again.",
+    # The one-line summary, `tides --oneline`: high and low tide after
+    # their arrows, as a tide table names them: "▲High 2:14p 9.2′
+    # ▼Low 8:47p 1.1′".  Short, for a status bar.
+    "high": "High",
+    "low": "Low",
+    # The one-line summary for a station with no tide times to show.
+    "no_data": "No tide data",
 }
 
 

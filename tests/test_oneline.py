@@ -311,3 +311,21 @@ class TestTidesOneline:
         plain = _strip_ansi(line)
         assert "Portland" in plain
         assert "ME" not in plain
+
+    def test_high_and_low_are_named_in_the_display_language(self):
+        now = datetime(2026, 3, 27, 12, 0)
+        hilo = [
+            (datetime(2026, 3, 27, 14, 0), 4.9, "H"),
+            (datetime(2026, 3, 27, 20, 0), 0.7, "L"),
+        ]
+        de = tides_oneline("Cuxhaven", hilo, now, self._runtime(lang="de", metric=True))
+        ja = tides_oneline("東京", hilo, now, self._runtime(lang="ja", metric=True))
+        assert _strip_ansi(de) == "Cuxhaven ▲Hochwasser 14:00 1,5m ▼Niedrigwasser 20:00 0,2m"
+        assert _strip_ansi(ja) == "東京 ▲満潮 14:00 1.5m ▼干潮 20:00 0.2m"
+
+    def test_no_tide_data_in_the_display_language(self):
+        now = datetime(2026, 3, 27, 12, 0)
+        de = tides_oneline("Cuxhaven", [], now, self._runtime(lang="de"))
+        ja = tides_oneline("東京", [], now, self._runtime(lang="ja"))
+        assert _strip_ansi(de) == "Cuxhaven Keine Gezeitendaten"
+        assert _strip_ansi(ja) == "東京 潮汐データなし"

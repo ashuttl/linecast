@@ -357,6 +357,9 @@ TIDES = {
     "tide_model": "Open-Meteos tidevandsmodel",
     "no_tides": "Ingen tidevandsprognose for {name}.",
     "load_failed": "Kunne ikke indlæse tidevandet for {name}. Prøv igen.",
+    "high": "Højvande",
+    "low": "Lavvande",
+    "no_data": "Ingen tidevandsdata",
 }
 
 

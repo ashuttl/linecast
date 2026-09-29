@@ -90,6 +90,11 @@ MAPS = {
 }
 
 
+TIDES = {
+             "high": "Preia-mar",
+}
+
+
 SUNSHINE = {
                 "sky_astronomical": "crepúsculo astronómico",
                 "sky_astronomical_dawn": "crepúsculo astronómico matutino",

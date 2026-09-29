@@ -89,6 +89,8 @@ MAPS = {
 TIDES = {
              "space_to_now": "按空格鍵回到現在",
              "swell": "湧浪",
+             "high": "高潮",
+             "low": "低潮",
 }
 
 

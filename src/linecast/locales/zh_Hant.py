@@ -354,6 +354,9 @@ TIDES = {
     "tide_model": "Open-Meteo 潮汐模式",
     "no_tides": "沒有{name}的潮汐預報。",
     "load_failed": "無法載入{name}的潮汐。請重試。",
+    "high": "滿潮",
+    "low": "乾潮",
+    "no_data": "無潮汐資料",
 }
 
 

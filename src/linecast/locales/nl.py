@@ -357,6 +357,9 @@ TIDES = {
     "tide_model": "Getijdenmodel van Open-Meteo",
     "no_tides": "Geen getijvoorspelling voor {name}.",
     "load_failed": "De getijden voor {name} konden niet worden geladen. Probeer opnieuw.",
+    "high": "Hoogwater",
+    "low": "Laagwater",
+    "no_data": "Geen getijgegevens",
 }
 
 

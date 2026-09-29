@@ -392,6 +392,9 @@ TIDES = {
     "tide_model": "Open-Meteo gelgit modeli",
     "no_tides": "{name} için gelgit tahmini yok.",
     "load_failed": "{name} için gelgit bilgisi yüklenemedi. Lütfen tekrar deneyin.",
+    "high": "Met",
+    "low": "Cezir",
+    "no_data": "Gelgit verisi yok",
 }
 
 

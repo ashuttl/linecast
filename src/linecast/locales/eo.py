@@ -367,6 +367,9 @@ TIDES = {
     "tide_model": "Tajdmodelo de Open-Meteo",
     "no_tides": "Neniu tajda prognozo por {name}.",
     "load_failed": "Ne eblis ŝargi la tajdojn por {name}. Bonvolu reprovi.",
+    "high": "Alta tajdo",
+    "low": "Malalta tajdo",
+    "no_data": "Neniuj tajdaj datumoj",
 }
 
 

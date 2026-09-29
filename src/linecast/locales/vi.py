@@ -357,6 +357,9 @@ TIDES = {
     "tide_model": "Mô hình thủy triều Open-Meteo",
     "no_tides": "Không có dự báo thủy triều cho {name}.",
     "load_failed": "Không thể tải thủy triều cho {name}. Vui lòng thử lại.",
+    "high": "Triều cao",
+    "low": "Triều thấp",
+    "no_data": "Không có dữ liệu thủy triều",
 }
 
 

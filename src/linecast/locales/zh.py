@@ -357,6 +357,9 @@ TIDES = {
     "tide_model": "Open-Meteo 潮汐模型",
     "no_tides": "没有{name}的潮汐预报。",
     "load_failed": "无法加载{name}的潮汐。请重试。",
+    "high": "高潮",
+    "low": "低潮",
+    "no_data": "无潮汐数据",
 }
 
 

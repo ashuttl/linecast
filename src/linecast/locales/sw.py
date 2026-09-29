@@ -408,6 +408,9 @@ TIDES = {
     "tide_model": "Modeli ya Open-Meteo ya kujaa na kupwa",
     "no_tides": "Hakuna utabiri wa kujaa na kupwa kwa {name}.",
     "load_failed": "Haikuweza kupakia kujaa na kupwa kwa {name}. Tafadhali jaribu tena.",
+    "high": "Maji kujaa",
+    "low": "Maji kupwa",
+    "no_data": "Hakuna taarifa za kujaa na kupwa",
 }
 
 

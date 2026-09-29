@@ -404,6 +404,9 @@ TIDES = {
     "tide_model": "Open-Meteo 조석 모델",
     "no_tides": "{name}의 조석 예보가 없습니다.",
     "load_failed": "{name}의 조석 정보를 불러오지 못했습니다. 다시 시도해 주세요.",
+    "high": "만조",
+    "low": "간조",
+    "no_data": "조석 정보 없음",
 }
 
 

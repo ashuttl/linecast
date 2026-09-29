@@ -213,6 +213,7 @@ def tides_oneline(station_name, hilo_data, now_local, runtime):
     """
     from linecast.terminal.graphics import fg, RESET
     from linecast.terminal.theme import theme_fg, ensure_contrast, theme_bg
+    from linecast.tides.i18n import _ts
 
     text_rgb = ensure_contrast(theme_fg, theme_bg, minimum=4.5)
     TEXT = fg(*text_rgb)
@@ -224,7 +225,7 @@ def tides_oneline(station_name, hilo_data, now_local, runtime):
         parts.append(f"{TEXT}{short}")
 
     if not hilo_data:
-        parts.append(f"{TEXT}No tide data")
+        parts.append(f"{TEXT}{_ts('no_data', runtime)}")
         return " ".join(parts) + RESET
 
     # Find the next two tide events (from now onward), falling back to the
@@ -249,7 +250,7 @@ def tides_oneline(station_name, hilo_data, now_local, runtime):
         h_display = runtime.convert_height(height_ft)
         is_high = typ == "H"
         arrow = "\u25b2" if is_high else "\u25bc"
-        label = "High" if is_high else "Low"
+        label = _ts("high" if is_high else "low", runtime)
         time_str = fmt_time_dt(dt, use_24h=use_24h)
         height = fmt_decimal(h_display, 1, runtime)
         parts.append(f"{TEXT}{arrow}{label} {time_str} {height}{runtime.height_unit}")
