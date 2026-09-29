@@ -513,7 +513,7 @@ def _read_key(fd, text=False):
     if b in (b'c', b'C'):
         return 'key:c'
     # Lowercase WASD pans; shifted keys retain the displaced view actions.
-    if b in (b'w', b'a', b's', b'd', b'W', b'S', b'D'):
+    if b in (b'w', b'a', b's', b'd', b'W', b'A', b'S', b'D'):
         return 'key:' + b.decode()
     if b in (b'v', b'V'):
         return 'key:v'

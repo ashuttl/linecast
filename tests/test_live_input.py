@@ -32,6 +32,32 @@ def _key(pipe, data, text=False):
     return _read_key(r, text=text)
 
 
+class TestAdvertisedKeys:
+    """Every key a help panel lists reaches the view. _read_key returns
+    None for a letter it does not know, so a key a view handles and the
+    help lists is still dead until it is decoded here too."""
+
+    GESTURES = {"wheel", "hover", "click", "drag", "space", "enter", "←→"}
+
+    def _marks(self):
+        from linecast.maps.ui import HELP_KEYS
+        from linecast.terminal.help import CONTROLS
+        marks = [mark for rows in CONTROLS.values() for mark, _ in rows]
+        marks += [entry[0] for entry in HELP_KEYS if entry]
+        return marks + ["l", "/"]   # the weather and tides location menu
+
+    def test_every_listed_key_decodes(self, pipe):
+        dead = []
+        for mark in self._marks():
+            for part in mark.replace(" / ", " ").split():
+                if part in self.GESTURES:
+                    continue
+                for key in "12345678" if part == "1–8" else part:
+                    if _key(pipe, key.encode()) is None:
+                        dead.append(f"{key} (listed as {mark!r})")
+        assert not dead, "listed in help but never decoded: " + ", ".join(dead)
+
+
 class TestTextMode:
     def test_ascii_char(self, pipe):
         assert _key(pipe, b"a", text=True) == "char:a"

@@ -74,6 +74,7 @@ Fixes:
 - Radar:
   - Fixed a view that crosses the 180th meridian, such as Fiji's or the Aleutians', leaving out the land and cities on the far side of it, and never loading the temperature and wind layers.
   - Fixed `radar --help`, which named the wrong keys for the satellite and wind layers.
+  - Fixed `A`, which the help lists for showing and hiding the alerts, doing nothing.
 - Maps:
   - Fixed a map tile that failed to load on a slow or dropped connection leaving a gap in the street or terrain view for as long as the view stayed put; the tile is asked for again a few seconds later.
   - Fixed one damaged map tile in the cache blanking the whole street view with "street tiles unavailable"; it now leaves a gap only where it was.
