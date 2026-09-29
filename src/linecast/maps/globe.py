@@ -27,7 +27,7 @@ from linecast.terminal.framebuffer import cell_aspect
 from linecast._geo import wrap_lon
 from linecast._paths import cache_dir, data_path
 from linecast._png import decode_rgba
-from linecast.radar.basemap import DotLayer, _load_data
+from linecast.radar.basemap import DotLayer, load_data
 from linecast._xyz import TILE_SIZE, stitch_xyz
 from linecast._log import log_failure
 from linecast.terminal.scenes import Memo
@@ -1180,7 +1180,7 @@ def _border_trig():
     drops cannot have put a dot on the screen by any route.
     """
     global _BORDER_TRIG
-    borders = _load_data()["borders"]
+    borders = load_data()["borders"]
     if _BORDER_TRIG[0] is not borders:
         radians, sin, cos = math.radians, math.sin, math.cos
         trig = []
@@ -1318,7 +1318,7 @@ def _lake_trig():
     touching a vertex.
     """
     global _LAKE_TRIG
-    lakes = _load_data().get("lakes", ())
+    lakes = load_data().get("lakes", ())
     if _LAKE_TRIG[0] is not lakes:
         radians, sin, cos = math.radians, math.sin, math.cos
         out = []

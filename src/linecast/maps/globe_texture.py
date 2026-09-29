@@ -54,7 +54,7 @@ from linecast.maps import style
 from linecast.terminal.color import BG_PRIMARY, color_mode
 from linecast.terminal.live import nudge as _nudge_repaint
 from linecast._paths import cache_dir, data_path
-from linecast.radar.basemap import DotLayer, _load_data
+from linecast.radar.basemap import DotLayer, load_data
 from linecast.terminal.braille import DOT_BITS, line_dots
 from linecast._xyz import TILE_SIZE
 from linecast._log import log_failure
@@ -494,7 +494,7 @@ def _lake_plane(tw, th):
     whole rather than left to speckle the disk.
     """
     rows = [bytearray(tw) for _ in range(th)]
-    for n, rings in enumerate(_load_data().get("lakes", ())):
+    for n, rings in enumerate(load_data().get("lakes", ())):
         _breathe(n)
         lats = [p[1] for ring in rings for p in ring]
         y0 = max(0, int((90.0 - max(lats)) / 180.0 * th))
@@ -521,7 +521,7 @@ def _border_plane(tw, th):
     rows = [bytearray(tw) for _ in range(th)]
     kx, ky = tw / 360.0, th / 180.0
     last = th - 1
-    for n, coords in enumerate(_load_data()["borders"]):
+    for n, coords in enumerate(load_data()["borders"]):
         _breathe(n)
         prev = None
         for lon, lat in coords:

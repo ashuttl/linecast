@@ -47,7 +47,7 @@ from linecast.radar.sources import has_radar
 from linecast.terminal.scenes import Memo, SceneCache
 from linecast.radar.ui import (
     CROSSHAIR, DIM, MARKER, MUTED, _ShiftedBasemap, _build_warning_tooltip, _fmt_local,
-    _get_basemap, _panned_place, _shift_grid, _theme_menu_overlay, _timeline_bar,
+    _get_basemap, panned_place, shift_grid, _theme_menu_overlay, _timeline_bar,
 )
 from linecast._runtime import use_metric
 from linecast._log import log_failure
@@ -237,16 +237,16 @@ def render_radar(lat, lon, location_name, zoom, play_frame=0, playing=True,
     if dx or dy:
         # mid-drag preview: slide the already-composed layers in screen space
         # (no re-projection, no fetches); the real re-render lands on release
-        basemap = _ShiftedBasemap(_shift_grid(basemap.dots, dx, dy, 0),
-                                  _shift_grid(basemap.color, dx, dy, None),
-                                  _shift_grid(basemap.sea, dx, dy * 2, False))
-        radar = _shift_grid(radar, dx, dy * 2, None)  # sub-pixel rows: 2/cell
+        basemap = _ShiftedBasemap(shift_grid(basemap.dots, dx, dy, 0),
+                                  shift_grid(basemap.color, dx, dy, None),
+                                  shift_grid(basemap.sea, dx, dy * 2, False))
+        radar = shift_grid(radar, dx, dy * 2, None)  # sub-pixel rows: 2/cell
         if under is not None:
-            under = _shift_grid(under, dx, dy * 2, None)
+            under = shift_grid(under, dx, dy * 2, None)
         if warn_layer is not None:
             warn_layer = _ShiftedBasemap(
-                _shift_grid(warn_layer.dots, dx, dy, 0),
-                _shift_grid(warn_layer.color, dx, dy, None))
+                shift_grid(warn_layer.dots, dx, dy, 0),
+                shift_grid(warn_layer.color, dx, dy, None))
         overlays = {(c + dx, r + dy): v for (c, r), v in overlays.items()
                     if 0 <= c + dx < graph_w and 0 <= r + dy < height_cells}
 
@@ -263,7 +263,7 @@ def render_radar(lat, lon, location_name, zoom, play_frame=0, playing=True,
     # Both header and footer must never exceed the terminal width: a wrapped
     # line adds a row, scrolling the whole frame up by one.
     panned = abs(lat - m_lat) > 1e-9 or abs(lon - m_lon) > 1e-9
-    place = (_panned_place(lat, lon, lang) if panned
+    place = (panned_place(lat, lon, lang) if panned
              else location_name or f"{lat:.2f}, {lon:.2f}")
     delta = round((when - present).total_seconds() / 60)
     # sat-mode frames sit whole hours back; "-9h" reads, "-540m" doesn't
@@ -281,7 +281,7 @@ def render_radar(lat, lon, location_name, zoom, play_frame=0, playing=True,
     elif loading:
         tag += f" · {rs('loading', lang)}"
     if field is not None and "temp" in layers:
-        # temperature at the view centre, in the units _panned_place uses
+        # temperature at the view centre, in the units panned_place uses
         tc = field.sample_temp(t_idx, lon, lat)
         metric = runtime.metric if runtime else use_metric()
         tag += (f" · {round(tc)}°C" if metric

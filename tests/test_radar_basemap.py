@@ -409,7 +409,7 @@ class TestVendoredDataLookups:
         import linecast.radar.basemap as bm
         gom = (-71.5, 42.5, -66.5, 45.5)
         minlon, minlat, maxlon, maxlat = gom
-        n = sum(1 for rings in bm._load_data()["land"]
+        n = sum(1 for rings in bm.load_data()["land"]
                 for ring in rings for x, y in ring
                 if minlon <= x <= maxlon and minlat <= y <= maxlat)
         assert n > 300

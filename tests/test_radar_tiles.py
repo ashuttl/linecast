@@ -1,6 +1,6 @@
 """Tests for the provider-parameterized XYZ-tile fetch + reprojection.
 
-No network access: _fetch_tile is monkeypatched to return synthetic,
+No network access: fetch_tile is monkeypatched to return synthetic,
 programmatically-built PNG bytes rather than hitting the real API, and the
 cache-policy tests run against a temp directory with _http.fetch_bytes
 stubbed.
@@ -127,8 +127,8 @@ class TestTileCachePolicy:
             stamp = os.stat(cpath).st_mtime - age
             os.utime(cpath, (stamp, stamp))
             mp.setattr(_http, "fetch_bytes", fetch)
-            return tiles._fetch_tile(provider, "https://h", "/v2/radar/123",
-                                     3, 1, 1, mutable=mutable)
+            return tiles.fetch_tile(provider, "https://h", "/v2/radar/123",
+                                    3, 1, 1, mutable=mutable)
 
     def test_immutable_tile_served_from_cache_forever(self):
         def no_network(*a, **k):
@@ -152,8 +152,8 @@ class TestTileCachePolicy:
 
 class TestReproject:
     def _patch_fetch_tile(self, fn):
-        original = tiles._fetch_tile
-        tiles._fetch_tile = fn
+        original = tiles.fetch_tile
+        tiles.fetch_tile = fn
         return original
 
     def test_solid_tile_resamples_to_known_color(self):
@@ -166,7 +166,7 @@ class TestReproject:
             out_w, out_h, out = reproject(rainviewer_provider(),
                                           "https://host", "/path", bbox, w, h)
         finally:
-            tiles._fetch_tile = original
+            tiles.fetch_tile = original
 
         assert (out_w, out_h) == (w, h)
         assert isinstance(out, bytearray)
@@ -197,7 +197,7 @@ class TestReproject:
             out_w, out_h, out = reproject(rainviewer_provider(),
                                           "https://host", "/path", bbox, w, h)
         finally:
-            tiles._fetch_tile = original
+            tiles.fetch_tile = original
 
         assert (out_w, out_h) == (w, h)
         assert len(calls) == 2 and calls[0][:3] == calls[1][:3]
@@ -215,7 +215,7 @@ class TestReproject:
                 reproject(rainviewer_provider(), "https://host", "/path",
                           bbox, 4, 4)
         finally:
-            tiles._fetch_tile = original
+            tiles.fetch_tile = original
 
         assert excinfo.value.missed == excinfo.value.total == 1
         assert "1 of 1 tiles did not arrive" in str(excinfo.value)

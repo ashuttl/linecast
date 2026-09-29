@@ -350,7 +350,7 @@ class TestBordersThroughTheCamera:
             r = _globe._radius(zoom, 18 * 4)
             rx = r * _globe._aspect()
             cx, cy = 60.0, 36.0
-            for coords in _globe._load_data()["borders"]:
+            for coords in _globe.load_data()["borders"]:
                 prev = None
                 for plon, plat in coords:
                     ux, uy, cos_c = _globe.forward(plat, plon, lat, lon)
@@ -809,7 +809,7 @@ class TestTheRestingCropIsTheWindow:
         cam = _globe.Camera.for_bbox(window, gw, hc)
         here = {(int(x), int(y)) for x, y in
                 (cam.cell(e[0], e[1])
-                 for e in _globe._load_data()["cities"])}
+                 for e in _globe.load_data()["cities"])}
         assert all(any(abs(col - x) <= 1 and abs(row - y) <= 1
                        for x, y in here) for col, row in marks)
         # and every name that survived came across whole, letter for

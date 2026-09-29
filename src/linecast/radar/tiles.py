@@ -197,7 +197,7 @@ def _tile_cache_path(provider, path, z, x, y):
             f"_{provider.options}.png")
 
 
-def _fetch_tile(provider, host, path, z, x, y, timeout=15, mutable=False):
+def fetch_tile(provider, host, path, z, x, y, timeout=15, mutable=False):
     """One tile as PNG bytes, disk-cached per colour scheme.
 
     Past-frame tiles are immutable by frame path; nowcast tiles (mutable=True)
@@ -246,8 +246,8 @@ def reproject(provider: Provider, host: str, path: str, bbox: tuple[float, float
 
     def fetch(z_, x, y):
         wanted.append((z_, x, y))
-        data = _fetch_tile(provider, host, path, z_, x, y, timeout,
-                           mutable=mutable)
+        data = fetch_tile(provider, host, path, z_, x, y, timeout,
+                          mutable=mutable)
         if data is None:
             # A tile the server was slow to render is often still being
             # rendered when our timeout fires: the request that timed out
@@ -256,8 +256,8 @@ def reproject(provider: Provider, host: str, path: str, bbox: tuple[float, float
             # so it goes alongside the other tiles rather than after them,
             # and it waits _RETRY_TIMEOUT rather than the full timeout —
             # a tile that is not ready by now was never coming.
-            data = _fetch_tile(provider, host, path, z_, x, y,
-                               _RETRY_TIMEOUT, mutable=mutable)
+            data = fetch_tile(provider, host, path, z_, x, y,
+                              _RETRY_TIMEOUT, mutable=mutable)
         if data is not None:
             try:
                 tile = decode_rgba(data)

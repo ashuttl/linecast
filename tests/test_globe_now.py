@@ -160,7 +160,7 @@ class TestRefresh:
                             {"stamp": None, "canvas": None, "checked": 0.0})
         monkeypatch.setattr(tiles, "fetch_index",
                             lambda prov, timeout=15: self._index(["/v2/s/1"]))
-        monkeypatch.setattr(tiles, "_fetch_tile", lambda *a, **k: None)
+        monkeypatch.setattr(tiles, "fetch_tile", lambda *a, **k: None)
         assert globe_now.refresh(130.0, 208) is True
         assert globe_now.peek() is not None
         assert not globe_now.stale()

@@ -397,7 +397,7 @@ def refresh(zoom, h, timeout=15):
             return False
 
     def fetch(z_, x, y):
-        data = tiles._fetch_tile(prov, host, path, z_, x, y, timeout)
+        data = tiles.fetch_tile(prov, host, path, z_, x, y, timeout)
         if data is None:
             return None
         try:

@@ -254,7 +254,7 @@ class TestTheBuildFollowsTheCamera:
                                  _maps_style.GLYPH_CAPITAL)]
         assert marks
         here = {cam.screen_cell(e[0], e[1])
-                for e in _globe._load_data()["cities"]}
+                for e in _globe.load_data()["cities"]}
         assert all(cell in here for cell in marks)
         # A settlement below GAZETTEER_BAND comes from the world
         # gazetteer, and only a camera can say which of a world list is

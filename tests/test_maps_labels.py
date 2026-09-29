@@ -16,7 +16,7 @@ from linecast.maps import labels as lb
 from linecast.maps import streets as st
 from linecast.maps import style as _maps_style
 from linecast.terminal import theme as _theme
-from linecast.radar.basemap import _load_data
+from linecast.radar.basemap import load_data
 
 from test_maps_streets import (
     EXTENT, WORLD, feature, field, layer, line_feature, polyline, rect,
@@ -365,7 +365,7 @@ class TestPlaceSourceSwitch:
         # layer: everything named here came from the gazetteer, and the
         # biggest of them must be among the survivors.  A megacity
         # takes the caps register.
-        biggest = max(_load_data()["cities"], key=lambda e: e[2])
+        biggest = max(load_data()["cities"], key=lambda e: e[2])
         lon, lat = biggest[0], biggest[1]
         bbox = (lon - 20.0, lat - 10.0, lon + 20.0, lat + 10.0)
         view = st.decode_view({(0, 0, 0): tile(layer("place", []))})

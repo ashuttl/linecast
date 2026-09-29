@@ -133,9 +133,9 @@ class TestMemoRaces:
     @staticmethod
     def _few_cities(monkeypatch, module):
         # placement walks every city; a few dozen keep a miss cheap
-        small = dict(module._load_data())
+        small = dict(module.load_data())
         small["cities"] = small["cities"][:40]
-        monkeypatch.setattr(module, "_load_data", lambda: small)
+        monkeypatch.setattr(module, "load_data", lambda: small)
 
     def test_city_overlays(self, monkeypatch):
         self._few_cities(monkeypatch, _places)
@@ -420,19 +420,19 @@ class TestLakes:
 
     def test_a_lake_on_the_far_side_is_not_drawn(self, monkeypatch):
         monkeypatch.setattr(_globe, "_LAKE_TRIG", (None, None))
-        monkeypatch.setitem(_globe._load_data.__globals__, "_DATA",
+        monkeypatch.setitem(_globe.load_data.__globals__, "_DATA",
                             {"lakes": _lake_square(-45.0, 95.0, 4.0)})
         assert _globe.lake_mask(*self.VIEW) is None
 
     def test_a_pond_under_a_dot_is_not_drawn(self, monkeypatch):
         monkeypatch.setattr(_globe, "_LAKE_TRIG", (None, None))
         lat0, lon0 = self.VIEW[0], self.VIEW[1]
-        monkeypatch.setitem(_globe._load_data.__globals__, "_DATA",
+        monkeypatch.setitem(_globe.load_data.__globals__, "_DATA",
                             {"lakes": _lake_square(lat0, lon0, 0.02)})
         assert _globe.lake_mask(*self.VIEW) is None
         # the same pond an order of magnitude wider does draw
         monkeypatch.setattr(_globe, "_LAKE_TRIG", (None, None))
-        monkeypatch.setitem(_globe._load_data.__globals__, "_DATA",
+        monkeypatch.setitem(_globe.load_data.__globals__, "_DATA",
                             {"lakes": _lake_square(lat0, lon0, 0.5)})
         mask = _globe.lake_mask(*self.VIEW)
         assert self._wet(mask, lat0, lon0)
@@ -442,7 +442,7 @@ class TestLakes:
         lat0, lon0 = self.VIEW[0], self.VIEW[1]
         rings = (_lake_square(lat0, lon0, 4.0)[0]
                  + _lake_square(lat0, lon0, 1.0)[0])
-        monkeypatch.setitem(_globe._load_data.__globals__, "_DATA",
+        monkeypatch.setitem(_globe.load_data.__globals__, "_DATA",
                             {"lakes": [rings]})
         mask = _globe.lake_mask(*self.VIEW)
         assert self._wet(mask, lat0 + 2.5, lon0)   # the lake
@@ -452,7 +452,7 @@ class TestLakes:
         monkeypatch.setattr(_globe, "_LAKE_TRIG", (None, None))
         before = _globe._lake_trig()
         assert _globe._lake_trig() is before  # same data: same trig
-        monkeypatch.setitem(_globe._load_data.__globals__, "_DATA",
+        monkeypatch.setitem(_globe.load_data.__globals__, "_DATA",
                             {"lakes": _lake_square(0.0, 0.0, 1.0)})
         after = _globe._lake_trig()
         assert after is not before and len(after) == 1
@@ -554,11 +554,11 @@ class TestLabelToggle:
 
 def _reference_border_layer(lat0, lon0, zoom, gw, hc, color):
     """border_layer as it was before the trig was hoisted."""
-    from linecast.radar.basemap import DotLayer, _load_data
+    from linecast.radar.basemap import DotLayer, load_data
     layer = DotLayer((0.0, 0.0, 1.0, 1.0), gw, hc)
     r = _globe._radius(zoom, hc * 4)
     cx, cy = gw * 2 / 2.0, hc * 4 / 2.0
-    for coords in _load_data()["borders"]:
+    for coords in load_data()["borders"]:
         prev = None
         for lon, lat in coords:
             ux, uy, cos_c = _globe.forward(lat, lon, lat0, lon0)
@@ -585,11 +585,11 @@ class TestBorders:
         assert any(v for row in got.dots for v in row)
 
     def test_trig_follows_the_data(self, monkeypatch):
-        # _load_data is radar.basemap's: patch the data it reads there
+        # load_data is radar.basemap's: patch the data it reads there
         monkeypatch.setattr(_globe, "_BORDER_TRIG", (None, None))
         before = _globe._border_trig()
         assert _globe._border_trig() is before  # same data: same trig
-        monkeypatch.setitem(_globe._load_data.__globals__, "_DATA",
+        monkeypatch.setitem(_globe.load_data.__globals__, "_DATA",
                             {"borders": [[(0.0, 0.0), (10.0, 10.0)]]})
         after = _globe._border_trig()
         assert after is not before and len(after) == 1
@@ -722,7 +722,7 @@ class TestCities:
 # now — terrain's contrast pick — so the longhand writes the same.
 def _place_cities_longhand(cities, lat0, lon0, zoom, gw, hc, lang,
                            band=0):
-    from linecast.radar.basemap import _localized
+    from linecast.radar.basemap import city_name
     from linecast.terminal.textwidth import char_width
     max_cities = _places.budget(gw, hc, band)
     r = _globe._radius(zoom, hc * 2)
@@ -736,7 +736,7 @@ def _place_cities_longhand(cities, lat0, lon0, zoom, gw, hc, lang,
         col = int(gw / 2.0 + ux * rx)
         row = int((hc * 2 / 2.0 - uy * r) / 2.0)
         if 0 <= col < gw and 0 <= row < hc:
-            ranked.append((pop, _localized(entry, lang), col, row))
+            ranked.append((pop, city_name(entry, lang), col, row))
     ranked.sort(key=lambda c: c[0], reverse=True)
 
     overlays = {}
@@ -788,14 +788,14 @@ class TestCityPlacementIsUnchanged:
             _globe.Camera(lat0, lon0, zoom, gw, hc), band, lang)
 
     def test_every_label_lands_where_it_always_did(self):
-        cities = _places._load_data()["cities"]
+        cities = _places.load_data()["cities"]
         for lat0, lon0, zoom, gw, hc, lang in self.VIEWS:
             assert (self._fast(lat0, lon0, zoom, gw, hc, lang)
                     == _place_cities_longhand(cities, lat0, lon0, zoom, gw,
                                               hc, lang))
 
     def test_a_spin_of_the_planet_never_drifts(self):
-        cities = _places._load_data()["cities"]
+        cities = _places.load_data()["cities"]
         for i in range(24):
             lon0 = -180.0 + i * 15.0
             assert (self._fast(20.0, lon0, 125.0, 80, 22, "en")
@@ -806,7 +806,7 @@ class TestCityPlacementIsUnchanged:
         # A deeper band spends more of the screen on names and changes
         # nothing else about where they go: the longhand, given the
         # same budget, still agrees cell for cell.
-        cities = _places._load_data()["cities"]
+        cities = _places.load_data()["cities"]
         for band in range(1, 5):
             assert (self._fast(48.0, 2.0, 8.0, 160, 45, "en", band)
                     == _place_cities_longhand(cities, 48.0, 2.0, 8.0, 160,
@@ -814,9 +814,9 @@ class TestCityPlacementIsUnchanged:
 
     def test_swapped_in_data_gets_its_own_trig(self, monkeypatch):
         # the memo is keyed to the list object, not to its contents
-        small = dict(_places._load_data())
+        small = dict(_places.load_data())
         small["cities"] = small["cities"][:40]
-        monkeypatch.setattr(_places, "_load_data", lambda: small)
+        monkeypatch.setattr(_places, "load_data", lambda: small)
         assert (self._fast(20.0, -30.0, 125.0, 80, 22, "en")
                 == _place_cities_longhand(small["cities"], 20.0, -30.0,
                                           125.0, 80, 22, "en"))

@@ -55,7 +55,7 @@ _DATA = None
 _NAME_KEYS = {"zh-Hant": ("zht", "zh"), "zh-HK": ("zht", "zh")}
 
 
-def _localized(entry, lang):
+def city_name(entry, lang):
     """Resolve a city entry's display name for ``lang``, falling back to the
     default Latin name when no translation is stored."""
     if len(entry) > 4 and entry[4]:
@@ -66,12 +66,12 @@ def _localized(entry, lang):
     return entry[3]
 
 
-_VENDORED_DATA = None  # what _load_data read from disk, as distinct from
+_VENDORED_DATA = None  # what load_data read from disk, as distinct from
                        # a test's injected _DATA — derived-grid caching
                        # (Basemap._load_built) engages only on the real data
 
 
-def _load_data():
+def load_data():
     global _DATA, _VENDORED_DATA
     if _DATA is None:
         path = str(data_path("basemap.json.gz"))
@@ -127,14 +127,14 @@ def nearest_city(lat, lon, lang="en"):
     from linecast._geo import angle_delta, haversine_nm
     best = None
     coslat = math.cos(math.radians(lat))
-    for entry in _load_data()["cities"]:
+    for entry in load_data()["cities"]:
         clon, clat = entry[0], entry[1]
         # equirectangular approximation is plenty for ranking candidates
         dx = angle_delta(clon, lon) * coslat
         dy = lat - clat
         d2 = dx * dx + dy * dy
         if best is None or d2 < best[0]:
-            best = (d2, _localized(entry, lang), clat, clon)
+            best = (d2, city_name(entry, lang), clat, clon)
     if best is None:
         return None
     _, name, clat, clon = best
@@ -160,7 +160,7 @@ def _marine_bboxes():
     ever get.  Keyed to the list object itself so a test swapping _DATA
     gets fresh boxes."""
     global _MARINE_BBOXES
-    marine = _load_data().get("marine", ())
+    marine = load_data().get("marine", ())
     if _MARINE_BBOXES[0] is not marine:
         boxes = []
         for _name, _area, rings in marine:
@@ -181,7 +181,7 @@ def marine_region(lat, lon):
     land or in unnamed water.
     """
     bboxes = _marine_bboxes()
-    for idx, (name, _area, rings) in enumerate(_load_data().get("marine", ())):
+    for idx, (name, _area, rings) in enumerate(load_data().get("marine", ())):
         x0, y0, x1, y1 = bboxes[idx]
         if not (x0 <= lon <= x1 and y0 <= lat <= y1):
             continue
@@ -468,7 +468,7 @@ class Basemap(DotLayer):
         land polygons have no lake holes cut out, so the Great Lakes (and every
         other inland water body) would otherwise fill solid as land."""
         land = [bytearray(self.dw) for _ in range(self.dh)]
-        data = _load_data()
+        data = load_data()
         self._fill_polys(land, data["land"], 1)
         self._fill_polys(land, data.get("lakes", ()), 0)
         return land
@@ -495,7 +495,7 @@ class Basemap(DotLayer):
         # 2) coastlines, then borders on top (priority order). Coast strokes
         # are the land polygons' own outlines, so the emphasized coastline and
         # the land/sea fill boundary can never disagree.
-        data = _load_data()
+        data = load_data()
         coast = [ring for rings in data["land"] for ring in rings]
         if len(self._turns()) > 1:
             coast = _off_the_cut(coast)
@@ -532,10 +532,10 @@ class Basemap(DotLayer):
         minlon, minlat, maxlon, maxlat = self.bbox
         turns = self._turns() if project is None else (0.0,)
         inview = []
-        for entry, turn in ((e, t) for e in _load_data()["cities"] for t in turns):
+        for entry, turn in ((e, t) for e in load_data()["cities"] for t in turns):
             lon, lat, pop = entry[0] + turn, entry[1], entry[2]
             if minlon <= lon <= maxlon and minlat <= lat <= maxlat:
-                inview.append((pop, _localized(entry, lang), lon, lat))
+                inview.append((pop, city_name(entry, lang), lon, lat))
         inview.sort(key=lambda c: c[0], reverse=True)
 
         overlays = {}

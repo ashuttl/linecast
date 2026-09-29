@@ -3,7 +3,7 @@ placename, and the overlays and footer pieces the live view draws.
 
 These are the radar's screen-side helpers, shared with the maps view: a
 _ShiftedBasemap stands in for a Basemap while a drag preview slides the
-already-composed layers, _panned_place names a view centre from the
+already-composed layers, panned_place names a view centre from the
 offline basemap data, and the theme picker, warning tooltip and timeline
 scrubber are the chrome the live loop draws around the map.  ThemePicker
 is the picker's state; live routes the keys to it.
@@ -57,7 +57,7 @@ def _fmt_local(dt_utc, use_24h=False):
 _place_cache = Memo(keep=64)
 
 
-def _panned_place(lat, lon, lang):
+def panned_place(lat, lon, lang):
     """Friendly name for a panned view centre, from the offline basemap data.
 
     Layered: "23 km NE of Boston" while a city is close (localized); the
@@ -105,7 +105,7 @@ class _ShiftedBasemap:
         self.sea = sea
 
 
-def _shift_grid(rows, dx, dy, fill):
+def shift_grid(rows, dx, dy, fill):
     """Shift a 2D grid's content by (dx right, dy down), backfilling `fill`."""
     h = len(rows)
     w = len(rows[0]) if h else 0

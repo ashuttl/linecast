@@ -259,8 +259,8 @@ class TestBorders:
     @pytest.fixture
     def slanted(self, monkeypatch):
         data = {"borders": [self.LINE], "lakes": ()}
-        monkeypatch.setattr(globe_texture, "_load_data", lambda: data)
-        monkeypatch.setattr(_globe, "_load_data", lambda: data)
+        monkeypatch.setattr(globe_texture, "load_data", lambda: data)
+        monkeypatch.setattr(_globe, "load_data", lambda: data)
         monkeypatch.setattr(globe_texture, "_mask_dims",
                             lambda z: (1024, 512))
         monkeypatch.setattr(_globe, "_world_canvas",

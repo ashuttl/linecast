@@ -67,7 +67,7 @@ from linecast.terminal import theme as _theme
 from linecast.radar.i18n import rs
 from linecast._xyz import bbox_for
 from linecast.radar.ui import (
-    CROSSHAIR, DIM, MUTED, _panned_place, _shift_grid,
+    CROSSHAIR, DIM, MUTED, panned_place, shift_grid,
 )
 from linecast._geo import angle_delta, wrap_lon
 from linecast._log import log_failure
@@ -885,9 +885,9 @@ def _render_terrain(bbox, graph_w, height_cells, block, pan_offset,
 
     dx, dy = pan_offset
     if dx or dy:
-        terrain = _shift_grid(terrain, dx, dy * 2, None)
+        terrain = shift_grid(terrain, dx, dy * 2, None)
         if coast is not None:
-            coast = _shift_grid(coast, dx, dy, 0)
+            coast = shift_grid(coast, dx, dy, 0)
         rivers = _shift_layer(rivers, dx, dy)
         borders = _shift_layer(borders, dx, dy)
         route_layer = _shift_layer(route_layer, dx, dy)
@@ -1128,12 +1128,12 @@ def _render_street(bbox, graph_w, height_cells, block, pan_offset,
     dx, dy = pan_offset
     if dx or dy:
         layer = _ShiftedLayer(
-            _shift_grid(layer.dots, dx, dy, 0),
-            _shift_grid(layer.color, dx, dy, None),
+            shift_grid(layer.dots, dx, dy, 0),
+            shift_grid(layer.color, dx, dy, None),
             {(c + dx, r + dy) for c, r in layer.ribbon})
-        fills = _shift_grid(fills, dx, dy * 2, None)
+        fills = shift_grid(fills, dx, dy * 2, None)
         if dusk is not None:
-            dusk = _shift_grid(dusk, dx, dy, None)
+            dusk = shift_grid(dusk, dx, dy, None)
         route_layer = _shift_layer(route_layer, dx, dy)
     overlays = _place_marks(overlays, marker_cell, origin_cell, dest_cell,
                             dx, dy, graph_w, height_cells, True)
@@ -1182,8 +1182,8 @@ def _shift_layer(layer, dx, dy):
     """A braille layer moved with the drag preview, or None."""
     if layer is None:
         return None
-    return _ShiftedLayer(_shift_grid(layer.dots, dx, dy, 0),
-                         _shift_grid(layer.color, dx, dy, None),
+    return _ShiftedLayer(shift_grid(layer.dots, dx, dy, 0),
+                         shift_grid(layer.color, dx, dy, None),
                          {(c + dx, r + dy) for c, r in layer.ribbon})
 
 
@@ -1433,11 +1433,11 @@ def render_map(lat, lon, location_name, zoom, marker=None, runtime=None,
         # centre pixel: name what it stands over, from the same offline
         # gazetteer that names a panned view
         s_lat, s_lon = globe_now.subsolar()
-        under = _panned_place(s_lat, s_lon, lang)
+        under = panned_place(s_lat, s_lon, lang)
         readout = f" · {ms('sun_over', lang, place=under)}"
 
     panned = abs(lat - m_lat) > 1e-9 or abs(lon - m_lon) > 1e-9
-    place = (_panned_place(lat, lon, lang) if panned
+    place = (panned_place(lat, lon, lang) if panned
              else location_name or f"{lat:.2f}, {lon:.2f}")
     tag = f" · {rs('loading', lang)}" if loading else ""
     # The mode word is the affordance that tells the reader modes exist;

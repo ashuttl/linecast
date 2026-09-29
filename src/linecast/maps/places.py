@@ -39,7 +39,7 @@ import threading
 
 from linecast.maps import globe as _globe
 from linecast.maps import style
-from linecast.radar.basemap import _load_data, _localized
+from linecast.radar.basemap import city_name, load_data
 from linecast.terminal.scenes import Memo
 from linecast.terminal.textwidth import char_width
 
@@ -144,7 +144,7 @@ def layout(cam, band, lang="en", upper_pop=None, window=None):
 
     Memoised per view: the list is shared between calls, so read it.
     """
-    cities = _load_data()["cities"]
+    cities = load_data()["cities"]
     key = (cam.lat, cam.lon, cam.zoom, cam.gw, cam.hc, cam.aspect,
            band, lang, upper_pop, window, id(cities))
     with _layout_lock:
@@ -234,7 +234,7 @@ def _walk(cities, cam, band, lang, upper_pop, taken, placed, out, skip,
             continue
         placed.append((col, row))
         taken.add((col, row))
-        name = _localized(entry, lang)
+        name = city_name(entry, lang)
         if upper_pop is not None and entry[2] >= upper_pop:
             # cased before the cut, never after: the caps are what the
             # register draws, so they are what the cells are measured
