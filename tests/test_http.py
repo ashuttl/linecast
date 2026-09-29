@@ -6,6 +6,8 @@ that records requests and replays scripted responses.
 """
 
 import gzip
+import json
+import os
 import http.client
 import subprocess
 import sys
@@ -581,6 +583,66 @@ class TestFetchJsonCached:
         path.write_text('{"day": "tuesday"}')
         assert _http.fetch_json_cached(path, 60, "https://h.example/") == {"day": "tuesday"}
         assert conns.instances == []
+
+
+class TestFetchJsonCachedTransform:
+    """Only the transformed answer is kept, so a stale copy is always
+    the caller's own rows, never the provider's payload."""
+
+    @staticmethod
+    def _rows(payload):
+        return [item["v"] for item in payload["items"]]
+
+    def test_only_the_transformed_answer_is_written(self, conns, tmp_path):
+        path = tmp_path / "f.json"
+        conns.script = [_Response(body=b'{"items": [{"v": 1}, {"v": 2}]}')]
+        got = _http.fetch_json_cached(path, 60, "https://h.example/", transform=self._rows)
+        assert got == [1, 2]
+        assert json.loads(path.read_text()) == [1, 2]
+
+    def test_a_fresh_copy_is_served_as_it_was_kept(self, conns, tmp_path):
+        path = tmp_path / "f.json"
+        path.write_text("[1, 2]")
+        got = _http.fetch_json_cached(path, 60, "https://h.example/", transform=self._rows)
+        assert got == [1, 2]
+        assert conns.instances == []
+
+    def test_a_stale_copy_stands_in_untransformed(self, conns, tmp_path):
+        path = tmp_path / "f.json"
+        path.write_text("[1, 2]")
+        os.utime(path, (0, 0))
+        conns.script = [OSError("down")]
+        got = _http.fetch_json_cached(path, 60, "https://h.example/", transform=self._rows)
+        assert got == [1, 2]
+
+    def test_a_transform_that_raises_is_a_failed_fetch(self, conns, tmp_path):
+        path = tmp_path / "f.json"
+        path.write_text("[1, 2]")
+        os.utime(path, (0, 0))
+        conns.script = [_Response(body=b'{"items": null}')]
+        got = _http.fetch_json_cached(path, 60, "https://h.example/", transform=self._rows)
+        assert got == [1, 2]
+        # the stale copy is left as it was, not written over
+        assert path.read_text() == "[1, 2]"
+        assert path.stat().st_mtime == 0
+
+    def test_with_nothing_cached_the_fallback_answers(self, conns, tmp_path):
+        path = tmp_path / "f.json"
+        conns.script = [_Response(body=b'{"items": null}')]
+        got = _http.fetch_json_cached(path, 60, "https://h.example/",
+                                      transform=self._rows, fallback=[])
+        assert got == []
+        assert not path.exists()
+
+    def test_the_failure_is_logged_under_the_provider(self, conns, tmp_path,
+                                                      monkeypatch, capsys):
+        from linecast import _log
+        monkeypatch.setattr(_log, "_DEBUG", True)
+        conns.script = [_Response(body=b'{"items": null}')]
+        _http.fetch_json_cached(tmp_path / "f.json", 60, "https://h.example/",
+                                transform=self._rows, provider="tides/example")
+        err = capsys.readouterr().err
+        assert "[linecast] tides/example: parse failed (h.example) -- TypeError" in err
 
 
 class TestVersion:

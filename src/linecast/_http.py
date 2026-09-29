@@ -338,7 +338,9 @@ def fetch_json_cached(cache_file: Path, max_age: float, url: str,
                       headers: dict[str, str] | None = None, timeout: float = 10,
                       fallback: Any = None,
                       fetch: "Callable[..., Any] | None" = None,
-                      fresh: "Callable[[Any], bool] | None" = None) -> Any:
+                      fresh: "Callable[[Any], bool] | None" = None,
+                      transform: "Callable[[Any], Any] | None" = None,
+                      provider: str = "http") -> Any:
     """Fetch JSON with fresh cache first, stale cache fallback, then fallback value.
 
     `fetch` replaces fetch_json for the network step (called as
@@ -349,6 +351,15 @@ def fetch_json_cached(cache_file: Path, max_age: float, url: str,
     rather than its age -- a forecast whose "today" has gone by is stale
     however young the file.  A copy that fails it is refetched, and
     still stands in when the refetch fails.
+
+    `transform` turns the provider's answer into what the caller keeps,
+    and only what it returns is written.  The file, stale or fresh, then
+    always holds the caller's own rows and never the provider's payload,
+    so nothing that reads it has to tell the two apart.  A transform
+    that raises is a failed fetch like any other: the stale copy stands
+    in, or the fallback.
+
+    `provider` names the caller in the --debug line a failure writes.
     """
     cached = read_cache(cache_file, max_age)
     if cached is not None and (fresh is None or fresh(cached)):
@@ -361,22 +372,33 @@ def fetch_json_cached(cache_file: Path, max_age: float, url: str,
         else:
             data = fetch_json(url, headers=headers, timeout=timeout)
     except Exception as exc:
-        stale = read_stale(cache_file)
-        log_failure("http", "fetch", exc, url=url,
-                    fallback=(f"stale cache {cache_file.name}"
-                              if stale is not None else "fallback value"))
-        return stale if stale is not None else fallback
+        return _stand_in(cache_file, fallback, provider, "fetch", exc, url)
+    if transform is not None:
+        try:
+            data = transform(data)
+        except Exception as exc:
+            return _stand_in(cache_file, fallback, provider, "parse", exc, url)
 
     write_cache(cache_file, data)
     return data
 
 
+def _stand_in(cache_file, fallback, provider, operation, exc, url):
+    """The stale copy of a cached fetch that failed, else the fallback."""
+    stale = read_stale(cache_file)
+    log_failure(provider, operation, exc, url=url,
+                fallback=(f"stale cache {cache_file.name}"
+                          if stale is not None else "fallback value"))
+    return stale if stale is not None else fallback
+
+
 def fetch_bytes_cached(cache_file: Path, max_age: float | None, url: str,
                        headers: dict[str, str] | None = None,
-                       timeout: float = 10) -> bytes | None:
+                       timeout: float = 10, provider: str = "http") -> bytes | None:
     """Fetch bytes with fresh cache first, stale cache fallback, else None.
 
     max_age None means the cached copy never expires (immutable tiles).
+    `provider` names the caller in the --debug line a failure writes.
     """
     try:
         if cache_file.exists() and (
@@ -397,7 +419,7 @@ def fetch_bytes_cached(cache_file: Path, max_age: float | None, url: str,
         except OSError as stale_exc:
             log_failure("cache", f"stale read of {cache_file.name}", stale_exc,
                         fallback="no data")
-        log_failure("http", "fetch", exc, url=url,
+        log_failure(provider, "fetch", exc, url=url,
                     fallback=(f"stale cache {cache_file.name}"
                               if stale is not None else "none"))
         return stale
