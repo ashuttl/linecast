@@ -12,7 +12,8 @@ from calendar import isleap
 from datetime import timedelta, timezone
 
 from linecast.astro.seasons import full_moon_name, next_season_event
-from linecast.sunshine.json import _iso, _local_timezone_name, _location_label
+from linecast._timefmt import iso_minutes
+from linecast.sunshine.json import _local_timezone_name, _location_label
 
 SCHEMA_VERSION = 1
 
@@ -43,7 +44,7 @@ def build_payload(now_local, lat, lng, runtime, location=None, calendar=None,
 
     rise, sset = upcoming_moon_events(now_local, lat, lng)
     events = [
-        {"kind": kind, "time": _iso(dt)}
+        {"kind": kind, "time": iso_minutes(dt)}
         for dt, kind in sorted(
             ((dt, kind) for dt, kind in ((rise, "rise"), (sset, "set"))
              if dt is not None),
@@ -119,9 +120,9 @@ def build_payload(now_local, lat, lng, runtime, location=None, calendar=None,
         calendar_block = {
             "name": cal,
             "gardening": "light" if frac < 0.5 else "dark",
-            "solunar_major": sorted(_iso(t) for t in (upper, lower)
+            "solunar_major": sorted(iso_minutes(t) for t in (upper, lower)
                                     if t is not None),
-            "solunar_minor": sorted(_iso(t) for t in (day_rise, day_set)
+            "solunar_minor": sorted(iso_minutes(t) for t in (day_rise, day_set)
                                     if t is not None),
         }
     elif cal == "islamic":
@@ -320,7 +321,7 @@ def build_payload(now_local, lat, lng, runtime, location=None, calendar=None,
         "location": location if location is not None else _location_label(lat, lng),
         "timezone": (getattr(now_local.tzinfo, "key", None)
                      or _local_timezone_name()),
-        "fetched_at": _iso(now_local),
+        "fetched_at": iso_minutes(now_local),
         "phase": _moon_name(idx, runtime),
         "icon": icon,
         "illumination": round(illumination, 1),
@@ -336,7 +337,7 @@ def build_payload(now_local, lat, lng, runtime, location=None, calendar=None,
         "days_in_year": 366 if isleap(now_local.year) else 365,
         "next_season_event": {
             "kind": event_kind,
-            "time": _iso(event_utc.astimezone(now_local.tzinfo)),
+            "time": iso_minutes(event_utc.astimezone(now_local.tzinfo)),
         },
         "southern": bool(lat is not None and lat < 0),
         "calendar": calendar_block,

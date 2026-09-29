@@ -9,7 +9,6 @@ scrubber are the chrome the live loop draws around the map.  ThemePicker
 is the picker's state; live routes the keys to it.
 """
 
-import datetime as _dt
 import threading
 
 from linecast.terminal import live as _live
@@ -27,6 +26,7 @@ from linecast.radar.sources import THEMES, is_local
 from linecast._runtime import use_metric
 from linecast._log import log_failure
 from linecast.terminal.scenes import Memo
+from linecast._timefmt import from_iso
 
 MUTED = _live.MUTED
 DIM = (110, 114, 130)
@@ -202,7 +202,7 @@ def _fmt_expire(iso, use_24h):
     if not iso:
         return None
     try:
-        exp = _dt.datetime.fromisoformat(iso.replace("Z", "+00:00"))
+        exp = from_iso(iso)
     except (ValueError, AttributeError) as exc:
         log_failure("radar/warnings", "expiry time", exc, fallback="time omitted")
         return None

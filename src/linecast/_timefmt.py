@@ -5,6 +5,8 @@ A chart's axis says "6a" or "06", a header "2:14p" or "14:14"; the
 forecast in words says "around 3pm", "gegen 15 Uhr" or "klo 15", and
 Swahili and Hong Kong Chinese count the hours their own way."""
 
+from datetime import datetime
+
 from linecast._i18n import base_language
 
 
@@ -129,3 +131,21 @@ def fmt_time_dt(dt, use_24h=False):
     # locale-dependent; derive both by hand as fmt_time does just above.
     hour = dt.hour % 12 or 12
     return f"{hour}:{dt.minute:02d}{'a' if dt.hour < 12 else 'p'}"
+
+
+def from_iso(text):
+    """datetime.fromisoformat, reading a trailing Z as UTC, which it does
+    itself only from Python 3.11: Environment Canada, the NWS and IEM
+    write their times as "2026-09-28T14:00:00Z".  Raises as
+    fromisoformat does."""
+    if text.endswith("Z"):
+        text = text[:-1] + "+00:00"
+    return datetime.fromisoformat(text)
+
+
+def iso_minutes(dt):
+    """A local time as the --json payloads give it, to the minute
+    ("2026-03-05T14:30"), or None."""
+    if dt is None:
+        return None
+    return dt.strftime("%Y-%m-%dT%H:%M")

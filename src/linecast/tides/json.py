@@ -9,7 +9,7 @@ null/empty fields rather than an error.
 
 from datetime import timedelta
 
-from linecast.sunshine.json import _iso
+from linecast._timefmt import iso_minutes
 
 SCHEMA_VERSION = 1
 
@@ -47,7 +47,7 @@ def build_payload(station_name, runtime, now_local, predictions, hilo,
         if dt >= now_local and len(events) < MAX_EVENTS:
             events.append({
                 "kind": "high" if typ == "H" else "low",
-                "time": _iso(dt),
+                "time": iso_minutes(dt),
                 "height": round(convert(height), 2),
             })
 
@@ -60,7 +60,7 @@ def build_payload(station_name, runtime, now_local, predictions, hilo,
         while t <= end:
             if first <= t <= last:
                 series.append({
-                    "time": _iso(t),
+                    "time": iso_minutes(t),
                     "height": round(convert(interp_height(t, predictions)), 2),
                 })
             t += step
@@ -71,7 +71,7 @@ def build_payload(station_name, runtime, now_local, predictions, hilo,
         "schema": SCHEMA_VERSION,
         "location": location or station_name or "",
         "timezone": tz_name or None,
-        "fetched_at": _iso(now_local),
+        "fetched_at": iso_minutes(now_local),
         "station": station_name or None,
         "units": {"height": "m" if runtime.metric else "ft"},
         "events": events,

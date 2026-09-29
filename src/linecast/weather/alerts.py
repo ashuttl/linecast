@@ -29,15 +29,7 @@ from linecast.weather.style import (
     WIND_COLOR,
     _knockout_ink,
 )
-
-
-def _fromisoformat(iso_str):
-    """datetime.fromisoformat, reading a trailing Z as UTC, which it does
-    itself only from Python 3.11: Environment Canada writes its alerts'
-    times as "2026-09-28T14:00:00.000Z"."""
-    if iso_str.endswith("Z"):
-        iso_str = iso_str[:-1] + "+00:00"
-    return datetime.fromisoformat(iso_str)
+from linecast._timefmt import from_iso
 
 
 def _parse_alert_time(iso_str, runtime=None, tz_name=""):
@@ -45,7 +37,7 @@ def _parse_alert_time(iso_str, runtime=None, tz_name=""):
     if not iso_str:
         return ""
     try:
-        dt = _fromisoformat(iso_str)
+        dt = from_iso(iso_str)
         if tz_name and dt.tzinfo is not None:
             from zoneinfo import ZoneInfo
             dt = dt.astimezone(ZoneInfo(tz_name))
@@ -171,7 +163,7 @@ def _has_begun(iso_str, now=None):
     """Whether an alert's effective time has passed. A time without a
     zone cannot be placed, and counts as not yet."""
     try:
-        dt = _fromisoformat(iso_str)
+        dt = from_iso(iso_str)
     except (AttributeError, TypeError, ValueError):
         return False
     return dt.tzinfo is not None and dt <= (now or datetime.now(timezone.utc))

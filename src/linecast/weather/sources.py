@@ -12,6 +12,7 @@ from linecast._paths import cache_dir
 from linecast._plaintext import plain_text
 from linecast._runtime import WeatherRuntime, current_runtime
 from linecast._log import log_failure
+from linecast._timefmt import from_iso
 
 # The forecast, the air quality, and the geocoder are Open-Meteo's, and
 # its CC BY 4.0 terms ask for a line on screen. The alerts are the
@@ -705,10 +706,8 @@ def _alert_expiry(alert):
     expires = alert.get("expires") if isinstance(alert, dict) else None
     if not isinstance(expires, str) or not expires:
         return None
-    if expires.endswith("Z"):
-        expires = expires[:-1] + "+00:00"
     try:
-        dt = datetime.fromisoformat(expires)
+        dt = from_iso(expires)
     except ValueError:
         return None
     if dt.tzinfo is None:
@@ -2242,11 +2241,11 @@ def _sweep_sachet_cap_files(feed):
 def _parse_iso_aware(iso_str):
     """An ISO timestamp as an aware UTC datetime, or None. A trailing Z,
     which fromisoformat reads only from Python 3.11, is UTC."""
-    if isinstance(iso_str, str) and iso_str.endswith("Z"):
-        iso_str = iso_str[:-1] + "+00:00"
+    if not isinstance(iso_str, str):
+        return None
     try:
-        dt = datetime.fromisoformat(iso_str)
-    except (TypeError, ValueError):
+        dt = from_iso(iso_str)
+    except ValueError:
         return None
     if dt.tzinfo is None:
         return None

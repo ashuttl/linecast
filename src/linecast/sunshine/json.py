@@ -9,14 +9,9 @@ rather than raising.
 import time as _time
 from datetime import datetime, time, timedelta
 
+from linecast._timefmt import iso_minutes
+
 SCHEMA_VERSION = 1
-
-
-def _iso(dt):
-    """Minute-precision local ISO string, or None."""
-    if dt is None:
-        return None
-    return dt.strftime("%Y-%m-%dT%H:%M")
 
 
 def _hour_to_dt(date, decimal_hour):
@@ -124,7 +119,7 @@ def _hours_block(hours, now):
     runtime = current_runtime(RuntimeConfig)
 
     def local_iso(dt):
-        return _iso(dt.astimezone(now.tzinfo) if now.tzinfo else dt.astimezone())
+        return iso_minutes(dt.astimezone(now.tzinfo) if now.tzinfo else dt.astimezone())
 
     r = reading(hours, now)
     coming = next_mark(hours, now)
@@ -234,19 +229,19 @@ def build_payload(lat, lng, now=None, location=None, hours=None):
                      (tomorrow_sunrise, "sunrise"),
                      (tomorrow_sunset, "sunset")):
         if dt is not None and dt > now:
-            next_event = {"kind": kind, "time": _iso(dt)}
+            next_event = {"kind": kind, "time": iso_minutes(dt)}
             break
 
     return {
         "schema": SCHEMA_VERSION,
         "location": location if location is not None else _location_label(lat, lng),
         "timezone": tz_name or _local_timezone_name(),
-        "fetched_at": _iso(now),
-        "sunrise": _iso(sunrise),
-        "sunset": _iso(sunset),
-        "tomorrow_sunrise": _iso(tomorrow_sunrise),
-        "tomorrow_sunset": _iso(tomorrow_sunset),
-        "solar_noon": _iso(solar_noon),
+        "fetched_at": iso_minutes(now),
+        "sunrise": iso_minutes(sunrise),
+        "sunset": iso_minutes(sunset),
+        "tomorrow_sunrise": iso_minutes(tomorrow_sunrise),
+        "tomorrow_sunset": iso_minutes(tomorrow_sunset),
+        "solar_noon": iso_minutes(solar_noon),
         "day_length_seconds": day_length_seconds,
         "day_length_delta_seconds": day_length_delta_seconds,
         "next_event": next_event,

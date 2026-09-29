@@ -11,7 +11,8 @@ the catalogue's own J2000 coordinates stay in the catalogue.
 
 from datetime import timezone
 
-from linecast.sunshine.json import _iso, _local_timezone_name, _location_label
+from linecast._timefmt import iso_minutes
+from linecast.sunshine.json import _local_timezone_name, _location_label
 
 SCHEMA_VERSION = 1
 
@@ -56,7 +57,7 @@ def build_payload(now_local, lat, lng, runtime, location=None, facing=None,
     tz = now_local.tzinfo
     return {
         "schema_version": SCHEMA_VERSION,
-        "generated_at": _iso(now_local),
+        "generated_at": iso_minutes(now_local),
         "timezone": (getattr(tz, "key", None) or _local_timezone_name()),
         "location": {"lat": lat, "lng": lng,
                      "name": location if location is not None else _location_label(lat, lng)},
