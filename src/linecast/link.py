@@ -126,7 +126,15 @@ def main():
     if not os.path.isdir(directory):
         print(f"{directory} is not a directory.", file=sys.stderr)
         sys.exit(1)
-    sys.exit(_remove(directory, binary) if args.remove else _link(directory, binary))
+    try:
+        sys.exit(_remove(directory, binary) if args.remove else _link(directory, binary))
+    except OSError as e:
+        # A package manager's bin directory, such as /usr/bin or the Nix
+        # store, is not the user's to write in.
+        print(f"Cannot write in {directory}: {e.strerror}. --dir puts the "
+              "links in a directory of your own on your PATH, such as "
+              "~/.local/bin.", file=sys.stderr)
+        sys.exit(1)
 
 
 if __name__ == "__main__":

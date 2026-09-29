@@ -65,6 +65,21 @@ class LinkTest(unittest.TestCase):
         self.assertTrue(os.path.lexists(os.path.join(target, "tides")))
         self.assertFalse(os.path.lexists(os.path.join(self.dir, "tides")))
 
+    @unittest.skipIf(sys.platform == "win32" or os.geteuid() == 0,
+                     "directory permissions do not bind here")
+    def test_a_directory_it_cannot_write_in_is_a_sentence(self):
+        import tempfile
+        from io import StringIO
+        target = tempfile.mkdtemp()
+        os.chmod(target, stat.S_IRUSR | stat.S_IXUSR)
+        self.addCleanup(os.chmod, target, stat.S_IRWXU)
+        err = StringIO()
+        with patch("sys.stderr", err):
+            code, _out = self._run("--dir", target)
+        self.assertEqual(code, 1)
+        self.assertIn(f"Cannot write in {target}", err.getvalue())
+        self.assertIn("--dir", err.getvalue())
+
     def test_refuses_under_python_m(self):
         with patch.object(sys, "argv", ["/x/linecast/__main__.py"]), \
                 patch("sys.stderr"), self.assertRaises(SystemExit) as cm:
