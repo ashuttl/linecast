@@ -132,6 +132,28 @@ class InfoLineTests(unittest.TestCase):
         self.assertNotIn("Δ", pill)
 
 
+class ChartRowTests(unittest.TestCase):
+    """A time label under the curve is read whole: the now, hover and
+    midnight lines stop at it, as they do at a height label."""
+
+    def _row(self, **lines):
+        blank = [[("\u2800", 0.0)] * 20]
+        overlays = {0: [(6, "12:39p", (1, 2, 3), True)]}
+        row = tides._render_tide_braille_rows(blank, [1.0] * 20, lines.pop("midnight", set()),
+                                              overlays=overlays, **lines)[0]
+        return re.sub(r"\x1b\[[0-9;]*m", "", row)
+
+    def test_the_now_line_does_not_cut_a_time_label(self):
+        self.assertEqual(self._row(now_col=9).strip(), "12:39p")
+
+    def test_the_hover_and_midnight_lines_do_not_cut_a_time_label(self):
+        self.assertEqual(self._row(hover_col=8).strip(), "12:39p")
+        self.assertEqual(self._row(midnight={7}).strip(), "12:39p")
+
+    def test_the_lines_still_run_beside_it(self):
+        self.assertEqual(self._row(now_col=2, midnight={15}).strip(), "│   12:39p   │")
+
+
 class HeaderNameTests(unittest.TestCase):
     """A station list's capitals are title-cased; a geocoder's name is
     already written the way its language writes it."""

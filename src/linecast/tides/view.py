@@ -550,7 +550,9 @@ def _render_tide_braille_rows(braille_rows, col_daylight, midnight_cols,
                                now_col=None, hover_col=None, overlays=None):
     """Render braille tide rows with daylight dimming, indicators, and overlays.
 
-    Overlay priority: foreground overlays > braille dots > indicators > background overlays.
+    Overlay priority: foreground overlays > braille dots > background
+    overlays > indicators.  A time label is a background overlay, and the
+    now, hover, and midnight lines stop at it rather than cut through it.
     """
     if overlays is None:
         overlays = {}
@@ -584,15 +586,15 @@ def _render_tide_braille_rows(braille_rows, col_daylight, midnight_cols,
                 brightness = NIGHT_DIM + (1.0 - NIGHT_DIM) * dl
                 line += fg(int(cr * brightness), int(cg * brightness), int(cb * brightness))
                 line += ch
+            elif ci in bg_chars:
+                oc, oc_color = bg_chars[ci]
+                line += f"{fg(*oc_color)}{oc}"
             elif hover_col is not None and ci == hover_col:
                 line += f"{hover_fg}\u2502"
             elif now_col is not None and ci == now_col:
                 line += f"{now_fg}\u2502"
             elif ci in midnight_cols:
                 line += f"{DIM}\u2502"
-            elif ci in bg_chars:
-                oc, oc_color = bg_chars[ci]
-                line += f"{fg(*oc_color)}{oc}"
             else:
                 line += " "
         lines.append(f"{line}{RESET}")
