@@ -613,6 +613,13 @@ class TestStrings:
         noon = _strip(sky_oneline(NOON, LAT, LNG, _runtime()))
         assert noon   # the sky's name, or Venus
 
+    def test_oneline_follows_the_culture_flag(self):
+        # --culture hawaiian names directions by the star compass's houses
+        from linecast.sky.oneline import sky_oneline
+        iau = _strip(sky_oneline(NIGHT, LAT, LNG, _runtime()))
+        hawaiian = _strip(sky_oneline(NIGHT, LAT, LNG, _runtime(), culture="hawaiian"))
+        assert "Saturn" in hawaiian and hawaiian != iau
+
     def test_json(self):
         import json
         from linecast.sky.json import build_payload

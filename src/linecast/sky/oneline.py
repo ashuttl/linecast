@@ -4,14 +4,16 @@ from linecast._i18n import fmt_percent
 from linecast.terminal.color import RESET, fg
 
 
-def sky_oneline(now_local, lat, lng, runtime):
+def sky_oneline(now_local, lat, lng, runtime, culture=None):
     """Return a compact sky summary line.
 
     Example: ``🌖 84% W 31° · Jupiter SE 42° · Saturn S 20°``
 
     The Moon if it is up, then the planets up and bright enough for the
     sky as it is, brightest first, each with the way to look and how
-    high; the sky's name when nothing is.
+    high; the sky's name when nothing is. *culture* is the --culture
+    flag, resolved here as the view resolves it: the flag, else the
+    `linecast culture` setting, else the language's own.
     """
     from datetime import timezone
     from linecast.sky.scene import Scene, compass_point, easily_seen
@@ -23,7 +25,7 @@ def sky_oneline(now_local, lat, lng, runtime):
     from linecast.moon.phase import moon_phase
 
     scene = Scene(now_local.astimezone(timezone.utc), lat, lng)
-    culture = resolve_culture(None, lang_of(runtime))
+    culture = resolve_culture(culture, lang_of(runtime))
     text, dim = fg(*TEXT_RGB), fg(*DIM_RGB)
     parts = []
     if scene.moon_alt > 0.0:

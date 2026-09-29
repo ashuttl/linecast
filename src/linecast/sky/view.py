@@ -1033,7 +1033,7 @@ def main():
     if runtime.oneline:
         from linecast.terminal.oneline import emit
         from linecast.sky.oneline import sky_oneline
-        emit(sky_oneline(_now(), lat, lng, runtime))
+        emit(sky_oneline(_now(), lat, lng, runtime, culture=args.culture))
         return
 
     from linecast.sky.live import SkyApp, place_name
