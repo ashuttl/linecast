@@ -11,6 +11,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from unittest.mock import patch
 
+from conftest import answering
+
 FIXTURES = Path(__file__).parent / "fixtures"
 
 # Ensure the package is importable
@@ -130,7 +132,7 @@ class TestNWSAlertsFilterTestMessages:
 
     def test_parser_drops_test_alerts(self):
         from linecast.weather.sources import _fetch_alerts_nws
-        with patch("linecast.weather.sources.fetch_json_cached", return_value=self.data):
+        with answering(self.data):
             alerts = _fetch_alerts_nws(40.7, -74.0)
         assert len(alerts) == 1
         assert alerts[0]["event"] == "Heat Advisory"
@@ -141,7 +143,7 @@ class TestNWSAlertsFilterTestMessages:
         data = copy.deepcopy(self.data)
         data["features"][1]["properties"]["status"] = "Exercise"
         from linecast.weather.sources import _fetch_alerts_nws
-        with patch("linecast.weather.sources.fetch_json_cached", return_value=data):
+        with answering(data):
             alerts = _fetch_alerts_nws(40.7, -74.0)
         assert len(alerts) == 0
 
@@ -156,7 +158,7 @@ class TestNWSAlertWindow:
                  "effective": "2026-09-23T15:33:00-04:00",
                  "expires": "2026-09-24T05:00:00-04:00", **times}
         data = {"features": [{"properties": props}]}
-        with patch("linecast.weather.sources.fetch_json_cached", return_value=data):
+        with answering(data):
             return _fetch_alerts_nws(42.05, -70.19)[0]
 
     def test_onset_and_ends_over_the_bulletin(self):
@@ -224,7 +226,7 @@ class TestBrightSkyAlerts:
     def test_parse_produces_normalized_alerts(self):
         """Smoke test: _fetch_alerts_brightsky parser produces our standard dict."""
         from linecast.weather.sources import _fetch_alerts_brightsky
-        with patch("linecast.weather.sources.fetch_json_cached", return_value=self.data):
+        with answering(self.data):
             alerts = _fetch_alerts_brightsky(52.52, 13.405)
         assert isinstance(alerts, list)
         for a in alerts:
@@ -235,7 +237,7 @@ class TestBrightSkyAlerts:
     def test_starts_at_the_onset(self):
         """The frost begins at midnight, not when DWD issued the warning."""
         from linecast.weather.sources import _fetch_alerts_brightsky
-        with patch("linecast.weather.sources.fetch_json_cached", return_value=self.data):
+        with answering(self.data):
             alerts = _fetch_alerts_brightsky(52.52, 13.405)
         assert alerts[0]["effective"] == "2026-03-07T00:00:00+00:00"
 
@@ -269,7 +271,7 @@ class TestMetNoAlerts:
 
     def test_parse_produces_normalized_alerts(self):
         from linecast.weather.sources import _fetch_alerts_metno
-        with patch("linecast.weather.sources.fetch_json_cached", return_value=self.data):
+        with answering(self.data):
             alerts = _fetch_alerts_metno(59.91, 10.75)
         assert isinstance(alerts, list)
         assert len(alerts) > 0
@@ -297,7 +299,7 @@ class TestMetEireannAlerts:
 
     def test_parse_produces_normalized_alerts(self):
         from linecast.weather.sources import _fetch_alerts_meteireann
-        with patch("linecast.weather.sources.fetch_json_cached", return_value=self.data):
+        with answering(self.data):
             alerts = _fetch_alerts_meteireann(53.35, -6.26)
         assert isinstance(alerts, list)
         for a in alerts:
@@ -316,8 +318,7 @@ class TestMetEireannAlerts:
 
     def _events(self, data, address):
         from linecast.weather import sources as ws
-        with patch.object(ws, "fetch_json_cached", return_value=data), \
-                patch.object(ws, "write_cache"):
+        with answering(data):
             return [a["event"] for a in ws._fetch_alerts_meteireann(53.35, -6.26, address)]
 
     def test_national_warnings_are_matched_to_the_county(self):
@@ -372,7 +373,7 @@ class TestMeteoAlarmAlerts:
     def test_parse_with_area_filter(self):
         from linecast.weather.sources import _fetch_alerts_meteoalarm
         address = {"city": "Amsterdam", "state": "Noord-Holland"}
-        with patch("linecast.weather.sources.fetch_json_cached", return_value=self.data):
+        with answering(self.data):
             alerts = _fetch_alerts_meteoalarm(52.37, 4.89, "netherlands", address=address)
         assert isinstance(alerts, list)
         for a in alerts:
@@ -382,7 +383,7 @@ class TestMeteoAlarmAlerts:
     def test_parse_without_address(self):
         """Without address, should still return Severe+ alerts."""
         from linecast.weather.sources import _fetch_alerts_meteoalarm
-        with patch("linecast.weather.sources.fetch_json_cached", return_value=self.data):
+        with answering(self.data):
             alerts = _fetch_alerts_meteoalarm(52.37, 4.89, "netherlands", address=None)
         assert isinstance(alerts, list)
 
@@ -399,17 +400,12 @@ class TestMeteoAlarmFeedSize:
         from linecast._http import MAX_JSON_BYTES
         seen = {}
 
-        def miss(cache_file, max_age, url, **kwargs):
-            # a cache miss: fetch_json_cached hands the network step to `fetch`
-            return kwargs["fetch"](url, timeout=kwargs["timeout"])
-
         def fetch_json(url, headers=None, timeout=10, limit=MAX_JSON_BYTES):
             seen.update(url=url, limit=limit, accept=(headers or {}).get("Accept"))
             return {"warnings": []}
 
-        with patch.object(ws, "fetch_json_cached", side_effect=miss), \
-                patch.object(ws, "fetch_json", fetch_json), \
-                patch.object(ws, "write_cache", lambda *a, **k: None):
+        # a cache miss, which hands the network step to the feed's own fetch
+        with answering(None), patch.object(ws, "fetch_json", fetch_json):
             ws._fetch_alerts_meteoalarm(46.95, 7.45, "switzerland", address={})
         assert seen["url"].endswith("/feeds-switzerland")
         assert seen["accept"] == "application/json"
@@ -432,7 +428,7 @@ class TestJMAAlerts:
 
     def test_parse_produces_normalized_alerts_en(self):
         from linecast.weather.sources import _fetch_alerts_jma
-        with patch("linecast.weather.sources.fetch_json_cached", return_value=self.data):
+        with answering(self.data):
             alerts = _fetch_alerts_jma(35.6764, 139.6500, lang="en")
         assert isinstance(alerts, list)
         assert len(alerts) > 0
@@ -452,7 +448,7 @@ class TestJMAAlerts:
 
     def test_parse_produces_normalized_alerts_ja(self):
         from linecast.weather.sources import _fetch_alerts_jma
-        with patch("linecast.weather.sources.fetch_json_cached", return_value=self.data):
+        with answering(self.data):
             alerts = _fetch_alerts_jma(35.6764, 139.6500, lang="ja")
         assert isinstance(alerts, list)
         assert len(alerts) == 2
@@ -465,12 +461,11 @@ class TestJMAAlerts:
         from linecast.weather import sources as ws
         urls = []
 
-        def cached(cache_file, max_age, url, **kwargs):
+        def answer(url):
             urls.append(url)
             return None if url.endswith("area.json") else (data or self.data)
 
-        with patch.object(ws, "fetch_json_cached", side_effect=cached), \
-                patch.object(ws, "write_cache"):
+        with answering(answer):
             alerts = ws._fetch_alerts_jma(lat, lng, lang="en", address=address)
         return alerts, urls
 
@@ -516,14 +511,13 @@ class TestJMAAreaFilter:
         from linecast.weather import sources as ws
         urls = []
 
-        def cached(cache_file, max_age, url, **kwargs):
+        def answer(url):
             urls.append(url)
             if url.endswith("area.json"):
                 return self.table if table is None else table
             return self.feed
 
-        with patch.object(ws, "fetch_json_cached", side_effect=cached), \
-                patch.object(ws, "write_cache"):
+        with answering(answer):
             alerts = ws._fetch_alerts_jma(35.61, 139.73, lang=lang, address=address)
         return alerts, urls
 
@@ -575,7 +569,7 @@ class TestJMAAreaFilter:
 
     def test_without_a_prefecture_the_nearest_office_decides(self):
         from linecast.weather.sources import _jma_area_for_address
-        with patch("linecast.weather.sources.fetch_json_cached", return_value=self.table):
+        with answering(self.table):
             tokyo = _jma_area_for_address({"city": "府中市"}, "130000")
             hiroshima = _jma_area_for_address({"city": "府中市"}, "340000")
         assert tokyo["codes"] == ["1320600"]
@@ -591,7 +585,7 @@ class TestJMAAreaFilter:
                          "1410012": {"name": "横浜市南部", "parent": "140011"},
                          "1413000": {"name": "川崎市", "parent": "140011"}},
         }
-        with patch("linecast.weather.sources.fetch_json_cached", return_value=table):
+        with answering(table):
             area = _jma_area_for_address({"city": "横浜市", "ISO3166-2-lvl4": "JP-14"}, "140000")
         assert area["office"] == "140000"
         assert sorted(area["codes"]) == ["1410011", "1410012"]
@@ -929,7 +923,7 @@ class TestCMAAlerts:
     def test_parse_with_fetch_mock(self):
         """Smoke test: _fetch_alerts_cma parser produces our standard dict."""
         from linecast.weather.sources import _fetch_alerts_cma
-        with patch("linecast.weather.sources.fetch_json_cached", return_value=self.data):
+        with answering(self.data):
             alerts = _fetch_alerts_cma(35.5, 112.8, lang="en")  # Jincheng, Shanxi
         assert isinstance(alerts, list)
         # Jincheng is a Shanxi border city — must find Shanxi alerts via multi-province match
@@ -1115,8 +1109,7 @@ def _warning(event, severity, area_desc, polygon=None, description=None):
 
 def _alerts(data, lat, lng, address):
     from linecast.weather import sources as ws
-    with patch.object(ws, "fetch_json_cached", return_value=data), \
-            patch.object(ws, "write_cache", lambda *a, **k: None):
+    with answering(data):
         return ws._fetch_alerts_meteoalarm(lat, lng, "united-kingdom",
                                           address=address)
 
@@ -1603,8 +1596,7 @@ class TestSachetAlerts:
 
     def _alerts(self, lat, lng, lang="en"):
         from linecast.weather.sources import _fetch_alerts_sachet
-        with patch("linecast.weather.sources.fetch_json_cached",
-                   return_value=self.feed), \
+        with answering(self.feed), \
              patch("linecast._http.fetch_bytes_cached",
                    side_effect=_sachet_cap_from_fixtures):
             return _fetch_alerts_sachet(lat, lng, lang=lang)
@@ -1675,8 +1667,7 @@ class TestSachetAlerts:
 
     def test_unusable_feed_is_no_alerts(self):
         from linecast.weather.sources import _fetch_alerts_sachet
-        with patch("linecast.weather.sources.fetch_json_cached",
-                   return_value=None):
+        with answering(None):
             assert _fetch_alerts_sachet(28.61, 77.21) == []
 
     def test_feed_datetime_parsing(self):

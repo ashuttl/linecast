@@ -16,6 +16,7 @@ from unittest.mock import patch
 
 import pytest
 
+from conftest import answering
 from linecast.weather import sources
 from linecast.weather import view as weather
 from linecast.weather.oneline import weather_oneline
@@ -177,8 +178,7 @@ class TestWhatANullBecomes:
 
 
 def _with_feed(payload, fn):
-    with patch.object(sources, "fetch_json_cached", return_value=payload), \
-         patch.object(sources, "write_cache"):
+    with answering(payload):
         return fn()
 
 

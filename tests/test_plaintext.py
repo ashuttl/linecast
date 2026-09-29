@@ -10,6 +10,7 @@ result, a vector-tile name, a route step, an alert, a station name.
 from types import SimpleNamespace
 from unittest.mock import patch
 
+from conftest import answering
 from test_mvt import field, geom_ints, make_feature, make_layer, make_tile
 
 from linecast.terminal.live import frame_paint
@@ -178,7 +179,7 @@ class TestAlerts:
         feed = self._nws(event="Heat\x1b[2J Advisory",
                          headline=MARKER + "Heat Advisory issued",
                          description="First.\x07\n\nSecond\x1b[31m.")
-        with patch.object(sources, "fetch_json_cached", return_value=feed):
+        with answering(feed):
             (alert,) = sources.fetch_alerts(43.6, -70.2, "US")
         assert alert["event"] == "Heat Advisory"
         assert alert["headline"] == "Heat Advisory issued"
@@ -189,7 +190,8 @@ class TestAlerts:
         cached = [{"event": MARKER + "Wind Advisory", "headline": "",
                    "description": "", "expires": "", "severity": "Minor",
                    "url": ""}]
-        with patch.object(sources, "fetch_json_cached", return_value=cached):
+        from linecast import _http
+        with patch.object(_http, "read_cache", return_value=cached):
             (alert,) = sources.fetch_alerts(43.6, -70.2, "US")
         assert alert["event"] == "Wind Advisory"
 
@@ -197,7 +199,7 @@ class TestAlerts:
         from linecast.weather import sources
         from linecast.weather.alerts import build_alert_modal
         feed = self._nws(web="https://www.weather.gov/\x1b\\\x1b]0;TITLE\x07")
-        with patch.object(sources, "fetch_json_cached", return_value=feed):
+        with answering(feed):
             (alert,) = sources.fetch_alerts(43.6, -70.2, "US")
         assert alert["url"] == "https://www.weather.gov/"
         modal, _scroll = build_alert_modal(alert, 80, 24)

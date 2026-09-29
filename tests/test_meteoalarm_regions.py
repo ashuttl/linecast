@@ -16,6 +16,8 @@ from unittest.mock import patch
 
 import pytest
 
+from conftest import answering
+
 
 BAKE_SCRIPT = Path(__file__).parent.parent / "scripts" / "build_meteoalarm_regions.py"
 
@@ -162,8 +164,7 @@ def _coded_feed(area_desc, code):
 
 def _alerts(data, lat, lng, address):
     from linecast.weather import sources as ws
-    with patch.object(ws, "fetch_json_cached", return_value=data), \
-            patch.object(ws, "write_cache", lambda *a, **k: None):
+    with answering(data):
         return ws._fetch_alerts_meteoalarm(lat, lng, "poland", address=address)
 
 

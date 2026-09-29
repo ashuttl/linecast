@@ -16,11 +16,14 @@ A test that genuinely needs the network or the real home marks itself
 """
 
 import http.client
+import json
 import os
 import socket
 import sys
 import tempfile
+from contextlib import contextmanager
 from pathlib import Path
+from unittest.mock import patch
 
 import pytest
 
@@ -161,6 +164,26 @@ def unsearchable(path):
     """Take every permission off `path`, so a stat of anything below it
     is refused, or skip when this process would not notice."""
     _restrict(path, 0o000, os.X_OK, "searches")
+
+
+@contextmanager
+def answering(answer):
+    """Every JSON fetch answers `answer`, or `answer(url)` when it is
+    callable, with the cache out of the way: nothing is read from it
+    and nothing kept. For a provider's parser, driven through its cached
+    fetch as a cold start would drive it; patched at fetch_bytes, so a
+    provider that brings its own fetch_json is answered too."""
+    from linecast import _http
+
+    def fetch_bytes(url, *args, **kwargs):
+        payload = answer(url) if callable(answer) else answer
+        return json.dumps(payload).encode()
+
+    with patch.object(_http, "fetch_bytes", side_effect=fetch_bytes), \
+         patch.object(_http, "read_cache", return_value=None), \
+         patch.object(_http, "read_stale", return_value=None), \
+         patch.object(_http, "write_cache"):
+        yield
 
 
 SNAPSHOTS = Path(__file__).parent / "snapshots"

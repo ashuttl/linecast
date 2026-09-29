@@ -15,7 +15,6 @@ import pytest
 
 from linecast import _cache, _http
 from linecast._runtime import WeatherRuntime
-from linecast.weather import sources
 from linecast.weather.json import build_payload
 from linecast.weather.sources import AlertList, alerts_status, fetch_alerts
 
@@ -159,9 +158,7 @@ class TestFetchStatus:
         assert (nz.status, india.status) == ("unavailable", "unavailable")
 
     def test_an_unwritable_cache_still_reads_as_ok(self):
-        with _answering({"features": []}), \
-             patch.object(sources, "write_cache"), \
-             patch.object(_http, "write_cache"):
+        with _answering({"features": []}), patch.object(_http, "write_cache"):
             got = fetch_alerts(*PORTLAND, "US")
         assert (got, got.status) == ([], "ok")
 

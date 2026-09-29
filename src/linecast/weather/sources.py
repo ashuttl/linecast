@@ -5,7 +5,7 @@ from contextvars import ContextVar
 from datetime import date, datetime, timezone, timedelta
 from typing import Any
 
-from linecast._cache import is_fresh, write_cache, location_cache_key
+from linecast._cache import is_fresh, location_cache_key
 from linecast._http import fetch_json, fetch_json_cached
 from linecast._i18n import base_language
 from linecast._paths import cache_dir
@@ -591,6 +591,9 @@ MAX_ALERTS = 8
 
 _SEVERITY_RANK = {"Extreme": 0, "Severe": 1, "Moderate": 2, "Minor": 3}
 
+# How long a feed's alerts are kept before the provider is asked again.
+_ALERT_MAX_AGE = 900
+
 # How a fetch_alerts answer came to be (issue #122). An empty list is
 # either a service saying nothing is in force or a service that could
 # not be asked, and the reader must be able to tell the two apart.
@@ -633,15 +636,15 @@ def _utc_iso(timestamp):
     return datetime.fromtimestamp(timestamp, timezone.utc).isoformat(timespec="seconds")
 
 
-def _note_alert_cache(cache_file, max_age, data):
+def _note_alert_cache(cache_file, max_age, answered):
     """Record how a provider's feed came, for fetch_alerts to report.
 
     Called just after the feed's cached fetch. The cache file's age says
     it: a fetch that succeeds writes the file, so a file within
     `max_age` is an answer from the provider, now or lately; an older
-    one is the stale copy fetch_json_cached stood in with; no file is a
-    failure with nothing to stand in, unless the fetch brought data and
-    only the cache could not be written.
+    one is the stale copy the fetch stood in with; no file is a failure
+    with nothing to stand in, unless the provider `answered` and only
+    the cache could not be written.
     """
     check = _ALERT_CHECK.get()
     if check is None:
@@ -651,7 +654,7 @@ def _note_alert_cache(cache_file, max_age, data):
     except OSError:
         mtime = None
     if mtime is None:
-        if data is None or (isinstance(data, (list, bytes)) and not data):
+        if not answered:
             check.update(status=ALERTS_UNAVAILABLE, fetched_at=None)
         else:
             check.update(status=ALERTS_OK,
@@ -660,6 +663,31 @@ def _note_alert_cache(cache_file, max_age, data):
         check.update(status=ALERTS_OK, fetched_at=_utc_iso(mtime))
     else:
         check.update(status=ALERTS_STALE, fetched_at=_utc_iso(mtime))
+
+
+def _cached_feed(cache_file, url, parse, max_age=_ALERT_MAX_AGE, **kwargs):
+    """A feed's alerts, fetched, parsed and cached, with how they came
+    noted for fetch_alerts.
+
+    `parse` turns the feed's answer into normalized alerts, and only
+    they are cached, so a copy read back, fresh or stale, is alerts. A
+    parse that raises is a failed fetch: the stale copy stands in, or
+    nothing. The other arguments go to fetch_json_cached.
+    """
+    answered = False
+
+    def transform(data):
+        nonlocal answered
+        alerts = parse(data)
+        answered = True
+        return alerts
+
+    alerts = fetch_json_cached(cache_file, max_age, url, fallback=[],
+                               transform=transform, provider="weather/alerts", **kwargs)
+    _note_alert_cache(cache_file, max_age, answered)
+    # A file from before the feeds were parsed on the way in can hold a
+    # feed's own payload, left behind where parsing it failed.
+    return alerts if isinstance(alerts, list) else []
 
 
 def fetch_alerts(lat: float, lng: float, country_code: str = "", lang: str = "en",
@@ -777,20 +805,14 @@ def _fetch_alerts_routed(lat, lng, country_code, lang, address):
 
 def _fetch_alerts_nws(lat, lng):
     """Fetch active NWS alerts (US). Cached 15min."""
-    cache_file = cache_dir("weather") / f"alerts_{location_cache_key(lat, lng)}.json"
-    url = f"https://api.weather.gov/alerts/active?point={lat},{lng}"
-    data = fetch_json_cached(
-        cache_file,
-        900,
-        url,
-        headers={"Accept": "application/geo+json"},
-        timeout=10,
-        fallback=[],
-    )
-    _note_alert_cache(cache_file, 900, data)
-    if isinstance(data, list):
-        return data
+    return _cached_feed(
+        cache_dir("weather") / f"alerts_{location_cache_key(lat, lng)}.json",
+        f"https://api.weather.gov/alerts/active?point={lat},{lng}",
+        _parse_nws, headers={"Accept": "application/geo+json"}, timeout=10)
 
+
+def _parse_nws(data):
+    """NWS's GeoJSON as normalized alerts, actual ones only."""
     features = data.get("features", [])
     alerts = []
     for feature in features:
@@ -805,7 +827,6 @@ def _fetch_alerts_nws(lat, lng):
             "severity": props.get("severity", ""),
             "url": props.get("web", ""),
         })
-    write_cache(cache_file, alerts)
     return alerts
 
 
@@ -841,18 +862,12 @@ def _fetch_alerts_eccc(lat, lng, lang="en"):
         f"https://api.weather.gc.ca/collections/weather-alerts/items"
         f"?f=json&bbox={bbox}&lang={lang}&limit=20"
     )
-    data = fetch_json_cached(
-        cache_file,
-        900,
-        url,
-        headers={"Accept": "application/json"},
-        timeout=10,
-        fallback=[],
-    )
-    _note_alert_cache(cache_file, 900, data)
-    if isinstance(data, list):
-        return data
+    return _cached_feed(cache_file, url, lambda data: _parse_eccc(data, lang),
+                        headers={"Accept": "application/json"}, timeout=10)
 
+
+def _parse_eccc(data, lang):
+    """Environment Canada's features as normalized alerts, one per event."""
     # Use language-appropriate fields, falling back to the other language
     name_key = f"alert_name_{lang}"
     name_fallback = "alert_name_en" if lang != "en" else "alert_name_fr"
@@ -894,7 +909,6 @@ def _fetch_alerts_eccc(lat, lng, lang="en"):
             "severity": severity,
             "url": "",
         })
-    write_cache(cache_file, alerts)
     return alerts
 
 
@@ -913,16 +927,14 @@ def _eccc_severity(props):
 
 def _fetch_alerts_brightsky(lat, lng, lang="en"):
     """Fetch DWD alerts via Bright Sky API (Germany). Cached 15min."""
-    cache_file = cache_dir("weather") / f"alerts_de_{location_cache_key(lat, lng)}_{lang}.json"
-    url = f"https://api.brightsky.dev/alerts?lat={lat}&lon={lng}"
-    data = fetch_json_cached(
-        cache_file, 900, url,
-        timeout=10, fallback=[],
-    )
-    _note_alert_cache(cache_file, 900, data)
-    if isinstance(data, list):
-        return data
+    return _cached_feed(
+        cache_dir("weather") / f"alerts_de_{location_cache_key(lat, lng)}_{lang}.json",
+        f"https://api.brightsky.dev/alerts?lat={lat}&lon={lng}",
+        lambda data: _parse_brightsky(data, lang), timeout=10)
 
+
+def _parse_brightsky(data, lang):
+    """Bright Sky's alerts, normalized."""
     # Prefer user's language, fall back to English, then German
     prefer_de = lang == "de"
     alerts = []
@@ -945,7 +957,6 @@ def _fetch_alerts_brightsky(lat, lng, lang="en"):
             "severity": severity,
             "url": "",
         })
-    write_cache(cache_file, alerts)
     return alerts
 
 
@@ -954,19 +965,17 @@ def _fetch_alerts_metno(lat, lng):
 
     Uses api.met.no with lat/lon coordinate filtering.
     """
-    cache_file = cache_dir("weather") / f"alerts_no_{location_cache_key(lat, lng)}.json"
     url = (
         f"https://api.met.no/weatherapi/metalerts/2.0/current.json"
         f"?lat={lat}&lon={lng}"
     )
-    data = fetch_json_cached(
-        cache_file, 900, url,
-        timeout=10, fallback=[],
-    )
-    _note_alert_cache(cache_file, 900, data)
-    if isinstance(data, list):
-        return data
+    return _cached_feed(
+        cache_dir("weather") / f"alerts_no_{location_cache_key(lat, lng)}.json",
+        url, _parse_metno, timeout=10)
 
+
+def _parse_metno(data):
+    """MET Norway's features as normalized alerts, one per event."""
     alerts = []
     seen = set()
     for feature in data.get("features", []):
@@ -992,7 +1001,6 @@ def _fetch_alerts_metno(lat, lng):
             "severity": severity,
             "url": web,
         })
-    write_cache(cache_file, alerts)
     return alerts
 
 
@@ -1073,17 +1081,15 @@ def _fetch_alerts_meteireann(lat, lng, address=None):
     says which county the reader is in.
     """
     county = _meteireann_county(address)
-    cache_file = cache_dir("weather") / f"alerts_ie_{location_cache_key(lat, lng)}.json"
-    url = "https://prodapi.metweb.ie/warnings/active"
-    data = fetch_json_cached(
-        cache_file, 900, url,
-        headers={"Accept": "application/json"},
-        timeout=10, fallback=[],
-    )
-    _note_alert_cache(cache_file, 900, data)
-    if isinstance(data, list):
-        return data
+    return _cached_feed(
+        cache_dir("weather") / f"alerts_ie_{location_cache_key(lat, lng)}.json",
+        "https://prodapi.metweb.ie/warnings/active",
+        lambda data: _parse_meteireann(data, county),
+        headers={"Accept": "application/json"}, timeout=10)
 
+
+def _parse_meteireann(data, county):
+    """Met Éireann's warnings, the county's and everyone's, normalized."""
     warnings_data = data.get("warnings") or {}
     alerts = []
     seen = set()
@@ -1117,7 +1123,6 @@ def _fetch_alerts_meteireann(lat, lng, address=None):
                 "severity": severity,
                 "url": "",
             })
-    write_cache(cache_file, alerts)
     return alerts
 
 
@@ -1198,16 +1203,17 @@ def _fetch_alerts_meteoalarm(lat, lng, slug, lang="en", address=None):
     cache_file = cache_dir(
         "weather", f"alerts_eu_{slug}_{location_cache_key(lat, lng)}_{lang}.json")
     url = f"https://feeds.meteoalarm.org/api/v1/warnings/feeds-{slug}"
-    data = fetch_json_cached(
-        cache_file, 900, url, timeout=15, fallback=[],
+    return _cached_feed(
+        cache_file, url, lambda data: _parse_meteoalarm(data, lat, lng, lang, address),
+        timeout=15,
         fetch=lambda url, timeout: fetch_json(
             url, headers={"Accept": "application/json"}, timeout=timeout,
             limit=_METEOALARM_FEED_BYTES),
     )
-    _note_alert_cache(cache_file, 900, data)
-    if isinstance(data, list):
-        return data
 
+
+def _parse_meteoalarm(data, lat, lng, lang, address):
+    """A MeteoAlarm country feed's warnings for the place, normalized."""
     warnings = data.get("warnings", [])
     per_warning_descs = [
         [area.get("areaDesc") or ""
@@ -1344,7 +1350,6 @@ def _fetch_alerts_meteoalarm(lat, lng, slug, lang="en", address=None):
 
     if not alerts:
         alerts = national
-    write_cache(cache_file, alerts)
     return alerts
 
 
@@ -1670,7 +1675,7 @@ def _jma_area_for_address(address, office_code):
 
     table = fetch_json_cached(
         cache_dir("weather") / "jma_areas.json", _JMA_AREA_MAX_AGE, _JMA_AREA_URL,
-        timeout=10, fallback=None,
+        timeout=10, fallback=None, provider="weather/alerts",
     )
     if not isinstance(table, dict):
         return None
@@ -1761,16 +1766,14 @@ def _fetch_alerts_jma(lat, lng, lang="en", address=None):
         key = "-".join(area["codes"])
     else:
         key = office_code
-    cache_file = cache_dir("weather") / f"alerts_jp_{key}_{lang}.json"
-    url = f"https://www.jma.go.jp/bosai/warning/data/warning/{office_code}.json"
-    data = fetch_json_cached(
-        cache_file, 900, url,
-        timeout=10, fallback=[],
-    )
-    _note_alert_cache(cache_file, 900, data)
-    if isinstance(data, list):
-        return data
+    return _cached_feed(
+        cache_dir("weather") / f"alerts_jp_{key}_{lang}.json",
+        f"https://www.jma.go.jp/bosai/warning/data/warning/{office_code}.json",
+        lambda data: _parse_jma(data, office_code, area, lang), timeout=10)
 
+
+def _parse_jma(data, office_code, area, lang):
+    """An office's warning file as normalized alerts for the area."""
     # both are null, not absent, when the office has nothing to say
     headline = data.get("headlineText") or ""
     report_dt = data.get("reportDatetime") or ""
@@ -1816,8 +1819,6 @@ def _fetch_alerts_jma(lat, lng, lang="en", address=None):
             "severity": severity,
             "url": "https://www.jma.go.jp/bosai/warning/",
         })
-
-    write_cache(cache_file, alerts)
     return alerts
 
 
@@ -1891,16 +1892,9 @@ def _fetch_alerts_hko(lang="en"):
     """Fetch active HKO weather warnings (Hong Kong), in the reader's
     language where the Observatory speaks it. Cached 10min."""
     feed = _HKO_LANG.get(base_language(lang), "en")
-    cache_file = cache_dir("weather") / f"alerts_hk_{feed}.json"
-    url = HKO_WARNINGS_URL.format(lang=feed)
-    data = fetch_json_cached(cache_file, 600, url, timeout=10, fallback=[])
-    _note_alert_cache(cache_file, 600, data)
-    if isinstance(data, list):
-        return data
-
-    alerts = _parse_hko_warnsum(data, lang)
-    write_cache(cache_file, alerts)
-    return alerts
+    return _cached_feed(
+        cache_dir("weather") / f"alerts_hk_{feed}.json", HKO_WARNINGS_URL.format(lang=feed),
+        lambda data: _parse_hko_warnsum(data, lang), max_age=600, timeout=10)
 
 
 # ---------------------------------------------------------------------------
@@ -2013,21 +2007,10 @@ def _fetch_alerts_cma(lat, lng, lang="en"):
     filtered by the nearest province codes from the alertid prefix.
     """
     provinces = _cma_provinces_for_coords(lat, lng)
-    tag = provinces[0]
-    cache_file = cache_dir("weather") / f"alerts_cn_{tag}_{lang}.json"
-
-    data = fetch_json_cached(
-        cache_file, 900,
+    return _cached_feed(
+        cache_dir("weather") / f"alerts_cn_{provinces[0]}_{lang}.json",
         "http://www.nmc.cn/rest/findAlarm?pageNo=1&pageSize=500",
-        timeout=10, fallback=[],
-    )
-    _note_alert_cache(cache_file, 900, data)
-    if isinstance(data, list):
-        return data
-
-    alerts = _parse_cma_data(data, provinces, lang)
-    write_cache(cache_file, alerts)
-    return alerts
+        lambda data: _parse_cma_data(data, provinces, lang), timeout=10)
 
 
 def _parse_cma_data(data, provinces, lang="en"):
@@ -2166,14 +2149,8 @@ def _fetch_alerts_sachet(lat, lng, lang="en"):
     """
     import math
 
-    feed_file = cache_dir("weather") / "alerts_in_feed.json"
-    feed = fetch_json_cached(
-        feed_file, 900,
-        _SACHET_FEED_URL, timeout=15, fallback=None,
-    )
-    _note_alert_cache(feed_file, 900, feed)
-    if not isinstance(feed, list):
-        return []
+    feed = _cached_feed(cache_dir("weather") / "alerts_in_feed.json",
+                        _SACHET_FEED_URL, _sachet_feed, timeout=15)
 
     cos_lat = math.cos(math.radians(lat))
     candidates = []
@@ -2219,6 +2196,15 @@ def _fetch_alerts_sachet(lat, lng, lang="en"):
 
     _sweep_sachet_cap_files(feed)
     return alerts
+
+
+def _sachet_feed(feed):
+    """The feed's entries, kept as they come: each alert is refined from
+    its CAP file on every run. The feed is a bare list; anything else is
+    not an answer."""
+    if not isinstance(feed, list):
+        raise ValueError(f"SACHET feed is a {type(feed).__name__}, not a list")
+    return feed
 
 
 def _sweep_sachet_cap_files(feed):
@@ -2307,6 +2293,7 @@ def _sachet_cap_infos(identifier):
     raw = fetch_bytes_cached(
         cache_dir("weather") / f"alerts_in_cap_{identifier}.xml", None,
         _SACHET_CAP_URL.format(identifier=identifier), timeout=6,
+        provider="weather/alerts",
     )
     if not raw:
         return None
@@ -2416,8 +2403,9 @@ def _fetch_alerts_metservice(lat, lng):
     from linecast._http import fetch_bytes_cached
 
     feed_file = cache_dir("weather") / "alerts_nz_feed.xml"
-    raw = fetch_bytes_cached(feed_file, 900, _METSERVICE_FEED_URL, timeout=15)
-    _note_alert_cache(feed_file, 900, raw)
+    raw = fetch_bytes_cached(feed_file, _ALERT_MAX_AGE, _METSERVICE_FEED_URL, timeout=15,
+                             provider="weather/alerts")
+    _note_alert_cache(feed_file, _ALERT_MAX_AGE, bool(raw))
     if not raw:
         return []
     try:
@@ -2479,7 +2467,8 @@ def _metservice_alert_from_cap(identifier, lat, lng):
     # and a stormy week's worth must not hold the dashboard for long.
     raw = fetch_bytes_cached(
         cache_dir("weather") / f"alerts_nz_cap_{identifier}.xml", None,
-        _METSERVICE_CAP_URL.format(identifier=identifier), timeout=6)
+        _METSERVICE_CAP_URL.format(identifier=identifier), timeout=6,
+        provider="weather/alerts")
     if not raw:
         return None
     try:
