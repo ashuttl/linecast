@@ -24,8 +24,9 @@ from linecast.terminal.color import fg, bg, interp_stops, lerp
 from linecast.terminal.framebuffer import get_terminal_size, Framebuffer
 from linecast._timefmt import fmt_time
 from linecast.terminal.live import overlay
+from linecast.moon.i18n import _fmt_month_day
 from linecast.sunshine.i18n import (
-    _fmt_month_day, axis_month_labels, clock_label, polar_name, relative_day, sky_event,
+    axis_month_labels, clock_label, polar_name, relative_day, sky_event,
     sky_phase,
 )
 from linecast.terminal.glyphs import _icon_set

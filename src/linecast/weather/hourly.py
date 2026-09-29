@@ -12,7 +12,8 @@ from linecast._runtime import WeatherRuntime, current_runtime
 from linecast._log import log_skipped
 from linecast._i18n import is_rtl, lang_of, table_for
 from linecast.weather.historical import temperature_scale
-from linecast.weather.i18n import FULL_DAY_NAMES, _s
+from linecast.weather.i18n import _s
+from linecast._i18n import FULL_DAY_NAMES
 from linecast.weather.sources import _local_now_for_data
 from linecast.weather.style import (
     CHART_BG_DAY_RGB,

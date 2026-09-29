@@ -66,16 +66,14 @@ from linecast.astro.calendars.icelandic import (
     next_month_start as next_icelandic_month,
 )
 from linecast.moon.i18n import (
-    _day_abbrev, _fmt_month_day, _moon_name, _ms, _season_label,
-    anahulu_name, festival_table, hebrew_date_label, hebrew_holiday_name,
-    hebrew_month_name, hijri_date_label, hijri_month_name,
-    hijri_observance_name, icelandic_day_name, icelandic_month_name,
-    icelandic_moon_name, icelandic_week_label, ja_night_name,
-    lunar_date_label,
-    pacific_night_label, solar_hijri_observance_name, term_label,
-    thai_festival_name, thai_lunar_label, thai_year_label, wan_phra_label,
-    year_turn_label,
+    _day_abbrev, _fmt_month_day, _ms, _season_label, anahulu_name, festival_table,
+    hebrew_date_label, hebrew_holiday_name, hebrew_month_name, hijri_date_label, hijri_month_name,
+    hijri_observance_name, icelandic_day_name, icelandic_month_name, icelandic_moon_name,
+    icelandic_week_label, ja_night_name, lunar_date_label, pacific_night_label,
+    solar_hijri_observance_name, term_label, thai_festival_name, thai_lunar_label, thai_year_label,
+    wan_phra_label, year_turn_label,
 )
+from linecast._i18n import moon_name
 from linecast.astro.calendars.civil import (
     SOLAR_HIJRI, civil_calendar, solar_hijri_day_of_year,
 )
@@ -539,7 +537,7 @@ def render(now_local, lat, lng, runtime, fullscreen=False, offset_minutes=0,
     False leaves the Moon alone in its sky, at its bare size.
     """
     idx, _name, icon = moon_phase(now_local, runtime)
-    name = _moon_name(idx, runtime)
+    name = moon_name(idx, runtime)
     illum = moon_illumination(now_local)
     moment_utc = now_local.astimezone(timezone.utc)
     age = moon_age_days(moment_utc)
@@ -589,11 +587,11 @@ def render(now_local, lat, lng, runtime, fullscreen=False, offset_minutes=0,
                                             runtime, lang)
     if cal_name:
         name = cal_name
-    full_label = _moon_name(4, runtime)
+    full_label = moon_name(4, runtime)
     if lang == "en" and cal in (None, "almanac"):
-        moon_name = full_moon_name(full_dt, SYNODIC_MONTH)
-        full_label = ("Blue Moon" if moon_name == "Blue"
-                      else f"Full {moon_name} Moon")
+        folk_name = full_moon_name(full_dt, SYNODIC_MONTH)
+        full_label = ("Blue Moon" if folk_name == "Blue"
+                      else f"Full {folk_name} Moon")
 
     # Text pieces shared by every layout.
     T, M, D = PANEL_TEXT_RGB, PANEL_MUTED_RGB, PANEL_DIM_RGB
@@ -616,7 +614,7 @@ def render(now_local, lat, lng, runtime, fullscreen=False, offset_minutes=0,
     # actually look.
     alt_dir_txt = f"{alt:.0f}° · {bearing}"
     below_txt = _ms('below_horizon', runtime)
-    new_label = _moon_name(0, runtime)
+    new_label = moon_name(0, runtime)
     # The almanac prints a named moon's name at the new moon that
     # lights it, as the English almanacs name the full moons.
     lit_moon = lit_moon_key(new_dt) if cal == "icelandic" else None

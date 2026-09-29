@@ -49,17 +49,15 @@ from linecast.astro.calendars.civil import (
     SOLAR_HIJRI, civil_calendar, shift_month, solar_hijri_month_title,
 )
 from linecast.moon.i18n import (
-    MONTHS_I18N, _day_abbrev, _fmt_month_day, _moon_name, _ms, _zh_day_name,
-    anahulu_name, festival_table, gregorian_date_label, hebrew_date_label,
-    hijri_sighting_note,
-    hebrew_holiday_name, hebrew_month_name, hijri_date_label,
-    hijri_era, hijri_month_name, hijri_observance_name,
-    icelandic_day_name, icelandic_month_name, icelandic_moon_name,
-    icelandic_week_label, ja_night_name, lunar_date_label,
-    pacific_night_label, pacific_night_name, rosh_chodesh_label,
-    thai_festival_name, thai_lunar_label, thai_month_label,
-    vi_month_label, wan_phra_label, zh_month_label,
+    _day_abbrev, _fmt_month_day, _ms, _zh_day_name, anahulu_name, festival_table,
+    gregorian_date_label, hebrew_date_label, hijri_sighting_note, hebrew_holiday_name,
+    hebrew_month_name, hijri_date_label, hijri_era, hijri_month_name, hijri_observance_name,
+    icelandic_day_name, icelandic_month_name, icelandic_moon_name, icelandic_week_label,
+    ja_night_name, lunar_date_label, pacific_night_label, pacific_night_name, rosh_chodesh_label,
+    thai_festival_name, thai_lunar_label, thai_month_label, vi_month_label, wan_phra_label,
+    zh_month_label,
 )
+from linecast._i18n import MONTHS, moon_name
 from linecast.astro.calendars.pacific import PACIFIC_CALENDARS, pacific_night
 from linecast.astro.calendars.thai_lunar import (
     _festival_key as thai_festival_key, is_wan_phra, thai_lunar_date,
@@ -68,7 +66,7 @@ from linecast.astro.seasons import full_moon_name
 from linecast.terminal.textwidth import char_width
 from linecast.terminal.theme import darken, ensure_contrast, is_light_theme, surface_bg
 from linecast.tides.i18n import _ts
-from linecast.weather.i18n import DAY_NAMES
+from linecast._i18n import DAY_NAMES
 
 _theme.track_imports(globals(), "linecast.terminal.color")
 
@@ -102,10 +100,10 @@ def _month_title(year, month, lang):
         return f"{month}/{year}"
     if lang == "hu":
         # Hungarian dates run from the year: "2026. szept."
-        return f"{year}. {table_for(MONTHS_I18N, lang)[month - 1]}"
+        return f"{year}. {table_for(MONTHS, lang)[month - 1]}"
     if lang == "vi":
         return f"Tháng {month} năm {year}"
-    months = table_for(MONTHS_I18N, lang)
+    months = table_for(MONTHS, lang)
     if lang == "th":
         # Thai calendars year themselves in the Buddhist Era.
         return f"{months[month - 1]} {year + 543}"
@@ -115,7 +113,7 @@ def _month_title(year, month, lang):
 def _gregorian_span(first, last, lang):
     """The Gregorian months a Solar Hijri month runs through, for the
     title: `سپتامبر – اکتبر 2026`, or `دسامبر 2026 – ژانویه 2027`."""
-    months = table_for(MONTHS_I18N, lang)
+    months = table_for(MONTHS, lang)
     n1, n2 = months[first.month - 1], months[last.month - 1]
     if first.year == last.year:
         return f"{n1} – {n2} {first.year}"
@@ -507,7 +505,7 @@ def render_calendar(now_local, lat, lng, runtime, month_offset=0,
                 and not (cal in PACIFIC_CALENDARS
                          or (cal == "chinese" and native))):
             room = cell_w - 2 - (right_w + 1 if right_w else 0)
-            text = _corner_text(d.day, table_for(MONTHS_I18N, lang)[d.month - 1],
+            text = _corner_text(d.day, table_for(MONTHS, lang)[d.month - 1],
                                 room)
             if visible_len(text) <= room:
                 _put(overlays, x0 + 1, y0 + cell_h - 1, text, F, max_x=graph_w)
@@ -594,7 +592,7 @@ def _hover_chip(d, now_local, lat, lng, runtime, cal, native, fest,
 
     if principal:
         idx, at = principal
-        name = japanese_night or _moon_name(idx, runtime)
+        name = japanese_night or moon_name(idx, runtime)
         if idx == 4 and lang == "en" and cal in (None, "almanac"):
             mn = full_moon_name(at, SYNODIC_MONTH)
             name = "Blue Moon" if mn == "Blue" else f"Full {mn} Moon"
@@ -606,7 +604,7 @@ def _hover_chip(d, now_local, lat, lng, runtime, cal, native, fest,
                       f"{fmt_time_dt(at, use_24h=runtime.use_24h)}")
     else:
         idx, _name, icon = moon_phase(noon, runtime)
-        name = japanese_night or _moon_name(idx, runtime)
+        name = japanese_night or moon_name(idx, runtime)
         phase_line = (f"{icon} {name} · "
                       f"{_ms('illuminated', runtime, pct=f'{illum * 100:.0f}')}")
 

@@ -30,7 +30,7 @@ def build_payload(now_local, lat, lng, runtime, location=None, facing=None,
     scene = Scene(now_local.astimezone(timezone.utc), lat, lng)
     view = default_view(scene, 80, 24, facing, fov or FOV_DEFAULT)
     idx, _name, _icon = moon_phase(scene.moment_utc, runtime)
-    from linecast.tides.i18n import _moon_name
+    from linecast._i18n import moon_name
 
     def place(alt, az):
         return {"altitude": round(alt, 1), "azimuth": round(az, 1),
@@ -67,7 +67,7 @@ def build_payload(now_local, lat, lng, runtime, location=None, facing=None,
                 "sky": sky_phase(scene.sun_alt, runtime, morning=scene.morning())},
         "moon": {**place(scene.moon_alt, scene.moon_az),
                  "illumination": round(scene.moon_illum * 100.0, 1),
-                 "phase": _moon_name(idx, runtime), "phase_index": idx},
+                 "phase": moon_name(idx, runtime), "phase_index": idx},
         "planets": planets,
         "bright_stars": bright,
         "limiting_magnitude": round(scene.eye_limit, 1),

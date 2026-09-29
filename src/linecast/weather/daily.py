@@ -8,8 +8,8 @@ from linecast.terminal.color import bg, color_mode, fg, RESET, BOLD
 from linecast.terminal.textwidth import visible_len
 from linecast._runtime import WeatherRuntime, current_runtime
 from linecast.weather.cover import sky_condition
-from linecast.weather.i18n import (DAY_NAMES, FULL_DAY_NAMES, _s,
-                                   _wmo_icons, fmt_wind, wmo_label)
+from linecast.weather.i18n import _s, _wmo_icons, fmt_wind, wmo_label
+from linecast._i18n import DAY_NAMES, FULL_DAY_NAMES
 from linecast.weather.sources import _local_now_for_data
 from linecast.weather.style import (
     DIM, MUTED, TEXT, WIND_COLOR, _knockout_ink, _precip_color, _precip_type, _temp_color,

@@ -35,14 +35,8 @@ from linecast._location import country_for_defaults, resolve_location
 from linecast._runtime import WeatherRuntime, install_banner, set_current
 from linecast._parsers import weather_parser
 from linecast._log import log_failure
-from linecast.weather.i18n import (
-    fmt_wind,
-    FULL_DAY_NAMES,
-    felt_index,
-    wmo_label,
-    _s,
-    _wmo_icons,
-)
+from linecast.weather.i18n import fmt_wind, felt_index, wmo_label, _s, _wmo_icons
+from linecast._i18n import FULL_DAY_NAMES
 from linecast.weather.alerts import alerts_notice, build_alert_modal, render_alerts_mapped
 from linecast.weather.daily import (
     fmt_precip_amount, fmt_snow_amount, mostly_snow, render_daily_mapped,

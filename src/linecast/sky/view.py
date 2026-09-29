@@ -929,9 +929,9 @@ def _chip(mouse_pos, hits, scene, runtime, cols, rows, graph_w, graph_h, view):
         alt, az = scene.sun_alt, scene.sun_az
     elif kind == "moon":
         idx, _name, icon = moon_phase(scene.moment_utc, runtime)
-        from linecast.tides.i18n import _moon_name
+        from linecast._i18n import moon_name
         title = f"{icon} {body_name('moon', runtime)}"
-        detail = f"{_moon_name(idx, runtime)} · {fmt_percent(scene.moon_illum * 100, runtime)}"
+        detail = f"{moon_name(idx, runtime)} · {fmt_percent(scene.moon_illum * 100, runtime)}"
         alt, az = scene.moon_alt, scene.moon_az
     elif kind == 'deep_sky':
         record, alt, az = payload

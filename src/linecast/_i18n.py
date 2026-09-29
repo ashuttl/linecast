@@ -440,3 +440,23 @@ def lookup(table, key, lang, **kwargs):
     else:
         text = key
     return text.format(**kwargs) if kwargs else text
+
+
+# ---------------------------------------------------------------------------
+# Words more than one view uses
+# ---------------------------------------------------------------------------
+# The weekdays, the months and the Moon's phases, read by the weather,
+# the moon and its calendars, sunshine's year, the tides chart and the
+# sky. One instance of each: a test stands a table in on the instance.
+DAY_NAMES = LocaleTable("DAY_NAMES")
+FULL_DAY_NAMES = LocaleTable("FULL_DAY_NAMES")
+# Abbreviated, January to December; CJK and Finnish dates are written
+# in numbers (the moon's DATE_MD), so theirs go unused there.
+MONTHS = LocaleTable("MONTHS")
+MOON_PHASES = LocaleTable("MOON_PHASES")
+
+
+def moon_name(idx, runtime):
+    """The Moon's phase by its index, 0 new to 7 waning crescent, in the
+    runtime's language."""
+    return table_for(MOON_PHASES, lang_of(runtime))[idx]

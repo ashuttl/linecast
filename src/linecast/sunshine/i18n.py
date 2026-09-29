@@ -7,15 +7,15 @@ labels for the languages whose month names don't abbreviate.
 
 from linecast._i18n import LocaleTable, base_language, has_text, lang_of, lookup, plural_category, setting, table_for
 from linecast._timefmt import fmt_time_dt
-from linecast.moon.i18n import MONTHS_I18N, _fmt_month_day  # noqa: F401 — re-export
+from linecast._i18n import MONTHS
 
 _SUNSHINE_STRINGS = LocaleTable("SUNSHINE")
 
-# Month-axis labels where the first three letters of the MONTHS_I18N name
+# Month-axis labels where the first three letters of the MONTHS name
 # won't do: CJK and Vietnamese dates are numeric, Finnish months are
 # long words, and French juin and juillet share their first three
 # letters.
-# Everything else takes the first letters of the MONTHS_I18N name.
+# Everything else takes the first letters of the MONTHS name.
 _AXIS_MONTHS = LocaleTable("CHART_MONTHS")
 
 
@@ -23,7 +23,7 @@ def _axis_months(lang):
     """The month names the axis abbreviates: a language's own axis set
     where it has one, else its months, read through a variant's base."""
     return (_AXIS_MONTHS.get(lang) or _AXIS_MONTHS.get(base_language(lang))
-            or table_for(MONTHS_I18N, lang))
+            or table_for(MONTHS, lang))
 
 
 def _ss(key, runtime, **kwargs):
@@ -123,7 +123,7 @@ def clock_label(now, runtime, today=None):
     machine's by default.
     """
     from linecast.sunshine import solar
-    from linecast.weather.i18n import DAY_NAMES
+    from linecast._i18n import DAY_NAMES
     if today is None:
         today = solar._local_today()
     clock = fmt_time_dt(now, runtime.use_24h)

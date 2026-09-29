@@ -1,23 +1,16 @@
 """Moon command localization strings.
 
-Phase names live in MOON_NAMES_I18N (in tides.i18n, shared with the tides
-chart's moon labels); this module holds the strings specific to the ``moon``
-command plus month names for the full/new moon dates.
+The phase, month and day names are _i18n's, shared with the other
+views; this module holds the strings specific to the ``moon`` command
+and the way each language writes a month and day.
 """
 
-from linecast._i18n import LocaleTable, base_language, has_text, lang_of, lookup, plural_category, setting, table_for
-from linecast.tides.i18n import MOON_NAMES_I18N, _moon_name  # noqa: F401 — re-export
-from linecast.weather.i18n import DAY_NAMES  # re-export for convenience
+from linecast._i18n import DAY_NAMES, MONTHS, LocaleTable, base_language, has_text, lang_of, lookup, plural_category, setting, table_for
 
 _MOON_STRINGS = LocaleTable("MOON")
 
-
-# Abbreviated month names, January..December. CJK and Finnish dates are
-# formatted numerically via DATE_MD below, so those entries are unused.
-MONTHS_I18N = LocaleTable("MONTHS")
-
 # Date order/format per language: {month} = abbreviated name from
-# MONTHS_I18N, {mnum} = month number, {day} = day of month.
+# MONTHS, {mnum} = month number, {day} = day of month.
 _DATE_MD = LocaleTable("MONTH_DAY")
 _DATE_MD_DEFAULT = "{day} {month}"
 
@@ -72,7 +65,7 @@ def gregorian_month_day(dt, lang):
     """`Sep 23`, `23. Sep`, `9月23日`: the Gregorian month and day, whatever
     the civil calendar."""
     fmt = _DATE_MD.get(lang, _DATE_MD.get(base_language(lang), _DATE_MD_DEFAULT))
-    months = table_for(MONTHS_I18N, lang)
+    months = table_for(MONTHS, lang)
     return fmt.format(month=months[dt.month - 1], mnum=dt.month, day=dt.day)
 
 

@@ -71,10 +71,6 @@ WMO_NAMES = {
     95: "Thunderstorm", 96: "Thunderstorm", 99: "Thunderstorm",
 }
 
-DAY_NAMES = LocaleTable("DAY_NAMES")
-
-FULL_DAY_NAMES = LocaleTable("FULL_DAY_NAMES")
-
 WMO_NAMES_I18N = LocaleTable("CONDITIONS")
 
 _PRECIP_DESCS_I18N = LocaleTable("PRECIP")

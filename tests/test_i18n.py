@@ -13,7 +13,8 @@ from linecast.maps.i18n import ms
 from linecast.moon.i18n import _ms
 from linecast.radar.i18n import rs
 from linecast.tides.i18n import _ts
-from linecast.weather.i18n import DAY_NAMES, WMO_NAMES_I18N, _s
+from linecast.weather.i18n import WMO_NAMES_I18N, _s
+from linecast._i18n import DAY_NAMES
 from linecast.weather.sections import (
     _past_precip_line,
     _precipitation_line,
@@ -1181,17 +1182,17 @@ class TestMonthAxisLabels:
 
     def test_wide_labels_are_distinct_in_every_language(self):
         """No two months may truncate to the same axis label."""
-        from linecast.moon.i18n import MONTHS_I18N
+        from linecast._i18n import MONTHS
         from linecast.sunshine.i18n import _AXIS_MONTHS, axis_month_labels
-        for lang in set(MONTHS_I18N) | set(_AXIS_MONTHS):
+        for lang in set(MONTHS) | set(_AXIS_MONTHS):
             labels = axis_month_labels(SimpleNamespace(lang=lang))
             assert len(set(labels)) == 12, lang
 
 
 class TestKoreanMoonNames:
     def test_everyday_phase_words(self):
-        from linecast.tides.i18n import MOON_NAMES_I18N
-        assert MOON_NAMES_I18N["ko"] == [
+        from linecast._i18n import MOON_PHASES
+        assert MOON_PHASES["ko"] == [
             "삭", "초승달", "상현달",
             "차오르는 달", "보름달",
             "기우는 달", "하현달",
@@ -1207,8 +1208,8 @@ class TestMoonPhaseCase:
                      "no", "pl", "pt", "ro", "sv")
 
     def test_phases_in_sentence_case(self):
-        from linecast.tides.i18n import MOON_NAMES_I18N
+        from linecast._i18n import MOON_PHASES
         for lang in self.SENTENCE_CASE:
-            for name in MOON_NAMES_I18N[lang]:
+            for name in MOON_PHASES[lang]:
                 first, *rest = name.split()
                 assert all(word.islower() for word in rest), (lang, name)

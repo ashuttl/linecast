@@ -27,7 +27,7 @@ def build_payload(now_local, lat, lng, runtime, location=None, calendar=None,
     geocode lookup). *calendar* is the --calendar flag, resolved against
     the saved setting and language the same way the panel resolves it.
     """
-    from linecast.moon.i18n import _moon_name
+    from linecast._i18n import moon_name
     from linecast.astro.ephemeris import (
         _moon_altitude_deg, _moon_azimuth_deg, moon_age_days,
     )
@@ -322,7 +322,7 @@ def build_payload(now_local, lat, lng, runtime, location=None, calendar=None,
         "timezone": (getattr(now_local.tzinfo, "key", None)
                      or _local_timezone_name()),
         "fetched_at": iso_minutes(now_local),
-        "phase": _moon_name(idx, runtime),
+        "phase": moon_name(idx, runtime),
         "icon": icon,
         "illumination": round(illumination, 1),
         "waxing": frac < 0.5,

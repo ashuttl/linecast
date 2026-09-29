@@ -777,10 +777,10 @@ def _month_axis(starts, n, width, runtime, this_month=None):
     full, since Persian does not abbreviate its months; a month too
     narrow for its name goes without a label rather than take a number."""
     from linecast.astro.calendars.civil import SOLAR_HIJRI, civil_calendar
-    from linecast.sunshine.i18n import MONTHS_I18N, axis_month_labels
-    from linecast._i18n import table_for
+    from linecast.sunshine.i18n import axis_month_labels
+    from linecast._i18n import MONTHS, table_for
     named = civil_calendar(runtime.lang) == SOLAR_HIJRI
-    labels = (table_for(MONTHS_I18N, runtime.lang) if named
+    labels = (table_for(MONTHS, runtime.lang) if named
               else axis_month_labels(runtime, narrow=width < 72))
     cells = [" "] * width
     xs = [min(width - 1, int(s / n * width)) for s in starts] + [width]
@@ -810,8 +810,8 @@ def _tooltip(climate, days, span, jan1, slots, runtime, col, mouse_row, cols, ro
     high and lowest low, the ten years' average and extremes for the
     dates, and the precipitation of the days gone by."""
     from linecast.astro.calendars.civil import SOLAR_HIJRI, civil_calendar
-    from linecast.moon.i18n import gregorian_month_day
-    from linecast.sunshine.i18n import _fmt_month_day, relative_day
+    from linecast.moon.i18n import _fmt_month_day, gregorian_month_day
+    from linecast.sunshine.i18n import relative_day
     from linecast.weather.daily import fmt_precip_amount, fmt_snow_amount
     from linecast.weather.sections import _PRECIP_CODES
     from linecast.weather.style import _colored_temp, _precip_rgb

@@ -52,7 +52,8 @@ from linecast._log import log_failure
 from linecast.terminal.spinner import Spinner
 from linecast.tides.marine import fetch_marine, parse_marine_current, format_marine_line
 from linecast.tides.common import sweep_legacy_cache
-from linecast.tides.i18n import _moon_name, _ts
+from linecast.tides.i18n import _ts
+from linecast._i18n import moon_name
 from linecast.tides.tidecheck import budget_line as tidecheck_budget_line
 from linecast.tides.providers import (
     CHS, HKO, NOAA, OPENMETEO, PROVIDERS, QLD, TIDECHECK, provider_for_id,
@@ -635,7 +636,7 @@ def _render_header_line(cols, station_name, runtime, offset_minutes=0, location_
 
     # Moon phase (right-aligned)
     idx, _, moon_icon = moon_phase(datetime.now(timezone.utc), runtime)
-    phase_name = _moon_name(idx, runtime)
+    phase_name = moon_name(idx, runtime)
     moon_color = fg(*MUTED_RGB)
     moon_str = f"{moon_color}{moon_icon} {DIM}{phase_name}{RESET}"
     moon_w = visible_len(moon_icon) + 1 + visible_len(phase_name)
