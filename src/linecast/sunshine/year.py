@@ -22,6 +22,7 @@ from linecast.terminal import live as _live
 from linecast.terminal import theme as _theme
 from linecast.terminal.color import fg, bg, interp_stops, lerp
 from linecast.terminal.framebuffer import get_terminal_size, Framebuffer
+from linecast.terminal.scenes import Memo
 from linecast._timefmt import fmt_time
 from linecast.terminal.live import overlay
 from linecast.moon.i18n import _fmt_month_day
@@ -45,7 +46,7 @@ _theme.track_imports(globals(), "linecast.terminal.color")
 # field, not into it, so a hover would otherwise pay for a quarter of a
 # million elevations again on a large terminal. Cleared on theme reload,
 # where the palette itself changes.
-_FIELD_CACHE = {}
+_FIELD_CACHE = Memo(keep=1)
 
 def _rebuild():
     # Now and hover hairlines and the hover tooltip, tides' recipe.
@@ -213,9 +214,7 @@ def _sky_field(lat, lng, graph_w, graph_h, days, tz_offs, palette):
     palette are on screen at a time, so the cache holds the last field
     and no more; the caller gets a copy to draw the sun into.
     """
-    key = (lat, lng, graph_w, graph_h, days, palette, tuple(tz_offs))
-    rows = _FIELD_CACHE.get(key)
-    if rows is None:
+    def build():
         shader = PALETTES[palette]()
         total_spy = graph_h * 2
         rows = [[None] * graph_w for _ in range(total_spy)]
@@ -232,9 +231,10 @@ def _sky_field(lat, lng, graph_w, graph_h, days, tz_offs, palette):
                 if c is None:
                     c = shade[e] = shader(e)
                 rows[spy][x] = c
-        _FIELD_CACHE.clear()
-        _FIELD_CACHE[key] = rows
-    return [row[:] for row in rows]
+        return rows
+
+    key = (lat, lng, graph_w, graph_h, days, palette, tuple(tz_offs))
+    return [row[:] for row in _FIELD_CACHE.get(key, build)]
 
 
 def render_year(lat, lng, now, runtime, tz=None, fullscreen=False,
