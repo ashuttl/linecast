@@ -9,7 +9,7 @@ import threading
 from datetime import date, datetime, timedelta, tzinfo
 from typing import Any
 
-from linecast._cache import location_cache_key, read_cache, write_cache
+from linecast._cache import location_cache_key
 from linecast._http import fetch_json, fetch_json_cached
 from linecast._log import log_failure, log_skipped
 from linecast.tides.common import (
@@ -49,29 +49,30 @@ def find_nearest_station(lat: float, lng: float) -> tuple[str | None, str | None
 
 def fetch_station_metadata_noaa(station_id: str) -> dict[str, Any] | None:
     """Fetch NOAA station metadata needed for timezone handling."""
-    cache_file = cache_dir() / f"station_meta_{station_id}.json"
     url = (
         "https://api.tidesandcurrents.noaa.gov/mdapi/prod/webapi/"
         f"stations/{station_id}.json?expand=details"
     )
-    data = fetch_json_cached(
-        cache_file,
-        30 * 86400,
-        url,
-        timeout=10,
-        fallback=None,
+    meta = fetch_json_cached(
+        cache_dir() / f"station_meta_{station_id}.json", 30 * 86400, url,
+        timeout=10, fallback=None, provider="tides/noaa",
+        transform=lambda data: _station_meta(data, station_id),
     )
-    if not data:
+    # A file from before the metadata was parsed on the way in can hold
+    # mdapi's own answer, one that named no station.
+    if not meta or "timezone_abbr" not in meta:
         return None
-    if "timezone_abbr" in data:
-        return _with_reference_clock(data)
+    return _with_reference_clock(meta)
 
+
+def _station_meta(data, station_id):
+    """mdapi's answer for a station, as the metadata the view reads."""
     stations = data.get("stations", [])
     if not stations:
-        return None
+        raise LookupError(f"no station {station_id} in the answer")
     station = stations[0]
     details = station.get("details", {})
-    meta = {
+    return {
         "id": str(station.get("id", station_id)),
         "name": station.get("name", ""),
         "state": station.get("state", ""),
@@ -81,8 +82,6 @@ def fetch_station_metadata_noaa(station_id: str) -> dict[str, Any] | None:
         "timezonecorr": station.get("timezonecorr", details.get("timezone")),
         "observedst": bool(station.get("observedst", False)),
     }
-    write_cache(cache_file, meta)
-    return _with_reference_clock(meta)
 
 
 def _with_reference_clock(meta):
@@ -112,20 +111,6 @@ def _prediction_url(station_id, begin_date, end_date, interval):
         f"?begin_date={begin_date}&end_date={end_date}"
         f"&station={station_id}&product=predictions&datum=MLLW"
         f"&units=english&time_zone=lst_ldt&interval={interval}&format=json"
-    )
-
-
-def _fetch_payload(cache_file, max_age, url, fallback=None):
-    """Read fresh cache, otherwise fetch JSON with stale-cache fallback."""
-    cached = read_cache(cache_file, max_age)
-    if cached is not None:
-        return cached
-    return fetch_json_cached(
-        cache_file,
-        0,
-        url,
-        timeout=10,
-        fallback=fallback,
     )
 
 
@@ -163,24 +148,25 @@ def _build_hilo_row(prediction):
 
 def _fetch_prediction_rows(cache_file, url, row_builder):
     """Fetch a NOAA prediction payload and return its cache rows."""
-    data = _fetch_payload(cache_file, PREDICTION_CACHE_MAX_AGE, url, fallback=None)
-    if not data:
-        return None
-    if isinstance(data, list):
-        return data
+    rows = fetch_json_cached(
+        cache_file, PREDICTION_CACHE_MAX_AGE, url, timeout=10, fallback=None,
+        provider="tides/noaa", transform=lambda data: _prediction_rows(data, row_builder))
+    # A file from before the rows were parsed on the way in can hold
+    # NOAA's own answer, left where parsing it failed.
+    return rows if isinstance(rows, list) else None
 
+
+def _prediction_rows(data, row_builder):
+    """The cache rows for a prediction payload's samples.
+
+    NOAA reports "no data" as an HTTP 200 JSON error payload. That is no
+    answer, and raising keeps it out of the cache, where it would be
+    served as fresh for the next 24 hours.
+    """
     predictions = data.get("predictions", [])
     if not predictions:
-        # NOAA reports "no data" as an HTTP 200 JSON error payload, which
-        # fetch_json_cached has just written to disk; drop it so the miss
-        # isn't served as fresh cache for the next 24 hours.
-        try:
-            cache_file.unlink(missing_ok=True)
-        except OSError as exc:
-            log_failure("cache", f"delete of {cache_file.name}", exc,
-                        fallback="empty payload may be served as fresh")
-        return None
-
+        error = data.get("error") or {}
+        raise ValueError(error.get("message") or "no predictions in the answer")
     rows = []
     for prediction in predictions:
         row = row_builder(prediction)
@@ -188,7 +174,6 @@ def _fetch_prediction_rows(cache_file, url, row_builder):
             rows.append(row)
     log_skipped("tides/noaa", "prediction rows",
                 len(predictions) - len(rows), len(predictions))
-    write_cache(cache_file, rows)
     return rows
 
 
@@ -262,26 +247,26 @@ def fetch_all_stations_noaa() -> list[dict[str, Any]]:
     global _stations_memo
     if _stations_memo is not None:
         return _stations_memo
-    cache_file = cache_dir() / "all_stations.json"
     url = "https://api.tidesandcurrents.noaa.gov/mdapi/prod/webapi/stations.json?type=tidepredictions"
-    data = _fetch_payload(cache_file, 30 * 86400, url, fallback=[])
-    if isinstance(data, list):
-        stations = data
-    else:
-        stations = data.get("stations", [])
-        if stations:
-            write_cache(cache_file, stations)
-        else:
-            # An answer with no stations in it is not the list, and
-            # fetch_json_cached has just written it to disk: served as
-            # fresh, it would say "no station anywhere" for a month.
-            try:
-                cache_file.unlink(missing_ok=True)
-            except OSError as exc:
-                log_failure("cache", f"delete of {cache_file.name}", exc,
-                            fallback="empty station list may be served as fresh")
+    stations = fetch_json_cached(
+        cache_dir() / "all_stations.json", 30 * 86400, url,
+        timeout=10, fallback=[], provider="tides/noaa", transform=_station_list)
+    # A file from before the list was parsed on the way in can hold
+    # mdapi's own answer, left where parsing it failed.
+    if not isinstance(stations, list):
+        stations = []
     if stations:
         _stations_memo = stations
+    return stations
+
+
+def _station_list(data):
+    """The stations in mdapi's answer. An answer with none in it is not
+    the list: raising keeps it out of the cache, where it would say "no
+    station anywhere" for a month."""
+    stations = data.get("stations", [])
+    if not stations:
+        raise ValueError("no stations in the answer")
     return stations
 
 

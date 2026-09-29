@@ -1,10 +1,33 @@
+import json
+import os
+import tempfile
+import time
 import unittest
 from datetime import date, datetime
 from unittest.mock import patch
 
+from linecast import _http
 from linecast.tides import common
 from linecast.tides import noaa
 from linecast._cache import location_cache_key
+
+
+class _PrivateCache(unittest.TestCase):
+    """A cache directory of the test's own, for what a fetch leaves in it."""
+
+    def setUp(self):
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        env = patch.dict(os.environ, {"LINECAST_CACHE_DIR": tmp.name})
+        env.start()
+        self.addCleanup(env.stop)
+
+    @staticmethod
+    def expired(path, content):
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps(content))
+        then = time.time() - 60 * 86400
+        os.utime(path, (then, then))
 
 
 class TidesRangeTests(unittest.TestCase):
@@ -69,33 +92,36 @@ class MonthChunkTests(unittest.TestCase):
             {"t": "2026-02-28 23:54", "v": "2.5"},
             {"t": "bad", "v": "9"},
         ]}
-        with patch.object(noaa, "_fetch_payload", return_value=payload) as fp, \
-             patch.object(noaa, "write_cache") as wc:
+        with patch.object(_http, "read_cache", return_value=None), \
+             patch.object(_http, "fetch_json", return_value=payload) as fj, \
+             patch.object(_http, "write_cache") as wc:
             rows = noaa.fetch_month("8418150", date(2026, 2, 1), "6")
 
-        cache_file, _, url = fp.call_args.args[:3]
+        cache_file, written = wc.call_args.args
+        url = fj.call_args.args[0]
         self.assertEqual(cache_file.name, "pred_8418150_202602.json")
         self.assertIn("begin_date=20260201&end_date=20260228", url)
         self.assertIn("interval=6", url)
         self.assertEqual(rows, [["2026-02-01 00:00", 1.5], ["2026-02-28 23:54", 2.5]])
-        self.assertEqual(wc.call_args.args, (cache_file, rows))
+        self.assertEqual(written, rows)
 
     def test_hilo_month_cache_name_and_rows(self):
         payload = {"predictions": [
             {"t": "2026-12-31 20:28", "v": "10.1", "type": "H"},
         ]}
-        with patch.object(noaa, "_fetch_payload", return_value=payload) as fp, \
-             patch.object(noaa, "write_cache"):
+        with patch.object(_http, "read_cache", return_value=None), \
+             patch.object(_http, "fetch_json", return_value=payload) as fj, \
+             patch.object(_http, "write_cache") as wc:
             rows = noaa.fetch_month("8418150", date(2026, 12, 1), "hilo")
-        cache_file, _, url = fp.call_args.args[:3]
+        cache_file, url = wc.call_args.args[0], fj.call_args.args[0]
         self.assertEqual(cache_file.name, "hilo_8418150_202612.json")
         self.assertIn("begin_date=20261201&end_date=20261231", url)
         self.assertEqual(rows, [["2026-12-31 20:28", 10.1, "H"]])
 
     def test_cached_rows_are_returned_as_is(self):
         cached = [["2026-02-01 00:00", 1.5]]
-        with patch.object(noaa, "_fetch_payload", return_value=cached), \
-             patch.object(noaa, "write_cache") as wc:
+        with patch.object(_http, "read_cache", return_value=cached), \
+             patch.object(_http, "write_cache") as wc:
             self.assertEqual(noaa.fetch_month("8418150", date(2026, 2, 1), "6"), cached)
         wc.assert_not_called()
 
@@ -206,28 +232,30 @@ class StationLookupTests(unittest.TestCase):
         write_cache.assert_not_called()
 
 
-class StationListTests(unittest.TestCase):
+class StationListTests(_PrivateCache):
     def setUp(self):
+        super().setUp()
         noaa._stations_memo = None
 
     def tearDown(self):
         noaa._stations_memo = None
 
     def test_an_answer_without_stations_is_not_kept_as_the_list(self):
-        # fetch_json_cached has written the answer to disk by the time
-        # it is looked at; left there, it is fresh for a month and every
-        # lookup in that month finds no station anywhere
+        # kept, it would be fresh for a month, and every lookup in that
+        # month would find no station anywhere
         cache_file = common.cache_dir() / "all_stations.json"
-        cache_file.parent.mkdir(parents=True, exist_ok=True)
-        cache_file.write_text('{"errorMsg": "down"}')
-        with patch.object(noaa, "read_cache", return_value=None), \
-             patch.object(noaa, "fetch_json_cached",
-                          return_value={"errorMsg": "down"}), \
-             patch.object(noaa, "write_cache") as write_cache:
+        with patch.object(_http, "fetch_json", return_value={"errorMsg": "down"}):
             self.assertEqual(noaa.fetch_all_stations_noaa(), [])
-        write_cache.assert_not_called()
         self.assertFalse(cache_file.exists())
         self.assertIsNone(noaa._stations_memo)
+
+    def test_nor_written_over_the_last_list(self):
+        cache_file = common.cache_dir() / "all_stations.json"
+        stations = [{"id": "8418150", "name": "Portland"}]
+        self.expired(cache_file, stations)
+        with patch.object(_http, "fetch_json", return_value={"errorMsg": "down"}):
+            self.assertEqual(noaa.fetch_all_stations_noaa(), stations)
+        self.assertEqual(json.loads(cache_file.read_text()), stations)
 
 
 class SubordinateStationTests(unittest.TestCase):
@@ -306,19 +334,28 @@ class SynthesisTests(unittest.TestCase):
         self.assertEqual(curve[0][0], datetime(2026, 8, 20, 6, 0))
 
 
-class PredictionErrorTests(unittest.TestCase):
-    def test_error_payload_is_dropped_from_cache(self):
-        # NOAA reports "no data" as a 200 JSON error body; it must not be
-        # served as fresh cache for the next 24 hours.
-        from unittest.mock import MagicMock
-        cache_file = MagicMock()
-        error_payload = {"error": {"message": "No Predictions data was found."}}
-        with patch.object(noaa, "_fetch_payload", return_value=error_payload):
+class PredictionErrorTests(_PrivateCache):
+    # NOAA reports "no data" as a 200 JSON error body; it must not be
+    # served as fresh cache for the next 24 hours.
+    ERROR = {"error": {"message": "No Predictions data was found."}}
+
+    def test_error_payload_is_not_cached(self):
+        cache_file = common.cache_dir() / "pred_1_202602.json"
+        with patch.object(_http, "fetch_json", return_value=self.ERROR):
             rows = noaa._fetch_prediction_rows(
                 cache_file, "http://x", row_builder=noaa._build_tide_row)
-
         self.assertIsNone(rows)
-        cache_file.unlink.assert_called_once()
+        self.assertFalse(cache_file.exists())
+
+    def test_error_payload_leaves_the_last_rows_standing(self):
+        cache_file = common.cache_dir() / "pred_1_202602.json"
+        cached = [["2026-02-01 00:00", 1.5]]
+        self.expired(cache_file, cached)
+        with patch.object(_http, "fetch_json", return_value=self.ERROR):
+            rows = noaa._fetch_prediction_rows(
+                cache_file, "http://x", row_builder=noaa._build_tide_row)
+        self.assertEqual(rows, cached)
+        self.assertEqual(json.loads(cache_file.read_text()), cached)
 
 
 class YRangeTests(unittest.TestCase):
@@ -359,8 +396,9 @@ class MetadataTests(unittest.TestCase):
             ]
         }
 
-        with patch.object(noaa, "fetch_json_cached", return_value=payload), \
-             patch.object(noaa, "write_cache") as write_cache:
+        with patch.object(_http, "read_cache", return_value=None), \
+             patch.object(_http, "fetch_json", return_value=payload), \
+             patch.object(_http, "write_cache") as write_cache:
             meta = noaa.fetch_station_metadata_noaa("9414290")
 
         self.assertIsNotNone(meta)
@@ -370,8 +408,17 @@ class MetadataTests(unittest.TestCase):
         self.assertEqual(meta["timezone_abbr"], "PST")
         self.assertEqual(meta["timezonecorr"], -8)
         self.assertTrue(meta["observedst"])
-        self.assertEqual(write_cache.call_args.args[0].name, "station_meta_9414290.json")
+        cache_file, written = write_cache.call_args.args
+        self.assertEqual(cache_file.name, "station_meta_9414290.json")
+        self.assertEqual(written, meta)
 
+    def test_a_station_mdapi_does_not_know_is_no_metadata(self):
+        with patch.object(_http, "read_cache", return_value=None), \
+             patch.object(_http, "read_stale", return_value=None), \
+             patch.object(_http, "fetch_json", return_value={"stations": []}), \
+             patch.object(_http, "write_cache") as write_cache:
+            self.assertIsNone(noaa.fetch_station_metadata_noaa("0000000"))
+        write_cache.assert_not_called()
 
     def test_a_subordinate_station_keeps_its_reference_stations_clock(self):
         # mdapi gives Back Cove no zone and no summer time; NOAA's
