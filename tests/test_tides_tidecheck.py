@@ -1,9 +1,14 @@
 """Tests for the TideCheck tide data source module."""
 
+import json
+import os
+import tempfile
+import time
 import unittest
 from datetime import date, timezone
 from unittest.mock import patch
 
+from linecast._cache import location_cache_key
 from linecast.tides import common
 from linecast.tides import tidecheck as tc
 
@@ -42,7 +47,25 @@ class AvailabilityTests(unittest.TestCase):
 
 
 class NearestStationTests(unittest.TestCase):
-    """Tests for find_nearest_station_tidecheck."""
+    """Tests for find_nearest_station_tidecheck, in a cache of their own."""
+
+    def setUp(self):
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        env = patch.dict("os.environ", {"LINECAST_CACHE_DIR": tmp.name,
+                                        "LINECAST_TIDECHECK_KEY": "k"})
+        env.start()
+        self.addCleanup(env.stop)
+
+    def _pick_file(self, lat, lng):
+        return common.cache_dir() / f"tc_station_{location_cache_key(lat, lng)}.json"
+
+    def _cached(self, lat, lng, pick, age=0):
+        path = self._pick_file(lat, lng)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps(pick))
+        then = time.time() - age
+        os.utime(path, (then, then))
 
     def test_returns_none_when_key_not_set(self):
         with patch.dict("os.environ", {}, clear=True):
@@ -60,54 +83,46 @@ class NearestStationTests(unittest.TestCase):
              "distanceKm": 1},
             {"id": "fes2022-almada", "name": "Almada", "distanceKm": 6},
         ]
-        with patch.dict("os.environ", {"LINECAST_TIDECHECK_KEY": "k"}), \
-             patch.object(tc, "read_cache", return_value=None), \
-             patch.object(tc, "fetch_json", return_value=api_response), \
-             patch.object(tc, "write_cache") as mock_write:
+        with patch.object(tc, "fetch_json", return_value=api_response):
             sid, name = tc.find_nearest_station_tidecheck(38.72, -9.14)
 
         self.assertEqual(sid, "fes2022-lisbon")
         self.assertEqual(name, "Lisbon, Lisbon, Portugal")
-        # the station, plus one tick on today's request tally
-        self.assertEqual(mock_write.call_count, 2)
+        # the pick is kept for the place, and the request counted
+        self.assertEqual(json.loads(self._pick_file(38.72, -9.14).read_text()),
+                         {"id": "fes2022-lisbon", "name": "Lisbon, Lisbon, Portugal",
+                          "lat": 38.72, "lng": -9.14})
+        self.assertEqual(tc.requests_today(), 1)
 
     def test_far_station_rejected_like_noaa_cutoff(self):
         api_response = [{"id": "somewhere", "name": "Somewhere",
                          "distanceKm": 400}]
-        with patch.dict("os.environ", {"LINECAST_TIDECHECK_KEY": "k"}), \
-             patch.object(tc, "read_cache", return_value=None), \
-             patch.object(tc, "fetch_json", return_value=api_response), \
-             patch.object(tc, "write_cache"):
+        with patch.object(tc, "fetch_json", return_value=api_response):
             sid, name = tc.find_nearest_station_tidecheck(46.8, 8.2)
 
         self.assertIsNone(sid)
         self.assertIsNone(name)
+        self.assertFalse(self._pick_file(46.8, 8.2).exists())
 
     def test_returns_cached_station(self):
-        cached = {"id": "cached-id", "name": "Cached Station"}
-        with patch.dict("os.environ", {"LINECAST_TIDECHECK_KEY": "k"}), \
-             patch.object(tc, "read_cache", return_value=cached):
+        self._cached(51.5, -0.1, {"id": "cached-id", "name": "Cached Station"})
+        with patch.object(tc, "fetch_json") as fetch:
             sid, name = tc.find_nearest_station_tidecheck(51.5, -0.1)
 
+        fetch.assert_not_called()
         self.assertEqual(sid, "cached-id")
         self.assertEqual(name, "Cached Station")
 
     def test_uses_stale_cache_on_fetch_error(self):
-        stale = {"id": "stale-id", "name": "Stale Station"}
-        with patch.dict("os.environ", {"LINECAST_TIDECHECK_KEY": "k"}), \
-             patch.object(tc, "read_cache", return_value=None), \
-             patch.object(tc, "fetch_json", side_effect=RuntimeError("network down")), \
-             patch.object(tc, "read_stale", return_value=stale):
+        self._cached(51.5, -0.1, {"id": "stale-id", "name": "Stale Station"}, age=86400)
+        with patch.object(tc, "fetch_json", side_effect=RuntimeError("network down")):
             sid, name = tc.find_nearest_station_tidecheck(51.5, -0.1)
 
         self.assertEqual(sid, "stale-id")
         self.assertEqual(name, "Stale Station")
 
     def test_returns_none_on_empty_response(self):
-        with patch.dict("os.environ", {"LINECAST_TIDECHECK_KEY": "k"}), \
-             patch.object(tc, "read_cache", return_value=None), \
-             patch.object(tc, "fetch_json", return_value={}), \
-             patch.object(tc, "read_stale", return_value=None):
+        with patch.object(tc, "fetch_json", return_value={}):
             sid, name = tc.find_nearest_station_tidecheck(51.5, -0.1)
 
         self.assertIsNone(sid)
@@ -119,10 +134,7 @@ class NearestStationTests(unittest.TestCase):
             "id": "flat-id",
             "name": "Flat Station",
         }
-        with patch.dict("os.environ", {"LINECAST_TIDECHECK_KEY": "k"}), \
-             patch.object(tc, "read_cache", return_value=None), \
-             patch.object(tc, "fetch_json", return_value=api_response), \
-             patch.object(tc, "write_cache"):
+        with patch.object(tc, "fetch_json", return_value=api_response):
             sid, name = tc.find_nearest_station_tidecheck(51.5, -0.1)
 
         self.assertEqual(sid, "flat-id")
@@ -389,7 +401,7 @@ class BudgetTests(unittest.TestCase):
         self.assertEqual(tc.requests_today(), 2)
 
     def test_cache_hits_do_not_count(self):
-        with patch.object(tc, "read_cache", return_value={"id": "s", "name": "S"}), \
+        with patch("linecast._http.read_cache", return_value={"id": "s", "name": "S"}), \
              patch.object(tc, "fetch_json") as fetch:
             tc.find_nearest_station_tidecheck(38.7, -9.1)
         fetch.assert_not_called()
@@ -412,9 +424,10 @@ class BudgetTests(unittest.TestCase):
 
     def test_the_fifty_first_request_is_never_sent(self):
         self.tally[tc._tally_file().name] = {"count": 50}
-        with patch.object(tc, "read_cache", return_value=None), \
+        with patch("linecast._http.read_cache", return_value=None), \
+             patch("linecast._http.read_stale", return_value=None), \
              patch.object(tc, "fetch_json") as fetch, \
-             patch.object(tc, "log_failure") as logged:
+             patch("linecast._http.log_failure") as logged:
             sid, name = tc.find_nearest_station_tidecheck(38.72, -9.14)
 
         fetch.assert_not_called()
@@ -424,14 +437,15 @@ class BudgetTests(unittest.TestCase):
         self.assertEqual(tc.requests_today(), 50)
         # and --debug says why the station is missing
         logged.assert_called_once()
+        self.assertEqual(logged.call_args.args[0], "tides/tidecheck")
         self.assertIsInstance(logged.call_args.args[2], tc.BudgetExhausted)
-        self.assertEqual(logged.call_args.kwargs["fallback"], "no station")
+        self.assertEqual(logged.call_args.kwargs["fallback"], "fallback value")
 
     def test_a_refused_request_serves_the_station_it_has(self):
         self.tally[tc._tally_file().name] = {"count": 50}
-        cache_name = f"tc_station_{tc.location_cache_key(38.72, -9.14)}.json"
-        self.tally[cache_name] = {"id": "fes2022-lisbon", "name": "Lisbon"}
-        with patch.object(tc, "read_cache", return_value=None), \
+        stale = {"id": "fes2022-lisbon", "name": "Lisbon"}
+        with patch("linecast._http.read_cache", return_value=None), \
+             patch("linecast._http.read_stale", return_value=stale), \
              patch.object(tc, "fetch_json") as fetch:
             sid, name = tc.find_nearest_station_tidecheck(38.72, -9.14)
 

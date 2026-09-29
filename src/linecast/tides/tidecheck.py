@@ -145,25 +145,20 @@ def find_nearest_station_tidecheck(lat: float, lng: float
     if not is_available():
         return None, None
 
-    cache_file = cache_dir() / f"tc_station_{location_cache_key(lat, lng)}.json"
-    cached = read_cache(cache_file, NEAREST_STATION_CACHE_MAX_AGE)
-    if cached:
-        return cached["id"], cached["name"]
-
-    url = f"{TIDECHECK_BASE}/stations/nearest?lat={lat}&lng={lng}"
-    try:
-        data = _fetch(url)
-    except Exception as exc:
-        stale = read_stale(cache_file)
-        log_failure("tides/tidecheck", "nearest station fetch", exc, url=url,
-                    fallback="stale cache" if stale else "no station")
-        if stale:
-            return stale["id"], stale["name"]
+    pick = fetch_json_cached(
+        cache_dir() / f"tc_station_{location_cache_key(lat, lng)}.json",
+        NEAREST_STATION_CACHE_MAX_AGE, f"{TIDECHECK_BASE}/stations/nearest?lat={lat}&lng={lng}",
+        fetch=_fetch, fallback=None, provider="tides/tidecheck",
+        transform=lambda data: _nearest_pick(data, lat, lng))
+    if not pick:
         return None, None
+    return pick["id"], pick["name"]
 
-    if not data:
-        return None, None
 
+def _nearest_pick(data, lat, lng):
+    """The station /stations/nearest puts first, as the pick cached for
+    the place. One too far, or none, raises: an answer without a pick is
+    not kept, and the last pick for the place stands in if there is one."""
     # /stations/nearest returns a JSON array sorted by distance; keep the
     # dict shapes as fallbacks in case the API grows a wrapper.
     if isinstance(data, list):
@@ -173,25 +168,24 @@ def find_nearest_station_tidecheck(lat: float, lng: float
     else:
         station = None
     if not station:
-        return None, None
+        raise LookupError("no station in the answer")
 
     # Parity with the NOAA picker's 100 nm cutoff, using the distanceKm
     # the endpoint reports — an inland user shouldn't get a random coast.
     try:
-        if float(station.get("distanceKm", 0)) > 185:
-            return None, None
+        distance = float(station.get("distanceKm", 0))
     except (TypeError, ValueError) as exc:
+        distance = 0
         log_failure("tides/tidecheck", "distance check", exc,
                     fallback="station accepted unchecked")
+    if distance > 185:
+        raise LookupError(f"the nearest station is {distance:.0f} km away")
 
     station_id = str(station.get("id", ""))
-    station_name = station.get("label") or station.get("name", "")
     if not station_id:
-        return None, None
-
-    result = {"id": station_id, "name": station_name, "lat": lat, "lng": lng}
-    write_cache(cache_file, result)
-    return station_id, station_name
+        raise LookupError("the nearest station has no id")
+    return {"id": station_id, "name": station.get("label") or station.get("name", ""),
+            "lat": lat, "lng": lng}
 
 
 def search_stations_tidecheck(query: str) -> list[dict[str, Any]]:
@@ -210,7 +204,8 @@ def search_stations_tidecheck(query: str) -> list[dict[str, Any]]:
     cache_file = cache_dir() / f"tc_search_{encoded[:40]}.json"
     url = f"{TIDECHECK_BASE}/stations/search?q={encoded}"
 
-    data = fetch_json_cached(cache_file, 86400, url, fetch=_fetch, fallback=None)
+    data = fetch_json_cached(cache_file, 86400, url, fetch=_fetch, fallback=None,
+                             provider="tides/tidecheck")
     if not data:
         return []
 
@@ -296,7 +291,7 @@ def _fetch_tides_raw(station_id, days=7):
     cache_file = cache_dir() / f"tc_raw_{station_id}_{days}d.json"
     url = f"{TIDECHECK_BASE}/station/{station_id}/tides?days={days}&datum=MLLW"
     return fetch_json_cached(cache_file, 86400, url, fetch=_fetch, timeout=15,
-                             fallback=None)
+                             fallback=None, provider="tides/tidecheck")
 
 
 def fetch_tides_range_tidecheck(
