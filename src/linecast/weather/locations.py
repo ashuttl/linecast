@@ -5,7 +5,7 @@ import os
 from linecast.terminal import theme as _theme
 from linecast._cache import read_stale, write_cache
 from linecast.terminal.color import RESET, bg, fg
-from linecast.terminal.textwidth import visible_len
+from linecast.terminal.textwidth import pad, visible_len
 from linecast.terminal.textwidth import fit
 from linecast.maps.i18n import ms
 from linecast.maps.search import ATTRIBUTION, Result
@@ -179,7 +179,7 @@ class LocationPicker:
 
         def row(n, text, selected=False, muted=False, color=None):
             body = fit(' ' + text, width)
-            body += ' ' * max(0, width - visible_len(body))
+            body = pad(body, width)
             reverse = '\033[7m' if selected else ''
             normal = '\033[27m' if selected else ''
             color = color if color is not None else (dim if muted else ink)

@@ -19,7 +19,7 @@ from datetime import timedelta, timezone
 
 from linecast.terminal import theme as _theme
 from linecast.terminal.color import RESET, bg, fg
-from linecast.terminal.textwidth import fit, visible_len
+from linecast.terminal.textwidth import fit, pad, visible_len
 from linecast.terminal.live import nudge
 from linecast.terminal.theme import ensure_contrast, surface_bg
 from linecast.astro.ephemeris import mat_apply
@@ -402,8 +402,7 @@ def search_overlay(state, cols, rows, runtime):
     caret = "\033[7m \033[27m"
 
     def row(n, body):
-        pad = " " * max(0, width - visible_len(body))
-        return f"\033[{n};1H{bg(*surface)}{body}{pad}{RESET}"
+        return f"\033[{n};1H{bg(*surface)}{pad(body, width)}{RESET}"
 
     if state.query:
         field = f"{fg(*dim)}/ {fg(*ink)}{state.query}{caret}"
@@ -413,7 +412,7 @@ def search_overlay(state, cols, rows, runtime):
     line = 2
     for i, target in enumerate(state.results[:max(0, rows - 4)]):
         body = " " + fit(target.label, width - 2)
-        body += " " * max(0, width - visible_len(body))
+        body = pad(body, width)
         if i == state.sel:
             body = f"\033[7m{body}\033[27m"
         out.append(row(line, f"{fg(*ink)}{body}"))

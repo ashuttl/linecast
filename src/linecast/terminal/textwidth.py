@@ -243,6 +243,19 @@ def wrap_display_width(text, width):
     return lines or [""]
 
 
+def pad(text, width, align="<"):
+    """*text* in *width* terminal columns, spaces on the right ("<"), the
+    left (">"), or both ("^", the odd one on the right); text already
+    that wide or wider comes back as it is.  Escape sequences take no
+    room."""
+    room = max(0, width - visible_len(text))
+    if align == ">":
+        return " " * room + text
+    if align == "^":
+        return " " * (room // 2) + text + " " * (room - room // 2)
+    return text + " " * room
+
+
 def fit(text, width):
     """Plain text cut to a terminal display width, with … as the tell.
 

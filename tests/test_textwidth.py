@@ -255,3 +255,17 @@ class TestFormatCharacters:
 
     def test_the_soft_hyphen_is_drawn(self):
         assert visible_len("\u00ad") == 1
+
+
+class TestPad:
+    def test_left_right_and_centre(self):
+        from linecast.terminal.textwidth import pad
+        assert pad("ab", 5) == "ab   "
+        assert pad("ab", 5, ">") == "   ab"
+        assert pad("ab", 5, "^") == " ab  "     # the odd space on the right
+
+    def test_width_is_counted_in_cells(self):
+        from linecast.terminal.textwidth import pad
+        assert pad("東京", 6) == "東京  "
+        assert pad("\033[1mhi\033[0m", 4) == "\033[1mhi\033[0m  "
+        assert pad("toolong", 3) == "toolong"

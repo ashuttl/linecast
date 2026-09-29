@@ -52,7 +52,7 @@ from linecast.maps import ui
 from linecast.terminal.color import fg, RESET, color_mode, BG_PRIMARY
 from linecast.maps.elevation import ATTRIBUTION
 from linecast.terminal.framebuffer import cell_aspect, get_terminal_size
-from linecast.terminal.textwidth import visible_len
+from linecast.terminal.textwidth import pad, visible_len
 from linecast.terminal.live import overlay
 from linecast.maps.i18n import ms
 from linecast.maps.paint import MARKER, compact_colors, compose_map, compose_terrain
@@ -1452,7 +1452,7 @@ def render_map(lat, lon, location_name, zoom, marker=None, runtime=None,
     over = visible_len(header) - cols
     if over > 0 and len(place) > over + 1:
         header = _header(place[:len(place) - over - 1] + "…")
-    header += " " * max(0, cols - visible_len(header))
+    header = pad(header, cols)
     from linecast.terminal import help as _help
     live = bool(getattr(runtime, 'live', False))
     foot_width = cols - visible_len(_help.hint(lang, cols)) - 2 if live else cols
@@ -1519,7 +1519,7 @@ def render_map(lat, lon, location_name, zoom, marker=None, runtime=None,
                 break
     if live:
         foot = _help.footer(foot, cols, lang)
-    foot += " " * max(0, cols - visible_len(foot))
+    foot = pad(foot, cols)
 
     out = "\n".join([header, *map_lines, foot])
     # A cell's two halves each carry a colour, and neighbouring cells

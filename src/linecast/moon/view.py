@@ -40,7 +40,7 @@ from typing import NamedTuple
 
 from linecast._timefmt import fmt_time_dt
 from linecast.terminal.color import lerp
-from linecast.terminal.textwidth import visible_len
+from linecast.terminal.textwidth import pad, visible_len
 from linecast.terminal.framebuffer import get_terminal_size, cell_aspect, Framebuffer
 from linecast.terminal.live import live_loop
 from linecast._i18n import GEOCODER_UNTRANSLATED, fmt_decimal, fmt_duration_parts, lang_of
@@ -169,10 +169,6 @@ def _sentence(text):
     return text[:1].upper() + text[1:]
 
 
-def _pad(text, width):
-    return text + " " * (width - visible_len(text))
-
-
 def _table(head, rows, wait=True):
     """Panel lines for one corner: its heading lines, then its rows as a
     table, all flush left, the name, the date or time, and the wait each
@@ -186,11 +182,11 @@ def _table(head, rows, wait=True):
     gutter = any(r.mark for r in rows)
     lines = list(head)
     for row in rows:
-        line = [(_pad(row.label, label_w), row.ink, False), ("  ", row.ink, False)]
+        line = [(pad(row.label, label_w), row.ink, False), ("  ", row.ink, False)]
         if gutter:
             glyph, color = row.mark or (" ", row.ink)
             line.append((glyph, color, False))
-        line.append((_pad(row.when, when_w), row.ink, False))
+        line.append((pad(row.when, when_w), row.ink, False))
         if wait and row.wait:
             line.append((f"  {row.wait}", row.ink, False))
         last, color, bold = line[-1]

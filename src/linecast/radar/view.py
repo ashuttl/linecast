@@ -51,7 +51,7 @@ from linecast.radar.ui import (
 )
 from linecast._runtime import use_metric
 from linecast._log import log_failure
-from linecast.terminal.textwidth import visible_len
+from linecast.terminal.textwidth import pad, visible_len
 from linecast.terminal.spinner import SPINNER_FRAMES
 
 # display layers, toggled by the s key: precipitation (5-min frames) or
@@ -305,7 +305,7 @@ def render_radar(lat, lon, location_name, zoom, play_frame=0, playing=True,
     over = visible_len(header) - cols
     if over > 0 and len(place) > over + 1:  # squeeze the place name first
         header = _header(place[:len(place) - over - 1] + "…")
-    header += " " * max(0, cols - visible_len(header))
+    header = pad(header, cols)
 
     # footer: attribution + scrubber + controls, dropping pieces that don't fit
     if err:
@@ -322,7 +322,7 @@ def render_radar(lat, lon, location_name, zoom, play_frame=0, playing=True,
                 break
     if live:
         foot = _help.footer(foot, cols, lang)
-    foot += " " * max(0, cols - visible_len(foot))
+    foot = pad(foot, cols)
 
     out = "\n".join([header, *map_lines, foot])
     # a single \x00 overlay channel: the theme picker (modal) wins it while

@@ -36,7 +36,7 @@ from linecast.terminal import live as _live
 from linecast.terminal import theme as _theme
 from linecast.terminal.braille import DOT_BITS
 from linecast.terminal.color import RESET, bg, fg
-from linecast.terminal.textwidth import visible_len
+from linecast.terminal.textwidth import pad, visible_len
 from linecast.terminal.framebuffer import Framebuffer, get_terminal_size
 from linecast.terminal.live import overlay
 from linecast.terminal.textwidth import cells as text_cells, char_width
@@ -426,11 +426,11 @@ def _header(climate, days, runtime, cols, location_name, location_menu):
     # Short of room, the precipitation goes, then the temperature.
     while parts:
         left = "  ".join(parts)
-        pad = cols - visible_len(left) - visible_len(right)
-        if pad >= 2 or not right:
-            return f"{left}{' ' * max(0, pad)}{right}{RESET}"
+        room = cols - visible_len(left) - visible_len(right)
+        if room >= 2 or not right:
+            return f"{left}{' ' * max(0, room)}{right}{RESET}"
         parts.pop()
-    return f"{' ' * max(0, cols - visible_len(right))}{right}{RESET}"
+    return f"{pad(right, cols, '>')}{RESET}"
 
 
 def _normal_to_date(climate, today, starts, ends):

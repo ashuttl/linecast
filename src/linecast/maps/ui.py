@@ -26,7 +26,7 @@ import threading
 
 from linecast.maps import style
 from linecast.terminal.color import RESET, bg, fg
-from linecast.terminal.textwidth import fit, visible_len
+from linecast.terminal.textwidth import fit, pad, visible_len
 from linecast.terminal.live import nudge
 from linecast.maps.i18n import ms
 from linecast.terminal.help_i18n import hs, is_help_word
@@ -227,8 +227,7 @@ def _label(result):
 
 
 def _row(n, body, width, surface):
-    pad = " " * max(0, width - visible_len(body))
-    return f"\033[{n};1H{bg(*surface)}{body}{pad}{RESET}"
+    return f"\033[{n};1H{bg(*surface)}{pad(body, width)}{RESET}"
 
 
 def search_overlay(state, cols, rows, lang="en"):
@@ -254,7 +253,7 @@ def search_overlay(state, cols, rows, lang="en"):
     start = min(max(0, state.sel - limit + 1), max(0, len(state.results) - limit))
     for i, result in enumerate(state.results[start:start + limit], start):
         body = " " + fit(_label(result), width - 2)
-        body += " " * max(0, width - visible_len(body))
+        body = pad(body, width)
         if i == state.sel:
             body = f"\033[7m{body}\033[27m"
         out.append(_row(line, f"{fg(*ink)}{body}", width, surface))

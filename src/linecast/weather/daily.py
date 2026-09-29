@@ -5,7 +5,7 @@ from datetime import datetime
 from linecast.terminal import theme as _theme
 from linecast._i18n import fmt_decimal, fmt_percent, setting, table_for
 from linecast.terminal.color import bg, color_mode, fg, RESET, BOLD
-from linecast.terminal.textwidth import visible_len
+from linecast.terminal.textwidth import pad, visible_len
 from linecast._runtime import WeatherRuntime, current_runtime
 from linecast.weather.cover import sky_condition
 from linecast.weather.i18n import _s, _wmo_icons, fmt_wind, precip_unit_label, wmo_label
@@ -24,16 +24,6 @@ _USE_BG_FILL = color_mode() != "none"
 MIN_BAR_W = 10
 # A bar this wide has room to spell out "Rain" and "Wind" beside it.
 FULL_LABEL_BAR_W = 30
-
-
-def _lpad(s, w):
-    """Left-align ``s`` in ``w`` terminal columns."""
-    return s + " " * max(0, w - visible_len(s))
-
-
-def _rpad(s, w):
-    """Right-align ``s`` in ``w`` terminal columns."""
-    return " " * max(0, w - visible_len(s)) + s
 
 
 def render_daily(data, width, runtime=None, now=None):
@@ -260,7 +250,8 @@ def render_daily_mapped(data, width, runtime=None, now=None):
             except Exception:
                 day_name = "???"
         if date_w and not is_today:
-            day_name += " " * (day_col_w - date_w - visible_len(day_name)) + _rpad(dates[i], date_w)
+            day_name += (" " * (day_col_w - date_w - visible_len(day_name))
+                         + pad(dates[i], date_w, '>'))
         day_name = day_name + " " * (day_col_w - visible_len(day_name))
         if is_today:
             day_name = f"{BOLD}{day_name}{RESET}{TEXT}"
@@ -268,7 +259,7 @@ def render_daily_mapped(data, width, runtime=None, now=None):
         wmo = (wmo_codes[i] if i < len(wmo_codes) else 0) or 0
         icon = icons.get(conditions[i], icons[0])
         if label_w:
-            icon += f"  {_lpad(labels[i], label_w)}"
+            icon += f"  {pad(labels[i], label_w)}"
         # A calm day's condition recedes, so the days with weather in them
         # stand out.  Calm is a day with nothing for the columns to the
         # right: no odds, no amount, no wind, even where they have been
@@ -362,23 +353,23 @@ def render_daily_mapped(data, width, runtime=None, now=None):
         # The odds and the amount are one part, "rain": they answer as one.
         rain = []
         if max_prob_w:
-            line += f"  {pcolor}{_rpad(prob_s, max_prob_w)}"
+            line += f"  {pcolor}{pad(prob_s, max_prob_w, '>')}"
             if prob_s:
                 rain.append((cursor + 2, cursor + 2 + max_prob_w))
             cursor += 2 + max_prob_w
         if max_precip_w:
             if shared and wind_s and not precip_s:
-                line += f"  {WIND_COLOR}{_lpad(wind_s, max_precip_w)}"
+                line += f"  {WIND_COLOR}{pad(wind_s, max_precip_w)}"
                 cols["wind"] = (cursor + 2, cursor + 2 + max_precip_w)
             else:
-                line += f"  {pcolor}{_lpad(precip_s, max_precip_w)}"
+                line += f"  {pcolor}{pad(precip_s, max_precip_w)}"
                 if precip_s:
                     rain.append((cursor + 2, cursor + 2 + max_precip_w))
             cursor += 2 + max_precip_w
         if rain:
             cols["rain"] = (rain[0][0], rain[-1][1])
         if max_wind_w and not shared:
-            line += f"  {WIND_COLOR}{_lpad(wind_s, max_wind_w)}"
+            line += f"  {WIND_COLOR}{pad(wind_s, max_wind_w)}"
             if wind_s:
                 cols["wind"] = (cursor + 2, cursor + 2 + max_wind_w)
             cursor += 2 + max_wind_w

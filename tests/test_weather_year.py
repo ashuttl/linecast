@@ -738,3 +738,12 @@ class TestSolarHijri:
         chip = text.split("\x00")[1]
         assert any(m in chip for m in ("فروردین", "اردیبهشت", "خرداد"))
         assert any(m in chip for m in ("آوریل", "مه", "ژوئن"))
+
+
+class TestNarrowHeader:
+    def test_a_header_too_narrow_for_the_year_keeps_the_place_right_aligned(self):
+        # eight columns hold the year or the shortened place, not both:
+        # every part given up, the place alone stands at the right edge
+        head = _strip(year._header(_climate(), _days(), _runtime(), 8,
+                                   "Westbrook", False))
+        assert head == "    Wes…"
