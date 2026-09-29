@@ -30,16 +30,19 @@ def _strip_ansi(text):
 def _render(cols, rows, lang="en", calendar=None, mouse_pos=None,
             month_offset=0, now=NOW, lat=43.7, lng=-70.3, israel=False,
             week_start="monday"):
+    from linecast.astro.calendars.lunisolar import resolve_calendar
     from linecast.moon.calendar import render_calendar
     from linecast._runtime import RuntimeConfig
 
     runtime = RuntimeConfig(live=False, icons="emoji", lang=lang,
                             oneline=False, week_start=week_start)
+    # *calendar* is the --calendar flag, resolved as moon's main() does
     with patch("linecast.moon.calendar.get_terminal_size",
                return_value=(cols, rows)):
         out = render_calendar(now, lat, lng, runtime, fullscreen=True,
                               mouse_pos=mouse_pos, month_offset=month_offset,
-                              calendar_name=calendar, israel=israel)
+                              calendar_name=resolve_calendar(calendar, lang),
+                              israel=israel)
     parts = out.split("\x00", 1)
     body = _strip_ansi(parts[0]).split("\n")
     chip = _strip_ansi(parts[1]) if len(parts) > 1 else ""

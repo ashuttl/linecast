@@ -105,12 +105,14 @@ class TestFormatting:
 
 def _grid(now, lang="fa", month_offset=0, mouse_pos=None, calendar=None,
           week_start="saturday"):
+    from linecast.astro.calendars.lunisolar import resolve_calendar
     from linecast.moon.calendar import render_calendar
+    # *calendar* is the --calendar flag, resolved as moon's main() does
     with patch("linecast.moon.calendar.get_terminal_size",
                return_value=(100, 32)):
         out = render_calendar(now, 35.69, 51.39, _runtime(lang, week_start),
                               month_offset=month_offset, mouse_pos=mouse_pos,
-                              calendar_name=calendar)
+                              calendar_name=resolve_calendar(calendar, lang))
     parts = out.split("\x00", 1)
     strip = lambda s: re.sub(r"\x1b\[[^a-zA-Z]*[a-zA-Z]", "", s)  # noqa: E731
     return strip(parts[0]).split("\n"), strip(parts[1]) if len(parts) > 1 else ""
@@ -219,7 +221,7 @@ class TestMoonPanel:
         from linecast.moon.view import render
         with patch("linecast.moon.view.get_terminal_size", return_value=(120, 34)):
             fa = render(datetime(2026, 9, 23, 21, tzinfo=IRST), 35.69, 51.39,
-                        _runtime())
+                        _runtime(), calendar_name="islamic")
             en = render(datetime(2026, 9, 23, 21, tzinfo=IRST), 35.69, 51.39,
                         _runtime("en"))
         assert "جشن مهرگان" in fa and "روز 187 از 365" in fa

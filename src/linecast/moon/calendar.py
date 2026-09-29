@@ -34,7 +34,6 @@ from linecast.terminal.live import overlay
 from linecast._i18n import base_language, lang_of, table_for
 from linecast.astro.calendars.lunisolar import (
     CALENDAR_MERIDIAN_HOURS, calendar_is_native, lunisolar_date,
-    resolve_calendar,
 )
 from linecast.astro.calendars.hebrew import hebrew_date, holiday_key, rosh_chodesh
 from linecast.astro.calendars.hijri import hijri_date, observance_key
@@ -299,7 +298,10 @@ def _clip(text, width):
 def render_calendar(now_local, lat, lng, runtime, month_offset=0,
                     fullscreen=False, mouse_pos=None, calendar_name=None,
                     israel=False):
-    """Build the calendar view: a month grid of shaded phase discs."""
+    """Build the calendar view: a month grid of shaded phase discs.
+
+    *calendar_name* is the traditional calendar main() resolved, or
+    None for none."""
     from linecast.moon import disc
     from linecast.moon import palette as moon_palette  # rebuilt on theme reload
     from linecast.moon.phase import (
@@ -308,7 +310,7 @@ def render_calendar(now_local, lat, lng, runtime, month_offset=0,
     from linecast._runtime import install_banner
 
     lang = lang_of(runtime)
-    cal = resolve_calendar(calendar_name, lang)
+    cal = calendar_name
     native = cal is not None and calendar_is_native(cal, lang)
     fest = (festival_table(cal, lang if native else "en")
             if cal in CALENDAR_MERIDIAN_HOURS else {})

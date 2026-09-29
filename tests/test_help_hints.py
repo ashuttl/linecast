@@ -73,6 +73,7 @@ def test_live_image_views_offer_help_without_adding_rows(monkeypatch, view, lang
     from linecast.sky.scene import View
     from linecast.moon import calendar
     from linecast.sunshine import year
+    from linecast.astro.calendars.lunisolar import resolve_calendar
     cols, rows = size
     runtime = RuntimeConfig(live=True, icons='plain', lang=lang, oneline=False)
     for module in (sky, sunshine, moon, year, calendar):
@@ -85,9 +86,11 @@ def test_live_image_views_offer_help_without_adding_rows(monkeypatch, view, lang
     elif view == 'sunshine_year':
         output = year.render_year(43.68, -70.32, NOW, runtime, fullscreen=True)
     elif view == 'moon':
-        output = moon.render(NOW, 43.68, -70.32, runtime, fullscreen=True)
+        output = moon.render(NOW, 43.68, -70.32, runtime, fullscreen=True,
+                             calendar_name=resolve_calendar(None, lang))
     else:
-        output = calendar.render_calendar(NOW, 43.68, -70.32, runtime, fullscreen=True)
+        output = calendar.render_calendar(NOW, 43.68, -70.32, runtime, fullscreen=True,
+                                          calendar_name=resolve_calendar(None, lang))
     body = plain(output)
     assert '?' in body
     assert len(body.splitlines()) == rows

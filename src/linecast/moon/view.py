@@ -529,6 +529,8 @@ def render(now_local, lat, lng, runtime, fullscreen=False, offset_minutes=0,
     rather than letting lines wrap. *turn* is the live view's Turn,
     the way the user has dragged the disc round, or None. *show_text*
     False leaves the Moon alone in its sky, at its bare size.
+    *calendar_name* is the traditional calendar main() resolved, or
+    None for none.
     """
     idx, _name, icon = moon_phase(now_local, runtime)
     name = moon_name(idx, runtime)
@@ -573,7 +575,7 @@ def render(now_local, lat, lng, runtime, fullscreen=False, offset_minutes=0,
     # tradition's calendar keeps the plain phase name — Harvest Moon
     # is the almanac's name, not the Kaulana Mahina's or the 农历's.
     lang = lang_of(runtime)
-    cal = resolve_calendar(calendar_name, lang)
+    cal = calendar_name
     # The headline is the calendar's: the night's name where the
     # calendar names nights, and the lunar date or the almanac's half
     # of the month as an aside. The one-line summary shows the same.
@@ -1057,10 +1059,12 @@ def main():
     def _now():
         return datetime.now(tz)
 
+    # The calendar, from the flag, the saved setting, or the language,
+    # resolved once here: the views draw every frame with its name.
     # The Hebrew holidays follow the place shown; the check costs a
     # reverse geocode for an override, so only that calendar pays it.
-    israel = (resolve_calendar(args.calendar, lang_of(runtime)) == "hebrew"
-              and keeps_israel_days(country, lat, lng))
+    cal = resolve_calendar(args.calendar, lang_of(runtime))
+    israel = cal == "hebrew" and keeps_israel_days(country, lat, lng)
 
     if runtime.json_mode:
         import json
@@ -1097,13 +1101,13 @@ def main():
             return render_calendar(_now(), lat, lng, runtime,
                                    month_offset=state["months"],
                                    fullscreen=live, mouse_pos=mouse_pos,
-                                   calendar_name=args.calendar, israel=israel)
+                                   calendar_name=cal, israel=israel)
         moment = _now()
         if state["minutes"]:
             moment += timedelta(minutes=state["minutes"])
         return render(moment, lat, lng, runtime, fullscreen=live,
                       offset_minutes=state["minutes"],
-                      calendar_name=args.calendar, israel=israel, turn=turn,
+                      calendar_name=cal, israel=israel, turn=turn,
                       show_text=state["text"])
 
     if not live:

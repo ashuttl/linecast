@@ -466,11 +466,17 @@ CALENDARS = ("chinese", "hawaiian", "islamic", "hebrew", "icelandic", "thai",
              "almanac", "none")
 
 
+def _calendar(ctx, flag=None):
+    """The calendar the moon's main() resolves from --calendar *flag*."""
+    from linecast.astro.calendars.lunisolar import resolve_calendar
+    return resolve_calendar(flag, ctx.lang)
+
+
 @scene("moon-print")
 def _(ctx):
     from linecast.moon.view import render
     _mirror(True)
-    return ctx.printed(render(_now(), LAT, LNG, ctx.runtime()))
+    return ctx.printed(render(_now(), LAT, LNG, ctx.runtime(), calendar_name=_calendar(ctx)))
 
 
 @scene("moon-calendars", size=(100, 30), themes=("stock", "dark"))
@@ -478,7 +484,8 @@ def _(ctx):
     from linecast.moon.view import render
     _mirror(True)
     return "\n----\n".join(
-        ctx.printed(render(_now(), LAT, LNG, ctx.runtime(), calendar_name=cal))
+        ctx.printed(render(_now(), LAT, LNG, ctx.runtime(),
+                           calendar_name=_calendar(ctx, cal)))
         for cal in CALENDARS)
 
 
@@ -489,7 +496,7 @@ def _(ctx):
     frames = []
     for cal in CALENDARS:
         out = render_calendar(_now(), LAT, LNG, ctx.runtime(live=True), fullscreen=True,
-                              mouse_pos=(30, 12), calendar_name=cal)
+                              mouse_pos=(30, 12), calendar_name=_calendar(ctx, cal))
         frames.append(ctx.live(out))
     return "\n----\n".join(frames)
 
