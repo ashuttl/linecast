@@ -28,6 +28,7 @@ Notable changes, by release. Notes for the next release collect under **Unreleas
 - Settings: Fixed a setting command, such as `linecast units imperial`, replacing a config.json that could not be read, and every setting in it, with the one setting. It now says what is wrong with the file and leaves it alone.
 - Radar, maps: `--help` no longer offers `--oneline`, which printed the whole frame; neither view has a single line to give.
 - Weather: Fixed alert times on the 12-hour clock leaving out the minutes, so that a warning in force until 3:45pm read "until 3pm". In Greek they are written in words, as in the forecast.
+- Weather: Fixed alerts in Canada showing no times with Python 3.10.
 
 ## 2.9.2 — 2026-09-27
 

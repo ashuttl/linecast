@@ -188,6 +188,12 @@ class TestTiming:
         on_the_hour = _parse_alert_time("2026-09-28T19:00:00-04:00", rt, "America/New_York")
         assert (at, on_the_hour) == ("Mon 7:45pm", "Mon 7pm")
 
+    def test_a_time_in_utc_written_with_a_z(self):
+        # Environment Canada's form, which fromisoformat reads only from 3.11
+        from linecast.weather.alerts import _parse_alert_time
+        at = _parse_alert_time("2026-09-28T14:00:00.000Z", _runtime(use_24h=True), "UTC")
+        assert at == "Mon 14:00"
+
     def test_still_to_come_gives_the_span(self):
         from datetime import timezone
         line = self._line(datetime(2026, 9, 26, 1, 0, tzinfo=timezone.utc))

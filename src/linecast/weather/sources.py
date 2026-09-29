@@ -2315,7 +2315,10 @@ def _sweep_sachet_cap_files(feed):
 
 
 def _parse_iso_aware(iso_str):
-    """An ISO timestamp as an aware UTC datetime, or None."""
+    """An ISO timestamp as an aware UTC datetime, or None. A trailing Z,
+    which fromisoformat reads only from Python 3.11, is UTC."""
+    if isinstance(iso_str, str) and iso_str.endswith("Z"):
+        iso_str = iso_str[:-1] + "+00:00"
     try:
         dt = datetime.fromisoformat(iso_str)
     except (TypeError, ValueError):
