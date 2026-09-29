@@ -2,8 +2,9 @@
 
 A braille cell is a 2x4 grid of dots, and each dot is one bit of the
 character's offset from U+2800.  DOT_BITS maps a dot's column and row to
-its bit; line_dots and edge_dots walk lines and shape edges at dot
-resolution for the maps and radar layers; build_braille_curve draws the
+its bit; line_dots, edge_dots and fill_spans walk lines, shape edges
+and shape interiors at dot resolution for the maps and radar layers;
+build_braille_curve draws the
 multi-row curve graphs of the weather hourly chart and the tides chart.
 """
 
@@ -31,6 +32,37 @@ def line_dots(x0, y0, x1, y1):
         if e2 < dx:
             err += dx
             y0 += sy
+
+
+def fill_spans(rings, dw, dh):
+    """(y, xa, xb) for each run of dots inside closed, projected rings.
+
+    An even-odd scanline fill through each dot row's centre, across all
+    the rings together: a ring inside another is a hole in it, and an
+    island inside that hole is land again.  A run covers dots xa to
+    xb - 1 of row y, clipped to a dw by dh grid, and an empty one is
+    not given.
+    """
+    ys = [p[1] for ring in rings for p in ring]
+    if not ys:
+        return
+    y0 = max(0, int(min(ys)))
+    y1 = min(dh - 1, int(max(ys)) + 1)
+    for y in range(y0, y1 + 1):
+        yc = y + 0.5
+        xs = []
+        for ring in rings:
+            for i in range(len(ring) - 1):
+                ax, ay = ring[i]
+                bx, by = ring[i + 1]
+                if (ay <= yc < by) or (by <= yc < ay):
+                    xs.append(ax + (yc - ay) / (by - ay) * (bx - ax))
+        xs.sort()
+        for i in range(0, len(xs) - 1, 2):
+            xa = max(0, int(xs[i] + 0.5))
+            xb = min(dw, int(xs[i + 1] + 0.5))
+            if xb > xa:
+                yield y, xa, xb
 
 
 def edge_dots(is_land, is_water, gw, hc):

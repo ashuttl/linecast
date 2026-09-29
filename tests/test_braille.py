@@ -1,6 +1,6 @@
 """Tests for the braille line-graph rendering module."""
 
-from linecast.terminal.braille import build_braille_curve, interpolate
+from linecast.terminal.braille import build_braille_curve, fill_spans, interpolate
 
 
 class TestInterpolate:
@@ -107,3 +107,26 @@ class TestBuildBrailleCurve:
         # bottom row active in middle, or similar — just check non-trivial)
         all_chars = "".join(chars)
         assert any(ord(c) != 0x2800 for c in all_chars), "Expected non-empty braille"
+
+
+class TestFillSpans:
+    SQUARE = [(1, 1), (9, 1), (9, 9), (1, 9), (1, 1)]
+    HOLE = [(4, 4), (6, 4), (6, 6), (4, 6), (4, 4)]
+
+    def test_a_ring_fills_the_dots_whose_centres_it_holds(self):
+        spans = list(fill_spans([self.SQUARE], 20, 20))
+        assert [y for y, _a, _b in spans] == list(range(1, 9))
+        assert {(xa, xb) for _y, xa, xb in spans} == {(1, 9)}
+
+    def test_a_ring_inside_another_is_a_hole(self):
+        rows = {}
+        for y, xa, xb in fill_spans([self.SQUARE, self.HOLE], 20, 20):
+            rows.setdefault(y, []).append((xa, xb))
+        assert rows[2] == [(1, 9)]
+        assert rows[4] == rows[5] == [(1, 4), (6, 9)]
+
+    def test_runs_are_clipped_to_the_grid_and_none_is_empty(self):
+        spans = list(fill_spans([[(-5, -5), (30, -5), (30, 3), (-5, 3), (-5, -5)]], 8, 6))
+        assert spans == [(0, 0, 8), (1, 0, 8), (2, 0, 8)]
+        assert list(fill_spans([[(2.6, 0), (2.9, 0), (2.9, 4), (2.6, 4), (2.6, 0)]], 8, 6)) == []
+        assert list(fill_spans([], 8, 6)) == []

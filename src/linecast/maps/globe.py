@@ -28,6 +28,7 @@ from linecast._geo import wrap_lon
 from linecast._paths import cache_dir, data_path
 from linecast._png import decode_rgba
 from linecast.radar.basemap import DotLayer, load_data
+from linecast.terminal.braille import fill_spans
 from linecast._xyz import TILE_SIZE, stitch_xyz
 from linecast._log import log_failure
 from linecast.terminal.scenes import Memo
@@ -1386,27 +1387,8 @@ def lake_mask(lat0, lon0, zoom, dw, dh):
                 uy = cos0 * sin_phi - sin0 * cos_phi * cos(delta)
                 projected.append((ox + ux * rx, oy - uy * r))
             prings.append(projected)
-        ys = [p[1] for ring in prings for p in ring]
-        y0 = max(0, int(min(ys)))
-        y1 = min(dh - 1, int(max(ys)) + 1)
-        spans, painted = [], 0
-        for y in range(y0, y1 + 1):
-            yc = y + 0.5
-            xs = []
-            for ring in prings:
-                for i in range(len(ring) - 1):
-                    ax, ay = ring[i]
-                    bx, by = ring[i + 1]
-                    if (ay <= yc < by) or (by <= yc < ay):
-                        xs.append(ax + (yc - ay) / (by - ay) * (bx - ax))
-            xs.sort()
-            for i in range(0, len(xs) - 1, 2):
-                xa = max(0, int(xs[i] + 0.5))
-                xb = min(dw, int(xs[i + 1] + 0.5))
-                if xb > xa:
-                    spans.append((y, xa, xb))
-                    painted += xb - xa
-        if painted < _LAKE_MIN_DOTS:
+        spans = list(fill_spans(prings, dw, dh))
+        if sum(xb - xa for _y, xa, xb in spans) < _LAKE_MIN_DOTS:
             continue
         any_water = True
         for y, xa, xb in spans:

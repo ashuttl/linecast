@@ -31,7 +31,7 @@ from linecast.maps.mvt import (
 )
 from linecast._png import DecodeMemo
 from linecast.radar.basemap import DotLayer
-from linecast.terminal.braille import edge_dots, line_dots
+from linecast.terminal.braille import edge_dots, fill_spans, line_dots
 from linecast._log import debug_log, log_failure
 from linecast.terminal.theme import lerp_rgb
 from linecast.maps.vtiles import (fetch_tiles, iter_layer, prefetch_tiles,
@@ -187,31 +187,14 @@ def fetch_view(bbox, height_cells, window=None, coverage=None):
 def _fill_rings(grid, rings, value, dw, dh):
     """Even-odd scanline fill of projected, closed rings into a grid.
 
-    The algorithm is the basemap's, verbatim: even-odd across a group's
+    The basemap's fill (braille.fill_spans): even-odd across a group's
     rings means interior rings keep the opposite value, so a hole in a
     park (or an island in a lake) falls out for free.
     """
-    ys = [p[1] for ring in rings for p in ring]
-    if not ys:
-        return
-    y0 = max(0, int(min(ys)))
-    y1 = min(dh - 1, int(max(ys)) + 1)
-    for y in range(y0, y1 + 1):
-        yc = y + 0.5
-        xs = []
-        for ring in rings:
-            for i in range(len(ring) - 1):
-                ax, ay = ring[i]
-                bx, by = ring[i + 1]
-                if (ay <= yc < by) or (by <= yc < ay):
-                    xs.append(ax + (yc - ay) / (by - ay) * (bx - ax))
-        xs.sort()
+    for y, xa, xb in fill_spans(rings, dw, dh):
         row = grid[y]
-        for i in range(0, len(xs) - 1, 2):
-            xa = max(0, int(xs[i] + 0.5))
-            xb = min(dw, int(xs[i + 1] + 0.5))
-            for x in range(xa, xb):
-                row[x] = value
+        for x in range(xa, xb):
+            row[x] = value
 
 
 def _closed(ring):

@@ -21,7 +21,7 @@ import os
 from linecast.terminal import theme as _theme
 from linecast._paths import data_path
 from linecast._log import log_failure
-from linecast.terminal.braille import DOT_BITS, line_dots
+from linecast.terminal.braille import DOT_BITS, fill_spans, line_dots
 from linecast.terminal.textwidth import glyphs
 from linecast.terminal.theme import is_light_theme, lerp_rgb
 from linecast._i18n import base_language
@@ -440,26 +440,10 @@ class Basemap(DotLayer):
             # project rings to dot space
             prings = [[_project(lon + turn, lat, self.bbox, self.dw, self.dh)
                        for lon, lat in ring] for ring in rings]
-            ys = [p[1] for ring in prings for p in ring]
-            y0 = max(0, int(min(ys)))
-            y1 = min(self.dh - 1, int(max(ys)) + 1)
-            for y in range(y0, y1 + 1):
-                yc = y + 0.5
-                xs = []
-                for ring in prings:
-                    n = len(ring)
-                    for i in range(n - 1):
-                        ax, ay = ring[i]
-                        bx, by = ring[i + 1]
-                        if (ay <= yc < by) or (by <= yc < ay):
-                            xs.append(ax + (yc - ay) / (by - ay) * (bx - ax))
-                xs.sort()
+            for y, xa, xb in fill_spans(prings, self.dw, self.dh):
                 row = land[y]
-                for i in range(0, len(xs) - 1, 2):
-                    xa = max(0, int(xs[i] + 0.5))
-                    xb = min(self.dw, int(xs[i + 1] + 0.5))
-                    for x in range(xa, xb):
-                        row[x] = value
+                for x in range(xa, xb):
+                    row[x] = value
 
     def _sea_mask(self):
         """Boolean land mask at dot resolution via scanline polygon fill.
