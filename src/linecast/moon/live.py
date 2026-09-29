@@ -59,16 +59,13 @@ class MoonApp(LiveApp):
 
     @property
     def help_view(self):
+        # The controls follow the view on screen
         return 'moon_calendar' if self.month else 'moon'
 
-    def help_panel(self):
-        # The controls follow the view on screen, and help credits the
-        # place the Moon is seen from, where the weather's names its
-        # sources.
-        from linecast.terminal.help import HelpPanel, entries
-        return HelpPanel(None, self.runtime.lang, content=lambda cols, rows: entries(
-            self.help_view, self.runtime.lang,
-            credits=(place_credit(self.lat, self.lng, self.place, self.runtime),)))
+    def help_credits(self):
+        # Help credits the place the Moon is seen from, where the
+        # weather's names its sources.
+        return (place_credit(self.lat, self.lng, self.place, self.runtime),)
 
     def render(self, mouse_pos=None, **_):
         # The loop's offset_minutes goes unused: each view keeps its own

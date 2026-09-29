@@ -99,10 +99,11 @@ class TestKeys:
 
 class TestHelp:
     def test_help_follows_the_view(self, app):
+        from linecast.terminal.help import entries
         panel = app.help_panel()
-        assert panel.view() == "sunshine"
+        assert panel.content(100, 30) == entries("sunshine", "en")
         app.on_action("v")
-        assert panel.view() == "sunshine_year"
+        assert panel.content(100, 30) == entries("sunshine_year", "en")
 
 
 class TestRun:

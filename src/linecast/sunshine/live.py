@@ -32,12 +32,8 @@ class SunshineApp(LiveApp):
 
     @property
     def help_view(self):
+        # The controls follow the view on screen
         return 'sunshine_year' if self.year else 'sunshine'
-
-    def help_panel(self):
-        # The controls follow the view on screen, asked each time help opens
-        from linecast.terminal.help import HelpPanel
-        return HelpPanel(lambda: self.help_view, self.runtime.lang)
 
     def render(self, mouse_pos=None, **_):
         # The loop's offset_minutes goes unused: the day view keeps its
