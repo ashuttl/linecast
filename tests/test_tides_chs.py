@@ -35,5 +35,24 @@ class YRangeTests(unittest.TestCase):
                              (-0.5, 3.0))
 
 
+class NearestStationTests(unittest.TestCase):
+    STATIONS = [
+        # a current station, nearer the place than any tide station
+        {"id": "a" * 24, "officialName": "Second Narrows", "operating": True,
+         "latitude": 49.2947, "longitude": -123.0245,
+         "timeSeries": [{"code": "wcp1-events"}, {"code": "wcsp1"}]},
+        {"id": "b" * 24, "officialName": "Vancouver", "operating": True,
+         "latitude": 49.287, "longitude": -123.11,
+         "timeSeries": [{"code": "wlo"}, {"code": "wlp"}, {"code": "wlp-hilo"}]},
+    ]
+
+    def test_a_station_with_no_water_levels_is_not_picked(self):
+        with patch.object(chs, "fetch_all_stations_chs", return_value=self.STATIONS), \
+             patch.object(common, "read_cache", return_value=None), \
+             patch.object(common, "write_cache"):
+            self.assertEqual(chs.find_nearest_station_chs(49.30, -123.02),
+                             ("b" * 24, "Vancouver"))
+
+
 if __name__ == "__main__":
     unittest.main()

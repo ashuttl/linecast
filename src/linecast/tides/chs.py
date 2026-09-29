@@ -43,8 +43,14 @@ def fetch_all_stations_chs() -> list[dict[str, Any]]:
 
 
 def _operating_station_coords(station):
-    """Coordinates of an operating station; None for a closed one."""
+    """Coordinates of an operating station with a tide curve; None for a
+    closed one, or one that predicts only the current: the list asked
+    for tide stations brings Second Narrows, in Vancouver's harbour,
+    which has no water levels to draw."""
     if not station.get("operating", True):
+        return None
+    series = station.get("timeSeries")
+    if series is not None and not any(s.get("code") == "wlp" for s in series):
         return None
     return station_coords(station, "latitude", "longitude")
 
