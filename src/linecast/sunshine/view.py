@@ -24,7 +24,6 @@ from linecast.terminal.color import fg, RESET, lerp, interp_stops
 from linecast.terminal.textwidth import visible_len
 from linecast.terminal.framebuffer import get_terminal_size, Framebuffer
 from linecast._timefmt import fmt_time
-from linecast.terminal.live import live_loop
 from linecast.terminal import theme as _theme
 from linecast.terminal.theme import darken, lighten
 from linecast._i18n import fmt_duration_parts, lang_of
@@ -430,6 +429,12 @@ def _sky_name(lat, lng, doy, hour, sunrise, sunset, tz_offset_h, runtime):
                      morning=hour < (sunrise + sunset) / 2)
 
 
+def _offset_hours(dt):
+    """*dt*'s UTC offset in hours, or None for a naive time."""
+    off = dt.utcoffset()
+    return None if off is None else off.total_seconds() / 3600
+
+
 # ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
@@ -468,10 +473,6 @@ def main():
     def _now():
         # datetime.now(None) is naive machine-local, matching old behavior.
         return datetime.now(tz)
-
-    def _offset_hours(dt):
-        off = dt.utcoffset()
-        return None if off is None else off.total_seconds() / 3600
 
     # The day read in a tradition's hours, from the flag, the saved
     # setting, or the language; None keeps the civil clock alone. The
@@ -516,9 +517,11 @@ def main():
                               hours=_hours(now), now=now))
         return
 
-    live = runtime.live
-    year_mode = getattr(args, "year", False)
-    dst = getattr(args, "dst", False)
+    # Both views read from the right in a right-to-left language: the
+    # day's arc is plotted by the hour, midnight to midnight, and the
+    # year by the date, so both are time running leftward.
+    from linecast.terminal import bidi as _bidi
+    _bidi.set_mirror(True)
 
     # Both views name the place in a corner. The forward geocoder already
     # labeled a place-name override; otherwise the (cached) reverse
@@ -527,83 +530,14 @@ def main():
     location_label = (place_label(lat, lng, label, runtime.lang).split(",")[0].strip()
                       or f"{lat:.2f},{lng:.2f}")
 
-    # Day and year keep separate scrub offsets, so flipping between them
-    # returns to where each was left. The year view scrubs nothing: the
-    # mouse hovers it instead.
-    state = {"year": year_mode, "minutes": 0}
-
-    def _render_view(offset_minutes=0, mouse_pos=None, active_alert=None,
-                     modal_scroll=0):
-        # offset_minutes/active_alert/modal_scroll are ignored; scrubbing
-        # is handled here (day view only) rather than by live_loop.
-        # Both views read from the right in a right-to-left language:
-        # the day's arc is plotted by the hour, midnight to midnight,
-        # and the year by the date, so both are time running leftward.
-        from linecast.terminal import bidi as _bidi
-        _bidi.set_mirror(True)
-        if state["year"]:
-            from linecast.sunshine.year import render_year
-            return render_year(
-                lat, lng, _now(), runtime, tz=tz, fullscreen=live,
-                dst=dst, location_label=location_label,
-                mouse_pos=mouse_pos,
-            )
-        now = _now()
-        if state["minutes"]:
-            from datetime import timedelta
-            now = now + timedelta(minutes=state["minutes"])
-        doy = now.timetuple().tm_yday
-        now_hour = now.hour + now.minute / 60 + now.second / 3600
-        return render(
-            lat,
-            lng,
-            doy,
-            now_hour,
-            fullscreen=live,
-            offset_minutes=state["minutes"],
-            runtime=runtime,
-            tz_offset_h=_offset_hours(now),
-            location_label=location_label,
-            now=now,
-            hours=_hours(now),
-        )
-
-    if not live:
+    from linecast.sunshine.live import SunshineApp
+    app = SunshineApp(_now, lat, lng, runtime, tz=tz, hours_at=_hours,
+                      year=getattr(args, "year", False), dst=getattr(args, "dst", False),
+                      location_label=location_label)
+    if not runtime.live:
         from linecast.terminal.live import print_frame
         from linecast.terminal.textwidth import calibrate_from_terminal
         calibrate_from_terminal()
-        print_frame(_render_view())
+        print_frame(app.render())
         return
-
-    # A wheel notch or arrow key scrubs 15 minutes of the day view; the
-    # year view consumes them without moving. v flips between the two
-    # (y still works: the view is --year's).
-    def _step(n):
-        if not state["year"]:
-            state["minutes"] += 15 * n
-        return True
-
-    def _intercept(action):
-        if action == "fwd":
-            return _step(1)
-        if action == "back":
-            return _step(-1)
-        if action == "reset":
-            state["minutes"] = 0
-            return True
-        return False
-
-    def _on_wheel(direction, _col, _row):
-        return _step(direction)
-
-    def _on_key(key):
-        if key in ("v", "y"):
-            state["year"] = not state["year"]
-            return True
-        return False
-
-    from linecast.terminal.help import HelpPanel
-    help_panel = HelpPanel(lambda: 'sunshine_year' if state['year'] else 'sunshine',
-                           runtime.lang)
-    live_loop(_render_view, mouse=True, intercept=_intercept, help_panel=help_panel,
-              on_wheel=_on_wheel, on_action=_on_key)
+    app.run()

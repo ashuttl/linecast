@@ -110,6 +110,7 @@ Fixes:
   - Fixed Ctrl-Z leaving the shell on the view's screen, with mouse reporting on and the cursor hidden. The terminal now goes back to the shell as it was, and `fg` returns to the view.
   - Fixed Esc pressed while the mouse was moving turning the mouse's report into keypresses, which could swing the sky's view or fly it to the Moon.
   - Fixed Ctrl-C in the moon, sunshine, sky, tides, radar, and maps views printing a Python traceback when pressed while the view was still loading, or during `--print`.
+  - Fixed a row holding an emoji or a Nerd Font icon in the live sunshine view sitting a cell out of line on terminals that draw those glyphs at another width than most; it lines up, as it did with `--print`.
 - Language:
   - Fixed a crash in the live views when Hebrew or Arabic text, such as a place name in a hover chip, was drawn beside numbers, in every language but Persian.
   - Fixed `LC_ALL=C` being passed over for the language in `LANG`, such as German with `LANG=de_DE.UTF-8`; linecast speaks English under it, as other programs do.
