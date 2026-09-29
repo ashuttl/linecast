@@ -6,7 +6,9 @@ left out here reads in English.
 
 
 SETTINGS = {
-    "script": "CJK",
+    # kanji and kana: さいたま市 and ファミリーマート are read as they
+    # are, not as Saitama-shi
+    "script": ("CJK", "HIRAGANA", "KATAKANA", "HALFWIDTH"),
     "capitals": False,
     "numeric_month_axis": True,
     "absolute_seasons": True,

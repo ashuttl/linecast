@@ -46,10 +46,11 @@ SETTINGS = {
     # everything else many.
     "plural": "one_many",
     # The script the language is written in, as the first word of its
-    # letters' Unicode names: "CYRILLIC", "ARABIC", "CJK".  A map place
-    # with no name in the language shows its local name when that is in
-    # this script, before the Latin transliteration.  Default None, the
-    # Latin alphabet.
+    # letters' Unicode names: "CYRILLIC", "ARABIC", "CJK", or a tuple of
+    # them for a language written in several, as Japanese is in kanji
+    # and kana.  A map place with no name in the language shows its
+    # local name when that is in this script, before the Latin
+    # transliteration.  Default None, the Latin alphabet.
     "script": None,
     # Whether the sky chart sets constellation names in capitals, a
     # convention of the alphabets that have them.  Default True.

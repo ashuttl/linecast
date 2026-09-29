@@ -1071,6 +1071,13 @@ class TestNameInTheReadersScript:
         assert _name(kyiv, "ru") == "Хрещатик"
         assert _name(kyiv, "fa") == "Khreshchatyk"
 
+    def test_japanese_reads_kana_as_well_as_kanji(self):
+        from linecast.maps.labels import _name
+        for local in ("さいたま市", "ファミリーマート", "東京駅"):
+            props = {"name": local, "name:latin": "romaji"}
+            assert _name(props, "ja") == local
+            assert _name(props, "zh") == ("東京駅" if local == "東京駅" else "romaji")
+
     def test_the_readers_own_language_still_comes_first(self):
         from linecast.maps.labels import _name
         props = {"name": "Тбилиси", "name:fa": "تفلیس", "name:latin": "Tbilisi"}

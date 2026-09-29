@@ -478,7 +478,8 @@ def _name(props, lang):
             return str(value)
     local = props.get("name")
     script = setting(lang, "script")
-    if local and script and _script_of(str(local)) == script:
+    scripts = (script,) if isinstance(script, str) else script or ()
+    if local and _script_of(str(local)) in scripts:
         return str(local)
     for key in ("name:latin", "name"):
         value = props.get(key)

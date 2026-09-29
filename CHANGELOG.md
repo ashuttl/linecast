@@ -41,6 +41,7 @@ Notable changes, by release. Notes for the next release collect under **Unreleas
 - Maps: Directions between two places with no road between them say "no route" rather than "directions unavailable", and are not asked for again.
 - Radar, maps: `--zoom` with zero, a negative number, or anything not a number of degrees now says so rather than ending in a Python traceback.
 - Maps: Fixed a search that found nothing as you typed, with Enter pressed before it answered, stopping at "no results" instead of looking the name up, as Enter pressed afterwards does.
+- Maps: In Japanese, a place whose name is written in kana, such as さいたま市 or ファミリーマート, is labelled with that name rather than its romanization, as names in kanji already were.
 
 ## 2.9.2 — 2026-09-27
 
