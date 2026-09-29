@@ -310,7 +310,7 @@ class TestMirroring:
         assert _plain(display("ab ▌")) == "ab ▌"
 
     def test_arrows_follow_the_mirrored_axis(self):
-        from linecast.terminal.live import _arrow
+        from linecast.terminal.keys import _arrow
         from linecast.terminal import bidi
         bidi.configure("fa", {})
         bidi.set_mirror(True)

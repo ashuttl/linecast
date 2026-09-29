@@ -32,7 +32,7 @@ from linecast.maps import style as _maps_style
 from linecast.weather import alerts
 from linecast.weather import view as _weather_view
 from linecast.weather import style
-from linecast.terminal.live import _read_key
+from linecast.terminal.keys import read_key
 from conftest import SRC
 
 
@@ -362,13 +362,13 @@ class TestProbe:
         replies = _replies(*LIGHT)
         for body in replies[:-1]:
             os.write(w, b"\x1b]" + body.encode() + b"\x07")
-            assert _read_key(r) is None
+            assert read_key(r) is None
         # ST-terminated, the other legal ending
         os.write(w, b"\x1b]" + replies[-1].encode() + b"\x1b\\")
-        assert _read_key(r) == "theme"
+        assert read_key(r) == "theme"
         # and the key after it is still a key
         os.write(w, b"q")
-        assert _read_key(r) == "quit"
+        assert read_key(r) == "quit"
 
 
 CHILD = textwrap.dedent("""

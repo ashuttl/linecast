@@ -4,6 +4,7 @@ import io
 from types import SimpleNamespace
 
 from linecast.terminal import framebuffer as _framebuffer
+from linecast.terminal import keys as _keys
 from linecast.terminal import live as _live
 
 
@@ -40,7 +41,7 @@ def run_loop(monkeypatch, script, render_fn=None, coalesce=False, **hooks):
     monkeypatch.setenv('LINECAST_FRAME_SYNC', '0')
     monkeypatch.setattr(_live._term, 'wait_readable',
                         lambda fd, timeout: coalesce and pending[0][0] == 0)
-    monkeypatch.setattr(_live, '_read_key', read)
+    monkeypatch.setattr(_keys, 'read_key', read)
     monkeypatch.setattr(_live, '_time', SimpleNamespace(
         monotonic=lambda: clock[0], time=lambda: clock[0]))
     monkeypatch.setattr(_live.sys, 'stdin', SimpleNamespace(fileno=lambda: 0))

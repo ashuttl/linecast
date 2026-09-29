@@ -41,6 +41,8 @@ import functools
 import os
 import re
 
+from linecast.terminal.keys import KEYS
+
 # The US keys each column stands for, unshifted and shifted, in keyboard rows:
 # digits, then the three letter rows, the last ending on the / key.
 _KEYS = "1234567890-=" "qwertyuiop" "asdfghjkl" "zxcvbnm/"
@@ -139,8 +141,8 @@ def _entries(name):
                 yield ch, key
 
 
-# The keys linecast's views answer to (terminal.live._read_key).
-_BOUND = frozenset("qQoOnN+=-_tTcCwasdWSDvVpPlLmMyYrR/?0123456789")
+# The keys linecast's views answer to.
+_BOUND = frozenset(key.decode() for key in KEYS)
 
 
 @functools.lru_cache(maxsize=None)

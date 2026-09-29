@@ -1260,10 +1260,10 @@ class TestCultures:
         assert all(t.kind in ("deep_sky", "asterism") for t in search("orion", pool))
 
     def test_digits_reach_the_view(self):
-        from linecast.terminal.live import _read_key
+        from linecast.terminal.keys import read_key
         from unittest.mock import patch
         with patch("linecast.terminal.term.read_byte", return_value=b"7"):
-            assert _read_key(0) == "key:7"
+            assert read_key(0) == "key:7"
 
     def test_culture_command(self):
         import io

@@ -14,7 +14,7 @@ the reported size in place of the signal.
 The one thing that does *not* differ is the byte stream.  With
 ENABLE_VIRTUAL_TERMINAL_INPUT set, the Windows console emits the same
 ANSI sequences a POSIX terminal does — \\033[A for up, SGR 1006 mouse
-reports — so _read_key's escape parsing is shared verbatim and only the
+reports — so terminal.keys' escape parsing is shared verbatim and only the
 plumbing under it is swapped out here.
 """
 
@@ -58,9 +58,9 @@ def note_terminal_name(buf):
 answered = None
 
 # Input read but not yet taken, which every read takes first.  On Windows
-# the console hands over a whole escape sequence per read while _read_key
+# the console hands over a whole escape sequence per read while terminal.keys
 # walks input a byte at a time, and the remainder waits here rather than
-# trust the console to hold it.  Anywhere, a byte _read_key read too far
+# trust the console to hold it.  Anywhere, a byte terminal.keys read too far
 # goes back here (unread).
 _pending = bytearray()
 
@@ -129,7 +129,7 @@ else:
 
 
 # ---------------------------------------------------------------------------
-# Byte-level input, shared by _read_key
+# Byte-level input, which terminal.keys reads
 # ---------------------------------------------------------------------------
 def read_byte(fd):
     """One byte of input, or None at EOF."""

@@ -1,7 +1,7 @@
-"""Tests for _read_key's text-entry mode and the new key bindings.
+"""Tests for read_key's text-entry mode and the new key bindings.
 
 No terminal needed: bytes are written to an os.pipe() and the read end
-is handed to _read_key, exactly as cbreak stdin would deliver them.
+is handed to read_key, exactly as cbreak stdin would deliver them.
 """
 
 import os
@@ -9,7 +9,7 @@ import sys
 
 import pytest
 
-from linecast.terminal.live import _read_key
+from linecast.terminal.keys import read_key
 from conftest import SRC
 
 
@@ -29,11 +29,11 @@ def pipe():
 def _key(pipe, data, text=False):
     r, w = pipe
     os.write(w, data)
-    return _read_key(r, text=text)
+    return read_key(r, text=text)
 
 
 class TestAdvertisedKeys:
-    """Every key a help panel lists reaches the view. _read_key returns
+    """Every key a help panel lists reaches the view. read_key returns
     None for a letter it does not know, so a key a view handles and the
     help lists is still dead until it is decoded here too."""
 
@@ -65,7 +65,7 @@ class TestTextMode:
     def test_uppercase_and_punctuation(self, pipe):
         assert _key(pipe, b"Q", text=True) == "char:Q"  # not 'quit'
         os.write(pipe[1], b"/")
-        assert _read_key(pipe[0], text=True) == "char:/"  # not 'key:/'
+        assert read_key(pipe[0], text=True) == "char:/"  # not 'key:/'
 
     def test_space_is_a_char_not_reset(self, pipe):
         assert _key(pipe, b" ", text=True) == "char: "
@@ -83,7 +83,7 @@ class TestTextMode:
     def test_backspace_both_encodings(self, pipe):
         assert _key(pipe, b"\x7f", text=True) == "key:backspace"
         os.write(pipe[1], b"\x08")
-        assert _read_key(pipe[0], text=True) == "key:backspace"
+        assert read_key(pipe[0], text=True) == "key:backspace"
 
     def test_ctrl_u_kills_line(self, pipe):
         assert _key(pipe, b"\x15", text=True) == "key:kill"
@@ -111,7 +111,7 @@ class TestTextMode:
     def test_arrows_still_navigate_while_typing(self, pipe):
         assert _key(pipe, b"\033[A", text=True) == "fwd"
         os.write(pipe[1], b"\033[B")
-        assert _read_key(pipe[0], text=True) == "back"
+        assert read_key(pipe[0], text=True) == "back"
 
     def test_mouse_still_decodes_while_typing(self, pipe):
         assert _key(pipe, b"\033[<0;12;7M", text=True) == \
@@ -138,7 +138,7 @@ class TestNewBindings:
                              (b"r", "key:r"), (b"R", "key:r"),
                              (b"/", "key:/"), (b"?", "key:?")):
             os.write(pipe[1], data)
-            assert _read_key(pipe[0]) == action
+            assert read_key(pipe[0]) == action
 
     def test_existing_bindings_untouched(self, pipe):
         for data, action in ((b"q", "quit"), (b"o", "open"),
@@ -146,14 +146,14 @@ class TestNewBindings:
                              (b"t", "key:t"), (b"s", "key:s"),
                              (b"\r", "key:enter")):
             os.write(pipe[1], data)
-            assert _read_key(pipe[0]) == action
+            assert read_key(pipe[0]) == action
 
     def test_unbound_printables_still_dropped(self, pipe):
         # letters outside the whitelist return None with text off —
         # the pre-existing contract other commands rely on
         for data in (b"z", b"x", b"."):
             os.write(pipe[1], data)
-            assert _read_key(pipe[0]) is None
+            assert read_key(pipe[0]) is None
 
 
 class TestEscapeThenASequence:
@@ -164,22 +164,22 @@ class TestEscapeThenASequence:
         r, _w = pipe
         # was: escape, then [<35;12;5M read as keys 3, 5, 1, 2, 5, m
         assert _key(pipe, b"\033\033[<35;12;5M") == "escape"
-        assert _read_key(r) == ("mouse", 35, 12, 5, False)
+        assert read_key(r) == ("mouse", 35, 12, 5, False)
 
     def test_an_arrow_after_esc_is_not_lost(self, pipe):
         r, _w = pipe
         assert _key(pipe, b"\033\033[A") == "escape"
-        assert _read_key(r) == "fwd"
+        assert read_key(r) == "fwd"
 
     def test_two_escs_are_two(self, pipe):
         r, _w = pipe
         assert _key(pipe, b"\033\033") == "escape"
-        assert _read_key(r) == "escape"
+        assert read_key(r) == "escape"
 
     def test_a_sequence_cut_short_keeps_the_next_whole(self, pipe):
         r, _w = pipe
         assert _key(pipe, b"\033[<35;1\033[<35;12;5M") is None
-        assert _read_key(r) == ("mouse", 35, 12, 5, False)
+        assert read_key(r) == ("mouse", 35, 12, 5, False)
 
     @pytest.mark.skipif(sys.platform == "win32", reason="POSIX wait")
     def test_a_byte_put_back_wakes_the_loop(self, pipe):
@@ -236,7 +236,7 @@ class TestNonLatinLayouts:
     def test_unbound_and_unknown_characters_still_dropped(self, pipe):
         for ch in ("ק", "é", "東", "🌍"):  # Hebrew e; no layout here has the others
             os.write(pipe[1], ch.encode())
-            assert _read_key(pipe[0]) is None
+            assert read_key(pipe[0]) is None
 
     def test_broken_utf8_dropped(self, pipe):
         assert _key(pipe, b"\x80") is None
@@ -254,7 +254,7 @@ class TestNonLatinLayouts:
         assert _key(pipe, "ض".encode(), text=True) == "char:ض"
         for ch in "تهران":
             os.write(pipe[1], ch.encode())
-            assert _read_key(pipe[0], text=True) == "char:" + ch
+            assert read_key(pipe[0], text=True) == "char:" + ch
 
 
 class TestNudge:

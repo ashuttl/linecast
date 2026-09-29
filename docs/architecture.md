@@ -34,7 +34,7 @@ The package is built in layers, and a module imports only from its own layer or 
 
 ## The live loop
 
-`terminal.live.live_loop()` runs every live view. It puts the terminal on the alternate screen, turns on mouse reporting, calls a render function whenever something happens — a key, a wheel notch, a drag, a resize, a timer, a background fetch landing — and writes the frame. It decodes the escape sequences itself (`_read_key`); nothing else in the package reads stdin.
+`terminal.live.live_loop()` runs every live view. It puts the terminal on the alternate screen, turns on mouse reporting, calls a render function whenever something happens — a key, a wheel notch, a drag, a resize, a timer, a background fetch landing — and writes the frame. It decodes the escape sequences itself, with `terminal.keys.read_key`; nothing else in the package reads stdin. `terminal.keys.KEYS` is every key a view answers to outside a text field, so a key a view handles and its help lists goes there too.
 
 A live view with state subclasses `terminal.live.LiveApp`. The loop's hooks are its methods — `render`, `on_action` for single keys, `on_wheel`, `on_drag`, `on_click`, `intercept` for a panel that wants every key, `text_mode` while a text field is open, `play_gate` for animations — and the loop's tuning is its class attributes (`interval`, `mouse`, `scroll_step`, `auto_play`, `play_interval`). `run()` puts the app on screen; `stop()` is called on the way out. A hook the subclass does not override is not handed to the loop, so the loop's defaults stand: without `on_wheel` the wheel scrubs time, without `on_drag` there are no clicks. `MapApp`, `RadarApp`, `WeatherApp` and `TidesApp` are the four; sunshine and moon are a single render function and call `live_loop` directly.
 

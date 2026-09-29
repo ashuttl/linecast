@@ -24,7 +24,7 @@ import pytest
 
 from linecast.terminal import theme as _theme
 from linecast.terminal import term as _term
-from linecast.terminal.live import _read_key
+from linecast.terminal.keys import read_key
 from conftest import SRC
 
 needs_pty = pytest.mark.skipif(not hasattr(os, "openpty"), reason="needs a pty")
@@ -51,15 +51,15 @@ class TestReadKey:
     def test_a_cursor_report_is_an_ack(self, pipe):
         r, w = pipe
         os.write(w, b"\033[24;80R")
-        assert _read_key(r) == "ack"
+        assert read_key(r) == "ack"
         os.write(w, b"\033[1;1R")
-        assert _read_key(r, text=True) == "ack"   # while typing too
+        assert read_key(r, text=True) == "ack"   # while typing too
 
     def test_the_key_after_it_is_still_a_key(self, pipe):
         r, w = pipe
         os.write(w, b"\033[24;80Rq")
-        assert _read_key(r) == "ack"
-        assert _read_key(r) == "quit"
+        assert read_key(r) == "ack"
+        assert read_key(r) == "quit"
 
 
 class TestReadUntilReply:

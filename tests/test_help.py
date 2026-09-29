@@ -9,6 +9,7 @@ import pytest
 from linecast.terminal import framebuffer as _framebuffer
 from linecast.terminal import help as _help
 from linecast.terminal import help_i18n as _help_i18n
+from linecast.terminal import keys as _keys
 from linecast.terminal import live as _live
 from linecast.terminal.textwidth import visible_len
 from linecast._i18n import LANGUAGE_CODES
@@ -95,7 +96,7 @@ def run_loop(monkeypatch, actions, **hooks):
         modes.append(text)
         return next(inputs)
 
-    monkeypatch.setattr(_live, '_read_key', read)
+    monkeypatch.setattr(_keys, 'read_key', read)
     frames = []
     help_panel = _help.HelpPanel('sky')
 

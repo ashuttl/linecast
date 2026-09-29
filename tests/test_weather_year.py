@@ -661,15 +661,15 @@ class TestLive:
         assert seen == ["fringe", "colored", "plain", "fringe"]
 
     def test_every_key_the_view_takes_gets_past_the_decoder(self):
-        # on_action only ever sees what _read_key lets through; a key the
+        # on_action only ever sees what read_key lets through; a key the
         # decoder does not know never arrives (as b did not, at first)
         import os
-        from linecast.terminal.live import _read_key
+        from linecast.terminal.keys import read_key
         for key in "lrvyc/":
             r, w = os.pipe()
             try:
                 os.write(w, key.encode())
-                assert _read_key(r) == f"key:{key}", key
+                assert read_key(r) == f"key:{key}", key
             finally:
                 os.close(r)
                 os.close(w)

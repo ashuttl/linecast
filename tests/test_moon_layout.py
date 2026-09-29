@@ -288,11 +288,11 @@ class TestMoonAlone:
     def test_t_gets_past_the_decoder_and_into_help(self):
         import os
         from linecast.terminal.help import entries
-        from linecast.terminal.live import _read_key
+        from linecast.terminal.keys import read_key
         r, w = os.pipe()
         try:
             os.write(w, b"t")
-            assert _read_key(r) == "key:t"
+            assert read_key(r) == "key:t"
         finally:
             os.close(r)
             os.close(w)
