@@ -275,6 +275,19 @@ class LocationCommandTests(unittest.TestCase):
         self.assertEqual(_config.read_config(), {})
         self.assertIsNone(_config.saved_location())
 
+    def test_a_setting_is_not_saved_over_a_config_that_will_not_read(self):
+        # A trailing comma from a hand edit: the settings it holds are
+        # still the user's, and saving one would have replaced them all
+        path = _config.config_file()
+        path.parent.mkdir(parents=True, exist_ok=True)
+        text = '{"units": "metric", "clock": "24",}'
+        path.write_text(text)
+        with patch("linecast.weather.sources._reverse_geocode",
+                   return_value=("Fayette, Maine", "US", {})), \
+             self.assertRaises(SystemExit):
+            location._cmd_set("44.4293,-70.0356")
+        self.assertEqual(path.read_text(), text)
+
     def test_config_that_is_not_an_object_reads_as_empty(self):
         # A hand edit can leave a list or a bare string; every reader
         # calls .get on the result.

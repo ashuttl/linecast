@@ -38,7 +38,22 @@ def read_config() -> dict[str, Any]:
 
 
 def write_config(data: dict[str, Any]) -> None:
+    """Save *data* as config.json.
+
+    A config.json that is there but will not read is a hand edit gone
+    wrong, and read_config() gave {} for it: writing now would replace
+    every setting in it with the one being changed.  It is refused with
+    an OSError instead, which the callers already report.
+    """
     path = config_file()
+    try:
+        current = json.loads(path.read_bytes())
+    except FileNotFoundError:
+        current = {}
+    except ValueError as exc:
+        raise OSError(f"it could not be read ({exc}); fix or remove it, then try again") from exc
+    if not isinstance(current, dict):
+        raise OSError("it does not hold a JSON object; fix or remove it, then try again")
     path.parent.mkdir(parents=True, exist_ok=True)
     from linecast._cache import write_bytes_atomic
     write_bytes_atomic(path, (json.dumps(data, indent=2) + "\n").encode())

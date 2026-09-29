@@ -25,6 +25,7 @@ Notable changes, by release. Notes for the next release collect under **Unreleas
 - Sunshine: Fixed `sunshine --json` giving tomorrow's sunrise and sunset an hour off on the evening before the clocks change.
 - Sunshine: Fixed `--oneline` giving a sunrise and sunset through the polar night and the midnight sun; it now shows dashes and names the season, as the full view does. Fixed a sunrise just before midnight, in the far north in summer, showing as just after midnight.
 - Moon, sunshine, sky, tides, radar, maps: Fixed Ctrl-C printing a Python traceback when pressed while the view was still loading, or during `--print`.
+- Settings: Fixed a setting command, such as `linecast units imperial`, replacing a config.json that could not be read, and every setting in it, with the one setting. It now says what is wrong with the file and leaves it alone.
 
 ## 2.9.2 — 2026-09-27
 
