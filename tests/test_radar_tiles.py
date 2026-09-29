@@ -365,7 +365,8 @@ class TestIndexFreshness:
         from linecast import _http
         from linecast.radar import tiles
         monkeypatch.setenv("LINECAST_CACHE_DIR", str(tmp_path))
-        provider = tiles.Provider("rv", "https://api.example/index.json", 2, "1_1", 10)
+        provider = tiles.Provider("rv", "https://api.example/index.json", 2, "1_1", 10,
+                                  "radar/rainviewer")
         path = tiles._cache_dir(provider) / "weather-maps.json"
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text('{"stale": true}')

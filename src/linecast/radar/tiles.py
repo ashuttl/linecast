@@ -69,17 +69,13 @@ class Provider:
     tag: str
 
     def __init__(self, name: str, index_url: str, color: int, options: str,
-                 max_zoom: int) -> None:
+                 max_zoom: int, tag: str) -> None:
         self.name = name            # cache subdir under radar/
         self.index_url = index_url
         self.color = color          # colour scheme id baked into tile pixels
         self.options = options      # {smooth}_{snow}
         self.max_zoom = max_zoom
-        # the provider's name in the debug log (see _log.log_failure)
-        self.tag = _TAGS.get(name.split("-", 1)[0], "radar/" + name)
-
-
-_TAGS = {"rv": "radar/rainviewer", "lwxr": "radar/librewxr"}
+        self.tag = tag              # its name in the debug log (see _log.log_failure)
 
 
 def rainviewer_provider(smooth: bool = True) -> Provider:
@@ -87,7 +83,8 @@ def rainviewer_provider(smooth: bool = True) -> Provider:
     # ignored), max zoom 7.  Unsmoothed tiles keep the published table's
     # exact colours, which is what lets ub decode them.
     return Provider("rv", "https://api.rainviewer.com/public/weather-maps.json",
-                    color=2, options=f"{int(smooth)}_1", max_zoom=7)
+                    color=2, options=f"{int(smooth)}_1", max_zoom=7,
+                    tag="radar/rainviewer")
 
 
 def librewxr_provider(color: int, smooth: bool = True) -> Provider:
@@ -95,7 +92,8 @@ def librewxr_provider(color: int, smooth: bool = True) -> Provider:
     # tile host still comes from the index response's "host" field.
     base = os.environ.get("LINECAST_LIBREWXR_URL", LIBREWXR_DEFAULT_URL)
     return Provider("lwxr", base.rstrip("/") + "/public/weather-maps.json",
-                    color=color, options=f"{int(smooth)}_1", max_zoom=12)
+                    color=color, options=f"{int(smooth)}_1", max_zoom=12,
+                    tag="radar/librewxr")
 
 
 def satellite_provider(provider: Provider) -> Provider:
@@ -103,7 +101,7 @@ def satellite_provider(provider: Provider) -> Provider:
     # only rendered in one scheme (grayscale VIS-over-LW, alpha = cloud
     # opacity), and the source mosaic is ~8 km so deep zooms add nothing.
     return Provider(provider.name + "-sat", provider.index_url,
-                    color=0, options="0_0", max_zoom=6)
+                    color=0, options="0_0", max_zoom=6, tag=provider.tag)
 
 
 def _cache_dir(provider):

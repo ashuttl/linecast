@@ -169,6 +169,7 @@ class _TileSource:
     a render never waits on the network for the index.
     """
 
+    tag: str  # the source's name in the debug log, set by each source
     host: str | None
     _frames: list[Frame]
     _sat_frames: list[Frame]
@@ -176,7 +177,6 @@ class _TileSource:
     def __init__(self, provider: tiles.Provider,
                  index_from: "_TileSource | None" = None) -> None:
         self.provider = provider
-        self.tag = provider.tag
         self._sat_provider = tiles.satellite_provider(provider)
         self.host = None
         self._frames = []
@@ -275,6 +275,7 @@ class RainViewerSource(_TileSource):
     label = "RainViewer"
     attribution = "Weather data by RainViewer"
     kind = "rv"
+    tag = "radar/rainviewer"
     themes = RV_THEMES  # advertises the in-radar theme picker
 
     def __init__(self, theme: str | int = THEMES[DEFAULT_THEME],
@@ -298,6 +299,7 @@ class LibreWXRSource(_TileSource):
     attribution = "Weather data by LibreWXR · CC BY 4.0"
     model_attribution = "Precipitation model by LibreWXR (no radar here) · CC BY 4.0"
     kind = "lwxr"
+    tag = "radar/librewxr"
     themes = THEMES  # advertises the in-radar theme picker
 
     def __init__(self, theme: str | int = THEMES[DEFAULT_THEME],
@@ -333,17 +335,13 @@ def _forced_source(n_frames, theme):
             if src.current_frames():
                 return src
         except Exception as exc:
-            log_failure(f"radar/{FORCED_SOURCE}", "pinned source", exc,
-                        fallback="IEM")
+            log_failure(cls.tag, "pinned source", exc, fallback="IEM")
     return IEMSource(n_frames)
 
 
 # What get_source last routed, so demote() can pick up the chain where
 # the source in hand left off without being handed the location again.
 _routing: tuple[float, float, int] | None = None
-
-_TAGS = {"lwxr": "radar/librewxr", "rv": "radar/rainviewer", "iem": "radar/iem"}
-
 
 def _chain(lat: float, lon: float) -> list[str]:
     """The sources to try for a location, best first."""
@@ -365,7 +363,7 @@ def _first_answering(kinds, n_frames, theme):
             if src.current_frames():
                 return src
         except Exception as exc:
-            log_failure(_TAGS[kind], "source", exc, fallback="next source")
+            log_failure(cls.tag, "source", exc, fallback="next source")
     return IEMSource(n_frames)
 
 
