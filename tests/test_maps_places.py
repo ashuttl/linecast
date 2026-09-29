@@ -340,8 +340,8 @@ class TestTheLabelToggle:
         monkeypatch.setattr(maps, "_get_globe", lambda *a, **k: None)
         bbox = _globe.scale_bbox(TestTheLabelToggle.LAT,
                                  TestTheLabelToggle.LON, zoom, gw, hc)
-        return maps._render_terrain(bbox, gw, hc, True, (0, 0), None, None,
-                                    None, None, "en", None,
+        return maps._render_terrain(maps._Window.of(bbox, gw, hc), True,
+                                    (0, 0), None, maps._Marks(), "en", None,
                                     show_labels=show)[0]
 
     @staticmethod
@@ -357,8 +357,8 @@ class TestTheLabelToggle:
                                    [[None] * gw for _ in range(hc)])
         monkeypatch.setattr(maps, "_get_street",
                             lambda *a, **k: (fills, layer, ov))
-        return maps._render_street(bbox, gw, hc, True, (0, 0), None, None,
-                                   None, None, "en", None,
+        return maps._render_street(maps._Window.of(bbox, gw, hc), True,
+                                   (0, 0), None, maps._Marks(), "en", None,
                                    show_labels=show)[0]
 
     @pytest.mark.parametrize("register", ("terrain", "street"))

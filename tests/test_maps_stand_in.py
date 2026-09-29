@@ -180,9 +180,9 @@ class TestTerrainStandInFrame:
             maps._places, "terrain_overlays",
             lambda cam, band, lang="en": named.append(cam) or real(
                 cam, band, lang))
+        window = maps._Window.of((1.0, 0.0, 9.0, 8.0), GW, HC)
         lines, _r, _h, loading, err = maps._render_terrain(
-            (1.0, 0.0, 9.0, 8.0), GW, HC, False, (0, 0), None, None, None,
-            None, "en", None)
+            window, False, (0, 0), None, maps._Marks(), "en", None)
         assert loading and err is None and len(named) == 1
         assert len(lines) == HC
 
@@ -191,8 +191,7 @@ class TestTerrainStandInFrame:
 
         monkeypatch.setattr(maps, "_get_elevation", offline)
         _l, _r, _h, loading, err = maps._render_terrain(
-            (1.0, 0.0, 9.0, 8.0), GW, HC, True, (0, 0), None, None, None,
-            None, "en", None)
+            window, True, (0, 0), None, maps._Marks(), "en", None)
         assert not loading and err == "offline" and len(named) == 2
         # and the window's own camera every time, never the margin's
         for cam in named:
@@ -572,7 +571,8 @@ class TestTheNewestViewStandsIn:
                                    [[ink] * gw for _ in range(hc)])
         maps._last_street[0] = (west, gw, hc, fills, layer)
         loaders._street_landed[0] = (east, gw + 1, hc, fills, layer)
-        maps._render_street(bbox_for(self.LAT, self.LON, self.ZOOM, gw, hc),
-                            gw, hc, False, (0, 0), None, None, None, None,
+        window = maps._Window.of(
+            bbox_for(self.LAT, self.LON, self.ZOOM, gw, hc), gw, hc)
+        maps._render_street(window, False, (0, 0), None, maps._Marks(),
                             "en", None)
         assert maps._last_street[0][0] == west   # the usable one is kept

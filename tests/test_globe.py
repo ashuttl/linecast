@@ -483,8 +483,8 @@ class TestLabelToggle:
         monkeypatch.setattr(maps, "_get_globe", lambda *a, **k: view)
         monkeypatch.setattr(maps, "get_terminal_size", lambda: (gw, hc + 2))
         bbox = (-31.0, -42.5, -29.0, 82.5)  # centre (20, -30), zoom 125
-        args = (bbox, gw, hc, True, (0, 0), None, None, None, None,
-                "en", None)
+        args = (maps._Window.of(bbox, gw, hc), True, (0, 0), None,
+                maps._Marks(), "en", None)
         maps._last_terrain[0] = None
         on, *_rest = maps._render_terrain(*args, show_labels=True)
         off, *_rest = maps._render_terrain(*args, show_labels=False)
@@ -512,8 +512,8 @@ class TestLabelToggle:
         monkeypatch.setattr(maps._places, "terrain_overlays",
                             lambda *a, **k: {})
         bbox = (-31.0, -42.5, -29.0, 82.5)
-        args = (bbox, gw, hc, True, (0, 0), None, None, None, None,
-                "en", None)
+        args = (maps._Window.of(bbox, gw, hc), True, (0, 0), None,
+                maps._Marks(), "en", None)
         maps._last_terrain[0] = None
         on, *_rest = maps._render_terrain(*args, show_labels=True)
         off, *_rest = maps._render_terrain(*args, show_labels=False)
@@ -543,8 +543,8 @@ class TestLabelToggle:
         monkeypatch.setattr(maps._places, "terrain_overlays",
                             lambda *a, **k: {})
         bbox = (-70.5, 43.5, -69.5, 44.5)
-        args = (bbox, gw, hc, True, (0, 0), None, None, None, None,
-                "en", None)
+        args = (maps._Window.of(bbox, gw, hc), True, (0, 0), None,
+                maps._Marks(), "en", None)
         on, *_rest = maps._render_terrain(*args, show_labels=True)
         off, *_rest = maps._render_terrain(*args, show_labels=False)
         for stroke in (chr(0x2807), chr(0x2810), chr(0x2802)):
@@ -630,8 +630,8 @@ class TestStreetRegister:
         bbox = (-31.0, -42.5, -29.0, 82.5)  # centre (20, -30), zoom 125
         paint = maps._render_street if street else maps._render_terrain
         maps._last_street[0] = maps._last_terrain[0] = None
-        paint(bbox, gw, hc, True, (0, 0), None, None, None,
-              None, "en", None, sun=True)
+        paint(maps._Window.of(bbox, gw, hc), True, (0, 0), None,
+              maps._Marks(), "en", None, sun=True)
         maps._last_street[0] = maps._last_terrain[0] = None
         return asked
 
@@ -657,8 +657,8 @@ class TestStreetRegister:
         real = maps._shade_now
         monkeypatch.setattr(maps, "_shade_now", lambda *a, **k:
                             shaded.append((a, k)) or real(*a, **k))
-        maps._render_street((-71.0, 43.0, -70.0, 44.0), gw, hc, False,
-                            (0, 0), None, None, None, None, "en", None,
+        maps._render_street(maps._Window.of((-71.0, 43.0, -70.0, 44.0), gw, hc),
+                            False, (0, 0), None, maps._Marks(), "en", None,
                             sun=True)
         assert asked == []
         assert shaded[0][0][4] == {}           # the lights argument
