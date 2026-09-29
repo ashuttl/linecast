@@ -1,10 +1,5 @@
 """Tests for terminal display width, the single source of truth."""
 
-import sys
-from pathlib import Path
-
-sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
-
 from linecast.terminal.textwidth import char_width, visible_len
 
 

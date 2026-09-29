@@ -1,13 +1,7 @@
 """A hover chip goes when the mouse has been still for a while."""
 
 import io
-import sys
-from pathlib import Path
 from types import SimpleNamespace
-
-_src = str(Path(__file__).resolve().parent.parent / "src")
-if _src not in sys.path:
-    sys.path.insert(0, _src)
 
 from linecast.terminal import framebuffer as _framebuffer
 from linecast.terminal import live as _live

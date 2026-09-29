@@ -6,18 +6,11 @@ is handed to _read_key, exactly as cbreak stdin would deliver them.
 
 import os
 import sys
-from pathlib import Path
 
 import pytest
 
-# Ensure the worktree src is preferred over any installed version.
-# (No sys.modules purge here: this file is collected after other test
-# modules that hold references into already-imported linecast modules.)
-_src = str(Path(__file__).resolve().parent.parent / "src")
-if _src not in sys.path:
-    sys.path.insert(0, _src)
-
 from linecast.terminal.live import _read_key
+from conftest import SRC
 
 
 @pytest.fixture
@@ -317,7 +310,7 @@ def test_loop_exit_puts_the_sigwinch_handler_back(tmp_path):
     import time
     master, slave = os.openpty()
     env = dict(os.environ, LINECAST_THEME="off", LINECAST_THEME_POLL="0",
-               LINECAST_THEME_WATCH="", PYTHONPATH=_src, T=str(tmp_path))
+               LINECAST_THEME_WATCH="", PYTHONPATH=SRC, T=str(tmp_path))
     proc = subprocess.Popen([sys.executable, "-c", _LOOP_EXIT_CHILD],
                             stdin=slave, stdout=slave, stderr=subprocess.PIPE,
                             env=env, close_fds=True)
@@ -373,7 +366,7 @@ def test_ctrl_z_hands_the_terminal_back_before_stopping():
     import time
     master, slave = os.openpty()
     env = dict(os.environ, LINECAST_THEME="off", LINECAST_THEME_POLL="0",
-               LINECAST_THEME_WATCH="", LINECAST_FRAME_SYNC="0", PYTHONPATH=_src)
+               LINECAST_THEME_WATCH="", LINECAST_FRAME_SYNC="0", PYTHONPATH=SRC)
     proc = subprocess.Popen([sys.executable, "-c", _SUSPEND_CHILD],
                             stdin=slave, stdout=slave, stderr=subprocess.PIPE,
                             env=env, close_fds=True)

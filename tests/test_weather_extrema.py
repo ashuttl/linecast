@@ -1,10 +1,5 @@
 """Tests for temperature-extrema label placement on the hourly chart."""
 
-import sys
-from pathlib import Path
-
-sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
-
 from linecast.terminal.braille import interpolate
 from linecast.weather.hourly import _find_temperature_extrema
 

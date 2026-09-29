@@ -10,17 +10,11 @@ and the old path drawing while the first bake runs — and after one
 that failed, until the hold on it lifts.
 """
 
-import sys
 import threading
 import zlib
 from array import array
-from pathlib import Path
 
 import pytest
-
-_src = str(Path(__file__).resolve().parent.parent / "src")
-if _src not in sys.path:
-    sys.path.insert(0, _src)
 
 from linecast.terminal import theme as _theme
 from linecast.maps import globe as _globe

@@ -7,12 +7,8 @@ with a title-setting OSC standing in for anything worse: a geocoder
 result, a vector-tile name, a route step, an alert, a station name.
 """
 
-import sys
-from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
-
-sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
 from test_mvt import field, geom_ints, make_feature, make_layer, make_tile
 

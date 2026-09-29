@@ -3,20 +3,17 @@ Arabic shaping, digits, and a row's escapes carried through."""
 
 import random
 import re
-import sys
 import unicodedata
 from pathlib import Path
 
 import pytest
 
-sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
-
-from linecast.terminal import bidi as _bidi  # noqa: E402
-from linecast.terminal.bidi import (  # noqa: E402
+from linecast.terminal import bidi as _bidi
+from linecast.terminal.bidi import (
     FSI, LRI, PDI, RLI, bidi_class, bracket_info, display, joining_type,
     resolve_levels, visual_order,
 )
-from linecast.terminal.textwidth import visible_len  # noqa: E402
+from linecast.terminal.textwidth import visible_len
 
 FIXTURE = Path(__file__).parent / "fixtures" / "bidi_character_test.txt"
 
@@ -314,8 +311,7 @@ class TestMirroring:
 
     def test_arrows_follow_the_mirrored_axis(self):
         from linecast.terminal.live import _arrow
-        # The _bidi _live reads: test_oneline re-imports linecast
-        bidi = _arrow.__globals__["_bidi"]
+        from linecast.terminal import bidi
         bidi.configure("fa", {})
         bidi.set_mirror(True)
         try:
@@ -385,7 +381,6 @@ class TestFlippedPictures:
         out = display("71° ← 97°F", 10)
         # nothing for the terminal to order: no isolate, the high first
         assert RLI not in out and _plain(out) == "۹۷°F ← ۷۱°"
-
 
 
 class TestKnownTerminals:

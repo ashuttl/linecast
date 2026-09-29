@@ -779,7 +779,6 @@ class TestTablesComplete:
         assert not dead, "\n".join(dead)
 
 
-
 class TestPersianOrthography:
     """Persian writes its own kaf and yeh (ک ی), never the Arabic ones
     (ك ي ى) that an Arabic keyboard or a careless paste leaves behind.

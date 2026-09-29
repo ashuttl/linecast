@@ -2,10 +2,6 @@
 
 import math
 import re
-import sys
-from pathlib import Path
-
-sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
 from linecast.terminal.color import BG_PRIMARY, bg, lerp
 from linecast.terminal.framebuffer import HALF_BLOCK

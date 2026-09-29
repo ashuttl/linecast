@@ -7,18 +7,16 @@ API changes format, these tests will catch it.
 """
 
 import json
-import sys
 import unittest
 from datetime import date, timedelta
 from pathlib import Path
 from unittest.mock import patch
 
-FIXTURES = Path(__file__).parent / "fixtures"
-sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
-
 from linecast.tides import common
 from linecast.tides import qld
 from linecast.tides.providers import QLD as QLD_PROVIDER
+
+FIXTURES = Path(__file__).parent / "fixtures"
 
 
 def _load(name):

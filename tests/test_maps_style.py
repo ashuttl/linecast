@@ -6,20 +6,13 @@ trusting the table comments, and the zoom/scale assertions carry their
 derivations.
 
 Colour mode and theme are read through names bound in the module
-namespace, so both are patched on the module object (never re-imported)
-— the house pattern that survives the test_oneline sys.modules purge.
+namespace, so both are patched on the module object.
 """
 
 import math
-import sys
 from pathlib import Path
 
 import pytest
-
-# Ensure the worktree src is preferred over any installed version.
-_src = str(Path(__file__).resolve().parent.parent / "src")
-if _src not in sys.path:
-    sys.path.insert(0, _src)
 
 from linecast.maps import style as ms
 from linecast.terminal import theme as _theme

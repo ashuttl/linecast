@@ -14,15 +14,7 @@ whole design: a pond that was a speck at a county view is a lake at a
 township view, and earns its shore on the way in.
 """
 
-import sys
-from pathlib import Path
-
 import pytest
-
-# Ensure the worktree src is preferred over any installed version.
-_src = str(Path(__file__).resolve().parent.parent / "src")
-if _src not in sys.path:
-    sys.path.insert(0, _src)
 
 from linecast.maps import streets as st
 from linecast.maps import style

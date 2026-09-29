@@ -6,11 +6,6 @@ and restore whatever was there beforehand, so other tests (which rely on the
 real data/basemap.json) aren't affected regardless of test order.
 """
 
-import sys
-from pathlib import Path
-
-sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
-
 import linecast.radar.basemap as basemap_mod
 from linecast.radar.basemap import (
     Basemap, DotLayer, _project, marine_region, nearest_city,

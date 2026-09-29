@@ -6,15 +6,12 @@ fetch_alerts says which, and the dashboard and `--json` pass it on.
 
 import json
 import os
-import sys
 import time
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from unittest.mock import patch
 
 import pytest
-
-sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
 from linecast import _cache, _http
 from linecast._runtime import WeatherRuntime

@@ -1,12 +1,8 @@
 """Tests for the radar condition layers (temperature tint, wind arrows)."""
 
 import re
-import sys
-from pathlib import Path
 
 import pytest
-
-sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
 from linecast.terminal import color as _color
 from linecast.terminal.color import BG_PRIMARY, lerp
@@ -169,9 +165,7 @@ class TestParseLayers:
 
 class TestComposeUnder:
     # color mode resolves to "none" under pytest (no tty); force truecolor
-    # so the tint's escape codes are observable.  Patch the module imported
-    # at the top of this file — the same generation compose() reads even
-    # after test_oneline purges sys.modules
+    # so the tint's escape codes are observable.
     @pytest.fixture(autouse=True)
     def _truecolor(self, monkeypatch):
         monkeypatch.setattr(_color, "_COLOR_MODE", "truecolor")

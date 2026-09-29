@@ -2,17 +2,8 @@
 
 import json
 import math
-import sys
 from datetime import datetime, timedelta
-from pathlib import Path
 from zoneinfo import ZoneInfo
-
-# Ensure the worktree src is preferred over any installed version.
-# (No sys.modules purge here: this file is collected after other test
-# modules that hold references into already-imported linecast modules.)
-_src = str(Path(__file__).resolve().parent.parent / "src")
-if _src not in sys.path:
-    sys.path.insert(0, _src)
 
 from linecast._runtime import TidesRuntime, tides_parser
 from linecast.tides.json import build_payload

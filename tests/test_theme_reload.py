@@ -12,14 +12,9 @@ import select
 import subprocess
 import sys
 import textwrap
-from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
-
-_src = str(Path(__file__).resolve().parent.parent / "src")
-if _src not in sys.path:
-    sys.path.insert(0, _src)
 
 from linecast.terminal import color as _color
 from linecast.terminal import framebuffer as _framebuffer
@@ -37,7 +32,8 @@ from linecast.maps import style as _maps_style
 from linecast.weather import alerts
 from linecast.weather import render as _weather_render
 from linecast.weather import style
-from linecast.terminal.live import _read_key  # noqa: E402
+from linecast.terminal.live import _read_key
+from conftest import SRC
 
 
 def _ansi(fg, bg):
@@ -171,7 +167,6 @@ class TestLightThemeInk:
             alerts.TEXT_RGB, alerts.MODAL_BG_RGB) >= 4.5
 
 
-
 @pytest.mark.skipif(_theme.theme_legacy_mode, reason="legacy palette is fixed")
 class TestExtremeColors:
     """Below freezing the temperature colors deepen from the theme's
@@ -273,9 +268,8 @@ def _replies(fg, bg, ansi):
 
 @pytest.mark.skipif(_theme.theme_legacy_mode, reason="legacy palette is fixed")
 class TestProbe:
-    def test_query_goes_out_and_replies_complete_it(self, pipe, restore_theme, monkeypatch):
+    def test_query_goes_out_and_replies_complete_it(self, pipe, restore_theme):
         _theme._apply(*DARK)
-        monkeypatch.setattr(_theme, "theme_available", True)
         r, w = pipe
         assert _theme.request_probe(w)
         assert os.read(r, 4096).startswith(b"\x1b]10;?\x07\x1b]11;?\x07\x1b]4;0;?\x07")
@@ -289,9 +283,8 @@ class TestProbe:
         assert _theme.theme_bg == (250, 250, 248)
         assert not _theme.probe_pending()
 
-    def test_same_answer_is_not_a_change(self, pipe, restore_theme, monkeypatch):
+    def test_same_answer_is_not_a_change(self, pipe, restore_theme):
         _theme._apply(*DARK)
-        monkeypatch.setattr(_theme, "theme_available", True)
         _theme.request_probe(pipe[1])
         gen = _theme.generation
         for body in _replies(*DARK):
@@ -302,9 +295,8 @@ class TestProbe:
         _theme._probe = None
         assert _theme.ingest_osc(b"11;rgb:ffff/ffff/ffff") is False
 
-    def test_read_key_swallows_osc_and_reports_a_change(self, pipe, restore_theme, monkeypatch):
+    def test_read_key_swallows_osc_and_reports_a_change(self, pipe, restore_theme):
         _theme._apply(*DARK)
-        monkeypatch.setattr(_theme, "theme_available", True)
         r, w = pipe
         qr, qw = os.pipe()
         try:
@@ -350,7 +342,7 @@ def test_live_loop_re_inks_when_the_terminal_changes(tmp_path):
     env = dict(os.environ, TERM="xterm-256color", COLORTERM="truecolor",
                LINECAST_THEME="auto", LINECAST_THEME_TIMEOUT_MS="1000",
                LINECAST_THEME_POLL="0.2", LINECAST_THEME_WATCH="",
-               PYTHONPATH=_src)
+               PYTHONPATH=SRC)
     env.pop("NO_COLOR", None)
     proc = subprocess.Popen([sys.executable, "-c", CHILD], stdin=slave,
                             stdout=slave, stderr=subprocess.PIPE, env=env,

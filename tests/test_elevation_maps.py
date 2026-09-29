@@ -6,13 +6,9 @@ terrarium-encoded PNGs (8-bit RGB, the real tiles' format).
 
 import re
 import struct
-import sys
 import zlib
-from pathlib import Path
 
 import pytest
-
-sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
 from linecast.terminal import color as _color
 from linecast.maps import elevation as _elevation
@@ -287,9 +283,7 @@ class TestEdgeDots:
 
 
 class TestComposeTerrain:
-    # patch the _color module *imported at the top of this file*: it is the
-    # same module generation compose_terrain reads, even after test_oneline
-    # purges sys.modules and later imports resolve to fresh copies
+    # force truecolor, so the colour codes are there to see
     @pytest.fixture(autouse=True)
     def _truecolor(self, monkeypatch):
         monkeypatch.setattr(_color, "_COLOR_MODE", "truecolor")
@@ -403,9 +397,7 @@ class TestComposeTerrain:
     def test_bold_overlay_third_element(self, monkeypatch):
         # BOLD/RESET are frozen to "" at import under pytest's no-tty
         # color mode; patch the exact globals compose_terrain reads —
-        # after the test_oneline sys.modules purge, sys.modules holds a
-        # *newer* module generation than the function bound at the top
-        # of this file, so go through __globals__ rather than the module
+        # BOLD and RESET are empty without colour; give compose_terrain real ones
         monkeypatch.setitem(compose_terrain.__globals__, "BOLD", "\033[1m")
         monkeypatch.setitem(compose_terrain.__globals__, "RESET", "\033[0m")
         terrain = [[(100, 120, 90)], [(100, 120, 90)]]

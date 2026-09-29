@@ -1,11 +1,7 @@
 """Tests for historical weather comparison feature."""
 
-import sys
 from datetime import date, datetime
-from pathlib import Path
 from unittest.mock import patch
-
-sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
 from linecast.weather.historical import (
     HistoricalAverages,

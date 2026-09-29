@@ -8,11 +8,7 @@ by column dropped and doubled digits, turning a 22mph wind into "220".
 
 import math
 import re
-import sys
 from datetime import datetime, timedelta
-from pathlib import Path
-
-sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
 from linecast._runtime import WeatherRuntime
 from linecast.weather.hourly import render_hourly

@@ -2,12 +2,9 @@
 
 import json
 import re
-import sys
 from datetime import datetime
 from pathlib import Path
 from unittest.mock import patch
-
-sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
 from linecast.terminal.graphics import visible_len
 from linecast._runtime import WeatherRuntime

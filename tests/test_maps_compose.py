@@ -1,20 +1,13 @@
 """Tests for compose_map and the zoom-scaled view cache key.
 
 compose_map is the street-mode sibling of compose_terrain: area fills
-under one pre-ranked braille layer. The colour mode is patched through
-compose_map.__globals__ rather than by re-importing — after the
-test_oneline sys.modules purge, sys.modules holds a newer module
-generation than the function bound at the top of this file.
+under one pre-ranked braille layer.
 """
 
 import math
 import re
-import sys
-from pathlib import Path
 
 import pytest
-
-sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
 from linecast.terminal import color as _color
 from linecast.maps import globe

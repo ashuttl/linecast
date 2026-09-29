@@ -10,11 +10,8 @@ import math
 import sys
 import threading
 import types
-from pathlib import Path
 
 import pytest
-
-sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
 from linecast.maps import view as maps
 from linecast.maps import globe as _globe

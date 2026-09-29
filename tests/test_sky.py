@@ -2,7 +2,6 @@
 
 import math
 import re
-import sys
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from unittest.mock import patch
@@ -10,13 +9,11 @@ from zoneinfo import ZoneInfo
 
 import pytest
 
-sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
-
-from linecast.sky import view as sky  # noqa: E402
-from linecast.sky.planets import PLANETS, planet_position  # noqa: E402
-from linecast._runtime import RuntimeConfig  # noqa: E402
-from linecast.terminal.textwidth import visible_len  # noqa: E402
-from linecast.sky.view import (  # noqa: E402
+from linecast.sky import view as sky
+from linecast.sky.planets import PLANETS, planet_position
+from linecast._runtime import RuntimeConfig
+from linecast.terminal.textwidth import visible_len
+from linecast.sky.view import (
     Scene, View, alt_az_of, camera_matrix, default_view, focal_length,
     horizontal_matrix, horizontal_vector, parse_facing, project, render, unproject,
 )

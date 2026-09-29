@@ -10,15 +10,7 @@ linear in both tile and view space, so a feature's column is derivable
 by hand: at gw=40 a tile x of 2048 lands on column 20.
 """
 
-import sys
-from pathlib import Path
-
 import pytest
-
-# Ensure the worktree src is preferred over any installed version.
-_src = str(Path(__file__).resolve().parent.parent / "src")
-if _src not in sys.path:
-    sys.path.insert(0, _src)
 
 from linecast.maps import labels as lb
 from linecast.maps import streets as st

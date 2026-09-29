@@ -1,11 +1,7 @@
 """read_cache: a file's age decides, and a file from the future has none."""
 
 import os
-import sys
 import time
-from pathlib import Path
-
-sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
 from linecast._cache import is_fresh, read_cache, write_cache
 

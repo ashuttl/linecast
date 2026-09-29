@@ -13,18 +13,14 @@ enough to be a statement about the sky rather than about this
 ephemeris's current answer.
 """
 
-import sys
 from datetime import datetime, timedelta, timezone
-from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
-
-from linecast.astro.ephemeris import (  # noqa: E402
+from linecast.astro.ephemeris import (
     moon_illuminated_fraction,
     moon_phase_frac,
     next_moon_phase_utc,
 )
-from linecast.sunshine.solar import polar_state, solar_times  # noqa: E402
+from linecast.sunshine.solar import polar_state, solar_times
 
 UTC = timezone.utc
 

@@ -7,14 +7,8 @@ lands between frames, and the frames after it are cut from that.
 """
 
 import re
-import sys
-from pathlib import Path
 
 import pytest
-
-_src = str(Path(__file__).resolve().parent.parent / "src")
-if _src not in sys.path:
-    sys.path.insert(0, _src)
 
 from linecast.maps import view as maps
 from linecast.maps import globe as _globe

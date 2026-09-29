@@ -1,16 +1,7 @@
 """Tests for the `sunshine --json` machine-readable payload."""
 
 import json
-import sys
 from datetime import datetime, timedelta, timezone
-from pathlib import Path
-
-# Ensure the worktree src is preferred over any installed version.
-# (No sys.modules purge here: this file is collected after other test
-# modules that hold references into already-imported linecast modules.)
-_src = str(Path(__file__).resolve().parent.parent / "src")
-if _src not in sys.path:
-    sys.path.insert(0, _src)
 
 from linecast._runtime import RuntimeConfig, sunshine_parser
 from linecast.sunshine.json import build_payload

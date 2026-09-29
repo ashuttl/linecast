@@ -17,8 +17,6 @@ from conftest import readonly, unsearchable
 
 
 def _doctor():
-    # tests/test_oneline.py re-imports linecast mid-session; look the
-    # module up per test rather than binding it at collection
     return importlib.import_module("linecast.doctor")
 
 

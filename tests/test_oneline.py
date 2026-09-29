@@ -1,18 +1,7 @@
 """Tests for --oneline compact single-line renderers."""
 
 import re
-import sys
 from datetime import datetime, timezone, timedelta
-from pathlib import Path
-
-# Ensure the worktree src is preferred over any installed version.
-_src = str(Path(__file__).resolve().parent.parent / "src")
-if _src not in sys.path:
-    sys.path.insert(0, _src)
-# Force re-import from the worktree if linecast was already loaded.
-for _key in sorted(sys.modules):
-    if _key == "linecast" or _key.startswith("linecast."):
-        del sys.modules[_key]
 
 from linecast.terminal.oneline import (
     weather_oneline, sunshine_oneline, moon_oneline, tides_oneline,

@@ -7,16 +7,7 @@ masked by an encoder sharing its assumptions.
 
 import gzip
 import struct
-import sys
 import zlib
-from pathlib import Path
-
-# Ensure the worktree src is preferred over any installed version.
-# (No sys.modules purge here: this file is collected after other test
-# modules that hold references into already-imported linecast modules.)
-_src = str(Path(__file__).resolve().parent.parent / "src")
-if _src not in sys.path:
-    sys.path.insert(0, _src)
 
 from linecast.maps.mvt import (assemble_polygons, decode_tile, ring_sign,
                            _unzigzag)

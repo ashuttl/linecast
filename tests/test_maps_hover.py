@@ -9,15 +9,8 @@ exists once both have been rasterised into the same cells.
 """
 
 import re
-import sys
-from pathlib import Path
 
 import pytest
-
-# Ensure the worktree src is preferred over any installed version.
-_src = str(Path(__file__).resolve().parent.parent / "src")
-if _src not in sys.path:
-    sys.path.insert(0, _src)
 
 from linecast.terminal import color as _color
 from linecast.maps import hover as hv

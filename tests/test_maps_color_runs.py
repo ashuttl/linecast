@@ -9,13 +9,9 @@ every row and cleared it.
 """
 
 import re
-import sys
-from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
-
-sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
 from linecast.terminal import color as _color
 from linecast.maps import paint

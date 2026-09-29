@@ -1,13 +1,9 @@
 """TidesApp: the live tide view's window expansion and location menu."""
 
-import sys
 import threading
 from datetime import date, datetime, timedelta
-from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
-
-sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
 from linecast.tides import view as tides
 from linecast.tides.view import TidesApp

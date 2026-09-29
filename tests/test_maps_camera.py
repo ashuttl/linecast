@@ -11,19 +11,10 @@ street-scale terrain view the bytes it has always been.
 
 import math
 import re
-import sys
-from pathlib import Path
 
 import pytest
 
-_src = str(Path(__file__).resolve().parent.parent / "src")
-if _src not in sys.path:
-    sys.path.insert(0, _src)
 
-# every module is bound here rather than inside a test: one test file
-# in the suite purges linecast from sys.modules as it loads, and a
-# later import would hand back a second copy of a module the objects
-# above already closed over
 from linecast.maps import climate as _climate
 from linecast.maps import elevation as _elevation
 from linecast.maps import view as maps

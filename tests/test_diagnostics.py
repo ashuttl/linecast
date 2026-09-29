@@ -11,20 +11,13 @@ sweep is meant to report.
 
 import json
 import sys
-from pathlib import Path
 
 import pytest
-
-_src = str(Path(__file__).resolve().parent.parent / "src")
-if _src not in sys.path:
-    sys.path.insert(0, _src)
 
 import importlib
 
 
 def _mod(name):
-    # tests/test_oneline.py re-imports linecast mid-session, so a module
-    # bound at collection time can be a stale copy: look it up per test
     return importlib.import_module(f"linecast.{name}")
 
 

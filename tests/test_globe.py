@@ -2,9 +2,6 @@
 
 import math
 import sys
-from pathlib import Path
-
-sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
 from linecast.maps import globe as _globe
 from linecast.maps import places as _places
@@ -587,10 +584,7 @@ class TestBorders:
         assert any(v for row in got.dots for v in row)
 
     def test_trig_follows_the_data(self, monkeypatch):
-        # patch the globals _globe's _load_data actually reads: after
-        # the test_oneline sys.modules purge, the basemap module a fresh
-        # import returns can be a different object from the one whose
-        # function _globe imported
+        # _load_data is radar.basemap's: patch the data it reads there
         monkeypatch.setattr(_globe, "_BORDER_TRIG", (None, None))
         before = _globe._border_trig()
         assert _globe._border_trig() is before  # same data: same trig

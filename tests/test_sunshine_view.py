@@ -1,11 +1,6 @@
 """The sunshine day view's vertical scale."""
 
-import sys
-from pathlib import Path
-
-sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
-
-from linecast.sunshine.view import _solstice_range  # noqa: E402
+from linecast.sunshine.view import _solstice_range
 
 
 def test_the_scale_is_the_same_year_round_in_either_hemisphere():

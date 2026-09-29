@@ -9,13 +9,9 @@ the samples, where the curve draws them, rather than by counting clock
 hours from the first.
 """
 
-import sys
 from datetime import date, datetime, timedelta, timezone
-from pathlib import Path
 from unittest.mock import patch
 from zoneinfo import ZoneInfo
-
-sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
 from linecast.weather import view as weather
 from linecast.terminal.graphics import fmt_hour

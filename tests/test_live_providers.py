@@ -25,6 +25,8 @@ from datetime import date, datetime, timedelta, timezone
 
 import pytest
 
+from linecast.weather.sources import _METEOALARM_SLUGS
+
 pytestmark = pytest.mark.integration
 
 PORTLAND = (43.66, -70.25)          # Portland, Maine: NOAA tides, NWS alerts
@@ -197,7 +199,6 @@ def test_alerts(failures, country, point, provider):
 # edition, or starts filing a code type the file lacks, would fall back
 # to matching on the area name without a word; this asks every feed,
 # every day, whether the file still places all of it.
-from linecast.weather.sources import _METEOALARM_SLUGS  # noqa: E402
 
 
 @pytest.mark.parametrize("country, slug", sorted(_METEOALARM_SLUGS.items()),

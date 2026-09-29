@@ -5,12 +5,8 @@ monkeypatched to a stub, never the real HTTP call.
 """
 
 import datetime
-import sys
 import threading
 import time
-from pathlib import Path
-
-sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
 from linecast.radar import sources
 from linecast.radar import tiles

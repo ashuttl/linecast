@@ -65,6 +65,8 @@ exclude = [
 # plain `pytest tests` is hermetic; `-m integration` on the command
 # line runs them alone (tests/test_live_providers.py).
 addopts = "-m 'not integration'"
+# The checkout's own src comes first, ahead of any installed linecast.
+pythonpath = ["src"]
 markers = ["integration: may reach the network or the real home directory"]
 
 [tool.ruff]
@@ -83,8 +85,6 @@ ignore = [
 ]
 
 [tool.ruff.lint.per-file-ignores]
-# Tests put the worktree's src on sys.path before importing linecast.
-"tests/*" = ["E402"]
 # The translation tables carry whole sentences; wrapping them helps no one.
 "src/linecast/*/i18n.py" = ["E501"]
 "src/linecast/*/*_i18n.py" = ["E501"]

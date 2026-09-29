@@ -11,15 +11,11 @@ import subprocess
 import sys
 import textwrap
 import time
-from pathlib import Path
-
-sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
 from linecast.radar import frames as rf
 from linecast.radar import tiles
 from linecast.radar.sources import Frame
-
-_src = str(Path(__file__).resolve().parent.parent / "src")
+from conftest import SRC
 
 
 def _frames(n):
@@ -80,7 +76,7 @@ class TestStandDown:
         """)
         t0 = time.monotonic()
         proc = subprocess.run([sys.executable, "-c", child], timeout=20,
-                              env=dict(os.environ, PYTHONPATH=_src))
+                              env=dict(os.environ, PYTHONPATH=SRC))
         elapsed = time.monotonic() - t0
         assert proc.returncode == 0
         assert elapsed < 2.0, elapsed

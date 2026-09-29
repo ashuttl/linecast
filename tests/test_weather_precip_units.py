@@ -1,12 +1,8 @@
 """The rain thresholds are the same amount of rain in either unit."""
 
 import re
-import sys
 from datetime import datetime
-from pathlib import Path
 from types import SimpleNamespace
-
-sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
 from linecast.weather.daily import render_daily
 from linecast.weather.sections import _past_precip_line

@@ -2,14 +2,10 @@
 tested in test_scenes), and the one slot a moving view builds in.
 """
 
-import sys
 import threading
 import types
-from pathlib import Path
 
 import pytest
-
-sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
 from linecast.maps import view as maps
 from linecast.maps import views

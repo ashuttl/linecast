@@ -1,13 +1,9 @@
 """The memos and scene caches every live view keeps between repaints."""
 
-import sys
 import threading
 import time
-from pathlib import Path
 
 import pytest
-
-sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
 from linecast.terminal import scenes as _scenes
 from linecast.terminal.scenes import FetchHold, Memo, SceneCache

@@ -1,15 +1,11 @@
 """The sunshine corner label: the place, and the clock it keeps (issue #66)."""
 
 import re
-import sys
 from datetime import date, datetime, timedelta
-from pathlib import Path
 from unittest.mock import patch
 from zoneinfo import ZoneInfo
 
-sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
-
-from linecast._runtime import RuntimeConfig  # noqa: E402
+from linecast._runtime import RuntimeConfig
 
 _ANSI = re.compile(r"\x1b\[[0-9;]*[A-Za-z]|\x1b\][^\x07]*\x07")
 

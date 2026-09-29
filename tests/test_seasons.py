@@ -1,12 +1,8 @@
 """Equinox/solstice instants and traditional full moon names."""
 
-import sys
 from datetime import datetime, timezone
-from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
-
-from linecast.astro.seasons import (  # noqa: E402
+from linecast.astro.seasons import (
     DECEMBER_SOLSTICE,
     JUNE_SOLSTICE,
     MARCH_EQUINOX,

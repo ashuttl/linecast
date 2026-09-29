@@ -7,15 +7,8 @@ translation table actually breaks at runtime.
 """
 
 import re
-import sys
-from pathlib import Path
 
 import pytest
-
-# Ensure the worktree src is preferred over any installed version.
-_src = str(Path(__file__).resolve().parent.parent / "src")
-if _src not in sys.path:
-    sys.path.insert(0, _src)
 
 from linecast.maps import i18n as _maps_i18n
 from linecast._completion import LANG_CODES

@@ -1,10 +1,6 @@
 """Painting a frame: rows land where they belong whatever their width."""
 
 import io
-import sys
-from pathlib import Path
-
-sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
 from linecast.terminal.live import (_AUTOWRAP_OFF, _AUTOWRAP_ON, _SYNC_BEGIN, _SYNC_END,
                             frame_body, frame_paint, print_frame)
@@ -48,8 +44,7 @@ class TestPrintFrame:
         assert out.getvalue() == f"\033[8l{_AUTOWRAP_OFF}frame{_AUTOWRAP_ON}\033[8h\n"
 
     def test_a_terminal_that_orders_text_itself_is_not_told_how(self):
-        # The _bidi print_frame reads: test_oneline re-imports linecast
-        _bidi = print_frame.__globals__["_bidi"]
+        from linecast.terminal import bidi as _bidi
         _bidi.configure("en", {"LINECAST_BIDI": "terminal"})
         try:
             out = _Stream(tty=True)

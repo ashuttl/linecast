@@ -10,14 +10,11 @@ parsers get the same for the fields their feeds have sent null in.
 
 import copy
 import json
-import sys
 from datetime import datetime
 from pathlib import Path
 from unittest.mock import patch
 
 import pytest
-
-sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
 from linecast.weather import sources
 from linecast.weather import view as weather

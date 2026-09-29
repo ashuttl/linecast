@@ -1,12 +1,7 @@
 """RadarApp and the theme picker: the live radar's keys and state, with
 no terminal and no network behind them."""
 
-import sys
-from pathlib import Path
-
 import pytest
-
-sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
 from linecast.radar import frames as rf
 from linecast.radar import live as _radar_live

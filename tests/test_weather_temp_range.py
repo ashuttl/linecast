@@ -1,11 +1,6 @@
 """The temperature graphs' scale under --temp-range."""
 
-import sys
-from pathlib import Path
-
 import pytest
-
-sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
 from linecast._runtime import WeatherRuntime, weather_parser
 from linecast.weather.historical import HistoricalAverages, temperature_scale

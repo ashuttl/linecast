@@ -1,11 +1,6 @@
 """LiveApp: the class an app with keys subclasses to run under live_loop."""
 
-import sys
-from pathlib import Path
-
 import pytest
-
-sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
 from linecast.terminal import live as _live
 from linecast.terminal.live import LiveApp, menu_box, overlay

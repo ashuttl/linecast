@@ -12,16 +12,12 @@ import sys
 import threading
 import time
 from io import BytesIO
-from pathlib import Path
 
 import pytest
 
-_src = str(Path(__file__).resolve().parent.parent / "src")
-if _src not in sys.path:
-    sys.path.insert(0, _src)
-
 import linecast
 from linecast import _http, _runtime
+from conftest import SRC
 
 
 class _Headers(dict):
@@ -615,7 +611,7 @@ class TestVersion:
                      "import linecast.tides.view"):
             out = subprocess.run(
                 [sys.executable, "-X", "importtime", "-c", code],
-                capture_output=True, text=True, cwd=_src).stderr
+                capture_output=True, text=True, cwd=SRC).stderr
             assert "importlib.metadata" not in out, code
             assert "urllib.request" not in out, code
 

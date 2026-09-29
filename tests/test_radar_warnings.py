@@ -1,10 +1,6 @@
 """Tests for the storm-based warning layer (parse, cache, compose priority)."""
 
 import datetime as dt
-import sys
-from pathlib import Path
-
-sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
 import linecast.radar.warnings as warn_mod
 from linecast.radar.warnings import (

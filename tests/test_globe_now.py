@@ -155,9 +155,6 @@ class TestRefresh:
                                            for p in paths]}}
 
     def test_new_frame_stitches_and_repeat_is_free(self, monkeypatch):
-        # patch tiles *through* globe_now: after the test_oneline
-        # sys.modules purge, a fresh `from linecast.radar import tiles`
-        # here would be a different module than the one it calls
         tiles = globe_now.tiles
         monkeypatch.setattr(globe_now, "_cloud",
                             {"stamp": None, "canvas": None, "checked": 0.0})
@@ -296,7 +293,6 @@ class TestInkDusk:
         assert globe_now.dim_ink((100, 140, 180), dusk[1][1]) == (50, 70, 90)
         assert globe_now.dim_ink((100, 140, 180), None) == (100, 140, 180)
         assert globe_now.dim_ink(None, dusk[1][1]) is None
-
 
 
 # daylight() as it stood before its inner loop was written out: the

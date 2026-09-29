@@ -11,12 +11,10 @@ To regenerate snapshots after an intentional rendering change:
 import json
 import math
 import re
-import sys
 from datetime import datetime
 from pathlib import Path
 from unittest.mock import patch
 
-sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
 FIXTURES = Path(__file__).parent / "fixtures"
 SNAPSHOTS = Path(__file__).parent / "snapshots"
@@ -566,7 +564,6 @@ class TestMoonSnapshot:
             turn.drag(0, 0)
         assert abs(_axis_angle(turn.matrix())[1] - partway) < 1e-9
         assert turn._settle is None
-
 
 
 # -----------------------------------------------------------------------

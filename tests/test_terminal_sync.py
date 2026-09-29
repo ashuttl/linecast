@@ -19,17 +19,13 @@ import subprocess
 import sys
 import threading
 import time
-from pathlib import Path
 
 import pytest
 
-_src = str(Path(__file__).resolve().parent.parent / "src")
-if _src not in sys.path:
-    sys.path.insert(0, _src)
-
-from linecast.terminal import theme as _theme  # noqa: E402
+from linecast.terminal import theme as _theme
 from linecast.terminal import term as _term
-from linecast.terminal.live import _read_key  # noqa: E402
+from linecast.terminal.live import _read_key
+from conftest import SRC
 
 needs_pty = pytest.mark.skipif(not hasattr(os, "openpty"), reason="needs a pty")
 
@@ -332,7 +328,7 @@ class Child:
         self.master, slave = os.openpty()
         env = dict(os.environ, LINECAST_THEME="off", LINECAST_THEME_POLL="0",
                    LINECAST_THEME_WATCH="", TERM="xterm-256color",
-                   PYTHONPATH=_src)
+                   PYTHONPATH=SRC)
         self.proc = subprocess.Popen(
             [sys.executable, "-c", code], stdin=slave, stdout=slave,
             stderr=subprocess.PIPE, env=env, close_fds=True)

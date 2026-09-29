@@ -1,10 +1,6 @@
 """The hourly chart's header row: day names and sun times keep clear of the labels at its ends."""
 
 import re
-import sys
-from pathlib import Path
-
-sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
 from linecast._runtime import WeatherRuntime
 from linecast.weather.hourly import _render_today_line

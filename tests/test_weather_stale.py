@@ -3,7 +3,6 @@ about it, and how a newer one is asked for (issue #68)."""
 
 import json
 import re
-import sys
 import threading
 from datetime import datetime
 from pathlib import Path
@@ -11,8 +10,6 @@ from types import SimpleNamespace
 from unittest.mock import patch
 
 import pytest
-
-sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
 from linecast.weather import view as weather
 from linecast.weather import sources as _weather_sources

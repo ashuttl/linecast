@@ -5,8 +5,7 @@ files alike (pytest runs autouse fixtures for both).
 
 The environment is set at module level, before any test module is
 collected, because the test modules import linecast at collection time
-and tests/test_oneline.py re-imports it mid-session: an environment
-variable is the one thing that survives both. The cache directory is
+and some of it reads the environment once, at import. The cache directory is
 shared by the whole session on purpose, so the basemap marshal (about
 7 MB) is built once rather than once per test; the config directory is
 fresh for every test, so a saved location or units can never leak
@@ -24,6 +23,10 @@ import tempfile
 from pathlib import Path
 
 import pytest
+
+# The package source, for a test that starts a child Python: pytest puts
+# it on sys.path itself (pyproject.toml), but a child needs PYTHONPATH.
+SRC = str(Path(__file__).resolve().parent.parent / "src")
 
 # The home this user actually has, taken before the private one is
 # announced: Windows has no pwd module to ask later.
@@ -118,6 +121,13 @@ def _private_home(monkeypatch, tmp_path):
     from linecast.terminal import bidi as _bidi
     _bidi.configure("en", {})
     _bidi.set_mirror(False)
+    # __main__.main records the name it was run as; a test that ran it
+    # must not leave `linecast link` believing it was installed there.
+    # Nor may a test that ran a command's main() leave its runtime as the
+    # one every later render helper reads.
+    from linecast import _runtime
+    monkeypatch.setattr(_runtime, "INVOKED_AS", None)
+    monkeypatch.setattr(_runtime, "_current", None)
 
 
 # ---------------------------------------------------------------------------

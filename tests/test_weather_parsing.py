@@ -6,7 +6,6 @@ its response format, these tests will catch the breakage.
 
 import json
 import os
-import sys
 import time
 from datetime import datetime, timezone
 from pathlib import Path
@@ -15,7 +14,6 @@ from unittest.mock import patch
 FIXTURES = Path(__file__).parent / "fixtures"
 
 # Ensure the package is importable
-sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
 
 def _load(name):

@@ -1,14 +1,10 @@
 """Provider requests stay spaced even when a sleep lasts longer than asked."""
 
-import sys
 import threading
 from concurrent.futures import ThreadPoolExecutor
-from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
-
-sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
 from linecast.maps import rate_limit as _rate_limit
 from linecast.maps import route

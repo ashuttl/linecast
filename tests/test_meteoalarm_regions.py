@@ -6,22 +6,16 @@ This file is about the contract around it: scripts/build_meteoalarm_regions.py
 and linecast.weather.meteoalarm_regions agree on the format, a missing or
 broken file costs nobody an alert, and the file that ships carries
 every country the runtime will ask it about.
-
-linecast is imported inside fixtures and tests, never at module level:
-tests/test_oneline.py re-imports the package mid-session, and a module
-object bound at collection time would be the stale one.
 """
 
 import gzip
 import importlib.util
 import re
-import sys
 from pathlib import Path
 from unittest.mock import patch
 
 import pytest
 
-sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
 BAKE_SCRIPT = Path(__file__).parent.parent / "scripts" / "build_meteoalarm_regions.py"
 

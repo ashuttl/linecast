@@ -6,17 +6,10 @@ asserted rather than waited out. The fetchers are injected.
 """
 
 import re
-import sys
 import threading
 import types
-from pathlib import Path
 
 import pytest
-
-# Ensure the worktree src is preferred over any installed version.
-_src = str(Path(__file__).resolve().parent.parent / "src")
-if _src not in sys.path:
-    sys.path.insert(0, _src)
 
 from contextlib import contextmanager
 
@@ -29,12 +22,7 @@ from linecast.maps.search import Result, SearchUnavailable
 @contextmanager
 def _units(flag):
     """Pin the running command's units; distances follow the setting,
-    not the language.
-
-    _runtime is imported at call time, not module time: another test
-    module's sys.modules purge (test_oneline) would otherwise leave this
-    file's set_current writing into a copy use_metric() no longer reads.
-    """
+    not the language."""
     import linecast._runtime as rt
     rt.set_current(rt.RuntimeConfig.from_sources(
         rt.maps_parser().parse_args(["--print", flag]), environ={}))

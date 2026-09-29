@@ -1,10 +1,6 @@
 """The prose lines under the weather graph: what they say, and how they pack."""
 
-import sys
 from datetime import datetime, timedelta
-from pathlib import Path
-
-sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
 from linecast._i18n import VARIANTS
 from linecast._runtime import WeatherRuntime

@@ -1,10 +1,5 @@
 """Tests for the braille line-graph rendering module."""
 
-import sys
-from pathlib import Path
-
-sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
-
 from linecast.terminal.braille import build_braille_curve, interpolate
 
 
