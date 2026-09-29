@@ -260,6 +260,17 @@ class TestChart:
         assert any("2016–2025" in line for line in body)
         assert any("avg" in line for line in body)
 
+    def test_a_band_name_keeps_its_combining_marks(self):
+        # Thai's "ค่าปกติ" carries a tone mark over its first letter; a
+        # mark given a cell of its own was overwritten by the next letter.
+        climate = year.climate_from_archive(
+            _ten_years(high=lambda d: 50.0 + 3 * (d.year % 5),
+                       low=lambda d: 30.0 - 3 * (d.year % 5)), SPAN)
+        body = _strip(_render(climate, _days(), runtime=_runtime(lang="th"))).split("\n")[1:]
+        assert any("ค่าปกติ" in line for line in body)
+        from linecast.terminal.textwidth import visible_len
+        assert all(visible_len(line) <= 120 for line in body)
+
     def test_a_full_year_leaves_no_room_to_name_them(self):
         dec31 = date(2026, 12, 31)
         days = year.year_days(_archive(date(2026, 1, 1), dec31 - timedelta(days=1)),

@@ -361,8 +361,17 @@ def _place(overlays, free, rows, text, x, row, ink, width):
     inside the panel and free of data (free(cell, row)), with a cell of
     air either side between it and another label."""
     cells = []
+    base = None
     for ch in text:
         w = char_width(ch)
+        if w == 0:
+            # A combining mark (a Thai tone mark, say) rides in its
+            # base's cell rather than claiming the next one.
+            if base is not None:
+                c, chars = cells[base]
+                cells[base] = (c, chars + ch)
+            continue
+        base = len(cells)
         cells.append((x, ch))
         cells.extend((x + k, "") for k in range(1, w))
         x += w

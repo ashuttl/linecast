@@ -82,6 +82,7 @@ Notable changes, by release. Notes for the next release collect under **Unreleas
 - Weather: The last 24 hours' snow is given to the tenth of an inch, as the daily forecast gives it: "0.4 inches of snow", not "0.43 inches".
 - Sunshine: Fixed `--oneline` in Persian giving the day's length in Latin letters, as "10h52m"; it is written in words, as the change beside it is.
 - Tides: Fixed the waves and swell running past the edge of a narrow window, as they did in Thai, which names the points of the compass in words. Where both do not fit, the swell is left out.
+- Weather: Fixed the year view's label for the average in Thai, "ค่าปกติ", losing its tone mark.
 
 ## 2.9.2 — 2026-09-27
 
