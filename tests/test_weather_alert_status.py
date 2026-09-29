@@ -157,6 +157,22 @@ class TestFetchStatus:
             india = fetch_alerts(28.6, 77.2, "IN")
         assert (nz.status, india.status) == ("unavailable", "unavailable")
 
+    def test_a_service_that_raises_is_unavailable_and_says_why(self, monkeypatch, capsys):
+        # SACHET refines each alert from its CAP file after the feed is
+        # parsed, so a null there raises outside the guarded parse
+        from linecast import _log
+        monkeypatch.setattr(_log, "_DEBUG", True)
+        feed = [{"centroid": "77.21,28.61", "area_covered": 1000, "identifier": "X"}]
+        with _answering(feed), \
+             patch("linecast.weather.alert_feeds.sachet._sachet_alert_from_cap",
+                   side_effect=TypeError("null in a CAP file")):
+            got = fetch_alerts(28.61, 77.21, "IN")
+        assert (got, got.status, got.fetched_at) == ([], "unavailable", None)
+        err = capsys.readouterr().err
+        assert ("[linecast] weather/alerts: alerts from SACHET failed -- "
+                "TypeError: null in a CAP file; alerts unavailable") in err
+        assert "Traceback" in err
+
     def test_an_unwritable_cache_still_reads_as_ok(self):
         with _answering({"features": []}), patch.object(_http, "write_cache"):
             got = fetch_alerts(*PORTLAND, "US")

@@ -12,6 +12,7 @@ from typing import Any, NamedTuple
 from linecast._cache import is_fresh
 from linecast._http import fetch_json_cached
 from linecast._i18n import base_language
+from linecast._log import log_failure
 from linecast._plaintext import plain_text
 from linecast._timefmt import from_iso
 
@@ -140,6 +141,12 @@ def fetch_alerts(lat: float, lng: float, country_code: str = "", lang: str = "en
     The answer is an AlertList, which says besides whether the provider
     answered, a stale copy stood in, or neither (issue #122): an empty
     list alone cannot tell "no warnings" from "could not check".
+
+    A service's failure to answer is its own to absorb, with the stale
+    copy or nothing. Anything else it raises -- a feed that sends a null
+    its parser did not expect, outside the parse that fetch_json_cached
+    guards -- ends here, logged with its traceback, as alerts that could
+    not be checked; the forecast beside them is not the alerts' to lose.
     """
     feed = ALERT_FEEDS.get((country_code or "").upper())
     if feed is None:
@@ -147,10 +154,14 @@ def fetch_alerts(lat: float, lng: float, country_code: str = "", lang: str = "en
     check = {"status": ALERTS_OK, "fetched_at": None}
     token = _ALERT_CHECK.set(check)
     try:
-        alerts = feed.fetch(lat, lng, lang, address)
+        alerts = _trim_alerts(_drop_expired(feed.fetch(lat, lng, lang, address)))
+    except Exception as exc:
+        log_failure("weather/alerts", f"alerts from {feed.name}", exc,
+                    fallback="alerts unavailable", trace=True)
+        return AlertList(status=ALERTS_UNAVAILABLE)
     finally:
         _ALERT_CHECK.reset(token)
-    return AlertList(_trim_alerts(_drop_expired(alerts)), **check)
+    return AlertList(alerts, **check)
 
 
 def _alert_expiry(alert):
