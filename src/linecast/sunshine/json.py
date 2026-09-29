@@ -177,7 +177,9 @@ def build_payload(lat, lng, now=None, location=None, hours=None):
     display name (skips the geocode lookup). *hours* is the day read
     in a tradition's hours (an astro.hours.DayHours), for an `hours` block.
     """
-    from linecast.sunshine.solar import polar_state, solar_times, sun_elevation
+    from linecast.sunshine.solar import (
+        day_length_change, polar_state, solar_times, sun_elevation,
+    )
 
     if now is None:
         now = datetime.now()
@@ -200,12 +202,13 @@ def build_payload(lat, lng, now=None, location=None, hours=None):
         return (noon if tzinfo else noon.astimezone()).utcoffset().total_seconds() / 3600
 
     rise_h, set_h = solar_times(lat, lng, doy, day_offset(today))
-    y_rise_h, y_set_h = solar_times(lat, lng, doy - 1, day_offset(today - timedelta(days=1)))
     t_rise_h, t_set_h = solar_times(lat, lng, doy + 1, day_offset(today + timedelta(days=1)))
 
-    day_len_h = set_h - rise_h
+    # Rounded, both, to the second; yesterday on its own offset.
+    day_len_h, delta_s = day_length_change(
+        lat, lng, doy, day_offset(today), day_offset(today - timedelta(days=1)))
     day_length_seconds = int(round(day_len_h * 3600))
-    day_length_delta_seconds = int(round((day_len_h - (y_set_h - y_rise_h)) * 3600))
+    day_length_delta_seconds = int(round(delta_s))
 
     # Each day is tested separately: on the boundary dates of a polar
     # season one of the two is clamped and the other is a real crossing.

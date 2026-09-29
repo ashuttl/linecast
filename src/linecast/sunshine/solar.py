@@ -95,6 +95,22 @@ def polar_state(day_len_h):
     return None
 
 
+def day_length_change(lat, lng, doy, tz_offset_h=None, yesterday_offset_h=None):
+    """(day length in hours, its change since yesterday in seconds).
+
+    Both come unrounded, and each caller rounds them its own way: the
+    day view and the one-line summary truncate, the JSON rounds.
+    Yesterday's rise and set are read on *yesterday_offset_h*, the UTC
+    offset that day kept, or on today's, *tz_offset_h*, without one.
+    """
+    rise, sset = solar_times(lat, lng, doy, tz_offset_h)
+    y_rise, y_set = solar_times(
+        lat, lng, doy - 1,
+        tz_offset_h if yesterday_offset_h is None else yesterday_offset_h)
+    day_len = sset - rise
+    return day_len, (day_len - (y_set - y_rise)) * 3600
+
+
 def sun_elevation(lat, lng, local_hour, doy, tz_offset_h=None):
     """Sun elevation angle in degrees at a given local hour."""
     decl = _declination(doy)

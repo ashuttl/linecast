@@ -38,7 +38,9 @@ from linecast.sunshine.palette import (
     INFO_TEXT_RGB, SKY_FAR_HORIZON, SKY_NEAR_HORIZON, SKY_NIGHT, SKY_ZENITH,
     SUN_DOT_RGB, SUN_GLOW_RGB, SUN_GLOW_TWILIGHT_RGB,
 )
-from linecast.sunshine.solar import polar_state, solar_times, sun_elevation
+from linecast.sunshine.solar import (
+    day_length_change, polar_state, solar_times, sun_elevation,
+)
 
 _theme.track_imports(globals(), "linecast.terminal.color")
 _theme.track_imports(globals(), "linecast.sunshine.palette")
@@ -332,12 +334,10 @@ def _info_line(lat, lng, doy, sunrise, sunset, width, runtime, now_hour=None, of
     from linecast.sunshine.i18n import polar_name
 
     icons = _icon_set(runtime)
-    day_len = sunset - sunrise
+    # Truncated, both: the length to the minute, the change to the second.
+    day_len, delta_sec = day_length_change(lat, lng, doy, tz_offset_h)
     dl_h = int(day_len)
     dl_m = int((day_len - dl_h) * 60)
-
-    y_rise, y_set = solar_times(lat, lng, doy - 1, tz_offset_h)
-    delta_sec = (day_len - (y_set - y_rise)) * 3600
     d_sign = "+" if delta_sec >= 0 else "−"
     d_abs = abs(delta_sec)
     d_m = int(d_abs) // 60

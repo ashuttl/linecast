@@ -15,18 +15,16 @@ def sunshine_oneline(lat, lng, doy, runtime, tz_offset_h=None, hours=None, now=N
     Asr in 41m`` for the prayer times.
     """
     from linecast.sunshine.i18n import polar_name
-    from linecast.sunshine.solar import polar_state, solar_times
+    from linecast.sunshine.solar import day_length_change, polar_state, solar_times
     from linecast.moon.phase import moon_phase
     from datetime import datetime
 
     sunrise, sunset = solar_times(lat, lng, doy, tz_offset_h)
-    day_len = sunset - sunrise
+    # Truncated, both, as in the day view: the length to the minute,
+    # its change since yesterday to the second.
+    day_len, delta_sec = day_length_change(lat, lng, doy, tz_offset_h)
     dl_h = int(day_len)
     dl_m = int((day_len - dl_h) * 60)
-
-    # Yesterday's day length for delta
-    y_rise, y_set = solar_times(lat, lng, doy - 1, tz_offset_h)
-    delta_sec = (day_len - (y_set - y_rise)) * 3600
     d_sign = "+" if delta_sec >= 0 else "−"
     d_abs = abs(delta_sec)
     d_m = int(d_abs) // 60
