@@ -524,7 +524,8 @@ def main():
         return
 
     if runtime.oneline:
-        from linecast.terminal.oneline import emit, sunshine_oneline
+        from linecast.terminal.oneline import emit
+        from linecast.sunshine.oneline import sunshine_oneline
         now = _now()
         doy = now.timetuple().tm_yday
         emit(sunshine_oneline(lat, lng, doy, runtime,

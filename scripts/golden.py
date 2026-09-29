@@ -382,7 +382,7 @@ def _(ctx):
 
 @scene("weather-oneline", themes=("stock", "dark"))
 def _(ctx):
-    from linecast.terminal.oneline import weather_oneline
+    from linecast.weather.oneline import weather_oneline
     return ctx.printed(weather_oneline(_fixture("open_meteo_forecast.json"), PLACE,
                                        ctx.runtime("WeatherRuntime", **_units(ctx))))
 
@@ -453,7 +453,7 @@ def _(ctx):
 
 @scene("sunshine-oneline", themes=("stock", "dark"))
 def _(ctx):
-    from linecast.terminal.oneline import sunshine_oneline
+    from linecast.sunshine.oneline import sunshine_oneline
     now = _now()
     return ctx.printed(sunshine_oneline(LAT, LNG, now.timetuple().tm_yday, ctx.runtime(),
                                         tz_offset_h=-5, now=now))
@@ -504,7 +504,7 @@ def _(ctx):
 
 @scene("moon-oneline", themes=("stock", "dark"))
 def _(ctx):
-    from linecast.terminal.oneline import moon_oneline
+    from linecast.moon.oneline import moon_oneline
     runtime = ctx.runtime()
     return "".join(ctx.printed(moon_oneline(_now(), LAT, LNG, runtime, calendar=cal))
                    for cal in CALENDARS)
@@ -567,7 +567,7 @@ def _(ctx):
 
 @scene("sky-oneline", themes=("stock", "dark"))
 def _(ctx):
-    from linecast.terminal.oneline import sky_oneline
+    from linecast.sky.oneline import sky_oneline
     return ctx.printed(sky_oneline(_night(), LAT, LNG, ctx.runtime()))
 
 
@@ -634,7 +634,7 @@ def _(ctx):
 
 @scene("tides-oneline", themes=("stock", "dark"))
 def _(ctx):
-    from linecast.terminal.oneline import tides_oneline
+    from linecast.tides.oneline import tides_oneline
     _preds, hilo = _tide_data()
     return ctx.printed(tides_oneline("Portland, ME", hilo, _now().replace(tzinfo=None),
                                      ctx.runtime("TidesRuntime", **_feet(ctx))))

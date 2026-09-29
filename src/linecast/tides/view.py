@@ -1390,7 +1390,8 @@ def main():
             return
 
         if runtime.oneline:
-            from linecast.terminal.oneline import emit, tides_oneline
+            from linecast.terminal.oneline import emit
+            from linecast.tides.oneline import tides_oneline
             hilo_data = provider.hilo_range(
                 station_id, today - timedelta(days=1),
                 today + timedelta(days=1), station_tz)

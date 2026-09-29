@@ -607,7 +607,7 @@ class TestStrings:
         assert sky.culture_title("chinese", "xx") == "Chinese"
 
     def test_oneline(self):
-        from linecast.terminal.oneline import sky_oneline
+        from linecast.sky.oneline import sky_oneline
         line = _strip(sky_oneline(NIGHT, LAT, LNG, _runtime()))
         assert "Saturn E" in line
         noon = _strip(sky_oneline(NOON, LAT, LNG, _runtime()))

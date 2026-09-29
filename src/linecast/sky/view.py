@@ -1031,7 +1031,8 @@ def main():
                                        fov=fov), ensure_ascii=False))
         return
     if runtime.oneline:
-        from linecast.terminal.oneline import emit, sky_oneline
+        from linecast.terminal.oneline import emit
+        from linecast.sky.oneline import sky_oneline
         emit(sky_oneline(_now(), lat, lng, runtime))
         return
 

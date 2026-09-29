@@ -1350,7 +1350,8 @@ def _main():
         return
 
     if runtime.oneline:
-        from linecast.terminal.oneline import emit, weather_oneline
+        from linecast.terminal.oneline import emit
+        from linecast.weather.oneline import weather_oneline
         emit(weather_oneline(data, location_name, runtime))
         return
 

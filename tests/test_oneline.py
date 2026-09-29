@@ -3,9 +3,10 @@
 import re
 from datetime import datetime, timezone, timedelta
 
-from linecast.terminal.oneline import (
-    weather_oneline, sunshine_oneline, moon_oneline, tides_oneline,
-)
+from linecast.weather.oneline import weather_oneline
+from linecast.sunshine.oneline import sunshine_oneline
+from linecast.moon.oneline import moon_oneline
+from linecast.tides.oneline import tides_oneline
 from linecast._runtime import WeatherRuntime, TidesRuntime, RuntimeConfig
 
 

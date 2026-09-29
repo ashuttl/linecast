@@ -42,11 +42,6 @@ UPWARD = {
     ("_parsers", "radar.sources"): "kept: radar_parser's choices, asked for lazily",
     # shared words move to _i18n and HELP (2.4)
     ("astro.hours.i18n", "sunshine.i18n"): "2.4", ("terminal.help", "maps.i18n"): "2.4",
-    # each command's one line moves to the command (2.6)
-    **dict.fromkeys((("terminal.oneline", m) for m in (
-        "moon.phase", "moon.view", "sky.catalogue", "sky.i18n", "sky.scene", "sky.view",
-        "sunshine.hours", "sunshine.i18n", "sunshine.palette", "sunshine.solar",
-        "tides.i18n", "weather.cover", "weather.i18n", "weather.style")), "2.6"),
 }
 
 # (importer, imported module): a command reaching another's view or live.

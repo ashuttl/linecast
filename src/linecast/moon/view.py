@@ -1079,7 +1079,8 @@ def main():
         return
 
     if runtime.oneline:
-        from linecast.terminal.oneline import emit, moon_oneline
+        from linecast.terminal.oneline import emit
+        from linecast.moon.oneline import moon_oneline
         emit(moon_oneline(_now(), lat, lng, runtime, calendar=args.calendar))
         return
 
