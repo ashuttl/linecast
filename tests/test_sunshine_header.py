@@ -28,27 +28,27 @@ YESTERDAY = TODAY - timedelta(days=1)
 
 class TestClockLabel:
     def test_the_time_alone_on_the_users_own_day(self):
-        from linecast.sunshine.view import clock_label
+        from linecast.sunshine.i18n import clock_label
         assert clock_label(NOW, _runtime(), today=TODAY) == "2:30p"
 
     def test_the_weekday_joins_on_another_day(self):
-        from linecast.sunshine.view import clock_label
+        from linecast.sunshine.i18n import clock_label
         assert clock_label(NOW, _runtime(), today=YESTERDAY) == "Thu 2:30p"
 
     def test_twenty_four_hour_clock(self):
-        from linecast.sunshine.view import clock_label
+        from linecast.sunshine.i18n import clock_label
         assert clock_label(NOW, _runtime(use_24h=True), today=TODAY) == "14:30"
         assert clock_label(NOW, _runtime(use_24h=True), today=YESTERDAY) == "Thu 14:30"
 
     def test_weekday_in_the_interface_language(self):
-        from linecast.sunshine.view import clock_label
+        from linecast.sunshine.i18n import clock_label
         assert (clock_label(NOW, _runtime(lang="fr", use_24h=True), today=YESTERDAY)
                 == "jeu 14:30")
         assert (clock_label(NOW, _runtime(lang="de", use_24h=True), today=YESTERDAY)
                 == "Do 14:30")
 
     def test_the_users_day_is_the_machines_by_default(self):
-        from linecast.sunshine.view import clock_label
+        from linecast.sunshine.i18n import clock_label
         with patch("linecast.sunshine.solar._local_today", return_value=TODAY):
             assert clock_label(NOW, _runtime()) == "2:30p"
         with patch("linecast.sunshine.solar._local_today", return_value=YESTERDAY):

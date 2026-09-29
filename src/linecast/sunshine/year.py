@@ -25,7 +25,7 @@ from linecast.terminal.framebuffer import get_terminal_size, Framebuffer
 from linecast._timefmt import fmt_time
 from linecast.terminal.live import overlay
 from linecast.sunshine.i18n import (
-    _fmt_month_day, axis_month_labels, polar_name, relative_day, sky_event,
+    _fmt_month_day, axis_month_labels, clock_label, polar_name, relative_day, sky_event,
     sky_phase,
 )
 from linecast.terminal.glyphs import _icon_set
@@ -312,7 +312,7 @@ def render_year(lat, lng, now, runtime, tz=None, fullscreen=False,
     # Location and clock, dim, in the top-right corner (December midnight
     # — dark sky at every latitude short of a polar summer, where it
     # darkens against the lit cell instead).
-    label = sun.corner_label(location_label, sun.clock_label(now, runtime),
+    label = sun.corner_label(location_label, clock_label(now, runtime),
                              graph_w)
     if label:
         for x, ch in sun.corner_label_cells(label, graph_w):

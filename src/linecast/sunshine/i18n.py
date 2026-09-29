@@ -1,4 +1,4 @@
-"""Sunshine localization strings.
+"""Sunshine localization strings, and the clock in its corner.
 
 Month names and month-day date order come from the moon tables; this
 module holds the year view's relative-day phrases and the numeric month
@@ -6,6 +6,7 @@ labels for the languages whose month names don't abbreviate.
 """
 
 from linecast._i18n import LocaleTable, base_language, has_text, lang_of, lookup, plural_category, setting, table_for
+from linecast._timefmt import fmt_time_dt
 from linecast.moon.i18n import MONTHS_I18N, _fmt_month_day  # noqa: F401 — re-export
 
 _SUNSHINE_STRINGS = LocaleTable("SUNSHINE")
@@ -111,3 +112,22 @@ def axis_month_labels(runtime, narrow=False):
         return [name[:1].upper() for name in names]
     names = _axis_months(lang)
     return [name[:3] for name in names]
+
+
+def clock_label(now, runtime, today=None):
+    """'2:14p': the time of the shown moment on the location's own clock,
+    so a pinned place reads as a world clock. The weekday is added only
+    when that moment falls on a different day from the user's own --
+    a place across the date line, or the day view scrubbed past
+    midnight -- as 'Fri 3:14a'. `today` is the user's date, the
+    machine's by default.
+    """
+    from linecast.sunshine import solar
+    from linecast.weather.i18n import DAY_NAMES
+    if today is None:
+        today = solar._local_today()
+    clock = fmt_time_dt(now, runtime.use_24h)
+    if now.date() == today:
+        return clock
+    day = table_for(DAY_NAMES, lang_of(runtime))[now.weekday()]
+    return f"{day} {clock}"

@@ -23,18 +23,17 @@ from linecast.terminal.braille import braille_rows_from_ys
 from linecast.terminal.color import fg, RESET, lerp, interp_stops
 from linecast.terminal.textwidth import visible_len
 from linecast.terminal.framebuffer import get_terminal_size, Framebuffer
-from linecast._timefmt import fmt_time, fmt_time_dt
+from linecast._timefmt import fmt_time
 from linecast.terminal.live import live_loop
 from linecast.terminal import theme as _theme
 from linecast.terminal.theme import darken, lighten
-from linecast._i18n import fmt_duration_parts, lang_of, table_for
+from linecast._i18n import fmt_duration_parts, lang_of
 from linecast._location import (
     country_for_defaults, location_is_pinned, location_tzinfo, resolve_location,
 )
 from linecast._runtime import RuntimeConfig, current_runtime, install_banner, set_current
 from linecast._parsers import sunshine_parser
 from linecast.terminal.glyphs import _icon_set
-from linecast.sunshine import solar
 from linecast.sunshine.palette import (
     CURVE_COLOR, HORIZON_COLOR, INFO_AMBER_RGB, INFO_DIM_RGB, INFO_PURPLE_RGB,
     INFO_TEXT_RGB, SKY_FAR_HORIZON, SKY_NEAR_HORIZON, SKY_NIGHT, SKY_ZENITH,
@@ -58,25 +57,6 @@ def corner_label_ink(cell):
 def _corner_limit(graph_w):
     """How much of the top row the corner label may take: half the chart."""
     return max(0, graph_w // 2)
-
-
-def clock_label(now, runtime, today=None):
-    """'2:14p': the time of the shown moment on the location's own clock,
-    so a pinned place reads as a world clock. The weekday is added only
-    when that moment falls on a different day from the user's own --
-    a place across the date line, or the day view scrubbed past
-    midnight -- as 'Fri 3:14a'. `today` is the user's date, the
-    machine's by default.
-    """
-    from linecast._i18n import lang_of
-    from linecast.weather.i18n import DAY_NAMES
-    if today is None:
-        today = solar._local_today()
-    clock = fmt_time_dt(now, runtime.use_24h)
-    if now.date() == today:
-        return clock
-    day = table_for(DAY_NAMES, lang_of(runtime))[now.weekday()]
-    return f"{day} {clock}"
 
 
 def corner_label(location_label, clock, graph_w):
@@ -289,6 +269,7 @@ def render(lat, lng, doy, now_hour, fullscreen=False, offset_minutes=0, runtime=
     # Location and clock, dim, in the top-right corner. The sky there can
     # be anything from night to full daylight, so the hint darkens against
     # a lit cell rather than disappearing into it.
+    from linecast.sunshine.i18n import clock_label
     label = location_label
     if now is not None:
         label = corner_label(location_label, clock_label(now, runtime), graph_w)

@@ -49,8 +49,8 @@ UPWARD = {
 }
 
 # (importer, imported module): a command reaching another's view or live.
+# There are none; a new one fails here.
 INTO_A_VIEW = {
-    ("sky.view", "sunshine.view"): "2.3: clock_label moves to _timefmt",
 }
 
 
