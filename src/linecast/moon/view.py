@@ -1017,21 +1017,27 @@ def render(now_local, lat, lng, runtime, fullscreen=False, offset_minutes=0,
         return radius
 
     # The first form that leaves the Moon its share; if none does, the
-    # one that leaves it the most. With the text put away, no corner
-    # has anything in it.
+    # one that leaves it the most. Then the fullest form that leaves it
+    # as much: where what stays (the counsel beside a long headline)
+    # is what holds the Moon in, shedding the rest would not enlarge
+    # it. With the text put away, no corner has anything in it.
     if not show_text:
         forms = [(0.0, lambda: ([], [], [], []))]
     best = None
+    tried = []
     for share, form in forms:
         overlays = place(*form())
         if overlays is None:
             continue
         radius = disc_room(overlays)
+        tried.append((radius, overlays))
         if radius >= share * bare:
             best = (radius, overlays)
             break
         if best is None or radius > best[0]:
             best = (radius, overlays)
+    if best:
+        best = next(fit for fit in tried if fit[0] >= best[0])
     radius, overlays = best if best else (bare, {})
     radius = max(4.0, radius)
 

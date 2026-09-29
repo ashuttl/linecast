@@ -138,6 +138,20 @@ class TestCompactLayout:
         assert "Waning Gibbous" in joined       # the headline survives
         assert "Day 64 of 365" not in joined    # the year's corner goes first
 
+    def test_the_counsel_does_not_cost_the_other_corners(self):
+        # The almanac's counsel beside the headline holds the Moon in
+        # whatever the other corners say; shedding them would leave it
+        # no larger, so they stay.
+        from linecast.moon.view import render
+        from linecast._runtime import RuntimeConfig
+        runtime = RuntimeConfig(live=False, icons="emoji", lang="en", oneline=False)
+        with patch("linecast.moon.view.get_terminal_size", return_value=(100, 30)):
+            out = _strip_ansi(render(NOW, 43.7, -79.4, runtime, fullscreen=True,
+                                     calendar_name="almanac"))
+        assert "Good for" in out
+        assert "New Moon" in out and "Day 64 of 365" in out
+        assert "dark of the moon" in out
+
     def test_tiny_terminal_still_renders(self):
         lines = _render(24, 8)
         assert all(visible_len(line) <= 24 for line in lines)
