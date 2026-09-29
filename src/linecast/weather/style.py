@@ -121,8 +121,7 @@ def _rebuild():
                                         minimum=2.0)
     SUNSET_LABEL_RGB = ensure_contrast(lerp_rgb(RED_RGB, MAGENTA_RGB, 0.25), _theme.theme_bg,
                                        minimum=2.0)
-    TOOLTIP_BG_RGB = darken(surface_bg(0.10), 0.45 if not is_light_theme() else 0.10)
-    TOOLTIP_TEXT_RGB = ensure_contrast(TEXT_RGB, TOOLTIP_BG_RGB, minimum=4.5)
+    TOOLTIP_BG_RGB, TOOLTIP_TEXT_RGB, _dim = _theme.chip_inks(TEXT_RGB)
     MODAL_BG_RGB = darken(lerp_rgb(_theme.theme_bg, BLUE_RGB, 0.04),
                           0.10 if not is_light_theme() else 0.06)
     MODAL_BORDER_RGB = ensure_contrast(DIM_RGB, MODAL_BG_RGB, minimum=2.2)

@@ -32,7 +32,7 @@ from linecast.sunshine.i18n import (
 from linecast.terminal.glyphs import _icon_set
 from linecast.terminal.textwidth import cells as text_cells, char_width
 from linecast.terminal.theme import (
-    best_contrast, darken, ensure_contrast, is_light_theme, lerp_rgb,
+    best_contrast, ensure_contrast, is_light_theme, lerp_rgb,
     surface_bg,
 )
 from linecast.sunshine import palette as inks
@@ -57,9 +57,7 @@ def _rebuild():
         minimum=1.8,
     )
     HOVER_RGB = ensure_contrast(surface_bg(0.40), _theme.theme_bg, minimum=1.5)
-    TIP_BG_RGB = darken(surface_bg(0.10), 0.45 if not is_light_theme() else 0.10)
-    TIP_TEXT_RGB = ensure_contrast(_theme.theme_fg, TIP_BG_RGB, minimum=4.5)
-    TIP_DIM_RGB = ensure_contrast(surface_bg(0.55), TIP_BG_RGB, minimum=2.2)
+    TIP_BG_RGB, TIP_TEXT_RGB, TIP_DIM_RGB = _theme.chip_inks()
     _FIELD_CACHE.clear()
 
 

@@ -52,7 +52,7 @@ from linecast.terminal import live as _live
 from linecast.terminal import theme as _theme
 from linecast.terminal.theme import (
     best_contrast, darken, ensure_contrast, is_light_theme, lerp_rgb, lighten,
-    neutral_tone, surface_bg, theme_legacy_mode,
+    neutral_tone, theme_legacy_mode,
 )
 from linecast.astro.ephemeris import mat_apply, mat_mul, mat_transpose
 from linecast._i18n import fmt_decimal, fmt_percent, lang_of, setting, upper
@@ -129,9 +129,7 @@ def _rebuild():
     AMBER_RGB = ensure_contrast(INFO_AMBER_RGB, NIGHT_RGB, minimum=2.3)
     LABEL_RGB = ensure_contrast(neutral_tone(0.62), NIGHT_RGB, minimum=2.4)
     FIGURE_NAME_RGB = lerp_rgb(NIGHT_RGB, LABEL_RGB, 0.62)
-    TIP_BG_RGB = darken(surface_bg(0.10), 0.45 if not is_light_theme() else 0.10)
-    TIP_TEXT_RGB = ensure_contrast(_theme.theme_fg, TIP_BG_RGB, minimum=4.5)
-    TIP_DIM_RGB = ensure_contrast(surface_bg(0.55), TIP_BG_RGB, minimum=2.2)
+    TIP_BG_RGB, TIP_TEXT_RGB, TIP_DIM_RGB = _theme.chip_inks()
 
 
 _rebuild()

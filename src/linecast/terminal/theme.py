@@ -239,6 +239,17 @@ def _with_luminance(color: RGB, target: float) -> RGB:
     return lerp_rgb(color, pole, (lo + hi) / 2.0)
 
 
+def chip_inks(text: RGB | None = None) -> tuple[RGB, RGB, RGB]:
+    """A hover chip's inks: its surface, a shade below the panels', and
+    the text and the dim text on it.  *text* is the view's text ink
+    where it lifts the theme's for contrast, as weather does; the theme's
+    own otherwise."""
+    surface = darken(surface_bg(0.10), 0.45 if not is_light_theme() else 0.10)
+    return (surface,
+            ensure_contrast(theme_fg if text is None else text, surface, minimum=4.5),
+            ensure_contrast(surface_bg(0.55), surface, minimum=2.2))
+
+
 def themed(color: RGB) -> RGB:
     """Re-ink a calibrated color in the terminal theme's own hues.
 
