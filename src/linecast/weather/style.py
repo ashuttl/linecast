@@ -1,5 +1,6 @@
 """Shared weather rendering palette and low-level color/format helpers."""
 
+from linecast._i18n import fmt_percent
 from linecast.terminal.color import bg, fg, interp_stops
 from linecast.terminal import theme as _theme
 from linecast.terminal.theme import (
@@ -175,6 +176,22 @@ def _temp_color(temp, runtime):
 def _colored_temp(temp, runtime, suffix=""):
     r, g, b = _temp_color(temp, runtime)
     return f"{fg(r, g, b)}{round(temp)}{suffix}"
+
+
+def notable_moisture(humidity, dew_point, runtime, deg):
+    """The air's moisture when it is worth a mention, as (string key,
+    reading drawn in its ink): the dew point when it is uncomfortably
+    high (60°F, about 15°C, or more), else the humidity when the air is
+    very damp or very dry.  None when neither is notable, or either
+    reading is missing.  `deg` follows the dew point's figure."""
+    if humidity is None or dew_point is None:
+        return None
+    dew_f = dew_point * 9 / 5 + 32 if runtime.celsius else dew_point
+    if dew_f >= 60:
+        return "dew_pt", _colored_temp(dew_point, runtime, deg)
+    if humidity >= 70 or humidity <= 25:
+        return "humidity", fmt_percent(humidity, runtime)
+    return None
 
 
 def _precip_type(wmo_code):

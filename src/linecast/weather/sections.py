@@ -7,7 +7,7 @@ from datetime import datetime, timedelta
 
 from linecast.terminal import theme as _theme
 from linecast._i18n import (
-    base_language, fallbacks, fmt_decimal, fmt_percent, has_text, lang_of, sentence_24h,
+    base_language, fallbacks, fmt_decimal, has_text, lang_of, sentence_24h,
     table_for,
 )
 from linecast.terminal.color import RESET
@@ -103,14 +103,10 @@ def render_header(data, width, location_name="", runtime=None, aqi_data=None, hi
 
     # Humidity/dew point — show when notable
     left_humidity = ""
-    if humidity is not None and dew_point is not None:
-        # Show dew point when it's uncomfortably high (>= 60°F / 15°C)
-        dew_f = dew_point * 9 / 5 + 32 if runtime.celsius else dew_point
-        if dew_f >= 60:
-            left_humidity = (f"  {MUTED}{_s('dew_pt', runtime)} "
-                             f"{_colored_temp(dew_point, runtime, deg)}")
-        elif humidity >= 70 or humidity <= 25:
-            left_humidity = f"  {MUTED}{_s('humidity', runtime)} {fmt_percent(humidity, runtime)}"
+    moisture = _style.notable_moisture(humidity, dew_point, runtime, deg)
+    if moisture:
+        key, shown = moisture
+        left_humidity = f"  {MUTED}{_s(key, runtime)} {shown}"
 
     # AQI — show when data available. India reads its own CPCB scale
     # and Canada its AQHI, attached upstream (apply_national_index); the

@@ -47,7 +47,7 @@ from linecast.weather.hourly import (
 from linecast.weather.sections import _PRECIP_CODES, narrative_lines, render_header
 from linecast.weather.style import (
     ALERT_AMBER, CLOUD_RGB, DIM, MUTED, TEXT, TOOLTIP_BG_RGB, TOOLTIP_TEXT_RGB,
-    _colored_temp, _precip_rgb, _precip_type,
+    _colored_temp, _precip_rgb, _precip_type, notable_moisture,
 )
 from linecast.weather.historical import fetch_historical
 from linecast.weather.alert_feeds import ALERTS_UNAVAILABLE, AlertList, alert_source, fetch_alerts
@@ -190,12 +190,10 @@ def _build_hover_tooltip(data, mouse_col, mouse_row, hourly_start, hourly_end, c
         lines.append(f"{TBG}{_conditions_ink(condition, TFG)} {wmo_name} ")
 
     # Humidity / dew point (when notable)
-    if humidity is not None and dew is not None:
-        dew_f = dew * 9 / 5 + 32 if runtime.celsius else dew
-        if dew_f >= 60:
-            lines.append(f"{TBG}{TFG} {_s('dew_pt', runtime)} {_colored_temp(dew, runtime, deg)} ")
-        elif humidity >= 70 or humidity <= 25:
-            lines.append(f"{TBG}{TFG} {_s('humidity', runtime)} {fmt_percent(humidity, runtime)} ")
+    moisture = notable_moisture(humidity, dew, runtime, deg)
+    if moisture:
+        key, shown = moisture
+        lines.append(f"{TBG}{TFG} {_s(key, runtime)} {shown} ")
 
     # Precipitation: the hour's amount, and its chance in the very shade
     # the bar below is drawn in, so the chip teaches what the fade means.
