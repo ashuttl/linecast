@@ -1,8 +1,12 @@
 """LiveApp: the class an app with keys subclasses to run under live_loop."""
 
+import re
+
 import pytest
 
+from linecast._plaintext import plain_text
 from linecast.terminal import live as _live
+from linecast.terminal.textwidth import visible_len
 from linecast.terminal.live import LiveApp, menu_box, overlay
 
 
@@ -60,6 +64,15 @@ class TestMenuBox:
     def test_trims_rows_to_the_screen(self):
         out = menu_box(["abcdef"], 8, 10, title="t")
         assert "│abcd│" in out
+
+    def test_a_title_in_wide_glyphs_is_centred_by_cells(self):
+        # the row makes the box thirteen cells inside; " テーマ " is eight,
+        # which leaves two cells of rule on the left and three on the right
+        out = menu_box([" ● Universal"], 40, 10, title="テーマ", more=(True, True))
+        top, row, bottom = (plain_text(r) for r in re.split(r"\033\[\d+;\d+H", out)[1:])
+        assert top == "┌── テーマ ─▲─┐"
+        assert visible_len(top) == visible_len(row) == visible_len(bottom)
+        assert bottom == "└───────────▼─┘"
 
 
 class TestHooks:

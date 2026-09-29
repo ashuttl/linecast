@@ -218,17 +218,20 @@ def menu_box(lines, cols, rows, title="", sel=None, border="", fill="",
     """
     from linecast.terminal.box import REVERSE, REVERSE_OFF, centre, place
     from linecast.terminal.color import RESET
-    from linecast.terminal.textwidth import pad, visible_len
+    from linecast.terminal.textwidth import fit, pad, visible_len
     widths = [visible_len(line) for line in lines if line is not None]
     inner = max(0, min(cols - 4, (max(widths) if widths else 0) + 1))
     top, left = centre(cols, rows, inner + 2, len(lines) + 2)
-    head = f" {title} ".center(inner, "─") if title else "─" * inner
+    # The title is centred by cells, and the marks put in the last cell
+    # but one counting from the right: a wide glyph in the title is two
+    # cells but one character.
+    head = pad(fit(f" {title} ", inner), inner, "^", "─") if title else "─" * inner
     foot = "─" * inner
     above, below = more
     if above:
-        head = head[:inner - 2] + "▲" + head[inner - 1:]
+        head = head[:-2] + "▲" + head[-1:]
     if below:
-        foot = foot[:inner - 2] + "▼" + foot[inner - 1:]
+        foot = foot[:-2] + "▼" + foot[-1:]
     out = [f"┌{head}┐"]
     for i, line in enumerate(lines):
         if line is None:
