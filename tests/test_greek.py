@@ -175,4 +175,4 @@ def test_sky_names_and_defaults_are_localization_only():
     assert sky.constellation_name(ursa, "el") == "Μεγάλη Άρκτος"
     assert sky.star_names("el")[0] == ("Σείριος", "α CMa")
     assert resolve_calendar(None, "el") is None
-    assert resolve_hours(None, "el") == (None, None)
+    assert resolve_hours(None, "el") == (None, "auto")

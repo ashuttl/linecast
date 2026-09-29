@@ -23,6 +23,7 @@ import pytest
 
 from linecast.astro.hours import (
     DayHours, Mark, day_hours, hours_now, last_mark, next_mark, reading, resolve_hours,
+    system_of,
 )
 from linecast.astro.hours.prayer_times import (
     METHODS, default_method, default_school, prayer_times,
@@ -518,31 +519,37 @@ class TestReading:
 class TestResolver:
     def test_flag_beats_everything(self, tmp_path, monkeypatch):
         monkeypatch.setenv("LINECAST_CONFIG_DIR", str(tmp_path))
-        assert resolve_hours("halachic-mga") == ("halachic", "mga")
-        assert resolve_hours("roman") == ("roman", None)
-        assert resolve_hours("none") == (None, None)
+        assert resolve_hours("halachic-mga") == ("halachic-mga", "flag")
+        assert resolve_hours("roman") == ("roman", "flag")
+        assert resolve_hours("none") == (None, "flag")
 
     def test_saved_setting_stands_in_for_the_flag(self, tmp_path, monkeypatch):
         monkeypatch.setenv("LINECAST_CONFIG_DIR", str(tmp_path))
         from linecast._config import write_config
-        assert resolve_hours(None) == (None, None)
+        assert resolve_hours(None) == (None, "auto")
         write_config({"hours": "halachic"})
-        assert resolve_hours(None) == ("halachic", None)
+        assert resolve_hours(None) == ("halachic", "config")
         write_config({"hours": "none"})
-        assert resolve_hours(None) == (None, None)
+        assert resolve_hours(None) == (None, "config")
         write_config({"hours": "mayan"})
-        assert resolve_hours(None) == (None, None)
+        assert resolve_hours(None) == (None, "auto")
 
     def test_swahili_brings_its_own_hours_and_the_rest_bring_none(self, tmp_path, monkeypatch):
         monkeypatch.setenv("LINECAST_CONFIG_DIR", str(tmp_path))
         from linecast._config import write_config
-        assert resolve_hours(None, "sw") == ("swahili", None)
-        assert resolve_hours(None, "en") == (None, None)
-        assert resolve_hours("roman", "sw") == ("roman", None)
+        assert resolve_hours(None, "sw") == ("swahili", "auto")
+        assert resolve_hours(None, "en") == (None, "auto")
+        assert resolve_hours("roman", "sw") == ("roman", "flag")
         write_config({"hours": "none"})
-        assert resolve_hours(None, "sw") == (None, None)
+        assert resolve_hours(None, "sw") == (None, "config")
         write_config({"hours": "halachic"})
-        assert resolve_hours(None, "sw") == ("halachic", None)
+        assert resolve_hours(None, "sw") == ("halachic", "config")
+
+    def test_a_name_splits_into_its_system_and_variant(self):
+        assert system_of("halachic-mga") == ("halachic", "mga")
+        assert system_of("islamic-karachi") == ("islamic", "karachi")
+        assert system_of("roman") == ("roman", None)
+        assert system_of(None) == (None, None)
 
 
 class TestCommand:

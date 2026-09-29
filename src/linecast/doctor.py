@@ -457,14 +457,11 @@ def _collect_preferences():
         native = setting(language, "sky_culture")
         culture = native or "none"
         culture_source = f"auto: {language}" if native else "auto"
-    from linecast._config import saved_hours
-    saved_hours_ = saved_hours()
-    if saved_hours_ is not None:
-        hours, hours_source = saved_hours_, "config"
-    else:
-        native = setting(language, "hours")
-        hours = native or "none"
-        hours_source = f"auto: {language}" if native else "auto"
+    from linecast.astro.hours import resolve_hours
+    hours, hours_source = resolve_hours(None, language)
+    if hours_source == "auto" and hours:
+        hours_source = f"auto: {language}"
+    hours = hours or "none"
     from linecast.terminal.bidi import resolve_digits
     from linecast.astro.calendars.civil import SOLAR_HIJRI, resolve_dates
     dates, dates_source = resolve_dates(language, env)

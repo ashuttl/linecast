@@ -477,8 +477,9 @@ def main():
     # setting, or the language; None keeps the civil clock alone. The
     # table is built for the shown moment's date, cached by date, so
     # scrubbing pays for it once a day.
-    from linecast.astro.hours import hours_now, resolve_hours
-    hours_system, hours_variant = resolve_hours(args.hours, runtime.lang)
+    from linecast.astro.hours import hours_now, resolve_hours, system_of
+    hours_name, _source = resolve_hours(args.hours, runtime.lang)
+    hours_system, hours_variant = system_of(hours_name)
     # The prayer-time method follows the country of the place shown.
     # resolve_location leaves the country blank for an override, so
     # it is reverse geocoded then (cached), as the moon does for the

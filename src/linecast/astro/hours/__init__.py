@@ -85,24 +85,34 @@ class Reading:
 
 
 def resolve_hours(flag, lang=None):
-    """(system, variant) in force: the --hours flag, else the saved
-    setting, else the language's own, else (None, None). The calendars
-    follow the language because their readers know the Moon through
-    them; the hours follow it only where the language tells the time
-    in them, as Swahili does, and the traditions of observance stay a
-    choice. A hyphen in the name separates the tradition from an
-    opinion or method within it: halachic-mga is the halachic hours by
-    the Magen Avraham."""
-    name = flag
+    """The system of hours in force, and where it came from.
+
+    Returns (name, source): the name as `linecast hours` takes it,
+    'roman' or 'halachic-mga', or None for none; source is "flag",
+    "config", or "auto".  Precedence: the --hours flag, the saved
+    setting, the language's own, else none. The calendars follow the
+    language because their readers know the Moon through them; the
+    hours follow it only where the language tells the time in them,
+    as Swahili does, and the traditions of observance stay a choice.
+    """
+    name, source = flag, "flag"
     if name is None:
         from linecast._config import saved_hours
-        name = saved_hours()
+        name, source = saved_hours(), "config"
     if name is None:
         from linecast._i18n import setting
         # The system the language tells the time in: Swahili says the
         # hour in its own count, so `auto` reads the day in it.
-        name = setting(lang, "hours")
-    if name is None or name == "none":
+        name, source = setting(lang, "hours"), "auto"
+    return (None if name == "none" else name), source
+
+
+def system_of(name):
+    """(system, variant) for a name resolve_hours gives. A hyphen in the
+    name separates the tradition from an opinion or method within it:
+    halachic-mga is the halachic hours by the Magen Avraham, ('halachic',
+    'mga'). None is (None, None)."""
+    if name is None:
         return None, None
     system, _hyphen, variant = name.partition("-")
     return system, (variant or None)
