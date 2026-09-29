@@ -231,6 +231,82 @@ def _mirror(on):
     bidi.set_mirror(on)
 
 
+class _Loop:
+    """live_loop, stood in for: it keeps the frame function and the
+    settings a view's main() hands the loop, for a scene to drive."""
+
+    HOOKS = ("on_action", "on_drag", "on_wheel", "intercept", "on_click", "on_open",
+             "play_gate", "text_mode", "clamp_offset")
+
+    def __init__(self, live_loop):
+        import inspect
+        self.defaults = {name: p.default for name, p in
+                         inspect.signature(live_loop).parameters.items()
+                         if p.default is not inspect.Parameter.empty}
+
+    def __call__(self, render_fn, **kwargs):
+        self.render_fn = render_fn
+        self.kw = {**self.defaults, **kwargs}
+
+    def hook(self, name, *args):
+        """Call a hook as the loop would, and say what it answered."""
+        return f"{name}{args} -> {bool(self.kw[name](*args))}\n"
+
+    def frame(self, ctx, mouse_pos=None, help=False):
+        out = self.render_fn(offset_minutes=0, mouse_pos=mouse_pos, active_alert=None,
+                             modal_scroll=0)
+        if help:
+            panel = self.kw["help_panel"]
+            try:
+                return ctx.live(out, panel)
+            finally:
+                panel.open = False
+        return ctx.live(out)
+
+    def settings(self):
+        interval = self.kw["interval"]
+        return (f"interval {interval() if callable(interval) else interval}, "
+                f"mouse {self.kw['mouse']}, scroll_step {self.kw['scroll_step']}, "
+                f"auto_play {self.kw['auto_play']}, play_interval {self.kw['play_interval']}, "
+                f"hooks {[h for h in self.HOOKS if self.kw.get(h) is not None]}\n")
+
+
+def _run_main(ctx, module, *flags):
+    """*module*'s main(), run as the user runs it at the fixed place: what
+    it printed, and the loop it would have opened (a _Loop), if any.  The
+    width probe is left out, the geocoder's rate limit waits for nothing
+    (no request gets out), and threads main() started are waited for."""
+    import contextlib
+    import io
+    import threading
+    from linecast._rate_limit import RateLimit
+    from linecast.terminal import live, textwidth
+    _mirror(False)
+    loop = _Loop(live.live_loop)
+    before = set(threading.enumerate())
+    saved = (sys.argv, live.live_loop, getattr(module, "live_loop", None),
+             textwidth.calibrate_from_terminal, RateLimit.__call__)
+    sys.argv = ["linecast", "--location", f"{LAT},{LNG}", "--lang", ctx.lang,
+                "--icons", "emoji", *flags]
+    live.live_loop = loop
+    if saved[2] is not None:
+        module.live_loop = loop
+    textwidth.calibrate_from_terminal = lambda *a, **k: None
+    RateLimit.__call__ = lambda self: None
+    out = _Tty()
+    try:
+        with contextlib.redirect_stdout(out), contextlib.redirect_stderr(io.StringIO()):
+            module.main()
+            for thread in set(threading.enumerate()) - before:
+                thread.join(5)
+    finally:
+        sys.argv, live.live_loop = saved[:2]
+        if saved[2] is not None:
+            module.live_loop = saved[2]
+        textwidth.calibrate_from_terminal, RateLimit.__call__ = saved[3:]
+    return out.getvalue(), (loop if hasattr(loop, "render_fn") else None)
+
+
 def _fixture(name):
     return json.loads((ROOT / "tests" / "fixtures" / name).read_text(encoding="utf-8"))
 
@@ -459,6 +535,32 @@ def _(ctx):
                                         tz_offset_h=-5, now=now))
 
 
+@scene("sunshine-main", size=(100, 30), themes=("stock",))
+def _(ctx):
+    """sunshine as it is run: each output of main(), and the live view's
+    keys and wheel driven through the hooks main() gives the loop."""
+    from linecast.sunshine import view as sun
+    parts = [_run_main(ctx, sun, *flags)[0]
+             for flags in (["--print"], ["--print", "--year"], ["--oneline"], ["--json"])]
+    _out, loop = _run_main(ctx, sun, "--live")
+    log = loop.settings()
+    parts.append(loop.frame(ctx))
+    log += loop.hook("on_wheel", 1, 50, 15) + loop.hook("on_wheel", 1, 50, 15)
+    log += loop.hook("intercept", "back") + loop.hook("intercept", "key:t")
+    log += loop.hook("on_action", "t")
+    parts.append(loop.frame(ctx))
+    parts.append(loop.frame(ctx, help=True))
+    log += loop.hook("on_action", "v")
+    parts.append(loop.frame(ctx, mouse_pos=(40, 12)))
+    log += loop.hook("on_wheel", -1, 40, 12) + loop.hook("intercept", "fwd")
+    parts.append(loop.frame(ctx, help=True))
+    log += loop.hook("on_action", "y")
+    parts.append(loop.frame(ctx))
+    log += loop.hook("intercept", "reset")
+    parts.append(loop.frame(ctx))
+    return "\n----\n".join(parts) + "\n----\n" + log
+
+
 # ---------------------------------------------------------------------------
 # Moon
 # ---------------------------------------------------------------------------
@@ -515,6 +617,44 @@ def _(ctx):
     runtime = ctx.runtime()
     return "".join(ctx.printed(moon_oneline(_now(), LAT, LNG, runtime, calendar=cal))
                    for cal in CALENDARS)
+
+
+@scene("moon-main", size=(100, 30), themes=("stock",))
+def _(ctx):
+    """moon as it is run: each output of main(), and the live views' keys,
+    wheel, drag and clicks driven through the hooks main() gives the loop."""
+    from linecast.moon import view as moon
+    parts = [_run_main(ctx, moon, *flags)[0]
+             for flags in (["--print"], ["--print", "--month"], ["--oneline"], ["--json"])]
+    _out, loop = _run_main(ctx, moon, "--live")
+    log = loop.settings()
+    parts.append(loop.frame(ctx))
+    log += loop.hook("on_wheel", 1, 50, 15) + loop.hook("intercept", "back")
+    log += loop.hook("intercept", "back") + loop.hook("on_action", "x")
+    parts.append(loop.frame(ctx))
+    # A drag turns the disc; brought back to where it began and let go
+    # there, it comes to rest at once rather than settling on the clock.
+    log += loop.hook("on_drag", 6, 2, False)
+    parts.append(loop.frame(ctx))
+    log += loop.hook("on_drag", 0, 0, False) + loop.hook("on_drag", 0, 0, True)
+    log += loop.hook("on_click", 30, 12) + loop.hook("on_action", "t")
+    parts.append(loop.frame(ctx))
+    parts.append(loop.frame(ctx, help=True))
+    log += loop.hook("on_action", "t") + loop.hook("on_action", "v")
+    parts.append(loop.frame(ctx, mouse_pos=(30, 12)))
+    log += loop.hook("on_action", "t") + loop.hook("on_wheel", -1, 30, 12)
+    log += loop.hook("on_drag", 3, 1, False)
+    parts.append(loop.frame(ctx))
+    parts.append(loop.frame(ctx, help=True))
+    log += loop.hook("intercept", "reset")
+    parts.append(loop.frame(ctx))
+    # The loop fires the click, then the drag's zero-length commit.
+    log += loop.hook("on_click", 1, 1) + loop.hook("on_click", 30, 12)
+    log += loop.hook("on_drag", 0, 0, True)
+    parts.append(loop.frame(ctx))
+    log += loop.hook("intercept", "reset")
+    parts.append(loop.frame(ctx))
+    return "\n----\n".join(parts) + "\n----\n" + log
 
 
 # ---------------------------------------------------------------------------
