@@ -12,6 +12,7 @@ from linecast.terminal import live as _live
 from linecast.terminal import theme as _theme
 from linecast.terminal.color import lerp
 from linecast._log import log_failure
+from linecast.astro.ephemeris import mat_apply, mat_mul, mat_transpose
 from linecast.terminal.theme import darken
 from linecast.moon.palette import MOON_LIT_RGB, MOON_SHADOW_RGB
 
@@ -70,23 +71,6 @@ def _surface_shade(sx, sy, sz, albedo):
     top = px[y0 * w + x0] * (1 - fx) + px[y0 * w + x1] * fx
     bottom = px[y1 * w + x0] * (1 - fx) + px[y1 * w + x1] * fx
     return 1.0 - (top * (1 - fy) + bottom * fy) / 255.0
-
-
-def _mat_mul(a, b):
-    """Product of two 3×3 matrices, each nine floats row-major."""
-    return tuple(sum(a[i * 3 + k] * b[k * 3 + j] for k in range(3))
-                 for i in range(3) for j in range(3))
-
-
-def _mat_transpose(a):
-    return (a[0], a[3], a[6], a[1], a[4], a[7], a[2], a[5], a[8])
-
-
-def _mat_apply(a, v):
-    x, y, z = v
-    return (a[0] * x + a[1] * y + a[2] * z,
-            a[3] * x + a[4] * y + a[5] * z,
-            a[6] * x + a[7] * y + a[8] * z)
 
 
 def _rotation(axis, angle):
@@ -154,8 +138,8 @@ class Turn:
         else:
             # Rolling the surface along the drag is a turn about the axis
             # square to it in the screen plane.
-            self._held = _mat_mul(_rotation((-dy / dist, dx / dist, 0.0),
-                                            dist / self.radius), self._base)
+            self._held = mat_mul(_rotation((-dy / dist, dx / dist, 0.0),
+                                           dist / self.radius), self._base)
         return True
 
     def release(self):
@@ -362,8 +346,8 @@ def _draw_moon_disc(fb, cx, cy, radius, illum, limb_deg, axis_deg,
     sun = (sun_r * limb_x, sun_r * limb_y, sun_z)
     earth = (0.0, 0.0, 1.0)
     if turn is not None:
-        sun = _mat_apply(turn, sun)   # the light turns with the surface
-        earth = _mat_apply(turn, earth)
+        sun = mat_apply(turn, sun)   # the light turns with the surface
+        earth = mat_apply(turn, earth)
     sun_x, sun_y, sun_z = sun
     earth_x, earth_y, earth_z = earth
     # Screen point to surface point: undo the user's turn (a rotation's
@@ -372,7 +356,7 @@ def _draw_moon_disc(fb, cx, cy, radius, illum, limb_deg, axis_deg,
     axis = math.radians(axis_deg)
     axis_c, axis_s = math.cos(axis), math.sin(axis)
     tilt = (axis_c, axis_s, 0.0, -axis_s, axis_c, 0.0, 0.0, 0.0, 1.0)
-    m = _mat_mul(tilt, _mat_transpose(turn)) if turn is not None else tilt
+    m = mat_mul(tilt, mat_transpose(turn)) if turn is not None else tilt
     m00, m01, m02, m10, m11, m12, m20, m21, m22 = m
 
     for dy in range(-scan_y, scan_y + 1):

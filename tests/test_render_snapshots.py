@@ -500,13 +500,14 @@ class TestMoonSnapshot:
     def test_drag_rolls_the_surface_with_the_pointer(self):
         """Dragging right brings the left limb toward the centre, dragging
         down brings the top; a drag the length of the radius is a radian."""
-        from linecast.moon.disc import Turn, _axis_angle, _mat_transpose
+        from linecast.astro.ephemeris import mat_transpose
+        from linecast.moon.disc import Turn, _axis_angle
 
         def centre_after(dcol, drow):
             turn = Turn()
             turn.radius = 40.0
             turn.drag(dcol, drow)
-            m = _mat_transpose(turn.matrix())   # screen point → surface point
+            m = mat_transpose(turn.matrix())   # screen point → surface point
             return (m[2], m[5], m[8]), _axis_angle(turn.matrix())[1]
 
         (x, _y, _z), angle = centre_after(40, 0)

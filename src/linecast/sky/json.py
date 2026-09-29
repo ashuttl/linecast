@@ -20,9 +20,9 @@ def build_payload(now_local, lat, lng, runtime, location=None, facing=None,
                   fov=None):
     from linecast.sky.catalogue import star_names, star_vectors, stars
     from linecast.sunshine.i18n import sky_phase
+    from linecast.astro.ephemeris import mat_apply
     from linecast.sky.view import (
-        FOV_DEFAULT, Scene, _mat_apply, alt_az_of, compass_point, default_view,
-        easily_seen,
+        FOV_DEFAULT, Scene, alt_az_of, compass_point, default_view, easily_seen,
     )
     from linecast.moon.phase import moon_phase
 
@@ -47,7 +47,7 @@ def build_payload(now_local, lat, lng, runtime, location=None, facing=None,
         if mag > 1.6 or len(bright) >= 12:
             break
         # The catalogue is J2000; the scene's frame precesses it to date.
-        alt, az = alt_az_of(_mat_apply(scene.catalogue, vectors[i]))
+        alt, az = alt_az_of(mat_apply(scene.catalogue, vectors[i]))
         if alt > 0.0:
             proper, desig = names.get(i, ("", ""))
             bright.append({"name": proper or None, "designation": desig or None,

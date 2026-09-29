@@ -55,8 +55,8 @@ from linecast.terminal.theme import (
 )
 from linecast.astro.ephemeris import (
     _alt_az_deg, _gmst_deg, _moon_parallactic_deg, _moon_ra_dec, _sun_ra_dec,
-    moon_axis_deg, moon_bright_limb_deg, moon_horizontal_parallax_deg,
-    moon_illuminated_fraction, precession_at,
+    mat_apply, mat_mul, mat_transpose, moon_axis_deg, moon_bright_limb_deg,
+    moon_horizontal_parallax_deg, moon_illuminated_fraction, precession_at,
 )
 from linecast._i18n import fmt_decimal, fmt_percent, lang_of, setting, upper
 from linecast._location import (
@@ -184,22 +184,6 @@ FIGURES_DEFAULT = 2
 # ---------------------------------------------------------------------------
 # Geometry
 # ---------------------------------------------------------------------------
-def _mat_mul(a, b):
-    return tuple(sum(a[i * 3 + k] * b[k * 3 + j] for k in range(3))
-                 for i in range(3) for j in range(3))
-
-
-def _mat_transpose(a):
-    return (a[0], a[3], a[6], a[1], a[4], a[7], a[2], a[5], a[8])
-
-
-def _mat_apply(a, v):
-    x, y, z = v
-    return (a[0] * x + a[1] * y + a[2] * z,
-            a[3] * x + a[4] * y + a[5] * z,
-            a[6] * x + a[7] * y + a[8] * z)
-
-
 def horizontal_matrix(lst_deg, lat_deg):
     """Equatorial (x to the equinox, z to the pole) to the observer's
     frame: x east, y north, z up. The sidereal time turns the sky to
@@ -342,7 +326,7 @@ class Scene:
         self.lat, self.lng = lat, lng
         lst = (_gmst_deg(moment_utc) + lng) % 360.0
         self.horizontal = horizontal_matrix(lst, lat)
-        self.catalogue = _mat_mul(self.horizontal, precession_at(moment_utc))
+        self.catalogue = mat_mul(self.horizontal, precession_at(moment_utc))
 
         sun_ra, sun_dec = _sun_ra_dec(moment_utc)
         self.sun_alt, self.sun_az = _alt_az_deg(sun_ra, sun_dec, moment_utc, lat, lng)
@@ -638,7 +622,7 @@ def _paint_sky(fb, scene, cam, f, cx, cy, aspect):
     twilight = scene.sun_alt > -18.0
     # Camera to the J2000 catalogue frame, for the Milky Way raster:
     # the frame's transpose.
-    g0, g1, g2, g3, g4, g5, g6, g7, g8 = _mat_transpose(_mat_mul(cam, scene.catalogue))
+    g0, g1, g2, g3, g4, g5, g6, g7, g8 = mat_transpose(mat_mul(cam, scene.catalogue))
     milk = milky_way() if scene.darkness > 0.0 else b""
     milk_alpha = 0.48 * scene.darkness
     milky = MILKY_RGB
@@ -757,9 +741,9 @@ def _screen_up_deg(v_cam, cam, f, cx, cy, aspect):
     """The screen bearing (0 up, 90 right) of the local vertical at a
     camera-frame point: which way is 'up' there in the projection, as
     the eye sees it rather than as the grid counts it."""
-    e, n, u = _mat_apply(_mat_transpose(cam), v_cam)
+    e, n, u = mat_apply(mat_transpose(cam), v_cam)
     alt, az = alt_az_of((e, n, u))
-    higher = _mat_apply(cam, horizontal_vector(az, min(89.9, alt + 0.5)))
+    higher = mat_apply(cam, horizontal_vector(az, min(89.9, alt + 0.5)))
     p0, p1 = project(v_cam, f, cx, cy, aspect), project(higher, f, cx, cy, aspect)
     if p0 is None or p1 is None:
         return 0.0
@@ -793,7 +777,7 @@ def render(now_local, lat, lng, runtime, view, fullscreen=False,
     # really has where the terminal says.  The field of view is set
     # across the width; the height follows the screen's true shape.
     aspect = cell_aspect() / 2.0
-    frame = _mat_mul(cam, scene.catalogue)   # the J2000 catalogue to camera
+    frame = mat_mul(cam, scene.catalogue)   # the J2000 catalogue to camera
     lang = lang_of(runtime)
 
     figures = figures_for(view.culture, lang) if view.culture else constellations()
@@ -824,7 +808,7 @@ def render(now_local, lat, lng, runtime, view, fullscreen=False,
         fb, scene, cam, frame, f, cx, cy, eye_limit, STAR_RGB, aspect)
 
     # --- the Sun ---
-    sun_cam = _mat_apply(cam, scene.sun)
+    sun_cam = mat_apply(cam, scene.sun)
     sun_at = project(sun_cam, f, cx, cy, aspect) if scene.sun_alt > -3.0 else None
     if sun_at is not None:
         sx, sy = sun_at
@@ -839,7 +823,7 @@ def render(now_local, lat, lng, runtime, view, fullscreen=False,
         hits.append((sx, sy, "sun", None))
 
     # --- the Moon ---
-    moon_cam = _mat_apply(cam, scene.moon)
+    moon_cam = mat_apply(cam, scene.moon)
     moon_at = project(moon_cam, f, cx, cy, aspect) if scene.moon_alt > -1.0 else None
     if moon_at is not None:
         mx, my = moon_at
@@ -942,7 +926,7 @@ def render(now_local, lat, lng, runtime, view, fullscreen=False,
         fade = (eye_limit + 0.8 - (mag + _extinction(alt))) / 1.0
         if fade <= 0.0 or mag > limit + 0.8:
             continue
-        p = project(_mat_apply(cam, vec), f, cx, cy, aspect)
+        p = project(mat_apply(cam, vec), f, cx, cy, aspect)
         if p is None:
             continue
         col, row = int(p[0]), int(p[1]) // 2
@@ -963,7 +947,7 @@ def render(now_local, lat, lng, runtime, view, fullscreen=False,
     # The cardinal points first, so they win the room from the others.
     marks = sorted(compass_marks(runtime, view.culture), key=lambda m: not m[2])
     for az, label, bold in marks:
-        p = project(_mat_apply(cam, horizontal_vector(az, 0.0)), f, cx, cy, aspect)
+        p = project(mat_apply(cam, horizontal_vector(az, 0.0)), f, cx, cy, aspect)
         if p is None:
             continue
         # The label sits on the row under the horizon, or on the edge row
@@ -998,13 +982,13 @@ def render(now_local, lat, lng, runtime, view, fullscreen=False,
         for record in figures:
             if not record["lines"]:
                 continue
-            at = _mat_apply(frame, record["at"])
+            at = mat_apply(frame, record["at"])
             if at[2] < 0.0:
                 continue
             p = project(at, f, cx, cy, aspect)
             if p is None:
                 continue
-            e, n, u = _mat_apply(_mat_transpose(cam), at)
+            e, n, u = mat_apply(mat_transpose(cam), at)
             if u < 0.02:
                 continue
             # Only a constellation with room on screen is named: its
@@ -1013,7 +997,7 @@ def render(now_local, lat, lng, runtime, view, fullscreen=False,
             px0, py0 = p
             for line in record["lines"]:
                 for v in line:
-                    q = project(_mat_apply(frame, v), f, cx, cy, aspect)
+                    q = project(mat_apply(frame, v), f, cx, cy, aspect)
                     if q is not None:
                         spread = max(spread, math.hypot(q[0] - px0, q[1] - py0))
             if spread < 10.0:
@@ -1037,7 +1021,7 @@ def render(now_local, lat, lng, runtime, view, fullscreen=False,
         dots = {}
         for record in figures:
             for line in record["lines"]:
-                pts = [_mat_apply(frame, v) for v in line]
+                pts = [mat_apply(frame, v) for v in line]
                 for a, b in zip(pts, pts[1:]):
                     _plot_arc(dots, a, b, cam, f, cx, cy, graph_w, graph_h, aspect)
         strength = 0.6 * scene.darkness
@@ -1208,7 +1192,7 @@ def _chip(mouse_pos, hits, scene, runtime, cols, rows, graph_w, graph_h, view):
             _mag, _bv, vector, title = _deep.star(-i - 1)
         else:
             vector = star_vectors()[i]
-        _alt, az = alt_az_of(_mat_apply(scene.catalogue, vector))
+        _alt, az = alt_az_of(mat_apply(scene.catalogue, vector))
     where = f"{alt:.0f}° · {compass_point(az, runtime, view.culture)}"
     lines = [f"{tip_bg}{tip_fg} {title} ",
              f"{tip_bg}{tip_dim} {detail} ",

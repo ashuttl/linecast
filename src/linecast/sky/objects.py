@@ -37,13 +37,14 @@ def paint(fb, scene, cam, frame, f, cx, cy, eye_limit, color, aspect=1.0):
     The catalogue positions are J2000, so they reach the horizon and the
     screen through the scene's precessed frames, as the stars do.
     """
-    from linecast.sky.view import _extinction, _mat_apply, alt_az_of, project, unproject
+    from linecast.astro.ephemeris import mat_apply
+    from linecast.sky.view import _extinction, alt_az_of, project, unproject
     labels, hits = [], []
     if scene.darkness <= 0:
         return labels, hits
     for record in objects():
         vec = record['at']
-        alt, az = alt_az_of(_mat_apply(scene.catalogue, vec))
+        alt, az = alt_az_of(mat_apply(scene.catalogue, vec))
         if alt <= 0:
             continue
         visibility = min(1.0, max(0.0, (eye_limit - record['mag']
@@ -51,7 +52,7 @@ def paint(fb, scene, cam, frame, f, cx, cy, eye_limit, color, aspect=1.0):
         strength = scene.darkness * visibility * min(1.0, alt / 12.0)
         if strength <= 0:
             continue
-        at = _mat_apply(frame, vec)
+        at = mat_apply(frame, vec)
         if at[2] <= 0:
             continue
         centre = project(at, f, cx, cy, aspect)
@@ -67,7 +68,7 @@ def paint(fb, scene, cam, frame, f, cx, cy, eye_limit, color, aspect=1.0):
             axis = tuple(n * math.cos(pa) + e * math.sin(pa) for n, e in zip(north, east))
             offset = tuple(v * math.cos(0.001) + a * math.sin(0.001)
                            for v, a in zip(vec, axis))
-            tip = project(_mat_apply(frame, offset), f, cx, cy, aspect)
+            tip = project(mat_apply(frame, offset), f, cx, cy, aspect)
             # The ellipse is measured as the eye sees it, so its axis is
             # taken in cell widths both ways.
             ux, uy = tip[0] - sx, (tip[1] - sy) * aspect

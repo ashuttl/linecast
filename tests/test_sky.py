@@ -10,6 +10,7 @@ import pytest
 
 from conftest import assert_snapshot
 
+from linecast.astro.ephemeris import mat_apply
 from linecast.sky import view as sky
 from linecast.sky.planets import PLANETS, planet_position
 from linecast._runtime import RuntimeConfig
@@ -97,7 +98,7 @@ class TestPlanets:
 class TestGeometry:
     def test_the_pole_stands_at_the_latitude(self):
         m = horizontal_matrix(123.0, 43.7)
-        e, n, u = sky._mat_apply(m, (0.0, 0.0, 1.0))
+        e, n, u = mat_apply(m, (0.0, 0.0, 1.0))
         alt, az = alt_az_of((e, n, u))
         assert abs(alt - 43.7) < 1e-6 and abs(az) < 1e-6
 
@@ -105,7 +106,7 @@ class TestGeometry:
         lst = 80.0
         m = horizontal_matrix(lst, 43.7)
         v = (math.cos(math.radians(lst)), math.sin(math.radians(lst)), 0.0)
-        alt, az = alt_az_of(sky._mat_apply(m, v))
+        alt, az = alt_az_of(mat_apply(m, v))
         assert abs(az - 180.0) < 1e-6
         assert abs(alt - (90.0 - 43.7)) < 1e-6
 
@@ -123,7 +124,7 @@ class TestGeometry:
 
     def test_looking_south_the_east_is_left(self):
         c = camera_matrix(180.0, 20.0)
-        x, _y, _z = sky._mat_apply(c, horizontal_vector(120.0, 20.0))
+        x, _y, _z = mat_apply(c, horizontal_vector(120.0, 20.0))
         assert x < 0.0
 
     def test_project_and_unproject_agree(self):
@@ -243,7 +244,6 @@ class TestPrecession:
         """
         from linecast.astro.ephemeris import _alt_az_deg
         from linecast.sky.catalogue import equatorial_vector, star_vectors, stars
-        from linecast.sky.view import _mat_apply
         moment = NIGHT.astimezone(timezone.utc)
         scene = Scene(moment, LAT, LNG)
         # The J2000 pole of the ecliptic, and the general precession in
@@ -253,7 +253,7 @@ class TestPrecession:
         offsets = []
         for i, (ra, dec, _mag, _bv) in enumerate(stars()[:40]):
             vector = star_vectors()[i]
-            alt, az = alt_az_of(_mat_apply(scene.catalogue, vector))
+            alt, az = alt_az_of(mat_apply(scene.catalogue, vector))
             was_alt, was_az = _alt_az_deg(math.degrees(ra), math.degrees(dec),
                                           moment, LAT, LNG)
             moved = _angle_between((az, alt), (was_az, was_alt))

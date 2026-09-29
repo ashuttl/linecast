@@ -85,7 +85,8 @@ class Target:
         placed for the moment.
         """
         from linecast.sky.catalogue import star_vectors
-        from linecast.sky.view import alt_az_of, _mat_apply
+        from linecast.astro.ephemeris import mat_apply
+        from linecast.sky.view import alt_az_of
         if self.kind == "sun":
             return scene.sun_alt, scene.sun_az
         if self.kind == "moon":
@@ -95,7 +96,7 @@ class Target:
                 if key == self.key:
                     return alt, az
         at = star_vectors()[self.key] if self.kind == "star" else self.key["at"]
-        return alt_az_of(_mat_apply(scene.catalogue, at))
+        return alt_az_of(mat_apply(scene.catalogue, at))
 
     def fov(self, current):
         """A field that shows the thing: a constellation framed with air

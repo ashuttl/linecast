@@ -98,10 +98,10 @@ from linecast.astro.ephemeris import (
     _moon_altitude_deg, _moon_azimuth_deg, _moon_events_for_local_date,
     _moon_parallactic_deg, _moon_ra_dec, _moon_transits_for_local_date,
     moon_age_days,
-    moon_axis_deg, moon_bright_limb_deg, moon_illuminated_fraction,
+    mat_apply, moon_axis_deg, moon_bright_limb_deg, moon_illuminated_fraction,
     next_moon_phase_utc, precess_to_j2000,
 )
-from linecast.moon.disc import Turn, _draw_moon_disc, _mat_apply
+from linecast.moon.disc import Turn, _draw_moon_disc
 from linecast.moon.palette import (
     MOON_GLOW_RGB, MOON_NIGHT_RGB, PANEL_AMBER_RGB, PANEL_DIM_RGB, PANEL_MUTED_RGB,
     PANEL_PURPLE_RGB, PANEL_TEXT_RGB, SKY_RGB, STAR_BRIGHT_RGB, STAR_DIM_RGB, STAR_RGB,
@@ -370,7 +370,7 @@ def _project_star(d, turn, cx, cy, radius, aspect=1.0):
     the viewer. *turn* is the disc's rotation, or None at rest; *aspect*
     is a sub-pixel's height in cell widths (see render)."""
     if turn is not None:
-        d = _mat_apply(turn, d)
+        d = mat_apply(turn, d)
     x, y, z = d
     sin_t = math.sqrt(x * x + y * y)
     if sin_t < 1e-9:

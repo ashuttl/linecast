@@ -111,15 +111,26 @@ def precession_at(dt_utc):
     return _precession_for_day(math.floor(_julian_day(dt_utc) - 2451545.0))
 
 
-def _rotate(m, v, back=False):
+# A 3×3 matrix here is nine floats, row-major, as precession_matrix
+# returns it. The sky and the Moon's disc build their frames the same
+# way and use these three for the arithmetic.
+def mat_mul(a, b):
+    """The product of two 3×3 matrices."""
+    return tuple(sum(a[i * 3 + k] * b[k * 3 + j] for k in range(3))
+                 for i in range(3) for j in range(3))
+
+
+def mat_transpose(a):
+    """The transpose, which for a rotation is the rotation back."""
+    return (a[0], a[3], a[6], a[1], a[4], a[7], a[2], a[5], a[8])
+
+
+def mat_apply(a, v):
+    """The matrix applied to the vector *v*."""
     x, y, z = v
-    if back:
-        return (m[0] * x + m[3] * y + m[6] * z,
-                m[1] * x + m[4] * y + m[7] * z,
-                m[2] * x + m[5] * y + m[8] * z)
-    return (m[0] * x + m[1] * y + m[2] * z,
-            m[3] * x + m[4] * y + m[5] * z,
-            m[6] * x + m[7] * y + m[8] * z)
+    return (a[0] * x + a[1] * y + a[2] * z,
+            a[3] * x + a[4] * y + a[5] * z,
+            a[6] * x + a[7] * y + a[8] * z)
 
 
 def _vector_of(ra_deg, dec_deg):
@@ -136,14 +147,14 @@ def _ra_dec_of(v):
 
 def precess_from_j2000(ra_deg, dec_deg, dt_utc):
     """A J2000 right ascension and declination at the mean equinox of date."""
-    return _ra_dec_of(_rotate(precession_at(dt_utc), _vector_of(ra_deg, dec_deg)))
+    return _ra_dec_of(mat_apply(precession_at(dt_utc), _vector_of(ra_deg, dec_deg)))
 
 
 def precess_to_j2000(ra_deg, dec_deg, dt_utc):
     """An of-date right ascension and declination back in the J2000 frame,
     for comparing a body with the catalogue on the catalogue's terms."""
-    return _ra_dec_of(_rotate(precession_at(dt_utc), _vector_of(ra_deg, dec_deg),
-                              back=True))
+    return _ra_dec_of(mat_apply(mat_transpose(precession_at(dt_utc)),
+                                _vector_of(ra_deg, dec_deg)))
 
 
 def _sun_ecliptic(dt_utc):
