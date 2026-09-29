@@ -387,6 +387,12 @@ def _header(climate, days, runtime, cols, location_name, location_menu):
 
     parts = [f"{_style.TEXT}{days.year if days else ''}"]
     if climate and days:
+        # The year so far is summed up only while the archive has given
+        # it: without, the forecast's last day alone would stand for the
+        # year, and its rain against the ten years' whole year to date
+        # read as a drought.  A couple of days short is still the year,
+        # as a month is in climate_from_archive.
+        whole = days.today - 2
         felt, usual = [], []
         for k in range(days.today):
             s = _slot(date(days.year, 1, 1) + timedelta(days=k))
@@ -394,7 +400,7 @@ def _header(climate, days, runtime, cols, location_name, location_menu):
             if None not in (days.highs[k], days.lows[k], nh, nl):
                 felt.append((days.highs[k] + days.lows[k]) / 2)
                 usual.append((nh + nl) / 2)
-        if felt:
+        if felt and len(felt) >= whole:
             # The mean of every day's high and low, against the same
             # days' averages: a year's departure is a degree or two, so
             # it keeps its tenth where the dashboard's day rounds.
@@ -408,7 +414,7 @@ def _header(climate, days, runtime, cols, location_name, location_menu):
         starts, n = _month_starts(days.year)
         observed = [p for p in days.precip[:days.today] if p is not None]
         normal = _normal_to_date(climate, days.today, starts, starts[1:] + [n])
-        if observed and normal is not None:
+        if observed and len(observed) >= whole and normal is not None:
             unit = runtime.precip_unit_label
             sep = _s("metric_unit_sep", runtime) if runtime.metric else ""
             parts.append(f"{_style.PRECIP_RAIN}{_fmt_amount(sum(observed), runtime)}{sep}{unit}"

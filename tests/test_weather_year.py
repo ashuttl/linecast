@@ -414,6 +414,22 @@ class TestChart:
         assert text.split("\n")[0].startswith("2026")
         assert "Jan" in text
 
+    def test_without_the_archive_the_header_sums_up_no_year(self):
+        # The archive did not answer: the forecast's day before today is
+        # all there is of the year, and a day's rain is not the year's
+        forecast = _archive(TODAY - timedelta(days=1), TODAY + timedelta(days=6),
+                            high=lambda d: 70.0, precip=lambda d: 0.3)
+        head = _strip(_render(_climate(), year.year_days(None, forecast, TODAY))).split("\n")[0]
+        assert head.startswith("2026")
+        assert "avg" not in head and "″" not in head
+        # A day or two short is still the year
+        days = year.year_days(_archive(date(2026, 1, 1), TODAY - timedelta(days=3),
+                                       high=lambda d: 52.0 + 30 * (d.month in (6, 7, 8)),
+                                       low=lambda d: 32.0 + 30 * (d.month in (6, 7, 8)),
+                                       precip=lambda d: 0.2), None, TODAY)
+        head = _strip(_render(_climate(), days)).split("\n")[0]
+        assert "2.0° above avg" in head and "″ · avg 26.8″" in head
+
     def test_it_draws_with_nothing_at_all(self):
         assert "Jan" in _strip(_render(None, None))
 

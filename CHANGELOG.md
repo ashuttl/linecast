@@ -76,6 +76,7 @@ Notable changes, by release. Notes for the next release collect under **Unreleas
 - Maps: Fixed a search for a city, such as Paris, listing it twice.
 - Weather: Fixed the daily forecast's rain hover saying "through the day" for a day with showers in the small hours and again at night but dry between; it gives the hours they fall between.
 - Weather: Fixed the hover on the hourly chart giving an hour of snow the water it melts to, such as "0.12″" for an hour with nearly an inch of snow; it gives the snow, as the daily forecast does.
+- Weather: Fixed the year view's header comparing one day's rain with the average for the whole year so far, such as "13mm · avg 824mm", when the year's past days could not be fetched. It leaves the comparison out until they come.
 
 ## 2.9.2 — 2026-09-27
 
