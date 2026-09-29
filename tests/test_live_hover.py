@@ -39,6 +39,7 @@ def run_loop(monkeypatch, script, render_fn=None, coalesce=False, **hooks):
         return action
 
     terminal = SimpleNamespace(fd=0, install=lambda: None, set_cbreak=lambda: None,
+                               suspend_pending=False,
                                drain=lambda: None, close=lambda: None,
                                settle=lambda timeout, replies=1: None, wait=wait)
     monkeypatch.setattr(_live._term, 'LiveTerminal', lambda fd: terminal)

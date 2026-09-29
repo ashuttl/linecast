@@ -259,6 +259,8 @@ class LiveTerminal:
     def __init__(self, fd):
         self.fd = fd
         self._closed = False
+        # Ctrl-Z was pressed and the loop has yet to stop (suspend())
+        self.suspend_pending = False
         self._old_settings = None
         self._prev_handlers = {}
         self._wake_r = self._wake_w = None
@@ -305,6 +307,21 @@ class LiveTerminal:
                 except (ValueError, OSError):
                     pass
 
+            # Ctrl-Z stops the process where it stands, and the shell would
+            # get the alternate screen, mouse reporting and cbreak along
+            # with its prompt.  The handler only asks: the loop hands the
+            # terminal back between frames and stops itself (suspend()).
+            # A shell that runs us with the signal ignored keeps it so.
+            def _on_tstp(*_):
+                self.suspend_pending = True
+                _on_winch()
+
+            try:
+                if signal.getsignal(signal.SIGTSTP) is not signal.SIG_IGN:
+                    self._prev_handlers[signal.SIGTSTP] = signal.signal(
+                        signal.SIGTSTP, _on_tstp)
+            except (ValueError, OSError):
+                pass
         _current = self
 
     def set_cbreak(self):
@@ -358,6 +375,49 @@ class LiveTerminal:
             pass
 
     # -- running -----------------------------------------------------------
+    def leads_job(self):
+        """Whether this process leads its job.  Under a wrapper that does
+        not exec it -- uvx, a shell script -- the wrapper leads, and on
+        ctrl-Z stops at once and hands the shell the terminal while the
+        loop is still giving it back."""
+        return WINDOWS or os.getpgrp() == os.getpid()
+
+    def suspend(self, hand_back=None):
+        """Stop, as ctrl-Z asked: `hand_back()` writes the escapes that
+        give the terminal back, the terminal's own settings go back, the
+        process stops, and once resumed it is in cbreak again, for the
+        caller to take and repaint."""
+        self.suspend_pending = False
+        if WINDOWS or self._closed:
+            return
+        # If a wrapper has stopped first, the shell has the terminal, and
+        # a read or a settings change from here would stop the process a
+        # second time (SIGTTIN, SIGTTOU); ignored, they fail instead
+        quiet = {}
+        for sig in (signal.SIGTTIN, signal.SIGTTOU):
+            quiet[sig] = signal.signal(sig, signal.SIG_IGN)
+        try:
+            if hand_back is not None:
+                hand_back()
+            if self._old_settings is not None:
+                try:
+                    termios.tcsetattr(self.fd, termios.TCSADRAIN, self._old_settings)
+                except termios.error:
+                    pass
+            handler = signal.signal(signal.SIGTSTP, signal.SIG_DFL)
+            try:
+                # raise() stops this thread, and with it the process,
+                # before it returns
+                signal.raise_signal(signal.SIGTSTP)
+            finally:
+                signal.signal(signal.SIGTSTP, handler)
+        finally:
+            for sig, previous in quiet.items():
+                signal.signal(sig, previous)
+        # `fg` gives the terminal back as it was when the job stopped:
+        # cooked
+        self.set_cbreak()
+
     def wake(self):
         """Ask the loop to repaint now. Safe from any thread."""
         if WINDOWS:

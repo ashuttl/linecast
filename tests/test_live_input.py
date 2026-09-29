@@ -344,3 +344,69 @@ def test_loop_exit_puts_the_sigwinch_handler_back(tmp_path):
     assert result == {"restored": True, "hits": 1, "running": False,
                       "sizes": [0, 0]}, err
 
+
+_SUSPEND_CHILD = """
+import json, os, signal, sys, termios
+from linecast.terminal import live as _live
+real_raise, stops = signal.raise_signal, []
+def stop_here(sig):
+    if sig != signal.SIGTSTP:
+        return real_raise(sig)
+    # where the process would stop: the terminal as the shell gets it
+    stops.append(bool(termios.tcgetattr(0)[3] & termios.ICANON))
+    os.write(1, b"<stopped>")
+signal.raise_signal = stop_here
+_live.live_loop(lambda offset_minutes=0, **kw: "frame", interval=5, mouse=True)
+print(json.dumps({"stops": stops}), file=sys.stderr)
+"""
+
+
+@pytest.mark.skipif(not hasattr(os, "openpty"), reason="needs a pty")
+def test_ctrl_z_hands_the_terminal_back_before_stopping():
+    """Ctrl-Z leaves the alternate screen, turns mouse reporting off and
+    puts the terminal's own settings back before the process stops, and
+    on resume takes the terminal again and repaints."""
+    import json
+    import select
+    import signal
+    import subprocess
+    import time
+    master, slave = os.openpty()
+    env = dict(os.environ, LINECAST_THEME="off", LINECAST_THEME_POLL="0",
+               LINECAST_THEME_WATCH="", LINECAST_FRAME_SYNC="0", PYTHONPATH=_src)
+    proc = subprocess.Popen([sys.executable, "-c", _SUSPEND_CHILD],
+                            stdin=slave, stdout=slave, stderr=subprocess.PIPE,
+                            env=env, close_fds=True)
+    os.close(slave)
+    seen, sent = b"", []
+    deadline = time.monotonic() + 15
+    try:
+        while time.monotonic() < deadline and proc.poll() is None:
+            ready, _, _ = select.select([master], [], [], 0.1)
+            if master in ready:
+                try:
+                    seen += os.read(master, 65536)
+                except OSError:
+                    break
+            if not sent and b"frame" in seen:
+                os.kill(proc.pid, signal.SIGTSTP)       # ctrl-Z
+                sent.append("tstp")
+            elif sent == ["tstp"] and b"frame" in seen.split(b"<stopped>", 1)[-1] \
+                    and b"<stopped>" in seen:
+                os.write(master, b"q")                   # repainted: quit
+                sent.append("q")
+        err = proc.communicate(timeout=5)[1]
+    finally:
+        if proc.poll() is None:
+            proc.kill()
+        os.close(master)
+    before, _, after = seen.partition(b"<stopped>")
+    # handed back before the stop: main screen, no mouse, cursor shown
+    assert before.rfind(b"\033[?1049l") > before.rfind(b"\033[?1049h") >= 0
+    assert b"\033[?1003l" in before.split(b"frame")[-1]
+    # taken again after it, and the frame drawn whole
+    assert after.find(b"\033[?1049h") < after.find(b"frame")
+    assert b"\033[?1003h" in after
+    result = json.loads(err.decode().strip().splitlines()[-1])
+    assert result["stops"] == [True], err      # cooked while stopped
+

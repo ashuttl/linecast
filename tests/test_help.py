@@ -76,6 +76,7 @@ def test_help_follows_the_active_view_and_clamps_after_resize():
 def run_loop(monkeypatch, actions, **hooks):
     """Drive the actual live loop with decoded input and a fake terminal."""
     terminal = SimpleNamespace(fd=0, install=lambda: None, set_cbreak=lambda: None,
+                               suspend_pending=False,
                                drain=lambda: None, close=lambda: None,
                                settle=lambda timeout: None,
                                wait=lambda timeout: 'input')

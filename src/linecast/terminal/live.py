@@ -932,6 +932,36 @@ def live_loop(render_fn, interval=60, mouse=False, on_open=None, scroll_step=15,
         # Alternate-scroll mode helps terminals that don't report wheel as mouse.
         if is_apple_terminal:
             init += "\033[?1007h"
+    # What the loop's end writes to hand the terminal back, and ctrl-Z
+    # before it stops
+    restore = ""
+    if mouse:
+        restore += "\033[?1006l\033[?1003l\033[?1002l\033[?1000l"
+        if is_apple_terminal:
+            restore += "\033[?1007l"
+    restore += f"{_AUTOWRAP_ON}{bidi_off}\033[?25h\033[?1049l"
+
+    def suspend():
+        """Ctrl-Z: hand the terminal back as the loop's end does, stop,
+        and on resume take it again.  The frame drawn next is drawn
+        whole, as every frame is."""
+        nonlocal acks_owed
+
+        def hand_back():
+            # Alone in its job, the loop waits for the terminal to answer,
+            # so no reply or late mouse report reaches the shell.  Under a
+            # wrapper the shell may be reading the terminal already, and
+            # the answer would land on its prompt: drop what has come in
+            careful = sync and term.leads_job()
+            sys.stdout.write(restore + (_CPR_QUERY if careful else ""))
+            sys.stdout.flush()
+            term.settle(_ack_wait() if careful else 0, replies=acks_owed + 1)
+
+        term.suspend(hand_back)
+        acks_owed = 0
+        sys.stdout.write(init)
+        sys.stdout.flush()
+
     watch = WorkerWatch()
     watch.install()
     try:
@@ -957,9 +987,14 @@ def live_loop(render_fn, interval=60, mouse=False, on_open=None, scroll_step=15,
                             sync = False  # this terminal does not answer
                         acks_owed = 0
                         break
-                    if term.wait(min(0.1, left)) == 'input':
+                    event = term.wait(min(0.1, left))
+                    if term.suspend_pending:
+                        break
+                    if event == 'input':
                         if handle_input() == 'quit':
                             return
+            if term.suspend_pending:
+                suspend()
 
             # Drain wakeups from before this render: whatever they announced,
             # the frame about to be drawn reflects it.  The drain must come
@@ -1047,15 +1082,7 @@ def live_loop(render_fn, interval=60, mouse=False, on_open=None, scroll_step=15,
     finally:
         _running = False
         try:
-            cleanup = ""
-            if mouse:
-                cleanup += "\033[?1006l\033[?1003l\033[?1002l\033[?1000l"
-                if is_apple_terminal:
-                    cleanup += "\033[?1007l"
-            cleanup += f"{_AUTOWRAP_ON}{bidi_off}\033[?25h\033[?1049l"
-            if sync:
-                cleanup += _CPR_QUERY
-            sys.stdout.write(cleanup)
+            sys.stdout.write(restore + (_CPR_QUERY if sync else ""))
             sys.stdout.flush()
         except Exception:
             pass  # tty may already be gone (SIGHUP); nothing left to restore

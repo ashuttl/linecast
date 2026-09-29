@@ -42,6 +42,7 @@ Notable changes, by release. Notes for the next release collect under **Unreleas
 - Moon: The Moon's age is given out of the length of this month, from new moon to new moon, rather than the average of 29.5 days, which the age could pass: "Day 29.8 of 29.5".
 - Moon: Fixed the Hebrew and Islamic dates turning at noon through the polar night, where the Sun does not set; they keep to the civil date, as they do under the midnight sun.
 - Live views: Fixed Esc pressed while the mouse was moving turning the mouse's report into keypresses, which could swing the sky's view or fly it to the Moon.
+- Live views: Fixed Ctrl-Z leaving the shell on the view's screen, with mouse reporting on and the cursor hidden. The terminal now goes back to the shell as it was, and `fg` returns to the view.
 - Maps: Directions between two places with no road between them say "no route" rather than "directions unavailable", and are not asked for again.
 - Radar, maps: `--zoom` with zero, a negative number, or anything not a number of degrees now says so rather than ending in a Python traceback.
 - Maps: Fixed a search that found nothing as you typed, with Enter pressed before it answered, stopping at "no results" instead of looking the name up, as Enter pressed afterwards does.
