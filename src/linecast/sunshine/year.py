@@ -16,6 +16,7 @@ a tooltip with that day's sunrise, sunset, and day length, tides-style.
 
 import calendar
 from datetime import date as _date, datetime, timedelta
+from typing import NamedTuple
 
 from linecast._i18n import fmt_duration_parts, lang_of
 from linecast.terminal import live as _live
@@ -347,11 +348,10 @@ def render_year(lat, lng, now, runtime, tz=None, fullscreen=False,
 
     tooltip = ""
     if hover_x is not None:
-        tooltip = _hover_tooltip(lat, lng, hover_x, mouse_pos[1], graph_w,
-                                 graph_h, cols, rows, year, days, tz_offs,
-                                 today_doy, runtime, icons,
-                                 today=(x_today, now_hour),
-                                 day_offs=day_offs, tz=tz)
+        chart = _Chart(lat, lng, year, days, graph_w, graph_h, tz_offs, day_offs,
+                       tz, today_doy, x_today, now_hour)
+        tooltip = _hover_tooltip(chart, hover_x, mouse_pos[1], cols, rows,
+                                 runtime, icons)
     # overlay() keeps the cursor-addressed tooltip apart from the body so
     # live_loop draws it after its end-of-screen clear, not before.
     return overlay("\n".join(lines), tooltip)
@@ -399,32 +399,47 @@ def _zone_name(date, tz):
     return name
 
 
-def _hover_tooltip(lat, lng, hover_x, mouse_row, graph_w, graph_h, cols, rows,
-                   year, days, tz_offs, today_doy, runtime, icons,
-                   today=None, day_offs=None, tz=None):
+class _Chart(NamedTuple):
+    """The year as render_year laid it out, for a hover to read a cell
+    back into a day and a moment."""
+    lat: float
+    lng: float
+    year: int
+    days: int               # in the year
+    graph_w: int            # the field, in cells
+    graph_h: int
+    tz_offs: list           # each day's UTC offset as drawn: the year's one, or with dst its own
+    day_offs: list          # each day's own UTC offset
+    tz: object              # the place's zone, or None for the machine's
+    today_doy: int
+    x_today: int            # today's column, and the hour on today's clock
+    now_hour: float
+
+
+def _hover_tooltip(chart, hover_x, mouse_row, cols, rows, runtime, icons):
     """Cursor-positioned tooltip for the hovered day and time, tides-style.
 
-    today is (x_today, now_hour): on that column the day is today and a
-    row near the sun glyph reads as now. Times are in the day's own
-    offset (day_offs), not the chart's, and carry the zone's name when
-    it differs from today's.
+    On today's column the day is today, and a row near the sun glyph
+    reads as now. Times are in the day's own offset (day_offs), not the
+    chart's, and carry the zone's name when it differs from today's.
     """
+    lat, lng, today_doy = chart.lat, chart.lng, chart.today_doy
     now_hour = None
-    if today and hover_x == today[0]:
-        doy, now_hour = today_doy, today[1]
+    if hover_x == chart.x_today:
+        doy, now_hour = today_doy, chart.now_hour
     else:
-        doy = max(1, min(days, int((hover_x + 0.5) / graph_w * days) + 1))
-    date = datetime(year, 1, 1) + timedelta(days=doy - 1)
-    day_off = (day_offs or tz_offs)[doy - 1]
-    shift = day_off - tz_offs[doy - 1]
+        doy = max(1, min(chart.days, int((hover_x + 0.5) / chart.graph_w * chart.days) + 1))
+    date = datetime(chart.year, 1, 1) + timedelta(days=doy - 1)
+    day_off = chart.day_offs[doy - 1]
+    shift = day_off - chart.tz_offs[doy - 1]
     sunrise, sunset, day_len = _day_facts(lat, lng, doy, day_off)
     hour, sky = _hover_moment(lat, lng, doy, day_off, mouse_row,
-                              graph_h, runtime, now_hour, shift)
+                              chart.graph_h, runtime, now_hour, shift)
     zone = ""
-    if day_offs and day_off != day_offs[today_doy - 1]:
-        zone = _zone_name(date, tz)
+    if day_off != chart.day_offs[today_doy - 1]:
+        zone = _zone_name(date, chart.tz)
     _, _, today_len = _day_facts(lat, lng, today_doy,
-                                 tz_offs[today_doy - 1])
+                                 chart.tz_offs[today_doy - 1])
 
     rel = relative_day(doy - today_doy, runtime)
 
