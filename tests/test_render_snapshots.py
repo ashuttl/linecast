@@ -338,9 +338,9 @@ class TestRadarSnapshot:
             return w, h, rgba
 
     def test_radar_80x24(self, monkeypatch, keep_radar_source):
-        import os
-        import time
+        from zoneinfo import ZoneInfo
         from linecast._runtime import RuntimeConfig
+        from linecast._timefmt import fmt_time_dt
         from linecast.radar import frames as rf
         from linecast.radar import view as radar
         from linecast.radar import warnings
@@ -348,20 +348,14 @@ class TestRadarSnapshot:
         rf.use(self.Storm())
         monkeypatch.setattr(warnings, "covers", lambda bbox: False)
         monkeypatch.setattr(radar, "get_terminal_size", lambda: (80, 24))
+        # the frame's time is written in the machine's zone; pin it at the
+        # formatter, since Windows has no time.tzset() to make TZ take
+        toronto = ZoneInfo("America/Toronto")
+        monkeypatch.setattr(radar, "_fmt_local", lambda dt, use_24h=False:
+                            fmt_time_dt(dt.astimezone(toronto), use_24h=use_24h))
         runtime = RuntimeConfig(live=False, icons="emoji", lang="en", oneline=False)
-        # the frame's time is written in the machine's zone
-        machine = os.environ.get("TZ")
-        os.environ["TZ"] = "America/Toronto"
-        time.tzset()
-        try:
-            output, _failed = radar.render_radar(43.7, -79.4, "Toronto", 6.0, play_frame=0,
-                                                 playing=False, block=True, runtime=runtime)
-        finally:
-            if machine is None:
-                del os.environ["TZ"]
-            else:
-                os.environ["TZ"] = machine
-            time.tzset()
+        output, _failed = radar.render_radar(43.7, -79.4, "Toronto", 6.0, play_frame=0,
+                                             playing=False, block=True, runtime=runtime)
         assert_snapshot("radar_80x24.txt", _strip_ansi(output))
 
 
