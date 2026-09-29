@@ -286,6 +286,14 @@ class TestAfterSunset:
     def test_no_location_keeps_the_civil_date(self):
         assert not after_sunset(datetime(2026, 3, 19, 20, 30, tzinfo=self.ET), None, None)
 
+    def test_a_polar_night_has_no_sunset_to_turn_at(self):
+        # Tromsø in December: the Sun never rises, and the date keeps to
+        # the civil day rather than turning at noon
+        from zoneinfo import ZoneInfo
+        oslo = ZoneInfo("Europe/Oslo")
+        for hour in (11, 12, 18, 23):
+            assert not after_sunset(datetime(2026, 12, 18, hour, tzinfo=oslo), 69.65, 18.96)
+
 
 class TestLabels:
     def test_the_date_as_customarily_written(self):

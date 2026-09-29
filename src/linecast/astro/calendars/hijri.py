@@ -41,7 +41,9 @@ country's announced dates may differ from these by a day.
 from datetime import date, datetime, timedelta, timezone
 from functools import lru_cache
 
-from linecast.astro.ephemeris import _moon_altitude_deg, next_moon_phase_utc
+from linecast.astro.ephemeris import (
+    _moon_altitude_deg, next_moon_phase_utc, sun_depression_utc,
+)
 from linecast.astro.calendars.pacific import _Observer, _setting_instant, _sun_alt_az_deg
 
 _SYNODIC_DAYS = 29.530589
@@ -175,6 +177,8 @@ def after_sunset(now_local, lat, lng):
     """
     if lat is None or lng is None:
         return False
-    obs = _Observer(lat, lng, 0, 0.0)
-    alt = _sun_alt_az_deg(now_local.astimezone(timezone.utc), obs)[0]
-    return alt < _SUNSET_DEG and now_local.hour >= 12
+    # The date's own sunset, None where the Sun does not set, or does not
+    # rise: a polar night has no evening to turn at, and turned at noon
+    sunset = sun_depression_utc(now_local.date(), lat, lng, -_SUNSET_DEG, True,
+                                now_local.tzinfo)
+    return sunset is not None and now_local.astimezone(timezone.utc) >= sunset
