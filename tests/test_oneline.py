@@ -148,8 +148,9 @@ class TestSunshineOneline:
         rt = self._runtime()
         line = sunshine_oneline(43.66, -70.26, 172, 12.0, rt)
         plain = _strip_ansi(line)
-        # Delta should have + or - sign with m (minutes)
-        assert re.search(r"[+\u2212]\d+m", plain)
+        # Delta should have + or - sign with m (minutes), or at the
+        # solstice s (seconds)
+        assert re.search(r"[+\u2212]\d+[ms]", plain)
 
     def test_24h_format(self):
         rt = self._runtime(lang="fr")
@@ -164,6 +165,14 @@ class TestSunshineOneline:
         summer = _strip_ansi(sunshine_oneline(69.65, 18.96, 172, 12.0, rt, tz_offset_h=2))
         assert winter.startswith("↑— ↓— 0h00m polar night")
         assert summer.startswith("↑— ↓— 24h00m midnight sun")
+
+    def test_a_change_under_a_minute_is_in_seconds(self):
+        # On the equator the day changes by seconds all year: Singapore
+        # in September loses 4s a day, not "0m 4s".
+        line = _strip_ansi(sunshine_oneline(1.35, 103.82, 264, 12.0,
+                                            self._runtime(use_24h=True), tz_offset_h=8))
+        assert " −4s " in line
+        assert "0m" not in line
 
     def test_persian_writes_the_day_length_in_words(self):
         # As the change beside it is, and as the day view writes both:

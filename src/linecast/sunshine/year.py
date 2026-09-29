@@ -198,8 +198,8 @@ def _fmt_len(hours, lang="en"):
 
 
 def _fmt_len_delta(delta_hours, lang="en"):
-    sign = "+" if delta_hours >= 0 else "−"
     total_m = int(round(abs(delta_hours) * 60))
+    sign = "−" if delta_hours < 0 and total_m else "+"
     h, m = divmod(total_m, 60)
     if h:
         return fmt_duration_parts(lang, ("h", h), ("m", m), sign=sign)

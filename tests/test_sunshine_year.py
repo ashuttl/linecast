@@ -313,6 +313,13 @@ class TestDayViewInfoLine:
         assert "polar night" in line
         assert not re.search(r"\d{1,2}:\d{2}", line)
 
+    def test_a_change_under_a_minute_is_in_seconds(self):
+        line = self._line(1.35, 103.82, 264, 8.0)   # Singapore, September
+        assert "(−4s)" in line
+        # and the year view's change, to the minute, has no "−0m"
+        assert year._fmt_len_delta(-0.004) == "+0m"
+        assert year._fmt_len_delta(-0.02) == "−1m"
+
     def test_an_ordinary_day_is_unchanged(self):
         line = self._line(*TORONTO_LL, 64, -5.0)
         assert len(re.findall(r"\d{2}:\d{2}", line)) == 2

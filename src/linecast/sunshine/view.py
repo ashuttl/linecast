@@ -387,8 +387,12 @@ def _info_line(lat, lng, doy, sunrise, sunset, width, runtime, now_hour=None, of
     text = fg(*INFO_TEXT_RGB)
 
     lang = lang_of(runtime)
-    delta_str = (fmt_duration_parts(lang, ("m", d_m), ("s", d_s), sign=d_sign) if d_s > 0
-                 else fmt_duration_parts(lang, ("m", d_m), sign=d_sign))
+    # Under a minute, the seconds alone: "−15s", not "−0m 15s"; under a
+    # second, "+0m", never "−0m".
+    parts = [("m", d_m), ("s", d_s)] if d_m and d_s else [("s", d_s)] if d_s else [("m", d_m)]
+    if not (d_m or d_s):
+        d_sign = "+"
+    delta_str = fmt_duration_parts(lang, *parts, sign=d_sign)
     day_len_str = fmt_duration_parts(lang, ("h", dl_h), ("m", dl_m))
 
     # Through a polar season there is no sunrise or sunset to print: the
