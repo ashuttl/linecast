@@ -14,10 +14,26 @@ from linecast.moon.i18n import (
     hijri_date_label, hijri_era, hijri_month_name, hijri_observance_name,
     hijri_sighting_note,
 )
-from linecast.moon.readings import Reading, evening, month_span
+from linecast.moon.readings import Day, Panel, Reading, begun_at_sunset, evening, month_span
 
 
 class Hijri(Reading):
+    def headline(self, ctx):
+        _turned, h_day = evening(ctx)
+        return None, hijri_date_label(*hijri_date(h_day), ctx.lang)
+
+    def panel(self, ctx):
+        # No solar terms. The coming month follows the Moon, so it joins
+        # the month's table, a day or two after the new moon; the next
+        # observance is the year's.
+        _turned, h_day = evening(ctx)
+        nxt_day, (_nxt_year, nxt_month) = next_month_start(h_day)
+        fest_day, fest_key = next_observance(h_day)
+        return Panel(
+            month=(Day(hijri_month_name(nxt_month, ctx.lang), nxt_day),),
+            year=(begun_at_sunset(hijri_observance_name(fest_key, ctx.lang),
+                                  fest_day, h_day, ctx),))
+
     def json_block(self, ctx):
         # The Hijri date, turned with the reader's sunset as the panel
         # turns it, the month's length, the coming month, and the next

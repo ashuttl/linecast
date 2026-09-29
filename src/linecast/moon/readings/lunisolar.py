@@ -15,7 +15,7 @@ from linecast.moon.i18n import (
     _zh_day_name, festival_table, ja_night_name, lunar_date_label, term_label,
     vi_month_label, zh_month_label,
 )
-from linecast.moon.readings import Reading
+from linecast.moon.readings import Instant, Now, Panel, Reading, kept_or_coming
 
 
 class Lunisolar(Reading):
@@ -29,6 +29,33 @@ class Lunisolar(Reading):
     def festivals(self, ctx):
         """(month, day) → name, in the language the calendar reads in."""
         return festival_table(self.name, self._label_lang(ctx))
+
+    def headline(self, ctx):
+        # The lunar date, and in Japanese the night's own name
+        label_lang = self._label_lang(ctx)
+        lunar = self._lunar(ctx.today)
+        if lunar is None:
+            return None, None
+        name = ja_night_name(lunar[1]) if label_lang == "ja" else None
+        return name, lunar_date_label(*lunar, label_lang)
+
+    def panel(self, ctx):
+        # The solar term in progress is where the year stands. The
+        # equinoxes and solstices are terms too, and when one is next
+        # the season's row already carries it. Then the coming festival.
+        label_lang = self._label_lang(ctx)
+        cur_k, _cur_start = current_term(ctx.moment_utc)
+        nxt_k, nxt_start = next_term(ctx.moment_utc)
+        year = [Now(term_label(cur_k, label_lang))]
+        if nxt_k % 6:
+            year.append(Instant(term_label(nxt_k, label_lang),
+                                nxt_start.astimezone(ctx.now_local.tzinfo)))
+        fest = next_lunar_event(ctx.today, CALENDAR_MERIDIAN_HOURS[self.name],
+                                self.festivals(ctx))
+        if fest is not None:
+            fest_day, fest_name = fest
+            year.append(kept_or_coming(fest_name, fest_day, ctx.today))
+        return Panel(year=tuple(year))
 
     def json_block(self, ctx):
         label_lang = self._label_lang(ctx)

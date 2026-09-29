@@ -10,15 +10,37 @@ the CHamoru one where it has one.
 """
 
 from linecast.astro.calendars.pacific import (
-    ANAHULU_COUNSEL, COUNSEL_ATTRIBUTION, COUNSEL_URL, night_note, pacific_night,
+    ANAHULU_COUNSEL, COUNSEL_ATTRIBUTION, COUNSEL_SOURCE_LINE, COUNSEL_URL, night_note,
+    pacific_night,
 )
 from linecast.moon.i18n import (
     anahulu_name, pacific_night_label, pacific_night_name, refaluwasch_name,
 )
-from linecast.moon.readings import Reading
+from linecast.moon.readings import Panel, Reading
 
 
 class Pacific(Reading):
+    plain_age = True
+
+    def headline(self, ctx):
+        # The night's name, and the Kaulana Mahina's anahulu beside it
+        night, nights = pacific_night(self.name, ctx.today)
+        aside = f"anahulu {anahulu_name(night)}" if self.name == "hawaiian" else None
+        return pacific_night_label(self.name, night, nights), aside
+
+    def panel(self, ctx):
+        # The Kaulana Mahina sets its counsel under the phase: the night's
+        # kapu or ʻole note when it has one, the anahulu's fishing counsel,
+        # and the source named plainly. The other calendars add nothing
+        # beyond the night.
+        if self.name != "hawaiian":
+            return Panel()
+        night, nights = pacific_night(self.name, ctx.today)
+        note = night_note(pacific_night_label(self.name, night, nights))
+        counsel = ANAHULU_COUNSEL[anahulu_name(night)]
+        return Panel(counsel=(note, counsel) if note else (counsel,),
+                     source=COUNSEL_SOURCE_LINE)
+
     def json_block(self, ctx):
         night, nights = pacific_night(self.name, ctx.today)
         name = pacific_night_name(self.name, night, nights)

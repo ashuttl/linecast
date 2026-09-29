@@ -21,7 +21,7 @@ def moon_oneline(now_local, lat, lng, runtime, calendar=None):
     ``… ↓4:12a ↑9:41p · 20 Elul 5786`` — so the line a status bar
     already shows is unchanged up to the new ending.
     """
-    from linecast.moon.view import calendar_headline
+    from linecast.moon.readings import context, reading
     from linecast.moon.phase import moon_illumination, moon_phase, upcoming_moon_events
     from linecast.sunshine.palette import INFO_AMBER_RGB, INFO_PURPLE_RGB, INFO_TEXT_RGB
     from linecast._i18n import lang_of
@@ -31,9 +31,10 @@ def moon_oneline(now_local, lat, lng, runtime, calendar=None):
     idx, _name, icon = moon_phase(now_local, runtime)
     name = moon_name(idx, runtime)
     illum = moon_illumination(now_local)
-    lang = lang_of(runtime)
-    cal, _source = resolve_calendar(calendar, lang)
-    cal_name, aside = calendar_headline(cal, now_local, lat, lng, runtime, lang)
+    cal, _source = resolve_calendar(calendar, lang_of(runtime))
+    found = reading(cal)
+    cal_name, aside = (found.headline(context(now_local, lat, lng, runtime, cal))
+                       if found else (None, None))
     if cal_name:
         name = cal_name
 

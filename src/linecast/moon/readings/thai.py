@@ -16,7 +16,7 @@ from linecast.moon.i18n import (
     thai_festival_name, thai_lunar_label, thai_month_label, thai_year_label,
     wan_phra_label,
 )
-from linecast.moon.readings import Reading
+from linecast.moon.readings import Day, Now, Panel, Reading, kept_or_coming
 
 
 def _label_lang(ctx):
@@ -24,6 +24,24 @@ def _label_lang(ctx):
 
 
 class Thai(Reading):
+    def headline(self, ctx):
+        return None, thai_lunar_label(*thai_lunar_date(ctx.today), _label_lang(ctx))
+
+    def panel(self, ctx):
+        # The year's animal is where the year stands; the วันพระ is the
+        # month's, kept today or the next of them; the coming festival
+        # is the year's.
+        today, label_lang = ctx.today, _label_lang(ctx)
+        if is_wan_phra(today):
+            holy = Now(wan_phra_label(True, label_lang), today=True)
+        else:
+            holy = Day(wan_phra_label(False, label_lang), next_wan_phra(today))
+        fest_day, fest_key = next_thai_festival(today)
+        return Panel(month=(holy,), year=(
+            Now(thai_year_label(year_animal_index(today), label_lang)),
+            kept_or_coming(thai_festival_name(fest_key, label_lang), fest_day, today),
+        ))
+
     def json_block(self, ctx):
         today = ctx.today
         t_month, t_day, t_doubled = thai_lunar_date(today)

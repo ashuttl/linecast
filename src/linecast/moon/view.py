@@ -48,41 +48,14 @@ from linecast._location import (
     country_for_defaults, location_is_pinned, location_overridden,
     location_tzinfo, machine_tzinfo, resolve_location,
 )
-from linecast.astro.calendars.lunisolar import (
-    CALENDAR_MERIDIAN_HOURS, calendar_is_native, current_term,
-    lunisolar_date, next_lunar_event, next_term, resolve_calendar,
-)
-from linecast.astro.calendars.hebrew import hebrew_date, next_holiday
-from linecast.astro.calendars.hebrew import next_month_start as next_hebrew_month
-from linecast.astro.calendars.hijri import (
-    after_sunset, hijri_date, next_month_start, next_observance,
-)
-from linecast.astro.calendars.icelandic import (
-    lit_moon_key, month_key as icelandic_month_key,
-    moon_key as icelandic_moon_key, next_named_day,
-)
-from linecast.astro.calendars.icelandic import (
-    next_month_start as next_icelandic_month,
-)
+from linecast.astro.calendars.lunisolar import resolve_calendar
 from linecast.moon.i18n import (
-    _day_abbrev, _fmt_month_day, _ms, _season_label, anahulu_name, festival_table,
-    hebrew_date_label, hebrew_holiday_name, hebrew_month_name, hijri_date_label, hijri_month_name,
-    hijri_observance_name, icelandic_day_name, icelandic_month_name, icelandic_moon_name,
-    icelandic_week_label, ja_night_name, lunar_date_label, pacific_night_label,
-    solar_hijri_observance_name, term_label, thai_festival_name, thai_lunar_label, thai_year_label,
-    wan_phra_label, year_turn_label,
+    _day_abbrev, _fmt_month_day, _ms, _season_label, solar_hijri_observance_name,
+    year_turn_label,
 )
 from linecast._i18n import moon_name
 from linecast.astro.calendars.civil import (
     SOLAR_HIJRI, civil_calendar, solar_hijri_day_of_year,
-)
-from linecast.astro.calendars.pacific import (
-    ANAHULU_COUNSEL, COUNSEL_SOURCE_LINE, PACIFIC_CALENDARS, night_note,
-    pacific_night,
-)
-from linecast.astro.calendars.thai_lunar import (
-    is_wan_phra, next_thai_festival, next_wan_phra, thai_lunar_date,
-    year_animal_index,
 )
 from linecast.astro.seasons import full_moon_name, next_season_event
 from linecast.terminal.textwidth import char_width
@@ -92,8 +65,7 @@ from linecast._parsers import moon_parser
 from linecast.terminal import theme as _theme
 from linecast.radar.i18n import compass_point, rs
 from linecast.astro.ephemeris import (
-    _moon_altitude_deg, _moon_azimuth_deg, _moon_events_for_local_date,
-    _moon_parallactic_deg, _moon_ra_dec, _moon_transits_for_local_date,
+    _moon_altitude_deg, _moon_azimuth_deg, _moon_parallactic_deg, _moon_ra_dec,
     moon_age_days,
     mat_apply, moon_axis_deg, moon_bright_limb_deg, precess_to_j2000,
 )
@@ -102,8 +74,9 @@ from linecast.moon.palette import (
     MOON_GLOW_RGB, MOON_NIGHT_RGB, PANEL_AMBER_RGB, PANEL_DIM_RGB, PANEL_MUTED_RGB,
     PANEL_PURPLE_RGB, PANEL_TEXT_RGB, SKY_RGB, STAR_BRIGHT_RGB, STAR_DIM_RGB, STAR_RGB,
 )
+from linecast.moon.readings import Instant, Now, Panel, context, reading
 from linecast.moon.phase import (
-    HORIZON_THRESHOLD_DEG, SYNODIC_MONTH, moon_cycle_frac, moon_illumination, moon_phase,
+    HORIZON_THRESHOLD_DEG, SYNODIC_MONTH, moon_illumination, moon_phase,
     next_phase_local, upcoming_moon_events,
 )
 
@@ -452,53 +425,6 @@ def _panel_overlays(panel, x0, row0, graph_w):
     return overlays
 
 
-def calendar_headline(cal, now_local, lat, lng, runtime, lang):
-    """(name, aside) the calendar puts in the headline, either None.
-
-    The Pacific calendars name the night, so the name stands in for the
-    phase name; Japanese in Japanese names it too (居待月 on the old
-    calendar's 18th, whatever octant the phase rounds to). The aside is
-    the lunar date — Chinese, Japanese, Korean, Thai, Hijri (turned at
-    the reader's sunset), Hebrew (the same) — or the anahulu, or the
-    almanac's half of the month, or the week of summer or winter, which
-    is how the old Icelandic calendar gives a date, after the moon's
-    name in the months the almanac names it (Jólatungl · week 9 of
-    winter). A calendar shown in its own language keeps its own script;
-    any other language gets the English names.
-    """
-    if cal is None:
-        return None, None
-    if cal in PACIFIC_CALENDARS:
-        night, nights = pacific_night(cal, now_local.date())
-        name = pacific_night_label(cal, night, nights)
-        aside = f"anahulu {anahulu_name(night)}" if cal == "hawaiian" else None
-        return name, aside
-    if cal == "almanac":
-        half = "light" if moon_cycle_frac(now_local) < 0.5 else "dark"
-        return None, _ms(f'{half}_of_moon', runtime)
-    if cal in ("islamic", "hebrew"):
-        h_day = now_local.date()
-        if after_sunset(now_local, lat, lng):
-            h_day += timedelta(days=1)
-        if cal == "islamic":
-            return None, hijri_date_label(*hijri_date(h_day), lang)
-        return None, hebrew_date_label(*hebrew_date(h_day))
-    if cal == "icelandic":
-        week = icelandic_week_label(now_local.date(), runtime)
-        key = icelandic_moon_key(now_local)
-        return None, f"{icelandic_moon_name(key)} · {week}" if key else week
-    if cal == "thai":
-        label_lang = "th" if lang == "th" else "en"
-        t_month, t_day, t_doubled = thai_lunar_date(now_local.date())
-        return None, thai_lunar_label(t_month, t_day, t_doubled, label_lang)
-    label_lang = lang if calendar_is_native(cal, lang) else "en"
-    lunar = lunisolar_date(now_local.date(), CALENDAR_MERIDIAN_HOURS[cal])
-    if lunar is None:
-        return None, None
-    name = ja_night_name(lunar[1]) if label_lang == "ja" else None
-    return name, lunar_date_label(*lunar, label_lang)
-
-
 def keeps_israel_days(country, lat, lng):
     """Whether the viewed place keeps the Hebrew holidays as Israel does.
 
@@ -570,16 +496,16 @@ def render(now_local, lat, lng, runtime, fullscreen=False, offset_minutes=0,
     # tradition's calendar keeps the plain phase name — Harvest Moon
     # is the almanac's name, not the Kaulana Mahina's or the 农历's.
     lang = lang_of(runtime)
-    cal = calendar_name
+    found = reading(calendar_name)
+    ctx = context(now_local, lat, lng, runtime, calendar_name, israel)
     # The headline is the calendar's: the night's name where the
     # calendar names nights, and the lunar date or the almanac's half
     # of the month as an aside. The one-line summary shows the same.
-    cal_name, lunar_txt = calendar_headline(cal, now_local, lat, lng,
-                                            runtime, lang)
+    cal_name, lunar_txt = found.headline(ctx) if found else (None, None)
     if cal_name:
         name = cal_name
     full_label = moon_name(4, runtime)
-    if lang == "en" and cal in (None, "almanac"):
+    if lang == "en" and (found is None or found.full_moon_names):
         folk_name = full_moon_name(full_dt, SYNODIC_MONTH)
         full_label = ("Blue Moon" if folk_name == "Blue"
                       else f"Full {folk_name} Moon")
@@ -605,12 +531,9 @@ def render(now_local, lat, lng, runtime, fullscreen=False, offset_minutes=0,
     # actually look.
     alt_dir_txt = f"{alt:.0f}° · {bearing}"
     below_txt = _ms('below_horizon', runtime)
-    new_label = moon_name(0, runtime)
-    # The almanac prints a named moon's name at the new moon that
-    # lights it, as the English almanacs name the full moons.
-    lit_moon = lit_moon_key(new_dt) if cal == "icelandic" else None
-    if lit_moon:
-        new_label = icelandic_moon_name(lit_moon)
+    # The Icelandic almanac prints a named moon's name at the new moon
+    # that lights it, as the English almanacs name the full moons.
+    new_label = (found.new_moon_name(new_dt) if found else None) or moon_name(0, runtime)
     year_txt = _ms('year_day', runtime, n=year_n, total=year_len)
     when_txt = (f"{_day_abbrev(now_local, runtime)} "
                 f"{_fmt_month_day(now_local, runtime)} "
@@ -682,141 +605,23 @@ def render(now_local, lat, lng, runtime, fullscreen=False, offset_minutes=0,
 
     # The traditional calendar: on by default for the languages whose
     # readers know the moon through it, and available to anyone with
-    # --calendar or `linecast calendar`. The Chinese, Japanese, and
-    # Korean calendars read the moon as a date — the lunar day beside
-    # the phase, the solar term in progress, the coming festival. The
-    # Pacific calendars read it as a named night, the Hawaiian one
-    # with its counsel, and the almanac is the English-language
-    # reading of the same kind: the Old Farmer's gardening rule and
-    # the solunar periods.
-    # A calendar shown in its own language keeps its own script; any
-    # other language gets the customary English names.
-    good_txt = hold_txt = solunar_txt = attrib_txt = None
-    if cal in PACIFIC_CALENDARS:
-        # The Pacific calendars name every night, in their own
-        # language for every reader — the names have no English
-        # renderings — and have no solar terms or lunar-dated
-        # festivals: the headline is the night. The name already says
-        # which night of the month this is, so "day 20.2 of 29.5"
-        # would read as a rival count; the age keeps its astronomical
-        # name.
-        night, _nights = pacific_night(cal, today)
+    # --calendar or `linecast calendar`. Each calendar's reading says
+    # what it adds (moon/readings/): where the month and the year stand
+    # in it, the days and instants it counts down to, and any counsel
+    # under the phase, the Kaulana Mahina's for fishing or the Old
+    # Farmer's for the garden.
+    extra = found.panel(ctx) if found else Panel()
+    if found and found.plain_age:
         age_txt = _ms('lunar_age', runtime, age=fmt_decimal(age, 1, runtime))
-        if cal == "hawaiian":
-            # The Kaulana Mahina adds the anahulu beside the name, and
-            # the counsel lines below: the night's kapu or ʻole note
-            # when it has one, the anahulu's fishing counsel, and the
-            # source named plainly.
-            note = night_note(name)
-            counsel = ANAHULU_COUNSEL[anahulu_name(night)]
-            good_txt, hold_txt = (note or counsel), (counsel if note else None)
-            attrib_txt = COUNSEL_SOURCE_LINE
-    elif cal == "almanac":
-        # The Old Farmer's Almanac: the aside names the half of the
-        # month, the counsel is the gardening rule for it, and the
-        # solunar periods put the majors at the Moon's meridian
-        # passes, the minors at moonrise and moonset.
-        waxing = moon_cycle_frac(now_local) < 0.5
-        half = "light" if waxing else "dark"
-        good_txt = _ms('good_for', runtime,
-                       things=_ms(f'{half}_good', runtime))
-        hold_txt = _ms('hold_off', runtime,
-                       things=_ms(f'{half}_hold', runtime))
-        upper, lower = _moon_transits_for_local_date(
-            today, lng, now_local.tzinfo)
-        day_rise, day_set = _moon_events_for_local_date(
-            today, lat, lng, now_local.tzinfo)
-
-        def _times(moments):
-            times = sorted(t for t in moments if t is not None)
-            return " · ".join(fmt_time_dt(t, use_24h=runtime.use_24h)
-                              for t in times) or "—"
-
-        solunar_txt = (f"{_ms('solunar_major', runtime)} "
-                       f"{_times((upper, lower))}  "
-                       f"{_ms('solunar_minor', runtime)} "
-                       f"{_times((day_rise, day_set))}")
-    elif cal in ("islamic", "hebrew"):
-        # The Hijri and Hebrew days begin at sunset, and the panel is
-        # read in the evening, so the date turns with the reader's own
-        # sunset. Neither keeps solar terms; the coming month follows
-        # the Moon, so it joins the month's table, a day or two after
-        # the new moon. The observances keep civil dates, except that
-        # one counts as begun once the evening that opens it has come,
-        # and the day before, the wait says so instead of "in 1d".
-        h_day = today
-        if after_sunset(now_local, lat, lng):
-            h_day += timedelta(days=1)
-        if cal == "islamic":
-            nxt_day, (_nxt_year, nxt_month) = next_month_start(h_day)
-            month_rows.append(day_row(hijri_month_name(nxt_month, lang), nxt_day))
-            fest_day, fest_key = next_observance(h_day)
-            fest_name = hijri_observance_name(fest_key, lang)
-        else:
-            nxt_day, (nxt_year, nxt_month) = next_hebrew_month(h_day)
-            month_rows.append(day_row(hebrew_month_name(nxt_year, nxt_month),
-                                      nxt_day))
-            fest_day, fest_key = next_holiday(h_day, israel)
-            fest_name = hebrew_holiday_name(fest_key)
-        if fest_day <= h_day:
-            year_now.append((fest_name, T))
-        else:
-            eve = (fest_day - today).days == 1
-            year_rows.append(day_row(
-                fest_name, fest_day,
-                _ms('begins_at_sunset', runtime) if eve else None))
-    elif cal == "icelandic":
-        # The old Icelandic calendar gives the date by the week, which
-        # the headline carries; the month is where the year stands,
-        # and the coming month and named day are its rows, a span in
-        # progress named with the month. The day turns at midnight:
-        # the almanac's calendar is a civil one.
-        year_now.append((icelandic_month_name(icelandic_month_key(today)), M))
-        nxt_day, nxt_key = next_icelandic_month(today)
-        year_rows.append(day_row(icelandic_month_name(nxt_key), nxt_day))
-        fest_day, fest_key = next_named_day(today)
-        if fest_day <= today:
-            year_now.append((icelandic_day_name(fest_key), T))
-        else:
-            year_rows.append(day_row(icelandic_day_name(fest_key), fest_day))
-    elif cal == "thai":
-        # The Thai calendar reads the moon as a waxing or waning day —
-        # ขึ้น/แรม … ค่ำ — in Thai numerals, as the printed calendars
-        # have it. It keeps no solar terms: the year is named by its
-        # animal, and the recurring observance is the วันพระ, the four
-        # holy days of each month, which follow the phases.
-        label_lang = "th" if lang == "th" else "en"
-        year_now.append((thai_year_label(year_animal_index(today), label_lang), M))
-        if is_wan_phra(today):
-            month_now.append((wan_phra_label(True, label_lang), T))
-        else:
-            month_rows.append(day_row(wan_phra_label(False, label_lang),
-                                      next_wan_phra(today)))
-        fest_day, fest_key = next_thai_festival(today)
-        fest_name = thai_festival_name(fest_key, label_lang)
-        if fest_day <= today:
-            year_now.append((fest_name, T))
-        else:
-            year_rows.append(day_row(fest_name, fest_day))
-    elif cal is not None:
-        # The solar term in progress is where the year stands. The
-        # equinoxes and solstices are terms too, and when one is next
-        # the season's row already carries it.
-        cal_tz = CALENDAR_MERIDIAN_HOURS[cal]
-        label_lang = lang if calendar_is_native(cal, lang) else "en"
-        cur_k, _cur_start = current_term(moment_utc)
-        nxt_k, nxt_start = next_term(moment_utc)
-        year_now.append((term_label(cur_k, label_lang), M))
-        if nxt_k % 6:
-            year_rows.append(instant_row(term_label(nxt_k, label_lang),
-                                         nxt_start.astimezone(now_local.tzinfo)))
-        fest = next_lunar_event(today, cal_tz, festival_table(cal, label_lang))
-        if fest is not None:
-            fest_day, fest_name = fest
-            if fest_day <= today:
-                year_now.append((fest_name, T))
+    for items, stands, rows in ((extra.month, month_now, month_rows),
+                                (extra.year, year_now, year_rows)):
+        for item in items:
+            if isinstance(item, Now):
+                stands.append((item.text, T if item.today else M))
+            elif isinstance(item, Instant):
+                rows.append(instant_row(item.label, item.at))
             else:
-                year_rows.append(day_row(fest_name, fest_day))
+                rows.append(day_row(item.label, item.day, item.wait))
 
     # The headline has room for one aside: the calendar's own — the
     # lunar date, the anahulu, or the almanac's half of the month.
@@ -875,16 +680,16 @@ def render(now_local, lat, lng, runtime, fullscreen=False, offset_minutes=0,
         those lines need."""
         top = headline[:1] if short else headline
         block = [top, [(illum_txt, M, False)]]
-        texts = [t for t in (good_txt, hold_txt, solunar_txt) if t]
+        texts = [t for t in extra.counsel if t]
         if texts:
             least = max(seg_w(top), 28)
             block.append([])
             block += [[(seg, M, False)] for txt in texts
                       for seg in _wrap(txt, max(int(least * 1.3), 48), least)]
-            if attrib_txt:
+            if extra.source:
                 # The source rides directly under the counsel it
                 # credits, a shade fainter.
-                block.append([(attrib_txt, D, False)])
+                block.append([(extra.source, D, False)])
         return block
 
     def day_block(wait):

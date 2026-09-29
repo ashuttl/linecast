@@ -16,10 +16,24 @@ from linecast.moon.i18n import (
     hebrew_date_hebrew, hebrew_date_label, hebrew_holiday_name, hebrew_month_name,
     rosh_chodesh_label,
 )
-from linecast.moon.readings import Reading, evening, month_span
+from linecast.moon.readings import Day, Panel, Reading, begun_at_sunset, evening, month_span
 
 
 class Hebrew(Reading):
+    def headline(self, ctx):
+        _turned, h_day = evening(ctx)
+        return None, hebrew_date_label(*hebrew_date(h_day))
+
+    def panel(self, ctx):
+        # As the Hijri calendar's: the coming month in the month's table,
+        # the next holiday in the year's.
+        _turned, h_day = evening(ctx)
+        nxt_day, (nxt_year, nxt_month) = next_hebrew_month(h_day)
+        fest_day, fest_key = next_holiday(h_day, ctx.israel)
+        return Panel(
+            month=(Day(hebrew_month_name(nxt_year, nxt_month), nxt_day),),
+            year=(begun_at_sunset(hebrew_holiday_name(fest_key), fest_day, h_day, ctx),))
+
     def json_block(self, ctx):
         # The Hebrew date, turned with the reader's sunset as the panel
         # turns it, in letters too (a JSON consumer can lay Hebrew out

@@ -4,17 +4,20 @@ The moon command can read the Moon through a calendar as well as show
 it: the Chinese, Japanese, Korean, and Vietnamese lunisolar calendars,
 the Thai, the Pacific calendars that name each night, the Hijri, the
 Hebrew, the old Icelandic, or the Old Farmer's Almanac. Every calendar
-is asked the same questions by every part of the command -- what goes
-in the --json block, and what a day says in its cell of the month grid
-and in its hover chip -- and answers them in its own way.
+is asked the same questions by every part of the command -- what the
+headline and the one-line summary say beside the phase, what the
+panel's corners count down to, what goes in the --json block, and what
+a day says in its cell of the month grid and in its hover chip -- and
+answers them in its own way.
 
 The calendars' arithmetic is astro/calendars/, one module each, and
 their words are moon/i18n.py. Here each calendar is a Reading, in a
 module of its own beside this one, and `reading` finds the one for the
 name astro.calendars.lunisolar.resolve_calendar gives. This module
 holds the base class, whose answers are the ones a calendar with
-nothing to say gives, and Ctx, the moment and place each question is
-asked about.
+nothing to say gives; Ctx, the moment and place each question is asked
+about; and Panel, what a calendar adds to the panel, which the view
+lays out.
 """
 
 from datetime import date, datetime, timedelta, timezone
@@ -23,6 +26,7 @@ from typing import NamedTuple
 from linecast._i18n import lang_of
 from linecast.astro.calendars.lunisolar import calendar_is_native
 from linecast.astro.calendars.pacific import PACIFIC_CALENDARS
+from linecast.moon.i18n import _ms
 
 
 class Ctx(NamedTuple):
@@ -48,6 +52,56 @@ def context(now_local, lat, lng, runtime, cal=None, israel=False):
                cal is not None and calendar_is_native(cal, lang), israel)
 
 
+class Day(NamedTuple):
+    """A panel row for something kept on a day -- a festival, a month's
+    first day -- dated, and counted down in whole days unless *wait*
+    says otherwise."""
+    label: str
+    day: date
+    wait: str | None = None
+
+
+class Instant(NamedTuple):
+    """A panel row for an instant further off than a day or two, dated,
+    and counted down in days to a tenth."""
+    label: str
+    at: datetime
+
+
+class Now(NamedTuple):
+    """Where the month or the year stands, set beside its heading:
+    something kept *today* in the full ink, a span in progress muted."""
+    text: str
+    today: bool = False
+
+
+class Panel(NamedTuple):
+    """What a calendar adds to the panel. *month* and *year* go to the
+    corners for the Moon's month and the year: a Now joins where the
+    cycle stands, and a Day or an Instant is a row; each in the order
+    given. *counsel* is the paragraphs set under the phase, and
+    *source* the line that credits them."""
+    month: tuple = ()
+    year: tuple = ()
+    counsel: tuple = ()
+    source: str | None = None
+
+
+def kept_or_coming(label, day, today):
+    """A festival or named day: kept today (Now), or a row (Day)."""
+    return Now(label, today=True) if day <= today else Day(label, day)
+
+
+def begun_at_sunset(label, day, h_day, ctx):
+    """The same for a calendar whose day begins at sunset (evening): the
+    observance counts as begun once the evening that opens it has come,
+    and the day before, the wait says so instead of "in 1d"."""
+    if day <= h_day:
+        return Now(label, today=True)
+    eve = (day - ctx.today).days == 1
+    return Day(label, day, _ms("begins_at_sunset", ctx.runtime) if eve else None)
+
+
 def evening(ctx):
     """(whether the reader's sunset has come, the day it makes it).
 
@@ -68,8 +122,24 @@ class Reading:
     # through another tradition's calendar keeps the plain phase name.
     full_moon_names = False
 
+    # A calendar that names each night already says which night of the
+    # month it is, so the panel gives the Moon's age plainly, as its
+    # astronomical age, rather than as "day 20.2 of 29.5", which would
+    # read as a rival count.
+    plain_age = False
+
     def __init__(self, name):
         self.name = name   # as resolve_calendar names it
+
+    def headline(self, ctx):
+        """(name, aside) for the headline and the one-line summary,
+        either None: the night's name, which stands in for the phase's
+        where the calendar names nights, and the calendar's date."""
+        return None, None
+
+    def panel(self, ctx):
+        """What the calendar adds to the panel (Panel)."""
+        return Panel()
 
     def json_block(self, ctx):
         """The --json "calendar" block."""

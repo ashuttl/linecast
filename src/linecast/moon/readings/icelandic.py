@@ -17,10 +17,30 @@ from linecast.astro.calendars.icelandic import (
 from linecast.moon.i18n import (
     icelandic_day_name, icelandic_month_name, icelandic_moon_name, icelandic_week_label,
 )
-from linecast.moon.readings import Reading
+from linecast.moon.readings import Day, Now, Panel, Reading, kept_or_coming
 
 
 class Icelandic(Reading):
+    def headline(self, ctx):
+        # The date by the week, after the moon's name in the months the
+        # almanac names it (Jólatungl · week 9 of winter)
+        week = icelandic_week_label(ctx.today, ctx.runtime)
+        key = moon_key(ctx.now_local)
+        return None, f"{icelandic_moon_name(key)} · {week}" if key else week
+
+    def panel(self, ctx):
+        # The date is the week, which the headline carries; the month is
+        # where the year stands, and the coming month and named day are
+        # its rows, a span in progress named with the month.
+        today = ctx.today
+        nxt_day, nxt_key = next_month_start(today)
+        fest_day, fest_key = next_named_day(today)
+        return Panel(year=(
+            Now(icelandic_month_name(month_key(today))),
+            Day(icelandic_month_name(nxt_key), nxt_day),
+            kept_or_coming(icelandic_day_name(fest_key), fest_day, today),
+        ))
+
     def json_block(self, ctx):
         # The misseri and its week (null on the veturnætur, which no
         # week counts), the month, whether the year has its leap week,
