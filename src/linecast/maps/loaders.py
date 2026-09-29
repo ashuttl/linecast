@@ -179,13 +179,15 @@ _terrain_landed = [None]
 
 def take_street():
     """The newest street view to have landed, once, or None."""
-    landed, _street_landed[0] = _street_landed[0], None
+    with _motion_lock:
+        landed, _street_landed[0] = _street_landed[0], None
     return landed
 
 
 def take_terrain():
     """The newest terrain view to have landed, once, or None."""
-    landed, _terrain_landed[0] = _terrain_landed[0], None
+    with _motion_lock:
+        landed, _terrain_landed[0] = _terrain_landed[0], None
     return landed
 
 
@@ -530,7 +532,8 @@ def _get_elevation(bbox, gw, hc, block, window=None):
             shade=(_globe.geometry(cam.lat, cam.lon, cam.zoom,
                                    gw, hc * 2)[1]
                    if _globe.limb_shading(cam.zoom, gw, hc) else None))
-        _terrain_landed[0] = (tuple(bbox), gw, hc, view)
+        with _motion_lock:
+            _terrain_landed[0] = (tuple(bbox), gw, hc, view)
         # the shaded buffer is kept by the view's bbox, so a rebuild of
         # the same bbox has to clear the one drawn with the gap in it
         _mend(_elev_cache, key, load, _terrain_built, bool(missing),
@@ -593,7 +596,8 @@ def _get_street_tiles(bbox, gw, hc, block, lang="en", reserved=(),
         # margin is an exact crop of it, which is a picture with its
         # names on.  A window outside it is reprojected instead, and
         # that path leaves the labels behind as it always has.
-        _street_landed[0] = (tuple(bbox), gw, hc, view[0], view[1], view[2])
+        with _motion_lock:
+            _street_landed[0] = (tuple(bbox), gw, hc, view[0], view[1], view[2])
         _mend(_street_cache, key, load, _street_built,
               None in tiles.values())
         return view
