@@ -101,6 +101,7 @@ Fixes:
   - Fixed the names of neighbourhoods, parks, and water in Persian, and in other right-to-left scripts, being drawn letter by letter with their words in the wrong order.
   - Fixed the space around the globe keeping the old background after the terminal's theme changed.
   - Fixed the woods, fields, sand, ice, and towns on the terrain map and the globe keeping the old theme's colors after the terminal's theme changed.
+  - Fixed the terrain map's credits leaving out the built-up areas' source, GHSL, while clouds are shown.
 - Radar, maps:
   - `--zoom` with zero, a negative number, or anything not a number of degrees now says so rather than ending in a Python traceback.
   - `--help` no longer offers `--oneline`, which printed the whole frame; neither view has a single line to give.

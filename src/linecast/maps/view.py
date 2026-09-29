@@ -233,14 +233,11 @@ def _credits(view, globe, sun, clouds):
         # the settlement raster earns its CC-BY credit when in use
         both = f"{ATTRIBUTION} · {style.ATTRIB_TILES_SHORT}"
         long = f"{both} · {kg}" if kg else both
+        if _builtup.enabled():
+            long = f"{long} · {_builtup.ATTRIBUTION}"
         if clouds:
-            attribs = (f"{long} · {globe_now.ATTRIBUTION}", both,
-                       ATTRIBUTION)
-        elif _builtup.enabled():
-            attribs = (f"{long} · {_builtup.ATTRIBUTION}", both,
-                       ATTRIBUTION)
-        else:
-            attribs = (long, both, ATTRIBUTION)
+            long = f"{long} · {globe_now.ATTRIBUTION}"
+        attribs = (long, both, ATTRIBUTION)
     # the night lights are terrain's, flat or globe, and only the
     # sun puts them on screen; the rung above the ladder credits
     # them and every shorter rung stays as it was
