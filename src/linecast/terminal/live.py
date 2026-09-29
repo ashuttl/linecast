@@ -391,6 +391,13 @@ def _read_key(fd, text=False):
         b2 = _read_byte_timeout(0.15)
         if b2 is None:
             return 'escape'
+        if b2 == b'\033':
+            # Esc, and the next sequence already arriving: a mouse report
+            # while the pointer moves, an arrow.  The first is a bare Esc;
+            # the second goes back to start the next read, or the rest of
+            # its sequence would be taken for keys ([<35;12;5M: 3, 5, m)
+            _term.unread(b2)
+            return 'escape'
 
         if b2 == b']':
             # An OSC reply to the live loop's theme probe, e.g.
@@ -418,6 +425,11 @@ def _read_key(fd, text=False):
                 c = _read_byte_timeout(0.15)
                 if c is None:
                     break
+                if c == b'\033':
+                    # a sequence cut short by the next one: drop this one,
+                    # keep the next whole
+                    _term.unread(c)
+                    return None
                 seq.extend(c)
                 # Legacy mouse: \033[M Cb Cx Cy
                 if c == b'M' and len(seq) == 1:

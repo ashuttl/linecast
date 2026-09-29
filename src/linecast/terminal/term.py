@@ -57,6 +57,13 @@ def note_terminal_name(buf):
 # sent, False after one went unanswered, True once any comes back.
 answered = None
 
+# Input read but not yet taken, which every read takes first.  On Windows
+# the console hands over a whole escape sequence per read while _read_key
+# walks input a byte at a time, and the remainder waits here rather than
+# trust the console to hold it.  Anywhere, a byte _read_key read too far
+# goes back here (unread).
+_pending = bytearray()
+
 # How often the Windows wait wakes to re-check kbhit() and the window size.
 # Small enough that a keypress feels immediate, large enough to idle cheaply.
 _POLL = 0.015
@@ -80,11 +87,6 @@ else:
     _ENABLE_MOUSE_INPUT = 0x0010
     _ENABLE_VIRTUAL_TERMINAL_INPUT = 0x0200
     _ENABLE_VIRTUAL_TERMINAL_PROCESSING = 0x0004
-
-    # The console hands over a whole escape sequence per read, but _read_key
-    # walks input a byte at a time; keep the remainder here rather than trust
-    # the console to hold it.
-    _pending = bytearray()
 
     def _console_handle(fd):
         """The console handle behind fd, or None if fd is not a console."""
@@ -131,9 +133,9 @@ else:
 # ---------------------------------------------------------------------------
 def read_byte(fd):
     """One byte of input, or None at EOF."""
+    if _pending:
+        return bytes([_pending.pop(0)])
     if WINDOWS:
-        if _pending:
-            return bytes([_pending.pop(0)])
         try:
             chunk = os.read(fd, 1024)
         except OSError:
@@ -147,6 +149,12 @@ def read_byte(fd):
     except OSError:
         return None
     return data or None
+
+
+def unread(data):
+    """Put bytes back, to be read before anything the terminal sends
+    next: the start of the next sequence, read while finishing this one."""
+    _pending[:0] = data
 
 
 def mark_answered():
@@ -196,8 +204,8 @@ def read_until_reply(fd, timeout, replies=1):
 
 def flush_input(fd):
     """Discard input the terminal has sent and nothing has read."""
+    _pending.clear()
     if WINDOWS:
-        _pending.clear()
         handle = _console_handle(fd)
         if handle is not None:
             _k32.FlushConsoleInputBuffer(handle)
@@ -217,9 +225,9 @@ def frame_sync_enabled():
 
 def wait_readable(fd, timeout):
     """Whether a byte is available within `timeout` seconds."""
+    if _pending:
+        return True
     if WINDOWS:
-        if _pending:
-            return True
         console = _console_handle(fd) is not None
         deadline = _time.monotonic() + timeout
         while True:
@@ -296,6 +304,7 @@ class LiveTerminal:
                         _sig, _exit_on_signal)
                 except (ValueError, OSError):
                     pass
+
         _current = self
 
     def set_cbreak(self):
@@ -382,9 +391,9 @@ class LiveTerminal:
 
     def wait(self, timeout):
         """Block up to `timeout`. Returns 'input', 'wake' or 'timeout'."""
+        if _pending:
+            return 'input'
         if WINDOWS:
-            if _pending:
-                return 'input'
             deadline = _time.monotonic() + timeout
             while True:
                 if _ready(self.fd, self._is_console()):
@@ -450,12 +459,12 @@ class LiveTerminal:
         self._closed = True
         if _current is self:
             _current = None
+        _pending.clear()
         if WINDOWS:
             if self._handle_in is not None and self._old_in_mode is not None:
                 _k32.SetConsoleMode(self._handle_in, self._old_in_mode)
             if self._handle_out is not None and self._old_out_mode is not None:
                 _k32.SetConsoleMode(self._handle_out, self._old_out_mode)
-            _pending.clear()
             return
         # The SIGWINCH handler goes back before the pipe closes.  A background
         # fetch that lands after the loop still calls nudge(); with the

@@ -22,8 +22,10 @@ from linecast.terminal.live import _read_key
 
 @pytest.fixture
 def pipe():
+    from linecast.terminal import term as _term
     r, w = os.pipe()
     yield r, w
+    _term._pending.clear()    # a byte put back must not reach the next test
     for fd in (r, w):
         try:
             os.close(fd)
@@ -133,6 +135,41 @@ class TestNewBindings:
         for data in (b"z", b"x", b"."):
             os.write(pipe[1], data)
             assert _read_key(pipe[0]) is None
+
+
+class TestEscapeThenASequence:
+    """Esc, and the next sequence arriving within the wait for its second
+    byte: a mouse report while the pointer moves, an arrow."""
+
+    def test_a_mouse_report_after_esc_is_still_a_mouse_report(self, pipe):
+        r, _w = pipe
+        # was: escape, then [<35;12;5M read as keys 3, 5, 1, 2, 5, m
+        assert _key(pipe, b"\033\033[<35;12;5M") == "escape"
+        assert _read_key(r) == ("mouse", 35, 12, 5, False)
+
+    def test_an_arrow_after_esc_is_not_lost(self, pipe):
+        r, _w = pipe
+        assert _key(pipe, b"\033\033[A") == "escape"
+        assert _read_key(r) == "fwd"
+
+    def test_two_escs_are_two(self, pipe):
+        r, _w = pipe
+        assert _key(pipe, b"\033\033") == "escape"
+        assert _read_key(r) == "escape"
+
+    def test_a_sequence_cut_short_keeps_the_next_whole(self, pipe):
+        r, _w = pipe
+        assert _key(pipe, b"\033[<35;1\033[<35;12;5M") is None
+        assert _read_key(r) == ("mouse", 35, 12, 5, False)
+
+    @pytest.mark.skipif(sys.platform == "win32", reason="POSIX wait")
+    def test_a_byte_put_back_wakes_the_loop(self, pipe):
+        from linecast.terminal import term as _term
+        r, _w = pipe
+        term = _term.LiveTerminal(r)
+        _term.unread(b"\033")
+        assert term.wait(0) == "input"
+        assert _term.wait_readable(r, 0)
 
 
 class TestNonLatinLayouts:
@@ -306,3 +343,4 @@ def test_loop_exit_puts_the_sigwinch_handler_back(tmp_path):
     result = json.loads(err.decode().strip().splitlines()[-1])
     assert result == {"restored": True, "hits": 1, "running": False,
                       "sizes": [0, 0]}, err
+
