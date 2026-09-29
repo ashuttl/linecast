@@ -119,7 +119,7 @@ def targets(runtime, culture=None):
     from linecast._i18n import lang_of
     from linecast.sky.planets import PLANETS
     from linecast.sky.catalogue import (
-        constellation_name, constellations, figures_for, names_for, star_names, stars,
+        constellations, figures_for, names_for, record_name, star_names, stars,
     )
     from linecast.sky.i18n import body_name
     lang = lang_of(runtime)
@@ -156,9 +156,9 @@ def targets(runtime, culture=None):
                    record['designation'].replace(' ', ''), *record['aliases']]
         out.append(Target('deep_sky', f"{name} · {ident}" if name != ident else ident,
                           record, aliases, record['mag']))
-    from linecast.sky.asterisms import asterism_name, asterisms
+    from linecast.sky.asterisms import asterisms
     for record in asterisms():
-        name = asterism_name(record, lang)
+        name = record_name(record, lang)
         names = {record["name"], name, *record["aliases"], *record["names"].values()}
         label = name if name == record["name"] else f"{name} · {record['name']}"
         out.append(Target("asterism", label, record, names, -record["spread"],
@@ -166,7 +166,7 @@ def targets(runtime, culture=None):
     for record in (figures_for(culture, lang) if culture else constellations()):
         if not record["lines"]:
             continue
-        name = record["name"] if culture else constellation_name(record, lang)
+        name = record["name"] if culture else record_name(record, lang)
         names = {record["name"], record["gen"], record["id"], name,
                  record.get("detail", ""), *record["names"].values(),
                  *_ENGLISH.get(record.get("iau") or record["id"], ())}

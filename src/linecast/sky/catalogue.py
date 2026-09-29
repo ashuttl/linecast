@@ -123,8 +123,9 @@ def constellations():
     return _constellations
 
 
-def constellation_name(record, lang):
-    """The constellation's name in *lang*, or the Latin one."""
+def record_name(record, lang):
+    """A constellation's or an asterism's name in *lang*, or its own: the
+    Latin for a constellation, the English for an asterism."""
     names = record["names"]
     return names.get(lang) or names.get(base_language(lang)) or record["name"]
 
@@ -292,7 +293,7 @@ def figures_for(short, lang):
         native_lang = prepared["native_lang"]
         if fig["iau"] and fig["iau"] in iau and not (native_lang and lang == native_lang
                                                      and fig["native"]):
-            name = constellation_name(iau[fig["iau"]], lang)
+            name = record_name(iau[fig["iau"]], lang)
             detail = fig["native"] or fig["english"]
         else:
             name = _pick(fig["english"], fig["native"], native_lang, lang)

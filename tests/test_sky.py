@@ -534,9 +534,9 @@ class TestCatalogue:
 
     def test_swahili_uses_sourced_constellation_names_and_catalogue_fallbacks(self):
         records = {r["id"]: r for r in sky.constellations()}
-        assert sky.constellation_name(records["Cru"], "sw") == "Msalaba wa Kusini"
-        assert sky.constellation_name(records["Sco"], "sw") == "Ng'e"
-        assert sky.constellation_name(records["UMa"], "sw") == "Ursa Major"
+        assert sky.record_name(records["Cru"], "sw") == "Msalaba wa Kusini"
+        assert sky.record_name(records["Sco"], "sw") == "Ng'e"
+        assert sky.record_name(records["UMa"], "sw") == "Ursa Major"
         assert sky.star_names("sw")[0] == ("Sirius", "α CMa")
 
     def test_the_constellations_have_their_names_in_every_language(self):
@@ -547,40 +547,40 @@ class TestCatalogue:
             # Indonesian charts print the Latin names, as the IAU does.
             # Swahili keeps Latin where a local name has not been verified.
             if code not in ("en", "id", "sw"):
-                assert sky.constellation_name(ursa, code) != ursa["name"], code
-        assert sky.constellation_name(ursa, "pl") == "Wielka Niedźwiedzica"
-        assert sky.constellation_name(ursa, "uk") == "Велика Ведмедиця"
-        assert sky.constellation_name(ursa, "vi") == "Đại Hùng"
-        assert sky.constellation_name(ursa, "eo") == "Granda Ursino"
-        assert sky.constellation_name(ursa, "tr") == "Büyükayı"
-        assert sky.constellation_name(ursa, "ru") == "Большая Медведица"
-        assert sky.constellation_name(ursa, "ro") == "Ursa Mare"
-        assert sky.constellation_name(ursa, "cs") == "Velká medvědice"
-        assert sky.constellation_name(ursa, "sk") == "Veľká medvedica"
+                assert sky.record_name(ursa, code) != ursa["name"], code
+        assert sky.record_name(ursa, "pl") == "Wielka Niedźwiedzica"
+        assert sky.record_name(ursa, "uk") == "Велика Ведмедиця"
+        assert sky.record_name(ursa, "vi") == "Đại Hùng"
+        assert sky.record_name(ursa, "eo") == "Granda Ursino"
+        assert sky.record_name(ursa, "tr") == "Büyükayı"
+        assert sky.record_name(ursa, "ru") == "Большая Медведица"
+        assert sky.record_name(ursa, "ro") == "Ursa Mare"
+        assert sky.record_name(ursa, "cs") == "Velká medvědice"
+        assert sky.record_name(ursa, "sk") == "Veľká medvedica"
         # Hungarian takes off Wikidata's "csillagkép" and writes the
         # figures from myth as its charts do.
-        assert sky.constellation_name(ursa, "hu") == "Nagy Medve"
+        assert sky.record_name(ursa, "hu") == "Nagy Medve"
         perseus = next(r for r in sky.constellations() if r["id"] == "Per")
-        assert sky.constellation_name(perseus, "hu") == "Perszeusz"
-        assert sky.constellation_name(perseus, "sk") == "Perzeus"
-        assert sky.constellation_name(ursa, "fa") == "دب اکبر"
+        assert sky.record_name(perseus, "hu") == "Perszeusz"
+        assert sky.record_name(perseus, "sk") == "Perzeus"
+        assert sky.record_name(ursa, "fa") == "دب اکبر"
         cassiopeia = next(r for r in sky.constellations() if r["id"] == "Cas")
-        assert sky.constellation_name(cassiopeia, "fa") == "ذات\u200cالکرسی"
-        assert sky.constellation_name(ursa, "zh") == "大熊座"
-        assert sky.constellation_name(ursa, "zh-Hant") == "大熊座"
+        assert sky.record_name(cassiopeia, "fa") == "ذات\u200cالکرسی"
+        assert sky.record_name(ursa, "zh") == "大熊座"
+        assert sky.record_name(ursa, "zh-Hant") == "大熊座"
         coma = next(r for r in sky.constellations() if r["id"] == "Com")
-        assert sky.constellation_name(coma, "zh") == "后发座"
-        assert sky.constellation_name(coma, "zh-Hant") == "后髮座"
+        assert sky.record_name(coma, "zh") == "后发座"
+        assert sky.record_name(coma, "zh-Hant") == "后髮座"
         assert all(r["names"].get("zh-Hant") for r in sky.constellations())
-        assert sky.constellation_name(ursa, "en") == ursa["name"]
+        assert sky.record_name(ursa, "en") == ursa["name"]
 
     def test_the_constellations(self):
         records = sky.constellations()
         assert len(records) == 89   # Serpens in two parts
         orion = next(r for r in records if r["id"] == "Ori")
         assert orion["gen"] == "Orionis" and orion["lines"]
-        assert sky.constellation_name(orion, "ja") == "オリオン座"
-        assert sky.constellation_name(orion, "no") == "Orion"
+        assert sky.record_name(orion, "ja") == "オリオン座"
+        assert sky.record_name(orion, "no") == "Orion"
 
     def test_the_milky_way_raster(self):
         raster = sky.milky_way()

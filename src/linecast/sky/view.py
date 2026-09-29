@@ -63,8 +63,8 @@ from linecast._location import (
 from linecast._runtime import RuntimeConfig, install_banner, set_current
 from linecast._parsers import sky_parser
 from linecast.sky.catalogue import (
-    MILKY_WAY_H, MILKY_WAY_W, constellation_name, constellations, culture_title,
-    figures_for, milky_way, names_for, resolve_culture, star_names, star_vectors,
+    MILKY_WAY_H, MILKY_WAY_W, constellations, culture_title, figures_for,
+    milky_way, names_for, record_name, resolve_culture, star_names, star_vectors,
     stars,
 )
 from linecast.sky import deep as _deep
@@ -722,7 +722,7 @@ def _name_constellations(fb, figures, frame, lens, darkness, culture, lang,
                     spread = max(spread, math.hypot(q[0] - px0, q[1] - py0))
         if spread < 10.0:
             continue
-        name = record["name"] if culture else constellation_name(record, lang)
+        name = record["name"] if culture else record_name(record, lang)
         if setting(lang, "capitals"):
             name = upper(name, lang)
         col = int(round(px0 - visible_len(name) / 2.0))
