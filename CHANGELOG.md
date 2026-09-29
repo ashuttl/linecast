@@ -68,6 +68,7 @@ Notable changes, by release. Notes for the next release collect under **Unreleas
 - Language: The Moon's phases are named in sentence case in Danish, Dutch, Finnish, Icelandic, Indonesian, Italian, Norwegian, Polish, Portuguese, Spanish, and Swedish, as they are in French: "Første kvarter", not "Første Kvarter".
 - Tides: Fixed a low tide just below the datum, such as -0.01 ft, showing as "-0.0′" in the chart, its hover, and `--oneline`.
 - Radar: Fixed the map in a view that crosses the 180th meridian, such as Fiji's or the Aleutians', leaving out the land and cities on the far side of it.
+- Radar: Fixed the temperature and wind layers never loading in a view that crosses the 180th meridian.
 
 ## 2.9.2 — 2026-09-27
 

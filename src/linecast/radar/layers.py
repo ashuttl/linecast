@@ -21,6 +21,7 @@ import math
 
 from linecast.terminal import theme as _theme
 from linecast._cache import read_cache, read_stale, write_cache
+from linecast._geo import wrap_lon
 from linecast.terminal.color import lerp, interp_stops, BG_PRIMARY
 from linecast._http import fetch_json
 from linecast._paths import cache_dir
@@ -141,7 +142,9 @@ def fetch_field(bbox, timeout=10):
     lats = [maxlat - j * (maxlat - minlat) / (_NY - 1) for j in range(_NY)]
     lons = [minlon + i * (maxlon - minlon) / (_NX - 1) for i in range(_NX)]
     lat_q = ",".join(f"{lat:.3f}" for lat in lats for _ in lons)
-    lon_q = ",".join(f"{lon:.3f}" for _ in lats for lon in lons)
+    # A view across the antimeridian runs past ±180, which Open-Meteo
+    # refuses; the lattice keeps the view's own longitudes.
+    lon_q = ",".join(f"{wrap_lon(lon):.3f}" for _ in lats for lon in lons)
     url = ("https://api.open-meteo.com/v1/forecast"
            f"?latitude={lat_q}&longitude={lon_q}"
            "&hourly=temperature_2m,wind_speed_10m,wind_direction_10m"

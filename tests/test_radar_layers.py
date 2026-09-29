@@ -95,6 +95,28 @@ class TestFieldKey:
         assert a == b
 
 
+class TestFieldFetch:
+    def test_a_view_across_the_antimeridian_asks_for_longitudes_in_range(
+            self, monkeypatch):
+        from linecast.radar import layers
+        asked = []
+
+        def fetch(url, timeout=10):
+            asked.append(url)
+            hourly = {"time": ["2026-09-28T00:00"], "temperature_2m": [25.0],
+                      "wind_speed_10m": [10.0], "wind_direction_10m": [90.0]}
+            return [{"hourly": hourly}] * 60
+
+        monkeypatch.setattr(layers, "fetch_json", fetch)
+        # Suva's view at the default zoom
+        field = layers.fetch_field((173.7, -20.5, 185.3, -14.5))
+        asked_lons = [float(x) for x in re.search(
+            r"longitude=([^&]*)", asked[0]).group(1).split(",")]
+        assert all(-180 <= lon <= 180 for lon in asked_lons)
+        assert min(asked_lons) < 0 < max(asked_lons)
+        assert field.lons[-1] > 180
+
+
 class TestTempBuffer:
     def test_shape_and_tint(self):
         f = _make_field()
