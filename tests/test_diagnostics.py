@@ -436,20 +436,22 @@ class TestWeatherFetchThread:
 class TestTidesPool:
     def test_settled_returns_none_with_one_line_and_the_traceback(self, debug, capsys):
         from concurrent.futures import Future
-        tides = _mod("tides.view")
+        fanout = _mod("_fanout").Fanout()
         future = Future()
         try:
             raise KeyError("v")
         except KeyError as exc:
             future.set_exception(exc)
-        assert tides._settled(future, "tides/noaa", "y-range", "auto-scaled axis") is None
+        assert fanout.settle(future, "y-range", tag="tides/noaa",
+                             note="auto-scaled axis") is None
         lines = _lines(capsys)
         assert lines[0] == (
             "[linecast] tides/noaa: y-range failed -- KeyError: 'v'; auto-scaled axis")
         assert lines[1] == "Traceback (most recent call last):"
         done = Future()
         done.set_result((1.0, 2.0))
-        assert tides._settled(done, "tides/noaa", "y-range", "auto-scaled axis") == (1.0, 2.0)
+        assert fanout.settle(done, "y-range", tag="tides/noaa",
+                             note="auto-scaled axis") == (1.0, 2.0)
         assert capsys.readouterr().err == ""
 
     def test_provider_tags(self):

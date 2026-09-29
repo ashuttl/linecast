@@ -1163,43 +1163,14 @@ def gather(lat, lng, country_code, runtime, geo_label="", stale=None):
     All providers share one deadline; completed results survive a timeout.
     `stale` says whether the caller has stopped wanting the answer; the
     archive, which queues its requests, asks it before taking its turn."""
-    from concurrent.futures import Future, TimeoutError
     from datetime import date
 
-    deadline = _t.monotonic() + _FETCH_CEILING
+    from linecast._fanout import Fanout
 
-    def _submit(fetch, *args, **kwargs):
-        future = Future()
-        if _t.monotonic() >= deadline:
-            future.set_exception(TimeoutError("weather fetch deadline reached"))
-            return future
-
-        def run():
-            try:
-                future.set_result(fetch(*args, **kwargs))
-            except BaseException as exc:
-                future.set_exception(exc)
-
-        # Executor workers are joined at interpreter exit, even when their
-        # parent is a daemon. A wedged provider must not hold up Ctrl-C.
-        threading.Thread(target=run, daemon=True).start()
-        return future
-
-    def _settle(future, what, fallback, patience=None):
-        # With the traceback: a worker that failed is the one thing a
-        # --debug transcript exists to explain.
-        wait = max(0, deadline - _t.monotonic())
-        why = "omitted after fetch deadline"
-        if patience is not None and patience < wait:
-            wait, why = patience, "left for the live view to fill in"
-        try:
-            return future.result(timeout=wait)
-        except TimeoutError as exc:
-            log_failure("worker", what, exc, fallback=why)
-            return fallback
-        except Exception as exc:
-            log_failure("worker", what, exc, fallback="omitted", trace=True)
-            return fallback
+    # A wedged provider must not hold up Ctrl-C: the fetches run on
+    # daemon threads, and completed results survive the deadline.
+    fanout = Fanout(_FETCH_CEILING)
+    _submit, _settle = fanout.submit, fanout.settle
 
     result = {}
     fut_geocode = _submit(reverse_geocode, lat, lng)

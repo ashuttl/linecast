@@ -185,9 +185,10 @@ def _fetch_station(provider, station_id, station_meta, station_tz, live):
     needs today and its neighbours. Only the metadata was a dependency;
     the y-axis range (fixed from historical hilo data), the marine
     conditions, and the predictions themselves are independent, so a
-    cold start costs one round trip.
+    cold start costs one round trip. The fetches run on daemon threads,
+    so Ctrl-C does not wait for one stuck in its timeout.
     """
-    from concurrent.futures import ThreadPoolExecutor
+    from linecast._fanout import Fanout
 
     def fetch_marine_data():
         # Marine/wave conditions are optional; never crash the tides view
@@ -205,18 +206,18 @@ def _fetch_station(provider, station_id, station_meta, station_tz, live):
     days = 7 if live else 1
     fetch_start = today - timedelta(days=days)
     fetch_end = today + timedelta(days=days)
-    with ThreadPoolExecutor(max_workers=4) as pool:
-        fut_y_range = pool.submit(provider.y_range, station_id, today, station_tz)
-        fut_marine = pool.submit(fetch_marine_data)
-        fut_preds = pool.submit(provider.tides_range, station_id,
-                                fetch_start, fetch_end, station_tz)
-        fut_hilo = pool.submit(provider.hilo_range, station_id,
-                               fetch_start, fetch_end, station_tz)
-        tag = _provider_tag(provider)
-        y_range = _settled(fut_y_range, tag, "y-range", "auto-scaled axis")
-        marine_data = _settled(fut_marine, tag, "marine", "no marine line")
-        preds = _settled(fut_preds, tag, "predictions", "no tide data")
-        hilo = _settled(fut_hilo, tag, "hi/lo", "no high/low markers")
+    fanout = Fanout()
+    fut_y_range = fanout.submit(provider.y_range, station_id, today, station_tz)
+    fut_marine = fanout.submit(fetch_marine_data)
+    fut_preds = fanout.submit(provider.tides_range, station_id,
+                              fetch_start, fetch_end, station_tz)
+    fut_hilo = fanout.submit(provider.hilo_range, station_id,
+                             fetch_start, fetch_end, station_tz)
+    tag = _provider_tag(provider)
+    y_range = fanout.settle(fut_y_range, "y-range", tag=tag, note="auto-scaled axis")
+    marine_data = fanout.settle(fut_marine, "marine", tag=tag, note="no marine line")
+    preds = fanout.settle(fut_preds, "predictions", tag=tag, note="no tide data")
+    hilo = fanout.settle(fut_hilo, "hi/lo", tag=tag, note="no high/low markers")
     return fetch_start, fetch_end, y_range, marine_data, preds, hilo
 
 
@@ -288,17 +289,6 @@ def _station_tzinfo(meta):
 def _provider_tag(provider):
     """The provider's name in the debug log."""
     return {"openmeteo": "tides/open-meteo"}.get(provider.name, f"tides/{provider.name}")
-
-
-def _settled(future, tag, what, fallback_note):
-    """A pool future's result, or None with one debug line (and the
-    traceback, under --debug): a provider request that fails leaves
-    the rest of the view standing."""
-    try:
-        return future.result()
-    except Exception as exc:
-        log_failure(tag, what, exc, fallback=fallback_note, trace=True)
-        return None
 
 
 def _station_now(meta, series=None):

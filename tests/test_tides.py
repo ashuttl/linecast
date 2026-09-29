@@ -1,4 +1,5 @@
 import re
+import sys
 import unittest
 from datetime import date, datetime, timedelta
 from unittest.mock import patch
@@ -583,3 +584,34 @@ class StationLabelTests(unittest.TestCase):
         self.assertTrue(OPENMETEO.stationless)
         for provider in (NOAA, CHS, HKO, QLD, TIDECHECK):
             self.assertFalse(provider.stationless, provider.name)
+
+
+class CtrlCTests(unittest.TestCase):
+    @unittest.skipIf(sys.platform == "win32", "Windows has no SIGINT to send oneself")
+    def test_ctrl_c_does_not_wait_for_a_stuck_provider(self):
+        # One of the station's fetches is stuck in its timeout; Ctrl-C
+        # while the view waits for it quits at once, rather than when
+        # the timeout runs out.
+        import os
+        import signal
+        import threading
+        import time
+        from linecast.tides.providers import TideProvider
+
+        class Stuck(TideProvider):
+            name = "noaa"
+
+            def y_range(self, *args):
+                time.sleep(3)
+
+            def tides_range(self, *args):
+                return []
+
+            def hilo_range(self, *args):
+                return []
+
+        start = time.monotonic()
+        with self.assertRaises(KeyboardInterrupt):
+            threading.Timer(0.2, os.kill, (os.getpid(), signal.SIGINT)).start()
+            tides._fetch_station(Stuck(), "8418150", None, None, live=False)
+        self.assertLess(time.monotonic() - start, 1.5)
