@@ -3,6 +3,7 @@
 import hashlib
 import json
 import os
+import re
 import threading
 import time
 from pathlib import Path
@@ -90,3 +91,119 @@ def location_cache_key(lat: float, lng: float) -> str:
     """Short hash for lat/lng to namespace cache files by location."""
     key = f"{lat:.4f},{lng:.4f}"
     return hashlib.md5(key.encode()).hexdigest()[:8]
+
+
+# ---------------------------------------------------------------------------
+# The daily sweep
+# ---------------------------------------------------------------------------
+# What the sweep deletes, as (folder under the cache root, file pattern,
+# days).  A cached file is written again whenever it is used past its
+# maximum age, so its age says how long since it was last used, give or
+# take that maximum; each rule's days are well past both the maximum age
+# and the time a stale copy is still worth showing offline.  What does
+# not change -- a place's name and time zone, the tide stations near it
+# and what they are, an answer to a search -- goes only after a year
+# unused.  The ten years of climate a place is compared with are kept
+# whatever their age, and go when the span they cover is out of date
+# (_rolled_over).  Maps and radar prune their own tiles, the alert
+# services their CAP files, and the developer's prose/ fixtures are
+# never touched.
+_YEAR = 365
+_SWEEP = (
+    ("", "timezone_*.json", _YEAR),
+    ("weather", "forecast_*.json", 14),
+    ("weather", "aqi_*.json", 7),
+    ("weather", "aqhi_*.json", 7),
+    ("weather", "metar_*.json", 7),
+    ("weather", "alerts_*", 7),
+    ("weather", "place_*.json", _YEAR),
+    # the reverse geocoder's names before they were kept per place
+    ("weather", "location.json", 0),
+    ("weather", "location_*.json", 0),
+    ("marine", "marine_*.json", 7),
+    ("radar", "field_*.json", 7),
+    ("maps/search", "*.json", _YEAR),
+    ("tides", "pred_*.json", 90),
+    ("tides", "hilo_*.json", 90),
+    ("tides", "chs_pred_*.json", 90),
+    ("tides", "chs_hilo_*.json", 90),
+    ("tides", "qld_pred_*.json", 90),
+    ("tides", "tc_hilo_*.json", 90),
+    ("tides", "hko_hhot_*.json", _YEAR),
+    ("tides", "hko_hlt_*.json", _YEAR),
+    ("tides", "*yrange_*.json", 30),
+    ("tides", "om_raw_*.json", 30),
+    ("tides", "tc_raw_*.json", 30),
+    ("tides", "tc_requests_*.json", 3),
+    ("tides", "*station_*.json", _YEAR),
+    ("tides", "*_meta_*.json", _YEAR),
+    ("tides", "tc_search_*.json", _YEAR),
+)
+# Files a write left behind when it was cut short (write_bytes_atomic)
+_LEFTOVERS = ("", "weather", "tides", "marine", "radar", "maps")
+_SWEEP_EVERY = 86400
+# The climate files, by the last year they cover, and how far back that
+# may be while a view still asks for them: this year's comparison is the
+# ten years to last year, and the year view is this year so far.
+_ROLLED_OVER = ((re.compile(r"hist_[0-9a-f]+_\d{4}-(\d{4})_"), 1),
+                (re.compile(r"year_[0-9a-f]+_(\d{4})_"), 0))
+
+
+def _rolled_over(name, this_year):
+    """Whether a climate file covers years the views no longer ask for.
+    Last year's are kept as well, for a place where the new year has not
+    come yet when it has in UTC."""
+    for pattern, back in _ROLLED_OVER:
+        m = pattern.match(name)
+        if m:
+            return int(m.group(1)) < this_year - back - 1
+    return False
+
+
+def sweep(now=None):
+    """Delete the cached files no view will read again, at most once a
+    day.  Returns how many went, or None when it is not yet time."""
+    from linecast._paths import cache_root
+    root = cache_root()
+    now = time.time() if now is None else now
+    stamp = root / "swept"
+    try:
+        if now - stamp.stat().st_mtime < _SWEEP_EVERY:
+            return None
+    except FileNotFoundError:
+        pass
+    except OSError as exc:
+        log_failure("cache", "sweep stamp", exc, fallback="not swept")
+        return None
+    try:
+        root.mkdir(parents=True, exist_ok=True)
+        stamp.touch()
+        os.utime(stamp, (now, now))
+    except OSError as exc:
+        log_failure("cache", "sweep stamp", exc, fallback="not swept")
+        return None
+    this_year = time.gmtime(now).tm_year
+    gone = 0
+
+    def drop(path, days):
+        nonlocal gone
+        try:
+            if now - path.stat().st_mtime > days * 86400:
+                path.unlink()
+                gone += 1
+        except OSError:
+            pass   # gone already, or not ours to delete
+
+    try:
+        for folder, pattern, days in _SWEEP:
+            for path in (root / folder).glob(pattern):
+                drop(path, days)
+        for path in (root / "weather").glob("*.json"):
+            if _rolled_over(path.name, this_year):
+                drop(path, 0)
+        for folder in _LEFTOVERS:
+            for path in (root / folder).glob("*.tmp"):
+                drop(path, 1)
+    except OSError as exc:
+        log_failure("cache", "sweep", exc, fallback="left in place")
+    return gone

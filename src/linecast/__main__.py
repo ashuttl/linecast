@@ -71,6 +71,10 @@ def _run(cmd, args):
     from linecast import _runtime
     _runtime.INVOKED_AS = sys.argv[0]
     sys.argv = [f"linecast {cmd}"] + list(args)
+    if cmd in VIEW_NAMES:
+        # once a day, the cached files no view will read again
+        from linecast._cache import sweep
+        sweep()
     import importlib
     mod = importlib.import_module(COMMANDS.get(cmd) or HIDDEN[cmd])
     mod.main()

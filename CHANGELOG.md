@@ -130,6 +130,7 @@ Fixes:
   - Fixed a setting command, such as `linecast units imperial`, replacing a config.json that could not be read, and every setting in it, with the one setting. It now says what is wrong with the file and leaves it alone.
   - Fixed saving a setting replacing a config.json that is a symbolic link, as from a dotfiles repository, with a plain file; the setting is written to the file it points to.
 - Link: Fixed `linecast link` ending in a Python traceback where linecast is installed in a directory the user cannot write in, as with a system package; it says so and suggests `--dir`.
+- Cache: Fixed the cache growing for as long as linecast is used. Once a day, the views clear out the forecasts, alerts, and tide predictions they will not read again, and the place names and tide stations not used in a year; the ten years of climate a place is compared with are kept until a new year replaces them.
 - Doctor: Fixed `linecast doctor` not checking the airport reports the current sky comes from, or, outside the US and New Zealand, the service the alerts come from; it checks both, the alert service for your own country.
 
 ## 2.9.2 — 2026-09-27
