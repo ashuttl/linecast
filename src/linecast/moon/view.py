@@ -502,80 +502,106 @@ def _moon_facts(now_local, lat, lng, runtime):
     )
 
 
-def render(now_local, lat, lng, runtime, fullscreen=False, offset_minutes=0,
-           calendar_name=None, israel=False, turn=None, show_text=True):
-    """Build the full-screen moon display: disc plus info lines.
+class _Corners(NamedTuple):
+    """What the panel says, before it is fitted round the Moon: what
+    the Moon is (its headline, how much of it is lit, and a calendar's
+    counsel), and a table each for the day, the month and the year,
+    their heading lines over their _Rows (see _table)."""
+    headline: list          # (text, rgb, bold): the phase, and an aside
+    illum: str
+    counsel: list           # the calendar's counsel, and the line that credits it
+    source: str | None
+    day_head: list
+    day_rows: list
+    month_head: list
+    month_rows: list
+    year_head: list
+    year_rows: list
+    back: str | None        # the way back to now, while scrubbed
 
-    One layout at every size: the Moon in the middle of the sky, and the
-    info in its four corners, the disc as large as it can be without
-    touching them; a small terminal sheds detail from the corners
-    rather than letting lines wrap. *turn* is the live view's Turn,
-    the way the user has dragged the disc round, or None. *show_text*
-    False leaves the Moon alone in its sky, at its bare size.
-    *calendar_name* is the traditional calendar main() resolved, or
-    None for none.
-    """
-    moon = _moon_facts(now_local, lat, lng, runtime)
-    name = moon_name(moon.phase, runtime)
+    def what(self, short):
+        """The phase line and the illumination, and the calendar's
+        counsel beneath, which reads the night the headline names: in
+        as few lines as a readable measure allows, and no wider than
+        those lines need."""
+        top = self.headline[:1] if short else self.headline
+        block = [top, [(self.illum, PANEL_MUTED_RGB, False)]]
+        if self.counsel:
+            least = max(_seg_w(top), 28)
+            block.append([])
+            block += [[(seg, PANEL_MUTED_RGB, False)] for txt in self.counsel
+                      for seg in _wrap(txt, max(int(least * 1.3), 48), least)]
+            if self.source:
+                # The source rides directly under the counsel it
+                # credits, a shade fainter.
+                block.append([(self.source, PANEL_DIM_RGB, False)])
+        return block
 
-    rotation = turn.matrix() if turn is not None else None
+    def day(self, wait):
+        block = _table(self.day_head, _in_order(self.day_rows), wait)
+        if self.back is not None:
+            block.append([(self.back, PANEL_MUTED_RGB, False)])
+        return block
 
-    def paint_disc(fb, cx, cy, radius, aspect):
-        if turn is not None:
-            turn.radius = radius   # so a drag knows how far a radian is
-            turn.aspect = aspect
-        fb.draw_radial(cx, cy, MOON_GLOW_RGB, int(radius * 1.7), aspect=aspect,
-                       peak_alpha=0.10 + 0.20 * moon.illum)
-        _draw_moon_disc(fb, cx, cy, radius, moon.illum, moon.limb, moon.axis, rotation,
-                        night=MOON_NIGHT_RGB, aspect=aspect)
+    def month(self, wait):
+        return _table(self.month_head, _in_order(self.month_rows), wait)
 
-    year_len = 366 if calendar.isleap(now_local.year) else 365
-    year_n = now_local.timetuple().tm_yday
+    def year(self, wait):
+        return _table(self.year_head, _in_order(self.year_rows), wait)
 
+    def forms(self):
+        """From the most said to the least: each form is the four
+        corners, and the share of its bare size it must leave the Moon
+        (see _fit_corners). The rising and setting are the last to go:
+        they may take the disc down to half its size, where the rest
+        must leave it seven tenths."""
+        return [
+            (0.7, lambda: (self.what(False), self.day(True),
+                           self.month(True), self.year(True))),
+            (0.7, lambda: (self.what(False), self.day(False),
+                           self.month(False), self.year(False))),
+            (0.7, lambda: (self.what(False), self.day(False), self.month(False), [])),
+            (0.5, lambda: (self.what(True), self.day(False), [], [])),
+            (0.5, lambda: (self.what(True), self.day_head[:1], [], [])),
+            (0.0, lambda: ([self.headline[:1]], [], [], [])),
+        ]
+
+
+def _corners(moon, found, ctx, offset_minutes):
+    """The panel's _Corners for the Moon's _Facts *moon*, read through
+    calendar *found* (moon.readings; None for none) at *ctx*, scrubbed
+    *offset_minutes* from now."""
+    now_local, lat, runtime, lang = ctx.now_local, ctx.lat, ctx.runtime, ctx.lang
+    T, M = PANEL_TEXT_RGB, PANEL_MUTED_RGB
+    A, P = PANEL_AMBER_RGB, PANEL_PURPLE_RGB
+
+    # The headline is the calendar's: the night's name where the
+    # calendar names nights, and the lunar date or the almanac's half
+    # of the month as an aside. The one-line summary shows the same.
+    cal_name, lunar_txt = found.headline(ctx) if found else (None, None)
+    name = cal_name or moon_name(moon.phase, runtime)
     # The Old Farmer's Almanac names for the full moon are an English-
     # language tradition: they show in English by default and with the
     # almanac calendar, but a panel reading the moon through another
     # tradition's calendar keeps the plain phase name — Harvest Moon
     # is the almanac's name, not the Kaulana Mahina's or the 农历's.
-    lang = lang_of(runtime)
-    found = reading(calendar_name)
-    ctx = context(now_local, lat, lng, runtime, calendar_name, israel)
-    # The headline is the calendar's: the night's name where the
-    # calendar names nights, and the lunar date or the almanac's half
-    # of the month as an aside. The one-line summary shows the same.
-    cal_name, lunar_txt = found.headline(ctx) if found else (None, None)
-    if cal_name:
-        name = cal_name
     full_label = moon_name(4, runtime)
     if lang == "en" and (found is None or found.full_moon_names):
         folk_name = full_moon_name(moon.full, SYNODIC_MONTH)
         full_label = ("Blue Moon" if folk_name == "Blue"
                       else f"Full {folk_name} Moon")
+    # The Icelandic almanac prints a named moon's name at the new moon
+    # that lights it, as the English almanacs name the full moons.
+    new_label = (found.new_moon_name(moon.new) if found else None) or moon_name(0, runtime)
 
-    # Text pieces shared by every layout.
-    T, M, D = PANEL_TEXT_RGB, PANEL_MUTED_RGB, PANEL_DIM_RGB
-    A, P = PANEL_AMBER_RGB, PANEL_PURPLE_RGB
-
-    illum_txt = _ms('illuminated', runtime, pct=f'{moon.illum * 100:.0f}')
     # Out of this month's own length, from the new moon before to the one
     # after: months run 29.3 to 29.8 days, and a mean 29.5 under an age
     # of 29.8 is a day past the end
     lunation = moon.age + (moon.new - moon.moment_utc).total_seconds() / 86400.0
     age_txt = _ms('age', runtime, age=fmt_decimal(moon.age, 1, runtime),
                   total=fmt_decimal(lunation, 1, runtime))
-    alt_txt = _ms('above_horizon', runtime, alt=f'{moon.alt:.0f}')
-    # After "Up now" the long phrase is redundant — being up is the whole
-    # claim — so the altitude goes short and spends the room on where to
-    # actually look.
-    alt_dir_txt = f"{moon.alt:.0f}° · {moon.bearing}"
-    below_txt = _ms('below_horizon', runtime)
-    # The Icelandic almanac prints a named moon's name at the new moon
-    # that lights it, as the English almanacs name the full moons.
-    new_label = (found.new_moon_name(moon.new) if found else None) or moon_name(0, runtime)
-    year_txt = _ms('year_day', runtime, n=year_n, total=year_len)
-    when_txt = (f"{_day_abbrev(now_local, runtime)} "
-                f"{_fmt_month_day(now_local, runtime)} "
-                f"{fmt_time_dt(now_local, use_24h=runtime.use_24h)}")
+    year_n = now_local.timetuple().tm_yday
+    year_len = 366 if calendar.isleap(now_local.year) else 365
 
     # Everything the panel counts down to has one shape: a name, when it
     # falls, and how long until then. Each is a _Row, and the rows are
@@ -596,7 +622,6 @@ def render(now_local, lat, lng, runtime, fullscreen=False, offset_minutes=0,
     # year's own observances join the calendar's rows.
     if civil_calendar(lang) == SOLAR_HIJRI:
         year_n, year_len = solar_hijri_day_of_year(now_local)
-        year_txt = _ms('year_day', runtime, n=year_n, total=year_len)
         fest_now, rows = solar_hijri_rows(now_local, runtime)
         if fest_now:
             year_now.append((fest_now, T))
@@ -622,29 +647,64 @@ def render(now_local, lat, lng, runtime, fullscreen=False, offset_minutes=0,
             else:
                 rows.append(make.day(item.label, item.day, item.wait))
 
-    # The headline has room for one aside: the calendar's own — the
-    # lunar date, the anahulu, or the almanac's half of the month.
-    head_extra = lunar_txt
-
     def heading(first, extras):
         segments = [first]
         for text, color in extras:
             segments += [(" · ", M, False), (text, color, False)]
         return segments
 
+    below_txt = _ms('below_horizon', runtime)
     if offset_minutes:
         # Scrubbed away from the present: lead with the simulated moment
         # ("Up now" would lie), and show how to get back.
+        when_txt = (f"{_day_abbrev(now_local, runtime)} "
+                    f"{_fmt_month_day(now_local, runtime)} "
+                    f"{fmt_time_dt(now_local, use_24h=runtime.use_24h)}")
+        alt_txt = _ms('above_horizon', runtime, alt=f'{moon.alt:.0f}')
         day_head = [[(when_txt, A, False)],
                     [(f"{alt_txt} · {moon.bearing}", T, False)] if moon.up
                     else [(below_txt, M, False)]]
     elif moon.up:
+        # After "Up now" the long phrase is redundant — being up is the
+        # whole claim — so the altitude goes short and spends the room
+        # on where to actually look.
         day_head = [[(_ms('up_now', runtime), A, False),
-                     (f" · {alt_dir_txt}", T, False)]]
+                     (f" · {moon.alt:.0f}° · {moon.bearing}", T, False)]]
     else:
         day_head = [[(below_txt, M, False)]]
-    month_head = [heading((_sentence(age_txt), M, False), month_now)]
-    year_head = [heading((year_txt, M, False), year_now)]
+
+    # The headline has room for one aside: the calendar's own — the
+    # lunar date, the anahulu, or the almanac's half of the month.
+    return _Corners(
+        headline=[(f"{moon.icon} {name}", T, True)] + (
+            [(f" · {lunar_txt}", T, False)] if lunar_txt else []),
+        illum=_ms('illuminated', runtime, pct=f'{moon.illum * 100:.0f}'),
+        counsel=[t for t in extra.counsel if t], source=extra.source,
+        day_head=day_head, day_rows=day_rows,
+        month_head=[heading((_sentence(age_txt), M, False), month_now)],
+        month_rows=month_rows,
+        year_head=[heading((_ms('year_day', runtime, n=year_n, total=year_len), M, False),
+                           year_now)],
+        year_rows=year_rows,
+        back=_ts('space_to_now', runtime) if offset_minutes else None,
+    )
+
+
+def render(now_local, lat, lng, runtime, fullscreen=False, offset_minutes=0,
+           calendar_name=None, israel=False, turn=None, show_text=True):
+    """Build the full-screen moon display: disc plus info lines.
+
+    One layout at every size: the Moon in the middle of the sky, and the
+    info in its four corners, the disc as large as it can be without
+    touching them; a small terminal sheds detail from the corners
+    rather than letting lines wrap. *turn* is the live view's Turn,
+    the way the user has dragged the disc round, or None. *show_text*
+    False leaves the Moon alone in its sky, at its bare size.
+    *calendar_name* is the traditional calendar main() resolved, or
+    None for none.
+    """
+    moon = _moon_facts(now_local, lat, lng, runtime)
+    rotation = turn.matrix() if turn is not None else None
 
     cols, rows = get_terminal_size()
     hint = install_banner()
@@ -663,66 +723,26 @@ def render(now_local, lat, lng, runtime, fullscreen=False, offset_minutes=0,
     # without touching them. In a large terminal that costs it nothing;
     # in a small one the corners give up detail — the waits, then the
     # year, then the month — before the disc gives up much of its size.
-    headline = [(f"{moon.icon} {name}", T, True)] + (
-        [(f" · {head_extra}", T, False)] if head_extra else [])
-
-    def what_block(short):
-        """The phase line and the illumination, and the calendar's
-        counsel beneath, which reads the night the headline names: in
-        as few lines as a readable measure allows, and no wider than
-        those lines need."""
-        top = headline[:1] if short else headline
-        block = [top, [(illum_txt, M, False)]]
-        texts = [t for t in extra.counsel if t]
-        if texts:
-            least = max(_seg_w(top), 28)
-            block.append([])
-            block += [[(seg, M, False)] for txt in texts
-                      for seg in _wrap(txt, max(int(least * 1.3), 48), least)]
-            if extra.source:
-                # The source rides directly under the counsel it
-                # credits, a shade fainter.
-                block.append([(extra.source, D, False)])
-        return block
-
-    def day_block(wait):
-        block = _table(day_head, _in_order(day_rows), wait)
-        if offset_minutes:
-            block.append([(_ts('space_to_now', runtime), M, False)])
-        return block
-
-    def month_block(wait):
-        return _table(month_head, _in_order(month_rows), wait)
-
-    def year_block(wait):
-        return _table(year_head, _in_order(year_rows), wait)
-
-    # From the most said to the least: each form is the four corners,
-    # and the share of its bare size it must leave the Moon. The rising
-    # and setting are the last to go: they may take the disc down to
-    # half its size, where the rest must leave it seven tenths.
-    forms = [
-        (0.7, lambda: (what_block(False), day_block(True),
-                       month_block(True), year_block(True))),
-        (0.7, lambda: (what_block(False), day_block(False),
-                       month_block(False), year_block(False))),
-        (0.7, lambda: (what_block(False), day_block(False), month_block(False), [])),
-        (0.5, lambda: (what_block(True), day_block(False), [], [])),
-        (0.5, lambda: (what_block(True), day_head[:1], [], [])),
-        (0.0, lambda: ([headline[:1]], [], [], [])),
-    ]
-
     # With the text put away, no corner has anything in it.
-    if not show_text:
+    if show_text:
+        ctx = context(now_local, lat, lng, runtime, calendar_name, israel)
+        forms = _corners(moon, reading(calendar_name), ctx, offset_minutes).forms()
+    else:
         forms = [(0.0, lambda: ([], [], [], []))]
     aspect = cell_aspect() / 2.0   # a sub-pixel's height in cell widths
     radius, overlays = _fit_corners(forms, graph_w, graph_h, aspect)
     cx, cy = graph_w // 2, graph_h   # the middle of the sky, in sub-pixels down
 
     fb = Framebuffer(graph_w, graph_h, bg_color=SKY_RGB)
-    paint_disc(fb, cx, cy, radius, aspect)
+    if turn is not None:
+        turn.radius = radius   # so a drag knows how far a radian is
+        turn.aspect = aspect
+    fb.draw_radial(cx, cy, MOON_GLOW_RGB, int(radius * 1.7), aspect=aspect,
+                   peak_alpha=0.10 + 0.20 * moon.illum)
+    _draw_moon_disc(fb, cx, cy, radius, moon.illum, moon.limb, moon.axis, rotation,
+                    night=MOON_NIGHT_RGB, aspect=aspect)
     if fullscreen and show_text:
-        _place_help(overlays, graph_w, graph_h, lang)
+        _place_help(overlays, graph_w, graph_h, lang_of(runtime))
     stars = star_overlays(fb, cx, cy, radius, moon.sky, taken=overlays.keys(),
                           turn=rotation, aspect=aspect)
     from linecast.terminal import bidi as _bidi
@@ -738,7 +758,6 @@ def render(now_local, lat, lng, runtime, fullscreen=False, offset_minutes=0,
     if hint:
         lines.append(hint)
     return "\n".join(lines)
-
 
 def main():
     parser = moon_parser()
