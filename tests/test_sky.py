@@ -2,6 +2,7 @@
 
 import math
 import re
+import sys
 from datetime import datetime, timedelta, timezone
 from unittest.mock import patch
 from zoneinfo import ZoneInfo
@@ -432,6 +433,22 @@ class TestFrame:
         body = "\n".join(out.split("\n")[:-1])
         assert "ดาวเสาร์" in body and "กลุ่มดาวปลา" in body and "ตะวันออก" in body
         assert all(visible_len(line) <= 100 for line in out.split("\n"))
+
+
+class TestPrinted:
+    def test_print_measures_the_terminal_before_it_draws(self, monkeypatch):
+        from linecast.sky import live as sky_live
+        from linecast.terminal import live as _live, textwidth
+        calls = []
+        monkeypatch.setattr(sys, "argv", ["linecast-sky", "--print",
+                                          "--location", f"{LAT},{LNG}"])
+        monkeypatch.setattr(sky, "location_tzinfo", lambda lat, lng: ZoneInfo("America/New_York"))
+        monkeypatch.setattr(textwidth, "calibrate_from_terminal", lambda: calls.append("measure"))
+        monkeypatch.setattr(sky_live, "place_name", lambda *a, **k: "Westbrook")
+        monkeypatch.setattr(sky, "render", lambda *a, **k: calls.append("draw") or "frame")
+        monkeypatch.setattr(_live, "print_frame", calls.append)
+        sky.main()
+        assert calls == ["measure", "draw", "frame"]
 
 
 # ---------------------------------------------------------------------------

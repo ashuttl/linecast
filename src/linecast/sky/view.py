@@ -1090,8 +1090,7 @@ def main():
         cols, rows = get_terminal_size()
         view = default_view(Scene(now.astimezone(timezone.utc), lat, lng),
                             cols, rows, facing, fov, aim=aim)._replace(culture=culture)
-        from linecast.terminal.live import print_frame
-        print_frame(render(now, lat, lng, runtime, view, location_label=label))
+        _live.print_view(lambda: render(now, lat, lng, runtime, view, location_label=label))
         return
     SkyApp(_now, lat, lng, runtime, facing=facing, fov=fov, location_label=label,
            aim=aim, culture=culture).run()

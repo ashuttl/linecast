@@ -129,6 +129,15 @@ def print_frame(text, stream=None):
     stream.flush()
 
 
+def print_view(render):
+    """Print one frame of a view, for --print or a pipe: the terminal's
+    glyph widths measured first, as the live loop measures them before
+    its first frame, then *render* called and its frame printed."""
+    from linecast.terminal.textwidth import calibrate_from_terminal
+    calibrate_from_terminal()
+    print_frame(render())
+
+
 def bidi_modes():
     """The escapes that put the terminal in bidi explicit mode, where it
     draws cells as linecast ordered them, and that take it back out; both
