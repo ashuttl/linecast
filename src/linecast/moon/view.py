@@ -40,7 +40,7 @@ from typing import NamedTuple
 
 from linecast._timefmt import fmt_time_dt
 from linecast.terminal.color import lerp
-from linecast.terminal.textwidth import pad, visible_len
+from linecast.terminal.textwidth import cells, pad, visible_len
 from linecast.terminal.framebuffer import get_terminal_size, cell_aspect, Framebuffer
 from linecast._i18n import GEOCODER_UNTRANSLATED, fmt_decimal, fmt_duration_parts, lang_of
 from linecast._config import saved_location
@@ -58,7 +58,6 @@ from linecast.astro.calendars.civil import (
     SOLAR_HIJRI, civil_calendar, solar_hijri_day_of_year,
 )
 from linecast.astro.seasons import full_moon_name, next_season_event
-from linecast.terminal.textwidth import char_width
 from linecast.tides.i18n import _ts  # shared "space to return to now" hint
 from linecast._runtime import RuntimeConfig, install_banner, set_current
 from linecast._parsers import moon_parser
@@ -385,12 +384,11 @@ def _panel_overlays(panel, x0, row0, graph_w):
     """Character overlays for a block of the panel's lines.
 
     *panel* is a list of lines, each a list of (text, rgb, bold)
-    segments.  A wide character claims a second, empty cell so the row
-    keeps its width; a zero-width character (the emoji variation
-    selector) rides along in the cell before it.  Each line also claims
-    a clear cell at either end, so no star touches the text, and a blank
-    line between two others keeps the sky clear as far as both reach,
-    so no star lands among the text as if it were part of it.
+    segments, laid out by textwidth.cells to the screen's edge.  Each
+    line also claims a clear cell at either end, so no star touches the
+    text, and a blank line between two others keeps the sky clear as far
+    as both reach, so no star lands among the text as if it were part
+    of it.
     """
     def width(line):
         return sum(visible_len(t) for t, _c, _b in line)
@@ -403,23 +401,13 @@ def _panel_overlays(panel, x0, row0, graph_w):
                 overlays[(x, row0 + i)] = (" ", PANEL_DIM_RGB, False)
             continue
         x = x0
-        prev = None
         if segments and x0 > 0:
             overlays[(x0 - 1, row0 + i)] = (" ", segments[0][1], False)
         for text, color, bold in segments:
-            for j, ch in enumerate(text):
-                w = char_width(ch, text[j + 1:j + 2])
-                if w == 0 and prev is not None:
-                    kept, c, b = overlays[prev]
-                    overlays[prev] = (kept + ch, c, b)
-                    continue
-                if x + w > graph_w:
-                    break
-                overlays[(x, row0 + i)] = (ch, color, bold)
-                prev = (x, row0 + i)
-                if w == 2:
-                    overlays[(x + 1, row0 + i)] = ("", color, bold)
-                x += w
+            laid, used = cells(text, graph_w - x)
+            for col, glyph in laid:
+                overlays[(x + col, row0 + i)] = (glyph, color, bold)
+            x += used
         if segments and x < graph_w:
             overlays[(x, row0 + i)] = (" ", segments[-1][1], False)
     return overlays

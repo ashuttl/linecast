@@ -29,7 +29,7 @@ from linecast.terminal import theme as _theme
 from linecast.astro.ephemeris import _moon_events_for_local_date, next_moon_phase_utc
 from linecast._timefmt import fmt_time_dt
 from linecast.terminal.color import bg, fg
-from linecast.terminal.textwidth import visible_len
+from linecast.terminal.textwidth import cells, visible_len
 from linecast.terminal.framebuffer import Framebuffer, cell_aspect, get_terminal_size
 from linecast.terminal.live import overlay
 from linecast._i18n import base_language, table_for
@@ -133,26 +133,13 @@ def _phase_days(first, days_in, tzinfo):
 
 
 def _put(overlays, x, row, text, rgb, bold=False, max_x=None):
-    """Write *text* into the overlay dict, wide glyphs claiming two cells.
-
-    A zero-width combining mark (a Thai vowel sign, say) joins its
-    base's cell instead of claiming one of its own.
-    """
-    prev = None
-    for j, ch in enumerate(text):
-        w = char_width(ch, text[j + 1:j + 2])
-        if w == 0 and prev is not None:
-            kept, c, b = overlays[prev]
-            overlays[prev] = (kept + ch, c, b)
-            continue
-        if max_x is not None and x + w > max_x:
-            break
-        overlays[(x, row)] = (ch, rgb, bold)
-        prev = (x, row)
-        if w == 2:
-            overlays[(x + 1, row)] = ("", rgb, bold)
-        x += max(w, 1)
-    return x
+    """Write *text* into the overlay dict from column *x*, laid out by
+    textwidth.cells, stopping before the first glyph that would pass
+    *max_x*; the column after the last glyph written."""
+    laid, width = cells(text, None if max_x is None else max_x - x)
+    for col, glyph in laid:
+        overlays[(x + col, row)] = (glyph, rgb, bold)
+    return x + width
 
 
 def _clip(text, width):
