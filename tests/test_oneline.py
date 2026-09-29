@@ -165,6 +165,14 @@ class TestSunshineOneline:
         assert winter.startswith("↑— ↓— 0h00m polar night")
         assert summer.startswith("↑— ↓— 24h00m midnight sun")
 
+    def test_persian_writes_the_day_length_in_words(self):
+        # As the change beside it is, and as the day view writes both:
+        # a Persian reader does not read h and m as units.
+        line = _strip_ansi(sunshine_oneline(35.69, 51.39, 300, 12.0,
+                                            self._runtime(lang="fa"), tz_offset_h=3.5))
+        assert "ساعت" in line and "دقیقه" in line
+        assert "h" not in line and "m " not in line
+
     def test_a_sunrise_the_evening_before_keeps_its_hour(self):
         # Vorkuta in mid-July: the Sun rises at 23:41 on the 16th, which
         # comes back as a negative hour on the 17th

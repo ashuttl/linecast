@@ -113,8 +113,10 @@ def sunshine_oneline(lat, lng, doy, now_hour, runtime, tz_offset_h=None,
         return fmt_time(h, use_24h=runtime.use_24h)
 
     if not has_duration_words(lang_of(runtime)):
+        day_len_str = f"{dl_h}h{dl_m:02d}m"
         delta_str = f"{d_sign}{d_m}m{d_s}s" if d_s else f"{d_sign}{d_m}m"
     else:
+        day_len_str = fmt_duration_parts(lang_of(runtime), ("h", dl_h), ("m", dl_m))
         parts = [("m", d_m), ("s", d_s)] if d_s else [("m", d_m)]
         delta_str = fmt_duration_parts(lang_of(runtime), *parts, sign=d_sign)
 
@@ -133,7 +135,7 @@ def sunshine_oneline(lat, lng, doy, now_hour, runtime, tz_offset_h=None,
     line = (
         f"{amber}↑{text}{'—' if polar else _fmt(sunrise)} "
         f"{purple}↓{text}{'—' if polar else _fmt(sunset)} "
-        f"{text}{dl_h}h{dl_m:02d}m "
+        f"{text}{day_len_str} "
         f"{dim}{polar_name(polar, runtime) if polar else delta_str} "
         f"{text}{moon_icon}"
     )
