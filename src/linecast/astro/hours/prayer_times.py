@@ -54,8 +54,8 @@ import math
 from datetime import timedelta
 from functools import lru_cache
 
-from linecast.astro.ephemeris import sun_declination, sun_depression_utc, sun_transit_utc
-from linecast.astro.hours import DayHours, Mark, elapsed, shift
+from linecast.astro.ephemeris import sun_declination, sun_transit_utc
+from linecast.astro.hours import DayHours, Mark, elapsed, local, local_depression, shift
 
 HORIZON_DEG = 0.833
 IMSAK_MINUTES = 10
@@ -175,12 +175,6 @@ def imsak_minutes(method):
     return _IMSAK.get(method, IMSAK_MINUTES)
 
 
-def _local(dt_utc, tzinfo):
-    if dt_utc is None:
-        return None
-    return dt_utc.astimezone(tzinfo) if tzinfo else dt_utc.astimezone()
-
-
 def _asr_altitude_deg(lat, decl, factor):
     """The Sun's altitude when a shadow is *factor* object-lengths
     longer than at noon: cot(alt) = factor + tan|lat - decl|."""
@@ -215,7 +209,7 @@ def _day(local_date, lat, lng, tzinfo, method, school, keys=STANDARD_MARKS):
     day = timedelta(days=1)
 
     def depression(date_, deg, evening):
-        return _local(sun_depression_utc(date_, lat, lng, deg, evening, tzinfo), tzinfo)
+        return local_depression(date_, lat, lng, deg, evening, tzinfo)
 
     sunrise = depression(local_date, HORIZON_DEG, False)
     sunset = depression(local_date, HORIZON_DEG, True)
@@ -225,7 +219,7 @@ def _day(local_date, lat, lng, tzinfo, method, school, keys=STANDARD_MARKS):
     night_after = elapsed(sunset, next_sunrise) if next_sunrise and sunset else None
 
     transit = sun_transit_utc(local_date, lng, tzinfo)
-    dhuhr = _local(transit, tzinfo)
+    dhuhr = local(transit, tzinfo)
     fajr = _angle_based(depression(local_date, fajr_deg, False), sunrise, fajr_deg,
                         night_before, before=True)
     maghrib = depression(local_date, maghrib_deg, True)

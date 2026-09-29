@@ -147,6 +147,60 @@ def shift(dt, delta):
     return (utc(dt) + delta).astimezone(dt.tzinfo)
 
 
+# The frame the tables share: the day's edges and its neighbours', read
+# off the Sun, and the equal parts between two edges.
+
+def local(dt, tzinfo):
+    """*dt* read in *tzinfo*, or in the machine's zone when that is None;
+    None, for a moment the Sun never reaches, stays None."""
+    if dt is None:
+        return None
+    return dt.astimezone(tzinfo) if tzinfo else dt.astimezone()
+
+
+def local_depression(local_date, lat, lng, deg, evening, tzinfo):
+    """When the Sun's centre is *deg* below the horizon on the civil
+    date, rising or setting (*evening*), read in *tzinfo*; None when it
+    never is (ephemeris.sun_depression_utc)."""
+    from linecast.astro.ephemeris import sun_depression_utc
+    return local(sun_depression_utc(local_date, lat, lng, deg, evening, tzinfo), tzinfo)
+
+
+def edges_at(deg, lat, lng, tzinfo):
+    """The edges of a day that opens and closes with the Sun *deg*
+    below the horizon, as frame() takes them: a civil date's (morning,
+    evening)."""
+    def edges(local_date):
+        return (local_depression(local_date, lat, lng, deg, False, tzinfo),
+                local_depression(local_date, lat, lng, deg, True, tzinfo))
+    return edges
+
+
+def frame(edges, local_date):
+    """(start, end, prev_end, next_start) for DayHours: the date's two
+    edges, yesterday's end, and tomorrow's start, from *edges*, which
+    gives a civil date's (start, end), either None where the Sun never
+    gets there."""
+    day = timedelta(days=1)
+    start, end = edges(local_date)
+    _prev_start, prev_end = edges(local_date - day)
+    next_start, _next_end = edges(local_date + day)
+    return start, end, prev_end, next_start
+
+
+def divide(start, end, parts, keys, local_date=None):
+    """The span from *start* to *end* in *parts* equal parts, and a mark
+    *n* parts in for each (key, n) in *keys*: the hours of a day, the
+    watches of a night. With *local_date*, only the marks that fall on
+    that civil date, for a night that crosses midnight. No marks when
+    an edge is missing."""
+    if not (start and end):
+        return []
+    part = elapsed(start, end) / parts
+    marks = [Mark(key, shift(start, part * n)) for key, n in keys]
+    return [m for m in marks if local_date is None or m.at.date() == local_date]
+
+
 def day_hours(system, local_date, lat, lng, tzinfo=None, variant=None,
               country=None):
     """The table's answer for a civil date at a place, or None for a

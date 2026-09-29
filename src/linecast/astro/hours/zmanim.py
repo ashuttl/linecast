@@ -25,8 +25,9 @@ keep them; the Hijri module uses the same horizon at Mecca.
 from datetime import timedelta
 from functools import lru_cache
 
-from linecast.astro.ephemeris import sun_depression_utc
-from linecast.astro.hours import DayHours, Mark, elapsed, shift, utc
+from linecast.astro.hours import (
+    DayHours, Mark, divide, edges_at, elapsed, frame, local_depression, shift, utc,
+)
 
 OPINIONS = ("gra", "mga")
 OPINION_NAMES = {"gra": "Gr\"a", "mga": "Magen Avraham"}
@@ -66,33 +67,28 @@ def candles_minutes(lat, lng):
             else CANDLES_MINUTES)
 
 
-def _local(dt_utc, tzinfo):
-    if dt_utc is None:
-        return None
-    return dt_utc.astimezone(tzinfo) if tzinfo else dt_utc.astimezone()
+def _edges(lat, lng, tzinfo, opinion):
+    """The day's edges for the opinion, as frame() takes them: sunrise
+    and sunset, or seventy-two minutes either side."""
+    sun = edges_at(HORIZON_DEG, lat, lng, tzinfo)
+    if opinion != "mga":
+        return sun
 
-
-def _edges(local_date, lat, lng, tzinfo, opinion):
-    """(day_start, day_end) for the opinion, either None."""
-    rise = _local(sun_depression_utc(local_date, lat, lng, HORIZON_DEG, False, tzinfo), tzinfo)
-    set_ = _local(sun_depression_utc(local_date, lat, lng, HORIZON_DEG, True, tzinfo), tzinfo)
-    if opinion == "mga":
+    def padded(local_date):
+        rise, set_ = sun(local_date)
         pad = timedelta(minutes=MGA_MINUTES)
         return (shift(rise, -pad) if rise else None), (shift(set_, pad) if set_ else None)
-    return rise, set_
+    return padded
 
 
 @lru_cache(maxsize=64)
 def zmanim(local_date, lat, lng, tzinfo=None, opinion=None):
     """The day's zmanim at a place, by *opinion* ('gra' by default)."""
     opinion = opinion if opinion in OPINIONS else "gra"
-    day = timedelta(days=1)
-    start, end = _edges(local_date, lat, lng, tzinfo, opinion)
-    _prev_start, prev_end = _edges(local_date - day, lat, lng, tzinfo, opinion)
-    next_start, _next_end = _edges(local_date + day, lat, lng, tzinfo, opinion)
+    start, end, prev_end, next_start = frame(_edges(lat, lng, tzinfo, opinion), local_date)
 
     def depression(deg, evening):
-        return _local(sun_depression_utc(local_date, lat, lng, deg, evening, tzinfo), tzinfo)
+        return local_depression(local_date, lat, lng, deg, evening, tzinfo)
 
     marks = []
 
@@ -113,10 +109,7 @@ def zmanim(local_date, lat, lng, tzinfo=None, opinion=None):
     add("alot", start if opinion == "mga" else depression(ALOT_DEG, False))
     add("misheyakir", depression(MISHEYAKIR_DEG, False))
     add("sunrise", sunrise)
-    if start and end:
-        hour = elapsed(start, end) / 12
-        for key, n in _DAY_FRACTIONS:
-            add(key, shift(start, hour * n))
+    marks.extend(divide(start, end, 12, _DAY_FRACTIONS))
     if sunset and local_date.weekday() == FRIDAY:
         add("candles", shift(sunset, -timedelta(minutes=candles_minutes(lat, lng))))
     add("sunset", sunset)

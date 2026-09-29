@@ -27,8 +27,7 @@ count and the time of day, 'morning four', and the animal's hour.
 
 from functools import lru_cache
 
-from linecast.astro.ephemeris import sun_depression_utc
-from linecast.astro.hours import DayHours, Mark, elapsed, shift
+from linecast.astro.hours import DayHours, divide, edges_at, frame
 
 # 7°21′40″: the Sun's centre, below the horizon, at 明六つ and 暮六つ.
 DAWN_DEG = 7 + 21 / 60 + 40 / 3600
@@ -51,44 +50,23 @@ NIGHT_KOKU = (
     ("yoru_yatsu", 8, "丑"),
     ("akatsuki_nanatsu", 7, "寅"),
 )
-
-
-def _local(dt_utc, tzinfo):
-    if dt_utc is None:
-        return None
-    return dt_utc.astimezone(tzinfo) if tzinfo else dt_utc.astimezone()
-
-
-def _edges(local_date, lat, lng, tzinfo):
-    dawn = _local(sun_depression_utc(local_date, lat, lng, DAWN_DEG, False, tzinfo), tzinfo)
-    dusk = _local(sun_depression_utc(local_date, lat, lng, DAWN_DEG, True, tzinfo), tzinfo)
-    return dawn, dusk
+# Each koku's bell as divide() takes it: its key, and the koku from
+# the edge it is counted from.
+_DAY_BELLS = tuple((key, n) for n, (key, _bells, _branch) in enumerate(DAY_KOKU))
+_NIGHT_BELLS = tuple((key, n) for n, (key, _bells, _branch) in enumerate(NIGHT_KOKU))
 
 
 @lru_cache(maxsize=64)
 def wadokei(local_date, lat, lng, tzinfo=None):
     """The day's twelve koku at a place, each listed at its bell."""
-    from datetime import timedelta
-    day = timedelta(days=1)
-    start, end = _edges(local_date, lat, lng, tzinfo)
-    _prev_start, prev_end = _edges(local_date - day, lat, lng, tzinfo)
-    next_start, _next_end = _edges(local_date + day, lat, lng, tzinfo)
-
-    marks = []
-    if start and end:
-        koku = elapsed(start, end) / 6
-        for n, (key, _bells, _branch) in enumerate(DAY_KOKU):
-            marks.append(Mark(key, shift(start, koku * n)))
+    start, end, prev_end, next_start = frame(edges_at(DAWN_DEG, lat, lng, tzinfo),
+                                             local_date)
+    marks = divide(start, end, 6, _DAY_BELLS)
     # The night's bells fall on this date from the night before
     # (夜九つ onward, after midnight) and the night after (暮六つ to
     # 夜九つ, before it); each is listed on the date it falls on.
-    for night_start, night_end in ((prev_end, start), (end, next_start)):
-        if night_start and night_end:
-            koku = elapsed(night_start, night_end) / 6
-            for n, (key, _bells, _branch) in enumerate(NIGHT_KOKU):
-                at = shift(night_start, koku * n)
-                if at.date() == local_date:
-                    marks.append(Mark(key, at))
+    marks += divide(prev_end, start, 6, _NIGHT_BELLS, local_date)
+    marks += divide(end, next_start, 6, _NIGHT_BELLS, local_date)
     marks.sort(key=lambda m: m.at)
     return DayHours("japanese", local_date, start, end, prev_end, next_start,
                     6, marks, None)
