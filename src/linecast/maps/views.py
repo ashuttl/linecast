@@ -18,6 +18,7 @@ has moved onto can be painted before it stops.
 
 import math
 import threading
+import time
 from collections import namedtuple
 from concurrent.futures import ThreadPoolExecutor
 
@@ -188,6 +189,60 @@ def take_terrain():
     return landed
 
 
+# A view some of whose tiles did not arrive — one timed out, or the
+# connection dropped halfway through — is drawn with a gap where each
+# missing tile goes, and nothing would ask for it again: a frame at
+# rest inside it is a crop of the view in hand and never reaches a
+# loader.  So it is built again in the background, later each time,
+# and lands as any view does.  What did arrive is on disk by then, and
+# only the missing tiles go back to the network.  A view that something
+# newer has been built after is only forgotten, so that coming back to
+# it asks afresh.
+MEND_AFTER = (5.0, 15.0, 45.0, 120.0, 300.0)   # seconds before each try
+_mends = {}                 # view key -> tries started for it so far
+_street_built = [None]      # the key of the newest view each flat
+_terrain_built = [None]     # register has built
+
+
+def _mend(cache, key, load, newest, short, before=None):
+    """After a load: build a view that came back short again, later.
+
+    `newest` is the register's slot for the key it built last, and
+    `short` whether any tile the view asked for is missing from it.
+    `before` runs ahead of a rebuild, for a register that keeps
+    something drawn from the view the rebuild replaces.
+    """
+    newest[0] = key
+    with _motion_lock:
+        tries = _mends.pop(key, 0)
+        if not short or not _live._running or tries >= len(MEND_AFTER):
+            return
+        _mends[key] = tries + 1
+
+    def worker():
+        time.sleep(MEND_AFTER[tries])
+        while _held():
+            time.sleep(ZOOM_SETTLE)
+        cache.forget(key)
+        if newest[0] != key:
+            with _motion_lock:
+                _mends.pop(key, None)
+            return
+        if before is not None:
+            before()
+        try:
+            cache.get(key, True, load)
+        except Exception as exc:
+            log_failure("worker", f"{cache.name} mend", exc,
+                        fallback="the view keeps its gap")
+            with _motion_lock:
+                _mends.pop(key, None)
+            return
+        _nudge_repaint()
+
+    threading.Thread(target=worker, daemon=True).start()
+
+
 def _view_key(bbox, gw, hc):
     """Cache key for a view, at a precision that scales with the zoom.
 
@@ -323,7 +378,7 @@ def _water_subpixels(water, gw, hc):
     return out
 
 
-def _tile_water(bbox, gw, hc, window=None, camera=None):
+def _tile_water(bbox, gw, hc, window=None, camera=None, missing=None):
     """(inland water dot mask, river layer) for the view, or (None, None).
 
     Terrain mode's one network dependency beyond the elevation tiles,
@@ -333,10 +388,14 @@ def _tile_water(bbox, gw, hc, window=None, camera=None):
     With a camera the tiles are chosen by its footprint and the
     polygons are rasterised onto its sphere; the bbox still says what
     scale the view is drawn at, which is what picks the band.
+
+    `missing`, a list, collects the tiles that did not arrive.
     """
     try:
         band, tiles = streets.fetch_view(
             bbox, hc, window, None if camera is None else camera.footprint)
+        if missing is not None:
+            missing.extend(k for k, v in tiles.items() if v is None)
         if not any(tiles.values()):
             return None, None, None, None
         return streets.build_water_view(bbox, gw, hc, tiles, band,
@@ -422,10 +481,13 @@ def _get_elevation(bbox, gw, hc, block, window=None):
         # The three sources are independent, so their fetches overlap:
         # the wait is the slowest of them, not the sum.  Only the
         # elevation may fail the view; the other two degrade to None.
+        missing = []
         with ThreadPoolExecutor(max_workers=2) as pool:
-            water_job = pool.submit(_tile_water, bbox, gw, hc, window, camera)
+            water_job = pool.submit(_tile_water, bbox, gw, hc, window, camera,
+                                    missing)
             builtup_job = pool.submit(_builtup_layer, bbox, gw, hc, camera)
-            fine = elevation_grid(bbox, gw * 2, hc * 4, camera=camera)
+            fine = elevation_grid(bbox, gw * 2, hc * 4, camera=camera,
+                                  missing=missing)
         water, rivers, cover, ocean = water_job.result()
         bu = builtup_job.result()
         if bu is not None:
@@ -469,6 +531,10 @@ def _get_elevation(bbox, gw, hc, block, window=None):
                                    gw, hc * 2)[1]
                    if _globe.limb_shading(cam.zoom, gw, hc) else None))
         _terrain_landed[0] = (tuple(bbox), gw, hc, view)
+        # the shaded buffer is kept by the view's bbox, so a rebuild of
+        # the same bbox has to clear the one drawn with the gap in it
+        _mend(_elev_cache, key, load, _terrain_built, bool(missing),
+              _terrain_cache.clear)
         return view
 
     key = _view_key(bbox, gw, hc)
@@ -528,6 +594,8 @@ def _get_street_tiles(bbox, gw, hc, block, lang="en", reserved=(),
         # names on.  A window outside it is reprojected instead, and
         # that path leaves the labels behind as it always has.
         _street_landed[0] = (tuple(bbox), gw, hc, view[0], view[1], view[2])
+        _mend(_street_cache, key, load, _street_built,
+              None in tiles.values())
         return view
 
     key = _view_key(bbox, gw, hc) + (lang, tuple(sorted(reserved)))

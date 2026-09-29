@@ -214,3 +214,13 @@ class TestSceneCache:
         assert cache.peek("k") is None
         cache.get("k", True, lambda: calls.append(1) or "v")
         assert calls == [1, 1]
+
+
+class TestForget:
+    def test_a_forgotten_view_is_loaded_afresh(self):
+        cache = SceneCache()
+        cache.get("k", True, lambda: "old")
+        cache.forget("k")
+        assert cache.peek("k") is None
+        assert cache.get("k", True, lambda: "new") == "new"
+        cache.forget("never there")

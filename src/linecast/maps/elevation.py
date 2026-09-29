@@ -76,7 +76,8 @@ def decode_meters(r: int, g: int, b: int) -> float:
 
 
 def elevation_grid(bbox: tuple[float, float, float, float], w: int, h: int,
-                   timeout: float = 15, camera=None) -> list[list[float | None]]:
+                   timeout: float = 15, camera=None,
+                   missing: list | None = None) -> list[list[float | None]]:
     """Elevation in meters resampled to a w×h grid over `bbox`.
 
     Returns rows of floats; None where no tile data arrived.  Samples are
@@ -91,12 +92,14 @@ def elevation_grid(bbox: tuple[float, float, float, float], w: int, h: int,
     (lat, lon) its inverse projection puts under it, so the elevation
     lands on the sphere the rest of the view is drawn on.  Without one
     the bbox is the grid, exactly as it has always been.
+
+    `missing`, a list, collects the tiles that could not be read.
     """
     # one step past the width-matched zoom: the caller's 2x supersample
     # then box-averages real detail down instead of interpolated guesses
     detail = bbox if camera is None else camera.scale_bbox
     z = min(MAX_ZOOM, _pick_zoom(detail, w, MAX_ZOOM) + 1)
-    grid = _resample(bbox, w, h, z, timeout, camera)
+    grid = _resample(bbox, w, h, z, timeout, camera, missing)
     if z <= BATHY_ZOOM:
         return grid
 
@@ -111,7 +114,7 @@ def elevation_grid(bbox: tuple[float, float, float, float], w: int, h: int,
     # Death Valley) falls back to the z10 data it always rendered from.
     if not any(v is None or v < 1.0 for row in grid for v in row):
         return grid  # nothing near or below sea level: skip the fetch
-    coarse = _resample(bbox, w, h, BATHY_ZOOM, timeout, camera)
+    coarse = _resample(bbox, w, h, BATHY_ZOOM, timeout, camera, missing)
     for row, crow in zip(grid, coarse):
         for x, (v, c) in enumerate(zip(row, crow)):
             if c is not None and (v is None or (c < -1.0 and v < 1.0)):
@@ -119,11 +122,14 @@ def elevation_grid(bbox: tuple[float, float, float, float], w: int, h: int,
     return grid
 
 
-def _resample(bbox, w, h, z, timeout, camera=None):
+def _resample(bbox, w, h, z, timeout, camera=None, missing=None):
     """One zoom level's tiles, bilinearly sampled to a w×h meters grid."""
 
     def fetch(z_, x, y):
-        return _decoded_tile(z_, x, y, timeout)
+        tile = _decoded_tile(z_, x, y, timeout)
+        if tile is None and missing is not None:
+            missing.append((z_, x, y))
+        return tile
 
     coverage = bbox if camera is None else camera.bounds
     stitched = stitch_xyz(fetch, coverage, z)

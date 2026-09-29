@@ -141,6 +141,11 @@ class SceneCache:
         with self._lock:
             self._views.clear()
 
+    def forget(self, key):
+        """Drop the view under `key`, so the next ask loads it afresh."""
+        with self._lock:
+            self._views.pop(key, None)
+
     def _put(self, key, view):
         views = self._views
         views.pop(key, None)

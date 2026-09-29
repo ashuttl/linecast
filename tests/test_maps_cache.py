@@ -255,3 +255,141 @@ class TestDestinationFetches:
         started[0].target()                      # the prefetch lands
         assert views._dest_out[0] == 0
         assert seen == [1, "loaded"]
+
+
+@pytest.fixture
+def mending(monkeypatch):
+    """A live loop on screen, with the rebuilds' threads left in hand
+    and their waits skipped."""
+    started = []
+
+    class Thread:
+        def __init__(self, target=None, args=(), daemon=False):
+            self.target = target
+            started.append(self)
+
+        def start(self):
+            pass
+
+    monkeypatch.setattr(views, "threading",
+                        types.SimpleNamespace(Thread=Thread,
+                                              Lock=threading.Lock))
+    monkeypatch.setattr(views, "time",
+                        types.SimpleNamespace(sleep=lambda s: None))
+    monkeypatch.setattr(views._live, "_running", True)
+    woke = []
+    monkeypatch.setattr(views, "_nudge_repaint", lambda: woke.append(1))
+    monkeypatch.setattr(views.streets, "prefetch_around", lambda *a: None)
+    views._street_cache.clear()
+    views._mends.clear()
+    yield started, woke
+    views._street_cache.clear()
+    views._mends.clear()
+    views._street_built[0] = None
+    views._street_landed[0] = None
+
+
+class TestAViewShortOfATileIsBuiltAgain:
+    """A tile that did not arrive is asked for again, later, rather than
+    leaving a gap for as long as the view is on screen."""
+
+    BBOX = (-70.3, 43.6, -70.2, 43.7)
+
+    def _street(self, monkeypatch, answers):
+        keys = [(14, 1, 1), (14, 2, 1)]
+        monkeypatch.setattr(views.streets, "view_tiles",
+                            lambda *a, **k: (7, 14, keys))
+        asked = []
+
+        def fetch(want):
+            asked.append(list(want))
+            return dict(zip(want, answers.pop(0)))
+
+        monkeypatch.setattr(views.streets, "fetch_tiles", fetch)
+        monkeypatch.setattr(
+            views.streets, "build_street_view",
+            lambda bbox, gw, hc, tiles, *a: (dict(tiles), "layer", {}))
+        return asked
+
+    def test_the_gap_is_filled_by_a_later_build(self, mending, monkeypatch):
+        started, woke = mending
+        asked = self._street(monkeypatch,
+                             [[b"a", None], [b"a", b"b"]])
+        first = views._get_street_tiles(self.BBOX, 8, 4, True)
+        assert first[0][(14, 2, 1)] is None
+        assert len(started) == 1
+        started[0].target()
+        key = views._view_key(self.BBOX, 8, 4) + ("en", ())
+        mended = views._street_cache.peek(key)
+        assert mended[0] == {(14, 1, 1): b"a", (14, 2, 1): b"b"}
+        # it lands as any view does, and wakes a loop at rest
+        assert views.take_street()[3] is mended[0]
+        assert woke == [1]
+        assert len(asked) == 2
+        assert len(started) == 1        # whole now: nothing more to ask
+
+    def test_a_whole_view_is_not_built_again(self, mending, monkeypatch):
+        started, _woke = mending
+        self._street(monkeypatch, [[b"a", b"b"]])
+        views._get_street_tiles(self.BBOX, 8, 4, True)
+        assert started == []
+
+    def test_a_view_left_behind_is_forgotten_instead(self, mending,
+                                                     monkeypatch):
+        started, woke = mending
+        asked = self._street(monkeypatch,
+                             [[b"a", None], [b"a", b"b"]])
+        views._get_street_tiles(self.BBOX, 8, 4, True)
+        views._get_street_tiles((-70.2, 43.6, -70.1, 43.7), 8, 4, True)
+        started[0].target()
+        key = views._view_key(self.BBOX, 8, 4) + ("en", ())
+        # coming back to it is a load of its own, not the gap again
+        assert views._street_cache.peek(key) is None
+        assert len(asked) == 2 and woke == []
+
+    def test_it_stops_asking_after_the_last_try(self, mending, monkeypatch):
+        started, _woke = mending
+        tries = len(views.MEND_AFTER)
+        self._street(monkeypatch, [[b"a", None]] * (tries + 1))
+        views._get_street_tiles(self.BBOX, 8, 4, True)
+        for i in range(tries):
+            started[i].target()
+        assert len(started) == tries
+        assert views._mends == {}
+
+    def test_print_never_waits_to_build_again(self, mending, monkeypatch):
+        started, _woke = mending
+        monkeypatch.setattr(views._live, "_running", False)
+        self._street(monkeypatch, [[b"a", None]])
+        views._get_street_tiles(self.BBOX, 8, 4, True)
+        assert started == []
+
+    def test_a_terrain_view_short_of_elevation_is_shaded_afresh(
+            self, mending, monkeypatch):
+        started, _woke = mending
+        tiles = [None, 12.0]
+
+        def grid(bbox, w, h, camera=None, missing=None):
+            value = tiles.pop(0)
+            if value is None:
+                missing.append((8, 1, 1))
+            return [[value] * w for _ in range(h)]
+
+        monkeypatch.setattr(views, "elevation_grid", grid)
+        monkeypatch.setattr(views, "_tile_water",
+                            lambda *a: (None, None, None, None))
+        monkeypatch.setattr(views, "_builtup_layer", lambda *a: None)
+        views._elev_cache.clear()
+        try:
+            first = views._get_elevation(self.BBOX, 8, 4, True)
+            assert first.elev[0][0] is None
+            views._terrain_cache.put("shaded with the gap", [])
+            started[0].target()
+            key = views._view_key(self.BBOX, 8, 4)
+            assert views._elev_cache.peek(key).elev[0][0] == 12.0
+            # the buffer shaded from the gap is not the one it keeps
+            assert "shaded with the gap" not in views._terrain_cache
+        finally:
+            views._elev_cache.clear()
+            views._terrain_built[0] = None
+            views._terrain_landed[0] = None

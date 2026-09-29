@@ -58,6 +58,7 @@ Notable changes, by release. Notes for the next release collect under **Unreleas
 - Moon: Fixed the next moonrise or moonset in the far north on the few days a year when the Moon rises or sets twice on one date: the view, `--oneline`, and `--json` gave the next day's, or none at all, in place of the second.
 - Moon: Fixed the wait for a moonrise or moonset after the clocks change being an hour out, such as "in 15h 00m" for a moonset sixteen hours off the night the clocks go back.
 - Moon: In a window too short to draw the month view's discs, each day's phase sits beside its own date; it sat just before the next day's and read as that day's.
+- Maps: Fixed a map tile that failed to load on a slow or dropped connection leaving a gap in the street or terrain view for as long as the view stayed put; the tile is asked for again a few seconds later.
 
 ## 2.9.2 — 2026-09-27
 
