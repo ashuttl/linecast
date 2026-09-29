@@ -41,7 +41,7 @@ MANHATTAN_BBOX = (-74.02, 40.70, -73.93, 40.80)
 def failures(capfd):
     """Switch --debug on for the test and return a callable that lists
     the absorbed failures logged so far."""
-    from linecast._runtime import set_debug
+    from linecast._log import set_debug
     set_debug(True)
 
     def collect():

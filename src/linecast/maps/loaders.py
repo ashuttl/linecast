@@ -39,7 +39,7 @@ from linecast.maps.paint import (
     BORDER_STROKE, RIVER_STROKE, build_terrain_buffer,
 )
 from linecast.radar.basemap import _edge_dots
-from linecast._runtime import log_failure
+from linecast._log import log_failure
 from linecast.terminal.scenes import FetchHold, Memo, SceneCache
 
 ZOOM_SETTLE = 0.3        # seconds of zoom quiet before a fetch may start

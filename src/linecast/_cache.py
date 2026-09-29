@@ -8,7 +8,7 @@ import time
 from pathlib import Path
 from typing import Any
 
-from linecast._runtime import log_failure
+from linecast._log import log_failure
 
 
 def write_bytes_atomic(path: Path, data: bytes) -> None:

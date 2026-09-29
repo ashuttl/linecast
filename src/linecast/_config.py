@@ -7,7 +7,8 @@ from pathlib import Path
 from typing import Any
 
 from linecast._paths import config_root
-from linecast._runtime import HOURS_CHOICES, WEEK_STARTS, log_failure
+from linecast._runtime import HOURS_CHOICES, WEEK_STARTS
+from linecast._log import log_failure
 
 
 def config_file() -> Path:

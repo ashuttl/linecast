@@ -11,7 +11,7 @@ import math
 import struct
 from functools import lru_cache
 
-from linecast._runtime import log_failure
+from linecast._log import log_failure
 from linecast.sky.catalogue import _DATA, equatorial_vector
 
 _RECORD = struct.Struct("<IiBbI")

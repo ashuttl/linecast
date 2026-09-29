@@ -20,7 +20,7 @@ from linecast._cache import location_cache_key
 from linecast._http import fetch_bytes, fetch_json_cached
 from linecast._paths import cache_dir
 from linecast._plaintext import plain_text
-from linecast._runtime import log_failure
+from linecast._log import log_failure
 from linecast.weather.cover import REPORT_COVER
 
 _METAR_URL = ("https://aviationweather.gov/api/data/metar"

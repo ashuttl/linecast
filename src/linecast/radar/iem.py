@@ -15,7 +15,7 @@ import datetime
 from linecast._cache import _FUTURE_SLACK, write_bytes_atomic
 from linecast._http import fetch_bytes
 from linecast._paths import cache_dir
-from linecast._runtime import debug_log, log_failure
+from linecast._log import debug_log, log_failure
 
 _WMS = "https://mesonet.agron.iastate.edu/cgi-bin/wms/nexrad/n0q-t.cgi"
 _LAYER = "nexrad-n0q-wmst"

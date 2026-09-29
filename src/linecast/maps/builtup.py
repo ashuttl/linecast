@@ -23,7 +23,7 @@ from linecast.maps.tile_cache import note_tile_use
 from linecast._paths import cache_dir
 from linecast._png import DecodeMemo, decode_rgba
 from linecast.radar.tiles import _pick_zoom, reproject_xyz, stitch_xyz
-from linecast._runtime import log_failure
+from linecast._log import log_failure
 
 MAX_ZOOM = 9  # the published pyramid's floor: ~300 m per pixel, plenty for a tint
 

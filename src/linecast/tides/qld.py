@@ -21,7 +21,7 @@ from typing import Any
 from linecast._cache import location_cache_key, read_cache, read_stale, write_cache
 from linecast._geo import haversine_nm
 from linecast._http import fetch_json
-from linecast._runtime import log_failure, log_skipped
+from linecast._log import log_failure, log_skipped
 from linecast.tides.common import (
     M_TO_FT, NEAREST_STATION_MAX_NM, cache_dir, cached_y_range, dedup_sorted,
     label_hilo, nearest_station, parse_cached_dt, station_coords,

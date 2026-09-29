@@ -25,7 +25,7 @@ from typing import Callable, Optional
 from linecast._cache import location_cache_key, read_cache
 from linecast._http import HTTPError, fetch_json, fetch_json_cached
 from linecast._paths import cache_dir
-from linecast._runtime import debug_log, log_skipped
+from linecast._log import debug_log, log_skipped
 
 _HISTORY_YEARS = 10
 _CACHE_MAX_AGE = 7 * 86400  # 7 days — historical data doesn't change

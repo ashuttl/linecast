@@ -41,7 +41,7 @@ from linecast._http import MAX_BODY_BYTES, fetch_bytes, fetch_json, gunzip_limit
 from linecast.maps.tile_cache import note_tile_use
 from linecast._paths import cache_dir
 from linecast.radar.tiles import _lonlat_to_world
-from linecast._runtime import debug_log, log_failure
+from linecast._log import debug_log, log_failure
 
 DEFAULT_TILEJSON_URL = "https://tiles.openfreemap.org/planet"
 FALLBACK_TILEJSON_URL = "https://tiles.openstreetmap.us/vector/openmaptiles.json"

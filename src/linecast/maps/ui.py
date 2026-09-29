@@ -42,7 +42,7 @@ from linecast.terminal import theme as _theme
 from linecast.terminal.theme import ensure_contrast, surface_bg
 from linecast.maps.vtiles import ATTRIBUTION as TILE_ATTRIBUTION
 from linecast.radar.ui import CROSSHAIR, DIM, MUTED
-from linecast._runtime import log_failure
+from linecast._log import log_failure
 
 MIN_CHARS = 2          # below this, asking is noise for both of us
 DEBOUNCE = 0.28        # seconds of quiet before a keystroke becomes a query

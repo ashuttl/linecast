@@ -22,7 +22,7 @@ import threading
 import time
 
 from linecast.terminal.live import nudge
-from linecast._runtime import log_failure
+from linecast._log import log_failure
 
 
 class Memo:

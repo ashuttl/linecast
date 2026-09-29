@@ -56,7 +56,7 @@ from linecast.terminal.live import nudge as _nudge_repaint
 from linecast._paths import cache_dir, data_path
 from linecast.radar.basemap import _BITS, DotLayer, _bresenham, _load_data
 from linecast.radar.tiles import _TILE_SIZE
-from linecast._runtime import log_failure
+from linecast._log import log_failure
 from linecast.terminal.scenes import Memo
 
 # mask bits, one texel to a byte

@@ -7,6 +7,7 @@ from unittest.mock import patch
 
 from linecast import _config
 from linecast.settings import units
+from linecast import _log
 from linecast import _runtime
 from linecast._runtime import (
     RuntimeConfig, TidesRuntime, WeatherRuntime, current_runtime,
@@ -192,7 +193,7 @@ class CurrentRuntimeTests(ConfigDirMixin):
         self.assertTrue(rt.celsius)
         self.assertTrue(rt.metric)
         self.assertEqual(rt.lang, "en")
-        self.assertFalse(_runtime._DEBUG)
+        self.assertFalse(_log.debug_enabled())
 
     def test_returns_the_runtime_main_stashed(self):
         rt = WeatherRuntime.from_sources(_weather_args("--print", "--celsius"),

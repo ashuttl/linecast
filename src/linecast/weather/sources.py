@@ -11,7 +11,8 @@ from linecast._http import fetch_json, fetch_json_cached
 from linecast._i18n import accept_language, base_language, geocoder_language
 from linecast._paths import cache_dir
 from linecast._plaintext import plain_text
-from linecast._runtime import WeatherRuntime, current_runtime, log_failure
+from linecast._runtime import WeatherRuntime, current_runtime
+from linecast._log import log_failure
 
 # The forecast, the air quality, and the geocoder are Open-Meteo's, and
 # its CC BY 4.0 terms ask for a line on screen. The alerts are the

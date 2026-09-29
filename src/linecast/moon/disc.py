@@ -11,7 +11,7 @@ import time
 from linecast.terminal import live as _live
 from linecast.terminal import theme as _theme
 from linecast.terminal.color import lerp
-from linecast._runtime import log_failure
+from linecast._log import log_failure
 from linecast.terminal.theme import darken
 from linecast.moon.palette import MOON_LIT_RGB, MOON_SHADOW_RGB
 

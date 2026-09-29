@@ -46,9 +46,9 @@ from linecast._i18n import GEOCODER_UNTRANSLATED, fmt_decimal
 from linecast._location import country_for_defaults, resolve_location
 from linecast._plaintext import plain_text
 from linecast._runtime import (
-    TidesRuntime, current_runtime, install_banner, log_failure, set_current,
-    tides_parser,
+    TidesRuntime, current_runtime, install_banner, set_current, tides_parser,
 )
+from linecast._log import log_failure
 from linecast.terminal.spinner import Spinner
 from linecast.tides.marine import fetch_marine, parse_marine_current, format_marine_line
 from linecast.tides.common import sweep_legacy_cache

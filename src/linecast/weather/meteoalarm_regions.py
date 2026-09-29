@@ -26,7 +26,7 @@ import struct
 from array import array
 
 from linecast._paths import data_path
-from linecast._runtime import log_failure
+from linecast._log import log_failure
 
 _PATH = data_path("meteoalarm_regions.bin.gz")
 _SCALE = 1e-5

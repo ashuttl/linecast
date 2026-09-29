@@ -10,7 +10,7 @@ import struct
 import zlib
 
 from linecast._paths import data_path
-from linecast._runtime import log_failure
+from linecast._log import log_failure
 
 ATTRIBUTION = "Lights: NASA/GSFC (2016)"
 _PATH = data_path("night_lights.bin")

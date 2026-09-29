@@ -70,7 +70,7 @@ from linecast.radar.ui import (
     CROSSHAIR, DIM, MUTED, _panned_place, _shift_grid,
 )
 from linecast._geo import wrap_lon
-from linecast._runtime import log_failure
+from linecast._log import log_failure
 from linecast.terminal.scenes import Memo
 
 # Zoom is degrees of latitude top to bottom.  The floor used to be 0.1

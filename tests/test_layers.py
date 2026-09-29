@@ -26,7 +26,7 @@ from pathlib import Path
 SRC = Path(__file__).resolve().parent.parent / "src" / "linecast"
 COMMANDS = {"weather", "sunshine", "moon", "sky", "tides", "radar", "maps"}
 LAYERS = {
-    **dict.fromkeys(("__init__", "_paths", "_plaintext", "_geo", "_png", "_i18n",
+    **dict.fromkeys(("__init__", "_paths", "_plaintext", "_geo", "_png", "_i18n", "_log",
                      "locales"), 0),
     **dict.fromkeys(("_cache", "_http", "_config", "_location"), 1),
     **dict.fromkeys(("terminal", "astro", "_runtime", "_commands"), 2),
@@ -36,9 +36,8 @@ LAYERS = {
 
 # (importer, imported module): the upward imports that stand for now.
 UPWARD = {
-    # _log.py out of _runtime (2.1)
-    ("_cache", "_runtime"): "2.1", ("_http", "_runtime"): "2.1",
-    ("_config", "_runtime"): "2.1", ("_location", "_runtime"): "2.1",
+    # the choices move to _config (2.1)
+    ("_config", "_runtime"): "2.1",
     # the choices move to _config (2.1)
     ("_config", "astro.calendars.civil"): "2.1", ("_config", "terminal.bidi"): "2.1",
     # the unit labels' words, and radar's themes for its parser (kept)

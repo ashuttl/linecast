@@ -15,7 +15,7 @@ from typing import Any
 from linecast import _paths
 from linecast._cache import read_cache, read_stale, write_cache
 from linecast._geo import haversine_nm
-from linecast._runtime import log_failure
+from linecast._log import log_failure
 
 M_TO_FT = 1 / 0.3048
 NEAREST_STATION_CACHE_MAX_AGE = 3600

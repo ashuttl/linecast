@@ -172,7 +172,7 @@ class TestLoaderFailsSoft:
 
     @pytest.fixture(autouse=True)
     def _debug(self, mr):
-        from linecast._runtime import set_debug
+        from linecast._log import set_debug
         set_debug(True)
         yield
         set_debug(False)

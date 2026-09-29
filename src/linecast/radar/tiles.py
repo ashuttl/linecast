@@ -25,7 +25,7 @@ from linecast._cache import is_fresh, write_bytes_atomic
 from linecast._http import fetch_bytes, fetch_bytes_cached
 from linecast._paths import cache_dir
 from linecast._png import decode_rgba
-from linecast._runtime import log_failure
+from linecast._log import log_failure
 
 _TILE_SIZE = 256
 _TILE_WORKERS = 12   # tile fetches in flight across the whole process
@@ -79,7 +79,7 @@ class Provider:
         self.color = color          # colour scheme id baked into tile pixels
         self.options = options      # {smooth}_{snow}
         self.max_zoom = max_zoom
-        # the provider's name in the debug log (see _runtime.log_failure)
+        # the provider's name in the debug log (see _log.log_failure)
         self.tag = _TAGS.get(name.split("-", 1)[0], "radar/" + name)
 
 

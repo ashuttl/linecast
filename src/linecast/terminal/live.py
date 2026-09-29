@@ -575,7 +575,7 @@ class WorkerWatch:
     def _hook(self, args):
         try:
             import traceback
-            from linecast._runtime import log_failure
+            from linecast._log import log_failure
             exc = args.exc_value
             if exc is None:
                 exc = args.exc_type()
@@ -592,7 +592,7 @@ class WorkerWatch:
         """What died, on stderr, once the screen is the user's again."""
         if not self.failures:
             return
-        from linecast._runtime import debug_enabled
+        from linecast._log import debug_enabled
         stream = sys.stderr if stream is None else stream
         try:
             if debug_enabled():

@@ -26,7 +26,7 @@ from typing import Any
 
 from linecast._cache import location_cache_key, read_cache, read_stale, write_cache
 from linecast._http import fetch_json, fetch_json_cached
-from linecast._runtime import log_failure, log_skipped
+from linecast._log import log_failure, log_skipped
 from linecast.tides.common import (
     M_TO_FT, NEAREST_STATION_CACHE_MAX_AGE, cache_dir, cached_y_range,
     iana_to_abbr, parse_cached_dt, parse_utc_iso, tz_offset_hours,

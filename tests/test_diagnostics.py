@@ -23,20 +23,20 @@ def _mod(name):
 
 @pytest.fixture
 def debug(monkeypatch):
-    monkeypatch.setattr(_mod("_runtime"), "_DEBUG", True)
+    monkeypatch.setattr(_mod("_log"), "_DEBUG", True)
 
 
 @pytest.fixture
 def quiet(monkeypatch):
-    monkeypatch.setattr(_mod("_runtime"), "_DEBUG", False)
+    monkeypatch.setattr(_mod("_log"), "_DEBUG", False)
 
 
 def log_failure(*args, **kwargs):
-    return _mod("_runtime").log_failure(*args, **kwargs)
+    return _mod("_log").log_failure(*args, **kwargs)
 
 
 def log_skipped(*args, **kwargs):
-    return _mod("_runtime").log_skipped(*args, **kwargs)
+    return _mod("_log").log_skipped(*args, **kwargs)
 
 
 def redact_url(url):

@@ -35,7 +35,7 @@ from linecast.radar.iem import fetch_frame, frame_times
 from linecast.radar import tiles
 from linecast.radar import palettes
 from linecast.radar import ub
-from linecast._runtime import log_failure
+from linecast._log import log_failure
 
 # rough lower-48 bounding box; IEM/NEXRAD coverage
 _CONUS = (-127.0, 23.0, -65.0, 50.0)

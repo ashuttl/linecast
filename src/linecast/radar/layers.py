@@ -25,7 +25,7 @@ from linecast._geo import wrap_lon
 from linecast.terminal.color import lerp, interp_stops, BG_PRIMARY
 from linecast._http import fetch_json
 from linecast._paths import cache_dir
-from linecast._runtime import log_failure
+from linecast._log import log_failure
 
 # lattice resolution: 10x6 keeps one fetch cheap while resolving synoptic
 # gradients (~0.6° spacing at the default 6° zoom)

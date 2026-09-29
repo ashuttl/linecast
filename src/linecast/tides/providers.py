@@ -15,7 +15,7 @@ from linecast.tides import noaa
 from linecast.tides import openmeteo
 from linecast.tides import qld
 from linecast.tides import tidecheck
-from linecast._runtime import log_failure
+from linecast._log import log_failure
 
 # Full names for the state/territory abbreviations NOAA stations carry, so
 # queries like "portland maine" match "PORTLAND, ME".

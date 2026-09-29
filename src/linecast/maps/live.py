@@ -35,7 +35,8 @@ from linecast.maps.loaders import (
     _zoom_hold, globe_warm, recentres, warm_globe_texture,
 )
 from linecast.radar.render import bbox_for
-from linecast._runtime import RuntimeConfig, log_failure, maps_parser, set_current
+from linecast._runtime import RuntimeConfig, maps_parser, set_current
+from linecast._log import log_failure
 from linecast.maps.view import (
     MAX_ZOOM_DEG, MIN_ZOOM_DEG, ZOOM_STEP, fit_view, map_cells, max_zoom,
     prefetch_view, render_map, wide_source,

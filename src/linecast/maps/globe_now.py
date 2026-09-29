@@ -35,7 +35,7 @@ from linecast.radar import tiles
 from linecast._geo import wrap_lon
 from linecast.maps.globe import _aspect, _source_zoom, bilinear_taps, geometry
 from linecast._png import decode_rgba
-from linecast._runtime import log_failure
+from linecast._log import log_failure
 from linecast.terminal.scenes import Memo
 from linecast.terminal.theme import themed
 from linecast.sunshine.solar import _declination

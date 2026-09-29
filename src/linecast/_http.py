@@ -30,7 +30,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from linecast._cache import is_fresh, read_cache, read_stale, write_bytes_atomic, write_cache
-from linecast._runtime import debug_enabled, debug_log, log_failure, redact_url
+from linecast._log import debug_enabled, debug_log, log_failure, redact_url
 
 if TYPE_CHECKING:
     import http.client

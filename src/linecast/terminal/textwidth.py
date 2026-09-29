@@ -362,7 +362,7 @@ def calibrate_from_terminal(timeout_s=None):
         except Exception:
             pass
 
-    from linecast._runtime import debug_log
+    from linecast._log import debug_log
     answers = dict(zip((name for name, _text in _PROBES), widths))
     if not answers:
         debug_log("text width: the terminal did not answer the probe")

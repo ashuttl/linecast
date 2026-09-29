@@ -13,7 +13,7 @@ its coast's family, not a default.
 """
 
 from linecast._paths import data_path
-from linecast._runtime import log_failure
+from linecast._log import log_failure
 
 HUMID, SEMIARID, ARID, POLAR = range(4)
 

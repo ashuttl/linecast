@@ -10,7 +10,7 @@ from linecast._config import saved_location
 from linecast._http import fetch_json, fetch_json_cached
 from linecast._paths import cache_dir
 from linecast._plaintext import plain_text
-from linecast._runtime import log_failure
+from linecast._log import log_failure
 
 _MAX_AGE = 3600  # 1 hour; implicit IP geolocation should refresh as users move.
 

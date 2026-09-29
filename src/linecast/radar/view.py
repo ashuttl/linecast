@@ -48,7 +48,8 @@ from linecast.radar.ui import (
     CROSSHAIR, DIM, MARKER, MUTED, _ShiftedBasemap, _build_warning_tooltip, _fmt_local,
     _get_basemap, _panned_place, _shift_grid, _theme_menu_overlay, _timeline_bar,
 )
-from linecast._runtime import log_failure, use_metric
+from linecast._runtime import use_metric
+from linecast._log import log_failure
 from linecast.terminal.textwidth import visible_len
 from linecast.terminal.spinner import SPINNER_FRAMES
 

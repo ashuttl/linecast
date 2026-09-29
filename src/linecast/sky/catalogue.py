@@ -19,7 +19,7 @@ import json
 import math
 import struct
 from linecast._paths import data_path
-from linecast._runtime import log_failure
+from linecast._log import log_failure
 from linecast._i18n import base_language, setting
 
 _DATA = data_path()

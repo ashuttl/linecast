@@ -12,7 +12,8 @@ from linecast._i18n import (
 )
 from linecast.terminal.color import RESET
 from linecast.terminal.textwidth import visible_len
-from linecast._runtime import WeatherRuntime, current_runtime, log_failure, log_skipped
+from linecast._runtime import WeatherRuntime, current_runtime
+from linecast._log import log_failure, log_skipped
 from linecast.terminal.textwidth import wrap_display_width
 from linecast.weather.cover import sky_condition
 from linecast.weather.i18n import (

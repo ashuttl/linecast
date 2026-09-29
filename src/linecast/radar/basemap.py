@@ -20,7 +20,7 @@ import os
 
 from linecast.terminal import theme as _theme
 from linecast._paths import data_path
-from linecast._runtime import log_failure
+from linecast._log import log_failure
 from linecast.terminal.textwidth import char_width
 from linecast.terminal.theme import is_light_theme, lerp_rgb
 from linecast._i18n import base_language

@@ -37,7 +37,7 @@ import shutil
 import time
 
 from linecast._paths import cache_dir
-from linecast._runtime import log_failure
+from linecast._log import log_failure
 
 # Generous for the way the tool is used -- a home region in detail and
 # the odd trip elsewhere -- and small enough that the cache stays

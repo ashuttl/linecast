@@ -3,7 +3,7 @@
 import threading
 import time
 
-from linecast._runtime import debug_log
+from linecast._log import debug_log
 
 
 class RateLimit:

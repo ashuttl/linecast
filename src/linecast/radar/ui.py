@@ -24,7 +24,8 @@ from linecast.radar.basemap import (
 from linecast.radar.i18n import rs
 from linecast.radar.render import _bbox_key
 from linecast.radar.sources import THEMES, is_local
-from linecast._runtime import log_failure, use_metric
+from linecast._runtime import use_metric
+from linecast._log import log_failure
 from linecast.terminal.scenes import Memo
 
 MUTED = _live.MUTED

@@ -16,7 +16,7 @@ from linecast.terminal.theme import (
     neutral_tone,
     surface_bg,
 )
-from linecast._runtime import log_failure
+from linecast._log import log_failure
 from linecast.weather.i18n import FULL_DAY_NAMES
 from linecast.astro.ephemeris import _moon_events_for_local_date
 from linecast.sunshine.solar import daylight_factor as solar_daylight_factor
