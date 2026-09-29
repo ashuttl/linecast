@@ -2263,7 +2263,9 @@ def _freeze(hourly, current, now, runtime, after=None):
     if now_temp <= freezing:
         return "", None
     i, dt = min(hours, key=lambda h: temps[h[0]])
-    if temps[i] > freezing:
+    # Judged on the low as it is written: "below freezing, down to 32°"
+    # would contradict itself
+    if round(temps[i]) >= freezing:
         return "", None
     return (_ucfirst(_s("freeze_tonight", runtime, temp=_degrees(temps[i], runtime, signed=True),
                         time=_period_phrase(dt, now, runtime, after=after))), dt)

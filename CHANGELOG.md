@@ -32,6 +32,7 @@ Notable changes, by release. Notes for the next release collect under **Unreleas
 - Weather: Fixed blowing or drifting snow at a nearby weather station being shown as falling snow, in the conditions and in the forecast in words.
 - Weather: Fixed temperatures just below zero showing as "-0°".
 - Weather: Fixed a day of rain with a little snow in it giving its amount as the snow, such as "Snow 0.0″", in the daily forecast and its hover; it gives the rain's amount unless most of the day's precipitation is snow. The year view's hover does the same.
+- Weather: Fixed the forecast in words saying "Below freezing overnight, down to 32°" for a low that rounds to freezing itself.
 
 ## 2.9.2 — 2026-09-27
 

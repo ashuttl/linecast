@@ -1352,6 +1352,19 @@ class TestMoreToSay:
                                _runtime(lang="hu", celsius=True, metric=True)) == \
             "Holnap kora reggel fagypont alá, −2\u00a0fokig süllyed a hőmérséklet"
 
+    def test_a_low_that_rounds_to_freezing_is_not_below_it(self):
+        # "Below freezing overnight, down to 32°" contradicts itself
+        from linecast.weather.sections import freeze_sentence
+        now = datetime(2026, 7, 15, 20, 10)
+        for low in (32.0, 31.6):
+            temps = [40, 38, 36, 34, low, 33, 35]
+            hourly = self._hourly(datetime(2026, 7, 15, 20), len(temps), temperature_2m=temps)
+            assert freeze_sentence(hourly, {"temperature_2m": 41}, now, _runtime()) == ""
+        temps = [4, 2, 1, -0.4, 0.2, 2]
+        hourly = self._hourly(datetime(2026, 7, 15, 20), len(temps), temperature_2m=temps)
+        assert freeze_sentence(hourly, {"temperature_2m": 5}, now,
+                               _runtime(celsius=True, metric=True)) == ""
+
     def test_already_freezing_says_nothing(self):
         from linecast.weather.sections import freeze_sentence
         hourly = self._hourly(NOON, 6, temperature_2m=[30, 28, 26, 25, 25, 26])
