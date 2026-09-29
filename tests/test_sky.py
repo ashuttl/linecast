@@ -3,11 +3,12 @@
 import math
 import re
 from datetime import datetime, timedelta, timezone
-from pathlib import Path
 from unittest.mock import patch
 from zoneinfo import ZoneInfo
 
 import pytest
+
+from conftest import assert_snapshot
 
 from linecast.sky import view as sky
 from linecast.sky.planets import PLANETS, planet_position
@@ -18,7 +19,6 @@ from linecast.sky.view import (
     horizontal_matrix, horizontal_vector, parse_facing, project, render, unproject,
 )
 
-SNAPSHOTS = Path(__file__).parent / "snapshots"
 TZ = timezone(timedelta(hours=-4))
 LAT, LNG = 43.68, -70.32   # Westbrook, Maine
 NIGHT = datetime(2026, 9, 5, 22, 0, tzinfo=TZ)
@@ -338,12 +338,7 @@ def _frame(now, cols, rows, lang="en", **kwargs):
 
 class TestFrame:
     def test_snapshot_80x24(self):
-        out = _strip(_frame(NIGHT, 80, 24))
-        path = SNAPSHOTS / "sky_80x24.txt"
-        if not path.exists():
-            path.write_text(out, encoding="utf-8")
-        assert out == path.read_text(encoding="utf-8"), (
-            "Snapshot mismatch. Delete tests/snapshots/sky_80x24.txt and re-run to update.")
+        assert_snapshot("sky_80x24.txt", _strip(_frame(NIGHT, 80, 24)))
 
     def test_night_frame_names_what_is_there(self):
         out = _strip(_frame(NIGHT, 100, 30))

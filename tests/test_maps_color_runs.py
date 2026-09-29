@@ -236,7 +236,7 @@ def _snapshot_frames(monkeypatch, compact):
     if not compact:
         monkeypatch.setattr(maps, 'compact_colors', lambda out: out)
     frames = {}
-    monkeypatch.setattr(snapshots, '_compare_or_create',
+    monkeypatch.setattr(snapshots, 'assert_snapshot',
                         lambda name, out: frames.__setitem__(
                             name, out.replace('\\e', '\x1b')))
     case = snapshots.TestMapsSnapshot()

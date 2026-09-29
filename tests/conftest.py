@@ -163,6 +163,30 @@ def unsearchable(path):
     _restrict(path, 0o000, os.X_OK, "searches")
 
 
+SNAPSHOTS = Path(__file__).parent / "snapshots"
+
+
+def assert_snapshot(name, text):
+    """Compare *text* with tests/snapshots/*name*.
+
+    A missing snapshot is written, and the test passes: that is how a
+    new view gets one, and how a deliberate change to a view is taken
+    (delete the file, run the test, read the diff). Under CI a missing
+    snapshot fails instead, so a file deleted by accident cannot pass.
+    """
+    path = SNAPSHOTS / name
+    if not path.exists():
+        if os.environ.get("CI"):
+            pytest.fail(f"tests/snapshots/{name} is missing: run the test "
+                        "locally to write it, and commit it")
+        SNAPSHOTS.mkdir(exist_ok=True)
+        path.write_text(text, encoding="utf-8")
+        return
+    assert text == path.read_text(encoding="utf-8"), (
+        f"Snapshot mismatch for {name}. Delete tests/snapshots/{name} "
+        "and re-run to update.")
+
+
 def _blocked(*args, **kwargs):
     raise OSError("network blocked by tests/conftest.py; "
                   "mark the test @pytest.mark.integration to allow it")

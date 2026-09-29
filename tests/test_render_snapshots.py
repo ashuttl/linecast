@@ -1,11 +1,15 @@
 """Snapshot tests for rendering output.
 
 These tests render with fixed data, fixed terminal size, and a pinned clock,
-then compare the ANSI-stripped text output against a stored reference.  If the
-reference file doesn't exist yet, the first run creates it (test passes).
+then compare the ANSI-stripped text output against a stored reference
+(conftest.assert_snapshot).  A missing reference is written by the first
+run, and fails under CI.
 
 To regenerate snapshots after an intentional rendering change:
     rm tests/snapshots/*.txt && pytest tests/test_render_snapshots.py
+
+The text alone is compared here, except on the maps, where colour is the
+picture. scripts/golden.py checks every byte, colour included.
 """
 
 import json
@@ -15,9 +19,10 @@ from datetime import datetime
 from pathlib import Path
 from unittest.mock import patch
 
+from conftest import assert_snapshot
+
 
 FIXTURES = Path(__file__).parent / "fixtures"
-SNAPSHOTS = Path(__file__).parent / "snapshots"
 
 # Fixed "now" for deterministic rendering
 FIXED_NOW = datetime(2026, 3, 5, 14, 30)
@@ -35,18 +40,6 @@ def _load_fixture(name):
     return json.loads((FIXTURES / name).read_text(encoding="utf-8"))
 
 
-def _read_snapshot(name):
-    path = SNAPSHOTS / name
-    if path.exists():
-        return path.read_text(encoding="utf-8")
-    return None
-
-
-def _write_snapshot(name, content):
-    SNAPSHOTS.mkdir(exist_ok=True)
-    (SNAPSHOTS / name).write_text(content, encoding="utf-8")
-
-
 def _sphere(lat_deg, lon_deg):
     """A unit-sphere point in the Moon's frame from selenographic coordinates."""
     lat, lon = math.radians(lat_deg), math.radians(lon_deg)
@@ -57,18 +50,6 @@ def _sphere(lat_deg, lon_deg):
 def _max_channel_gap(a, b):
     return max(abs(pa[i] - pb[i])
                for ra, rb in zip(a, b) for pa, pb in zip(ra, rb) for i in range(3))
-
-
-def _compare_or_create(snapshot_name, actual):
-    """Compare against stored snapshot, or create it on first run."""
-    stored = _read_snapshot(snapshot_name)
-    if stored is None:
-        _write_snapshot(snapshot_name, actual)
-        return  # first run -- snapshot created
-    assert actual == stored, (
-        f"Snapshot mismatch for {snapshot_name}. "
-        f"Delete tests/snapshots/{snapshot_name} and re-run to update."
-    )
 
 
 def _weather_render(cols, rows, runtime, fixture="open_meteo_forecast.json",
@@ -105,11 +86,11 @@ class TestWeatherSnapshot:
 
     def test_weather_80x24(self):
         output = _weather_render(80, 24, self._make_runtime())
-        _compare_or_create("weather_80x24.txt", output)
+        assert_snapshot("weather_80x24.txt", output)
 
     def test_weather_120x40(self):
         output = _weather_render(120, 40, self._make_runtime())
-        _compare_or_create("weather_120x40.txt", output)
+        assert_snapshot("weather_120x40.txt", output)
 
     def _toronto_archive(self):
         # A typical Toronto year's extremes, in the fixture's units.
@@ -120,7 +101,7 @@ class TestWeatherSnapshot:
     def test_weather_80x24_climate(self):
         output = _weather_render(80, 24, self._make_runtime(temp_range="climate"),
                                  historical=self._toronto_archive())
-        _compare_or_create("weather_80x24_climate.txt", output)
+        assert_snapshot("weather_80x24_climate.txt", output)
 
     def test_weather_auto_adapts_to_the_graph_height(self):
         # Reuse the runtime across resizes, as the live dashboard does.
@@ -143,22 +124,22 @@ class TestWeatherSnapshot:
     def test_weather_80x24_climate_without_archive_is_the_forecast(self):
         # No archive answer: the graph falls back to the forecast's own range.
         output = _weather_render(80, 24, self._make_runtime(temp_range="climate"))
-        _compare_or_create("weather_80x24.txt", output)
+        assert_snapshot("weather_80x24.txt", output)
 
     def test_weather_80x24_world(self):
         output = _weather_render(80, 24, self._make_runtime(temp_range="world"))
-        _compare_or_create("weather_80x24_world.txt", output)
+        assert_snapshot("weather_80x24_world.txt", output)
 
     def test_weather_metric_french(self):
         runtime = self._make_runtime(lang="fr", celsius=True, metric=True)
         output = _weather_render(80, 24, runtime)
-        _compare_or_create("weather_metric_fr_80x24.txt", output)
+        assert_snapshot("weather_metric_fr_80x24.txt", output)
 
     def test_weather_metric_french_climate(self):
         runtime = self._make_runtime(lang="fr", celsius=True, metric=True,
                                      temp_range="climate")
         output = _weather_render(80, 24, runtime, historical=self._toronto_archive())
-        _compare_or_create("weather_metric_fr_80x24_climate.txt", output)
+        assert_snapshot("weather_metric_fr_80x24_climate.txt", output)
 
 # -----------------------------------------------------------------------
 # Sunshine rendering snapshot
@@ -186,7 +167,7 @@ class TestSunshineSnapshot:
                 runtime=runtime,
             )
         stripped = _strip_ansi(output)
-        _compare_or_create("sunshine_80x24.txt", stripped)
+        assert_snapshot("sunshine_80x24.txt", stripped)
 
     def test_sunshine_year_80x24(self):
         from datetime import datetime
@@ -207,7 +188,7 @@ class TestSunshineSnapshot:
              patch("linecast.sunshine.solar._local_today", return_value=now.date()):
             output = render_year(43.7, -79.4, now, runtime, tz=tz,
                                  location_label="Toronto")
-        _compare_or_create("sunshine_year_80x24.txt", _strip_ansi(output))
+        assert_snapshot("sunshine_year_80x24.txt", _strip_ansi(output))
 
     def test_sunshine_year_polar_80x24(self):
         """Longyearbyen in March: both polar seasons in one field."""
@@ -225,7 +206,7 @@ class TestSunshineSnapshot:
              patch("linecast.sunshine.solar._local_today", return_value=now.date()):
             output = render_year(78.22, 15.65, now, runtime, tz=tz,
                                  location_label="Longyearbyen")
-        _compare_or_create("sunshine_year_polar_80x24.txt", _strip_ansi(output))
+        assert_snapshot("sunshine_year_polar_80x24.txt", _strip_ansi(output))
 
 
 # -----------------------------------------------------------------------
@@ -249,10 +230,10 @@ class TestMoonSnapshot:
         return _strip_ansi(output)
 
     def test_moon_80x24(self):
-        _compare_or_create("moon_80x24.txt", self._render("en"))
+        assert_snapshot("moon_80x24.txt", self._render("en"))
 
     def test_moon_80x24_french(self):
-        _compare_or_create("moon_fr_80x24.txt", self._render("fr"))
+        assert_snapshot("moon_fr_80x24.txt", self._render("fr"))
 
     def test_moon_scrubbed_shows_simulated_time(self):
         """Scrubbing must label the simulated moment and the way back."""
@@ -567,6 +548,131 @@ class TestMoonSnapshot:
 
 
 # -----------------------------------------------------------------------
+# The moon's month, the weather's year, tides and radar
+# -----------------------------------------------------------------------
+class TestMoonMonthSnapshot:
+    def test_moon_month_80x24(self):
+        from datetime import timedelta, timezone
+        from linecast.moon.calendar import render_calendar
+        from linecast._runtime import RuntimeConfig
+
+        runtime = RuntimeConfig(live=False, icons="emoji", lang="en", oneline=False,
+                                week_start="sunday")
+        now = datetime(2026, 3, 5, 14, 30, tzinfo=timezone(timedelta(hours=-5)))
+        with patch("linecast.moon.calendar.get_terminal_size", return_value=(80, 24)):
+            output = render_calendar(now, 43.7, -79.4, runtime)
+        assert_snapshot("moon_month_80x24.txt", _strip_ansi(output))
+
+
+class TestWeatherYearSnapshot:
+    def test_weather_year_80x24(self):
+        from datetime import date, timedelta
+        from linecast._runtime import WeatherRuntime
+        from linecast.weather import year
+
+        def archive(first, last):
+            days = [first + timedelta(days=k) for k in range((last - first).days + 1)]
+            season = [math.cos((d.timetuple().tm_yday - 200) / 58.1) for d in days]
+            wobble = [((d.toordinal() * 7919) % 17 - 8) / 2 for d in days]
+            return {"daily": {
+                "time": [d.isoformat() for d in days],
+                "temperature_2m_max": [55 + 28 * s + w for s, w in zip(season, wobble)],
+                "temperature_2m_min": [38 + 25 * s + w / 2 for s, w in zip(season, wobble)],
+                "precipitation_sum": [((d.toordinal() * 31) % 11) / 20 for d in days],
+            }}
+
+        today = date(2026, 9, 26)
+        climate = year.climate_from_archive(
+            archive(date(2016, 1, 1), date(2025, 12, 31)), (2016, 2025))
+        days = year.year_days(archive(date(2026, 1, 1), today - timedelta(days=1)),
+                              None, today)
+        runtime = WeatherRuntime(live=False, icons="plain", lang="en", oneline=False,
+                                 celsius=False, metric=False, shading=False, use_24h=False)
+        with patch.object(year, "get_terminal_size", return_value=(80, 24)):
+            output = year.render_year(climate, days, runtime, location_name="Westbrook")
+        assert_snapshot("weather_year_80x24.txt", _strip_ansi(output))
+
+
+class TestTidesSnapshot:
+    def test_tides_80x24(self):
+        from datetime import timedelta
+        from linecast._runtime import TidesRuntime
+        from linecast.tides import view as tides
+        from linecast.tides.providers import NOAA
+
+        # A semidiurnal tide with a small daily inequality, at six minutes.
+        start = datetime(2026, 3, 3)
+        preds = []
+        for k in range(4 * 240):
+            h = k / 10
+            preds.append((start + timedelta(minutes=6 * k),
+                          round(4.6 + 4.4 * math.cos(2 * math.pi * (h - 3.1) / 12.42)
+                                + 0.7 * math.cos(2 * math.pi * h / 12.0), 3)))
+        hilo = [(t, v, "H" if v > a else "L")
+                for (_, a), (t, v), (_, b) in zip(preds, preds[1:], preds[2:])
+                if (v > a and v >= b) or (v < a and v <= b)]
+        runtime = TidesRuntime(live=False, icons="emoji", lang="en", metric=False,
+                               oneline=False)
+        with patch.object(tides, "_station_now", return_value=datetime(2026, 3, 5, 14, 30)), \
+             patch.object(tides, "get_terminal_size", return_value=(80, 24)):
+            output = tides.render("8418150", "Portland, ME", runtime=runtime,
+                                  predictions=preds, hilo=hilo, y_range=(-0.8, 10.4),
+                                  provider=NOAA)
+        assert_snapshot("tides_80x24.txt", _strip_ansi(output))
+
+
+class TestRadarSnapshot:
+    class Storm:
+        """One storm, over the same place in every frame."""
+        theme = None
+        attribution = label = "stub"
+
+        def current_frames(self):
+            from datetime import timedelta, timezone
+            from linecast.radar.sources import Frame
+            t0 = datetime(2026, 3, 5, 19, 0, tzinfo=timezone.utc)
+            return [Frame(t0 + timedelta(minutes=10 * i), i) for i in range(4)]
+
+        def frame_rgba(self, bbox, gw, hc, frame):
+            w, h = gw, hc * 2
+            rgba = bytearray(w * h * 4)
+            for y in range(h):
+                for x in range(w):
+                    d = ((x - w * 0.4) ** 2 + ((y - h * 0.55) * 1.6) ** 2) ** 0.5 / (w / 5)
+                    if d < 1.0:
+                        rgba[(y * w + x) * 4:(y * w + x) * 4 + 4] = (
+                            (40, 180, 60, 255) if d > 0.6 else
+                            (230, 200, 40, 255) if d > 0.3 else (220, 40, 40, 255))
+            return w, h, rgba
+
+    def test_radar_80x24(self, monkeypatch):
+        import os
+        import time
+        from linecast._runtime import RuntimeConfig
+        from linecast.radar import frames as rf
+        from linecast.radar import view as radar
+
+        monkeypatch.setattr(rf, "_source", self.Storm())
+        monkeypatch.setattr(rf._radar_warnings, "covers", lambda bbox: False)
+        monkeypatch.setattr(radar, "get_terminal_size", lambda: (80, 24))
+        runtime = RuntimeConfig(live=False, icons="emoji", lang="en", oneline=False)
+        # the frame's time is written in the machine's zone
+        machine = os.environ.get("TZ")
+        os.environ["TZ"] = "America/Toronto"
+        time.tzset()
+        try:
+            output = radar.render_radar(43.7, -79.4, "Toronto", 6.0, play_frame=0,
+                                        playing=False, block=True, runtime=runtime)
+        finally:
+            if machine is None:
+                del os.environ["TZ"]
+            else:
+                os.environ["TZ"] = machine
+            time.tzset()
+        assert_snapshot("radar_80x24.txt", _strip_ansi(output))
+
+
+# -----------------------------------------------------------------------
 # Ephemeris accuracy
 # -----------------------------------------------------------------------
 class TestEphemerisAccuracy:
@@ -719,7 +825,7 @@ class TestMapsSnapshot:
 
         output = self._render(
             "terrain", patch.object(maps, "_get_elevation", elevation))
-        _compare_or_create("maps_terrain_80x24.txt", output)
+        assert_snapshot("maps_terrain_80x24.txt", output)
 
     def test_maps_globe_80x24(self):
         # Planet-scale zoom hands terrain to the orthographic globe.  A
@@ -748,7 +854,7 @@ class TestMapsSnapshot:
         output = self._render(
             "terrain", patch.object(maps, "_get_globe", get_globe),
             zoom=125.0)
-        _compare_or_create("maps_globe_80x24.txt", output)
+        assert_snapshot("maps_globe_80x24.txt", output)
 
         # the street register rides the same sphere in the flat street
         # map's own fills and coast ink, with no borders — pinned
@@ -756,7 +862,7 @@ class TestMapsSnapshot:
         output = self._render(
             "street", patch.object(maps, "_get_globe", get_globe),
             zoom=125.0)
-        _compare_or_create("maps_globe_street_80x24.txt", output)
+        assert_snapshot("maps_globe_street_80x24.txt", output)
 
     @staticmethod
     def _tile_xy(lon, lat, z, tx, ty, extent=4096):
@@ -806,4 +912,4 @@ class TestMapsSnapshot:
 
         output = self._render(
             "street", patch.object(maps, "_get_street", street))
-        _compare_or_create("maps_street_80x24.txt", output)
+        assert_snapshot("maps_street_80x24.txt", output)
