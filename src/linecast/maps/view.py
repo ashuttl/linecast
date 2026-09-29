@@ -35,6 +35,7 @@ Usage: maps [--location LAT,LNG | PLACE] [--zoom DEG] [--view MODE]
             [--print] [--search CITY]
 """
 
+import functools
 import math
 import sys
 from typing import NamedTuple
@@ -777,6 +778,38 @@ class _Marks(NamedTuple):
     origin: tuple | None = None
 
 
+# Each register's loader, as _load_register reports on it: the view it
+# hands back with nothing in it, and how a blocking load that failed is
+# logged (the area, what failed, and what is drawn instead).
+_TERRAIN_LOAD = (_EMPTY_TERRAIN, "maps/elevation", "terrain load", "empty terrain")
+_STREET_LOAD = ((None, None, None), "maps/vtiles", "street load", "empty street map")
+
+
+def _load_register(loader, win, block, source, what):
+    """(view, loading, err): the view `win` is cut from, from `loader`.
+
+    `loader` is a register's own, called for the window's frame, and
+    `what` is that register's line above.  When `source`, the view this
+    window is a crop of, is already in hand, the loader is not asked and
+    nothing goes to the network.  A blocking load that fails is logged
+    and drawn empty, with the error for the footer; a live one answers
+    at once, and is loading while its view's first field (the
+    elevation, or the fills) is still None.
+    """
+    empty, area, task, fallback = what
+    if source is not None:
+        return empty, False, None
+    frame = win.frame
+    hint = _overscan.window_hint(frame, win.graph_w, win.height_cells)
+    if not block:
+        view = loader(frame.bbox, frame.gw, frame.hc, False, window=hint)
+        return view, view[0] is None, None
+    try:
+        return loader(frame.bbox, frame.gw, frame.hc, True, window=hint), False, None
+    except Exception as exc:
+        log_failure(area, task, exc, fallback=fallback)
+        return empty, False, str(exc)
+
 
 def _render_terrain(win, block, pan_offset, mouse_pos, marks, lang,
                     route_layer, show_labels=True, sun=False, clouds=False,
@@ -798,28 +831,8 @@ def _render_terrain(win, block, pan_offset, mouse_pos, marks, lang,
     would tell a reader less than the metres already there.
     """
     bbox, graph_w, height_cells = win.bbox, win.graph_w, win.height_cells
-    obbox, ogw, ohc = win.frame
-    err = None
-    loading = False
-    view = _EMPTY_TERRAIN
-    if source is not None:
-        # the view this window is a crop of is already in hand: the
-        # loader is not asked, and nothing goes to the network
-        pass
-    elif block:
-        try:
-            view = _get_terrain(obbox, ogw, ohc, True,
-                                _overscan.window_hint(
-                                    win.frame, graph_w, height_cells))
-        except Exception as exc:
-            log_failure("maps/elevation", "terrain load", exc, fallback="empty terrain")
-            err = str(exc)
-    else:
-        view = _get_terrain(obbox, ogw, ohc, False,
-                            _overscan.window_hint(
-                                win.frame, graph_w, height_cells))
-        loading = view.elev is None
-
+    view, loading, err = _load_register(_get_terrain, win, block, source,
+                                        _TERRAIN_LOAD)
     elev, coast, rivers = view.elev, view.coast, view.rivers
     borders, shore = view.borders, view.shore
     terrain = None
@@ -827,6 +840,7 @@ def _render_terrain(win, block, pan_offset, mouse_pos, marks, lang,
         (_obbox, _ogw, _ohc, terrain, coast, rivers, elev, borders,
          shore) = source
     elif elev is not None:
+        obbox, ogw, ohc = win.frame
         terrain = _terrain_buffer(view, obbox, ogw, ohc, win.wide)
         _last_terrain[0] = (tuple(obbox), ogw, ohc, terrain, coast, rivers,
                             elev, borders, shore)
@@ -1057,24 +1071,10 @@ def _render_street(win, block, pan_offset, mouse_pos, marks, lang,
         # where the window's marks are not where the built view's are
         centre = (ogw // 2, ohc // 2)
         reserved = (marks.marker, centre) if marks.marker else (centre,)
-    err = None
-    loading = False
-    fills = layer = labels = None
-    if source is not None:
-        fills, layer, labels = source[3], source[4], source[5]
-    elif block:
-        try:
-            fills, layer, labels = _get_street(
-                obbox, ogw, ohc, True, lang, reserved,
-                _overscan.window_hint(win.frame, graph_w, height_cells))
-        except Exception as exc:
-            log_failure("maps/vtiles", "street load", exc, fallback="empty street map")
-            err = str(exc)
-    else:
-        fills, layer, labels = _get_street(
-            obbox, ogw, ohc, False, lang, reserved,
-            _overscan.window_hint(win.frame, graph_w, height_cells))
-        loading = fills is None
+    loader = functools.partial(_get_street, lang=lang, reserved=reserved)
+    view, loading, err = _load_register(loader, win, block, source,
+                                        _STREET_LOAD)
+    fills, layer, labels = view if source is None else source[3:6]
 
     palette = style.palette()
     ground = palette.get("ground")
