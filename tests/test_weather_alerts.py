@@ -181,6 +181,13 @@ class TestTiming:
         line = self._line(datetime(2026, 9, 26, 12, 0, tzinfo=timezone.utc), lang="tr")
         assert "Paz 20:00'ye kadar" in line
 
+    def test_the_twelve_hour_clock_keeps_the_minutes(self):
+        from linecast.weather.alerts import _parse_alert_time
+        rt = _runtime(use_24h=False)
+        at = _parse_alert_time("2026-09-28T19:45:00-04:00", rt, "America/New_York")
+        on_the_hour = _parse_alert_time("2026-09-28T19:00:00-04:00", rt, "America/New_York")
+        assert (at, on_the_hour) == ("Mon 7:45pm", "Mon 7pm")
+
     def test_still_to_come_gives_the_span(self):
         from datetime import timezone
         line = self._line(datetime(2026, 9, 26, 1, 0, tzinfo=timezone.utc))

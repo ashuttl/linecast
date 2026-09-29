@@ -47,7 +47,12 @@ def _parse_alert_time(iso_str, runtime=None, tz_name=""):
         if use_24h:
             return f"{day} {dt.strftime('%H:%M')}"
         from linecast.terminal.framebuffer import fmt_hour_phrase
-        return f"{day} {fmt_hour_phrase(dt.hour)}"
+        phrase = fmt_hour_phrase(dt.hour, lang=lang_of(runtime))
+        if dt.minute:
+            # A warning that ends at 3:45 must not read "until 3pm"
+            h12 = str(dt.hour % 12 or 12)
+            phrase = phrase.replace(h12, f"{h12}:{dt.minute:02d}", 1)
+        return f"{day} {phrase}"
     except Exception as exc:
         log_failure("weather/alerts", "alert time", exc, fallback="time omitted")
         return ""

@@ -27,6 +27,7 @@ Notable changes, by release. Notes for the next release collect under **Unreleas
 - Moon, sunshine, sky, tides, radar, maps: Fixed Ctrl-C printing a Python traceback when pressed while the view was still loading, or during `--print`.
 - Settings: Fixed a setting command, such as `linecast units imperial`, replacing a config.json that could not be read, and every setting in it, with the one setting. It now says what is wrong with the file and leaves it alone.
 - Radar, maps: `--help` no longer offers `--oneline`, which printed the whole frame; neither view has a single line to give.
+- Weather: Fixed alert times on the 12-hour clock leaving out the minutes, so that a warning in force until 3:45pm read "until 3pm". In Greek they are written in words, as in the forecast.
 
 ## 2.9.2 — 2026-09-27
 
