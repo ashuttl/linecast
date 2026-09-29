@@ -352,6 +352,22 @@ class TestCommit:
         assert seen == [("obscure", "en")]
         assert [r.name for r in st.results] == ["Found by name"]
 
+    def test_enter_before_an_empty_reply_still_asks_by_name(self):
+        seen = []
+
+        def one_shot(query, language):
+            seen.append(query)
+            return [result("Found by name")]
+
+        st = state([], one_shot=one_shot)
+        st.start()
+        typed(st, "obscure")
+        st.handle('key:enter', 43.6, -70.2, 12)
+        FakeTimer.armed[-1].fire()
+        FakeThread.started[-1].run_now()
+        assert seen == ["obscure"]
+        assert [r.name for r in st.results] == ["Found by name"]
+
     @pytest.mark.parametrize("lang", ["fr", "ja", "zh-Hant"])
     @pytest.mark.parametrize("enter_before_reply", [True, False])
     def test_failed_search_fallback_keeps_the_language(self, lang, enter_before_reply):

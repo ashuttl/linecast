@@ -211,7 +211,8 @@ class SearchState:
                 if results:
                     self.chosen = results[0]
                     self.open = False
-                elif status == "error":
+                elif status in ("error", "none"):
+                    # as Enter after the reply would: Nominatim, once
                     self._ask_once(self.query, lang)
         self._refresh()
 
