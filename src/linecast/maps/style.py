@@ -950,10 +950,19 @@ def spaced(name, lang="en"):
     stays spaced and is simply dropped by the occupancy test if it does
     not fit.  Drop-not-shrink is the house rule, and an unspaced
     fallback would collide with the shield register.
+
+    Right-to-left text is left alone too.  Spacing an Arabic-script name
+    sets every letter apart from the ones it joins, and the gap between
+    its words is wide enough that the row's bidi pass takes each word
+    for a paragraph of its own and keeps them in left-to-right order:
+    پارک ملت came out as its two words the wrong way round, in loose
+    letters.
     """
     if any(char_width(c, n) != 1
            for c, n in zip(name, name[1:] + " ")):
         return name                      # CJK or emoji: never upper, never space
+    if any(unicodedata.bidirectional(c) in ("R", "AL") for c in name):
+        return name
     return " ".join(upper(name, lang))
 
 

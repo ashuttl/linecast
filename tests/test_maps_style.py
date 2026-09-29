@@ -440,6 +440,21 @@ def test_spaced_leaves_wide_scripts_alone():
     assert ms.spaced("ソウル") == "ソウル"
 
 
+def test_spaced_leaves_right_to_left_names_alone():
+    # spaced, a Persian name's letters stop joining, and the gap between
+    # its words makes the row's bidi pass keep them left to right
+    assert ms.spaced("پارک ملت", "fa") == "پارک ملت"
+    assert ms.spaced("תל אביב") == "תל אביב"
+    from linecast.terminal import bidi
+    bidi.configure("fa", {})
+    try:
+        row = bidi.display("⠿ " + ms.spaced("پارک ملت", "fa") + " ⠿")
+    finally:
+        bidi.configure("en", {})
+    # read right to left, پارک comes first: it is the right-hand word
+    assert row.split(" ")[2] == bidi.display("پارک")
+
+
 def test_greek_capitals_drop_their_accents():
     # ΑΘΉΝΑ is a misspelling in capitals, and ΐ upper-cased by str.upper
     # is three code points, whose marks spacing set loose in the row

@@ -64,6 +64,7 @@ Notable changes, by release. Notes for the next release collect under **Unreleas
 - Maps: Fixed directions whose ends lie either side of the 180th meridian, as on Taveuni in Fiji, opening on the whole planet centred on Africa. On a street map that crosses the meridian, the route, your marker and the destination on its far side are drawn where they are.
 - Maps: Fixed the saved street tiles being deleted when OpenFreeMap did not answer as the map opened and OSM US stood in for it, so that the next map downloaded them all again.
 - Maps: Fixed `n` and space, which the help lists as "back to start", leaving the map where it was. They fly back to the place and zoom the map opened on, and still clear a route.
+- Maps: Fixed the names of neighbourhoods, parks and water in Persian, and in other right-to-left scripts, being drawn letter by letter with their words in the wrong order. They are written as words, as street names are.
 
 ## 2.9.2 — 2026-09-27
 
