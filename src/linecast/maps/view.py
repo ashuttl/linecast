@@ -53,7 +53,7 @@ from linecast.maps import ui
 from linecast.terminal.color import fg, RESET, color_mode, BG_PRIMARY
 from linecast.maps.elevation import ATTRIBUTION
 from linecast.terminal.framebuffer import cell_aspect, get_terminal_size
-from linecast.terminal.textwidth import pad, visible_len
+from linecast.terminal.textwidth import fit, pad, visible_len
 from linecast.terminal.live import overlay
 from linecast.maps.i18n import ms
 from linecast.maps.paint import MARKER, compact_colors, compose_map, compose_terrain
@@ -1542,8 +1542,9 @@ def render_map(lat, lon, location_name, zoom, marker=None, runtime=None,
 
     header = _header(place)
     over = visible_len(header) - cols
-    if over > 0 and len(place) > over + 1:
-        header = _header(place[:len(place) - over - 1] + "…")
+    room = visible_len(place) - over
+    if over > 0 and room > 1:  # squeeze the place name first, by cells
+        header = _header(fit(place, room))
     header = pad(header, cols)
     from linecast.terminal import help as _help
     live = bool(getattr(runtime, 'live', False))

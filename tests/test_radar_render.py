@@ -189,3 +189,35 @@ class TestCompose:
         assert HALF_BLOCK in line
         assert chr(0x2800 + 7) in line
         assert _strip_ansi(line).count(" ") >= 1
+
+
+class TestHeaderPlace:
+    def test_a_wide_place_name_is_cut_by_cells(self, monkeypatch):
+        """A place too long for the header is cut to the room there is,
+        counted in cells as the overflow is."""
+        from datetime import datetime, timedelta, timezone
+        from types import SimpleNamespace
+        from linecast._plaintext import plain_text
+        from linecast._runtime import RuntimeConfig
+        from linecast.radar import view as radar
+        from linecast.terminal.textwidth import visible_len
+
+        now = datetime(2026, 9, 6, 21, 15, tzinfo=timezone(timedelta(hours=-4)))
+        cols = 40
+        runtime = RuntimeConfig(live=False, icons='plain', lang='ja', oneline=False)
+        monkeypatch.setattr(radar, 'get_terminal_size', lambda: (cols, 24))
+        radar._frames.use(SimpleNamespace(attribution='LibreWXR', current_frames=lambda: [
+            SimpleNamespace(time=now, future=False)]))
+        monkeypatch.setattr(radar, '_get_basemap', lambda *a: SimpleNamespace(
+            city_overlays=lambda **kw: {}))
+        monkeypatch.setattr(radar, '_load_frame', lambda *a: ([], 0))
+        monkeypatch.setattr(radar._warnings, 'covers', lambda *a: False)
+        monkeypatch.setattr(radar, 'compose', lambda *a, **kw: [''] * 22)
+        monkeypatch.setattr(radar, 'has_radar', lambda *a: True)
+        place = "東京都千代田区丸の内一丁目九番地"
+        output, _failed = radar.render_radar(35.68, 139.77, place, 6, runtime=runtime)
+        header = plain_text(output, lines=True).splitlines()[0]
+        assert header.startswith("東京都千代…")
+        # counted in characters, the overflow was more than the name had,
+        # and the line ran past the edge uncut
+        assert cols - 1 <= visible_len(header.rstrip()) <= cols

@@ -51,7 +51,7 @@ from linecast.radar.ui import (
 )
 from linecast._runtime import use_metric
 from linecast._log import log_failure
-from linecast.terminal.textwidth import pad, visible_len
+from linecast.terminal.textwidth import fit, pad, visible_len
 from linecast.terminal.spinner import SPINNER_FRAMES
 
 # display layers, toggled by the s key: precipitation (5-min frames) or
@@ -303,8 +303,9 @@ def render_radar(lat, lon, location_name, zoom, play_frame=0, playing=True,
 
     header = _header(place)
     over = visible_len(header) - cols
-    if over > 0 and len(place) > over + 1:  # squeeze the place name first
-        header = _header(place[:len(place) - over - 1] + "…")
+    room = visible_len(place) - over
+    if over > 0 and room > 1:  # squeeze the place name first, by cells
+        header = _header(fit(place, room))
     header = pad(header, cols)
 
     # footer: attribution + scrubber + controls, dropping pieces that don't fit
