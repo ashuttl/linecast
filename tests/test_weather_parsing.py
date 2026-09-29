@@ -396,6 +396,7 @@ class TestMeteoAlarmFeedSize:
     """A feed that outlines every warning is bigger than fetch_json allows."""
 
     def test_the_feed_is_fetched_under_a_wider_cap(self):
+        from linecast import _http
         from linecast.weather.alert_feeds import meteoalarm
         from linecast._http import MAX_JSON_BYTES
         seen = {}
@@ -405,7 +406,7 @@ class TestMeteoAlarmFeedSize:
             return {"warnings": []}
 
         # a cache miss, which hands the network step to the feed's own fetch
-        with answering(None), patch.object(meteoalarm, "fetch_json", fetch_json):
+        with answering(None), patch.object(_http, "fetch_json", fetch_json):
             meteoalarm.fetch(46.95, 7.45, address={}, slug="switzerland")
         assert seen["url"].endswith("/feeds-switzerland")
         assert seen["accept"] == "application/json"

@@ -3,8 +3,8 @@ service of their own here."""
 
 import re
 
+from linecast import _http
 from linecast._cache import location_cache_key
-from linecast._http import fetch_json
 from linecast._paths import cache_dir
 from linecast.weather.alert_feeds.cap import cap_polygons, point_in_ring
 from linecast.weather.alert_feeds import _cached_feed
@@ -30,7 +30,7 @@ def fetch(lat, lng, lang="en", address=None, *, slug):
     return _cached_feed(
         cache_file, url, lambda data: _parse_meteoalarm(data, lat, lng, lang, address),
         timeout=15,
-        fetch=lambda url, timeout: fetch_json(
+        fetch=lambda url, timeout: _http.fetch_json(
             url, headers={"Accept": "application/json"}, timeout=timeout,
             limit=_METEOALARM_FEED_BYTES),
     )
