@@ -1,4 +1,5 @@
-"""The scripts in scripts/ still find what they import from linecast.
+"""The scripts in scripts/, and the package's own functions, still find
+what they import from linecast.
 
 A script is run by hand, now and then, so a rename in the package can
 leave one broken for months with no test to notice: preview_radar.py
@@ -12,10 +13,11 @@ import importlib
 from pathlib import Path
 
 SCRIPTS = Path(__file__).resolve().parent.parent / "scripts"
+SRC = Path(__file__).resolve().parent.parent / "src"
 
 
-def _linecast_imports():
-    for path in sorted(SCRIPTS.rglob("*.py")):
+def _linecast_imports(root=SCRIPTS):
+    for path in sorted(root.rglob("*.py")):
         tree = ast.parse(path.read_text(encoding="utf-8"))
         for node in ast.walk(tree):
             if isinstance(node, ast.ImportFrom) and (node.module or "").split(".")[0] == "linecast":
@@ -27,10 +29,10 @@ def _linecast_imports():
                         yield path, node.lineno, alias.name, None
 
 
-def test_every_linecast_name_a_script_imports_exists():
+def _missing(root):
     missing = []
-    for path, line, module, name in _linecast_imports():
-        where = f"{path.relative_to(SCRIPTS.parent)}:{line}"
+    for path, line, module, name in _linecast_imports(root):
+        where = f"{path.relative_to(root.parent)}:{line}"
         try:
             found = importlib.import_module(module)
         except ImportError as exc:
@@ -42,4 +44,17 @@ def test_every_linecast_name_a_script_imports_exists():
             importlib.import_module(f"{module}.{name}")
         except ImportError:
             missing.append(f"{where}: {module}.{name}")
+    return missing
+
+
+def test_every_linecast_name_a_script_imports_exists():
+    missing = _missing(SCRIPTS)
     assert not missing, "scripts import what linecast no longer has: " + "; ".join(missing)
+
+
+def test_every_linecast_name_the_package_imports_exists():
+    # An import inside a function runs only when the function does, so a
+    # name moved elsewhere can be left behind there with nothing to fail
+    # until a user takes that path.
+    missing = _missing(SRC)
+    assert not missing, "linecast imports what it no longer has: " + "; ".join(missing)
