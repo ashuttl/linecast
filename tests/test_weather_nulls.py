@@ -18,6 +18,7 @@ import pytest
 
 from conftest import answering
 from linecast.weather import sources
+from linecast.weather.alert_feeds import cma, eccc
 from linecast.weather import view as weather
 from linecast.weather.oneline import weather_oneline
 from linecast._runtime import WeatherRuntime
@@ -214,7 +215,7 @@ class TestAlertFeedsWithNulls:
         feature["properties"]["alert_name_fr"] = "avertissement de pluie"
         # the parser itself: fetch_alerts would drop the fixture's alerts
         # as expired
-        alerts = _with_feed(data, lambda: sources._fetch_alerts_eccc(45.0, -75.0))
+        alerts = _with_feed(data, lambda: eccc.fetch(45.0, -75.0))
         assert any(alert["event"] == "Avertissement de pluie" for alert in alerts)
 
     def test_meteoalarm_with_null_language_alert_and_area(self):
@@ -233,9 +234,9 @@ class TestAlertFeedsWithNulls:
         entry = data["data"]["page"]["list"][0]
         entry["alertid"] = None
         entry["title"] = None
-        assert isinstance(sources._parse_cma_data(data, ["11", "12", "13"]), list)
+        assert isinstance(cma._parse_cma_data(data, ["11", "12", "13"]), list)
         data["data"] = None
-        assert sources._parse_cma_data(data, ["11"]) == []
+        assert cma._parse_cma_data(data, ["11"]) == []
 
     def test_met_eireann_with_a_null_category(self):
         data = _load("meteireann_warnings.json")

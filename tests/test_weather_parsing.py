@@ -114,7 +114,7 @@ class TestNWSAlerts:
         """If there are alerts, each has the fields we extract."""
         for feature in self.data["features"]:
             props = feature["properties"]
-            # These are the fields _fetch_alerts_nws extracts
+            # These are the fields alert_feeds.nws extracts
             for key in ("event", "headline", "description", "severity"):
                 assert key in props, f"Missing alert property: {key}"
 
@@ -131,9 +131,9 @@ class TestNWSAlertsFilterTestMessages:
         assert "Actual" in statuses
 
     def test_parser_drops_test_alerts(self):
-        from linecast.weather.sources import _fetch_alerts_nws
+        from linecast.weather.alert_feeds import nws
         with answering(self.data):
-            alerts = _fetch_alerts_nws(40.7, -74.0)
+            alerts = nws.fetch(40.7, -74.0)
         assert len(alerts) == 1
         assert alerts[0]["event"] == "Heat Advisory"
 
@@ -142,9 +142,9 @@ class TestNWSAlertsFilterTestMessages:
         import copy
         data = copy.deepcopy(self.data)
         data["features"][1]["properties"]["status"] = "Exercise"
-        from linecast.weather.sources import _fetch_alerts_nws
+        from linecast.weather.alert_feeds import nws
         with answering(data):
-            alerts = _fetch_alerts_nws(40.7, -74.0)
+            alerts = nws.fetch(40.7, -74.0)
         assert len(alerts) == 0
 
 
@@ -153,13 +153,13 @@ class TestNWSAlertWindow:
 
     @staticmethod
     def _parse(**times):
-        from linecast.weather.sources import _fetch_alerts_nws
+        from linecast.weather.alert_feeds import nws
         props = {"status": "Actual", "event": "High Wind Watch",
                  "effective": "2026-09-23T15:33:00-04:00",
                  "expires": "2026-09-24T05:00:00-04:00", **times}
         data = {"features": [{"properties": props}]}
         with answering(data):
-            return _fetch_alerts_nws(42.05, -70.19)[0]
+            return nws.fetch(42.05, -70.19)[0]
 
     def test_onset_and_ends_over_the_bulletin(self):
         alert = self._parse(onset="2026-09-25T20:00:00-04:00",
@@ -224,10 +224,10 @@ class TestBrightSkyAlerts:
                 assert key in alert, f"Missing Bright Sky alert key: {key}"
 
     def test_parse_produces_normalized_alerts(self):
-        """Smoke test: _fetch_alerts_brightsky parser produces our standard dict."""
-        from linecast.weather.sources import _fetch_alerts_brightsky
+        """Smoke test: the Bright Sky parser produces our standard dict."""
+        from linecast.weather.alert_feeds import dwd
         with answering(self.data):
-            alerts = _fetch_alerts_brightsky(52.52, 13.405)
+            alerts = dwd.fetch(52.52, 13.405)
         assert isinstance(alerts, list)
         for a in alerts:
             for key in ("event", "headline", "description", "severity", "effective", "expires",
@@ -236,9 +236,9 @@ class TestBrightSkyAlerts:
 
     def test_starts_at_the_onset(self):
         """The frost begins at midnight, not when DWD issued the warning."""
-        from linecast.weather.sources import _fetch_alerts_brightsky
+        from linecast.weather.alert_feeds import dwd
         with answering(self.data):
-            alerts = _fetch_alerts_brightsky(52.52, 13.405)
+            alerts = dwd.fetch(52.52, 13.405)
         assert alerts[0]["effective"] == "2026-03-07T00:00:00+00:00"
 
 
@@ -270,9 +270,9 @@ class TestMetNoAlerts:
                 assert key in props, f"Missing MetNo property: {key}"
 
     def test_parse_produces_normalized_alerts(self):
-        from linecast.weather.sources import _fetch_alerts_metno
+        from linecast.weather.alert_feeds import metno
         with answering(self.data):
-            alerts = _fetch_alerts_metno(59.91, 10.75)
+            alerts = metno.fetch(59.91, 10.75)
         assert isinstance(alerts, list)
         assert len(alerts) > 0
         for a in alerts:
@@ -298,9 +298,9 @@ class TestMetEireannAlerts:
             assert isinstance(warnings[cat], list)
 
     def test_parse_produces_normalized_alerts(self):
-        from linecast.weather.sources import _fetch_alerts_meteireann
+        from linecast.weather.alert_feeds import meteireann
         with answering(self.data):
-            alerts = _fetch_alerts_meteireann(53.35, -6.26)
+            alerts = meteireann.fetch(53.35, -6.26)
         assert isinstance(alerts, list)
         for a in alerts:
             for key in ("event", "headline", "severity", "effective", "expires"):
@@ -317,9 +317,9 @@ class TestMetEireannAlerts:
         return data
 
     def _events(self, data, address):
-        from linecast.weather import sources as ws
+        from linecast.weather.alert_feeds import meteireann
         with answering(data):
-            return [a["event"] for a in ws._fetch_alerts_meteireann(53.35, -6.26, address)]
+            return [a["event"] for a in meteireann.fetch(53.35, -6.26, address=address)]
 
     def test_national_warnings_are_matched_to_the_county(self):
         data = self._national(("Wind Warning for Galway, Mayo", ["EI10", "EI20"]),
@@ -371,10 +371,10 @@ class TestMeteoAlarmAlerts:
                     assert key in info, f"Missing MeteoAlarm info key: {key}"
 
     def test_parse_with_area_filter(self):
-        from linecast.weather.sources import _fetch_alerts_meteoalarm
+        from linecast.weather.alert_feeds import meteoalarm
         address = {"city": "Amsterdam", "state": "Noord-Holland"}
         with answering(self.data):
-            alerts = _fetch_alerts_meteoalarm(52.37, 4.89, "netherlands", address=address)
+            alerts = meteoalarm.fetch(52.37, 4.89, address=address, slug="netherlands")
         assert isinstance(alerts, list)
         for a in alerts:
             for key in ("event", "headline", "severity", "effective", "expires"):
@@ -382,9 +382,9 @@ class TestMeteoAlarmAlerts:
 
     def test_parse_without_address(self):
         """Without address, should still return Severe+ alerts."""
-        from linecast.weather.sources import _fetch_alerts_meteoalarm
+        from linecast.weather.alert_feeds import meteoalarm
         with answering(self.data):
-            alerts = _fetch_alerts_meteoalarm(52.37, 4.89, "netherlands", address=None)
+            alerts = meteoalarm.fetch(52.37, 4.89, address=None, slug="netherlands")
         assert isinstance(alerts, list)
 
 
@@ -396,7 +396,7 @@ class TestMeteoAlarmFeedSize:
     """A feed that outlines every warning is bigger than fetch_json allows."""
 
     def test_the_feed_is_fetched_under_a_wider_cap(self):
-        from linecast.weather import sources as ws
+        from linecast.weather.alert_feeds import meteoalarm
         from linecast._http import MAX_JSON_BYTES
         seen = {}
 
@@ -405,11 +405,11 @@ class TestMeteoAlarmFeedSize:
             return {"warnings": []}
 
         # a cache miss, which hands the network step to the feed's own fetch
-        with answering(None), patch.object(ws, "fetch_json", fetch_json):
-            ws._fetch_alerts_meteoalarm(46.95, 7.45, "switzerland", address={})
+        with answering(None), patch.object(meteoalarm, "fetch_json", fetch_json):
+            meteoalarm.fetch(46.95, 7.45, address={}, slug="switzerland")
         assert seen["url"].endswith("/feeds-switzerland")
         assert seen["accept"] == "application/json"
-        assert seen["limit"] == ws._METEOALARM_FEED_BYTES
+        assert seen["limit"] == meteoalarm._METEOALARM_FEED_BYTES
         # 9.4 MB on a quiet September day; give a stormy one room
         assert seen["limit"] >= 3 * MAX_JSON_BYTES
 
@@ -427,9 +427,9 @@ class TestJMAAlerts:
         assert isinstance(self.data["areaTypes"], list)
 
     def test_parse_produces_normalized_alerts_en(self):
-        from linecast.weather.sources import _fetch_alerts_jma
+        from linecast.weather.alert_feeds import jma
         with answering(self.data):
-            alerts = _fetch_alerts_jma(35.6764, 139.6500, lang="en")
+            alerts = jma.fetch(35.6764, 139.6500, lang="en")
         assert isinstance(alerts, list)
         assert len(alerts) > 0
         for a in alerts:
@@ -447,9 +447,9 @@ class TestJMAAlerts:
         assert alerts[0]["url"] == "https://www.jma.go.jp/bosai/warning/"
 
     def test_parse_produces_normalized_alerts_ja(self):
-        from linecast.weather.sources import _fetch_alerts_jma
+        from linecast.weather.alert_feeds import jma
         with answering(self.data):
-            alerts = _fetch_alerts_jma(35.6764, 139.6500, lang="ja")
+            alerts = jma.fetch(35.6764, 139.6500, lang="ja")
         assert isinstance(alerts, list)
         assert len(alerts) == 2
         # In Japanese mode, event names are localized and headline uses JMA headline text.
@@ -458,30 +458,30 @@ class TestJMAAlerts:
         assert alerts[0]["description"] == self.data["headlineText"]
 
     def test_a_code_the_table_does_not_know_is_passed_over(self):
-        from linecast.weather.sources import _fetch_alerts_jma
+        from linecast.weather.alert_feeds import jma
         data = {"headlineText": "", "reportDatetime": "", "areaTypes": [{"areas": [
             {"code": "130010", "warnings": [{"code": c, "status": "発表"}
                                             for c in ("21", None, "99", "24")]}]}]}
         with answering(data):
-            alerts = _fetch_alerts_jma(35.68, 139.76, lang="en")
+            alerts = jma.fetch(35.68, 139.76, lang="en")
         assert [a["event"] for a in alerts] == ["Dry Air Watch", "Frost Watch"]
 
     def test_warnings_of_one_severity_keep_a_steady_order(self):
         # The active codes are gathered in a set, whose order follows the
         # process's hash seed; sorted by severity alone, a run and the
         # next listed the same watches differently.
-        from linecast.weather.sources import _fetch_alerts_jma
+        from linecast.weather.alert_feeds import jma
         codes = ["19", "16", "15", "14", "13", "12", "10"]
         data = {"headlineText": "", "reportDatetime": "", "areaTypes": [{"areas": [
             {"code": "130010", "warnings": [{"code": c, "status": "発表"} for c in codes]}]}]}
         with answering(data):
-            alerts = _fetch_alerts_jma(35.68, 139.76, lang="en")
+            alerts = jma.fetch(35.68, 139.76, lang="en")
         assert [a["event"] for a in alerts] == [
             "Heavy Rain Watch", "Heavy Snow Watch", "Wind Snow Watch", "Thunderstorm Watch",
             "High Wind Watch", "High Wave Watch", "Storm Surge Watch"]
 
     def _alerts_with_urls(self, lat, lng, address=None, data=None):
-        from linecast.weather import sources as ws
+        from linecast.weather.alert_feeds import jma
         urls = []
 
         def answer(url):
@@ -489,7 +489,7 @@ class TestJMAAlerts:
             return None if url.endswith("area.json") else (data or self.data)
 
         with answering(answer):
-            alerts = ws._fetch_alerts_jma(lat, lng, lang="en", address=address)
+            alerts = jma.fetch(lat, lng, lang="en", address=address)
         return alerts, urls
 
     def test_the_address_prefecture_picks_the_office_and_its_areas(self):
@@ -506,7 +506,7 @@ class TestJMAAlerts:
         assert [a["event"] for a in alerts] == ["Heavy Rain Warning", "High Wind Watch"]
 
     def test_the_prefecture_overrides_a_nearer_neighbouring_office(self):
-        from linecast.weather.sources import _jma_office_for_coords
+        from linecast.weather.alert_feeds.jma import _jma_office_for_coords
         # Kawaguchi, Saitama, is nearer Tokyo's office than Saitama's
         assert _jma_office_for_coords(35.81, 139.72) == "130000"
         assert _jma_office_for_coords(35.81, 139.72, "11") == "110000"
@@ -531,7 +531,7 @@ class TestJMAAreaFilter:
         self.table = _load("jma_area_tokyo.json")
 
     def _alerts(self, address, lang="ja", table=None):
-        from linecast.weather import sources as ws
+        from linecast.weather.alert_feeds import jma
         urls = []
 
         def answer(url):
@@ -541,7 +541,7 @@ class TestJMAAreaFilter:
             return self.feed
 
         with answering(answer):
-            alerts = ws._fetch_alerts_jma(35.61, 139.73, lang=lang, address=address)
+            alerts = jma.fetch(35.61, 139.73, lang=lang, address=address)
         return alerts, urls
 
     def test_shinagawa_hears_nothing_of_the_izu_islands(self):
@@ -591,7 +591,7 @@ class TestJMAAreaFilter:
         assert urls[-1].endswith("/130000.json")
 
     def test_without_a_prefecture_the_nearest_office_decides(self):
-        from linecast.weather.sources import _jma_area_for_address
+        from linecast.weather.alert_feeds.jma import _jma_area_for_address
         with answering(self.table):
             tokyo = _jma_area_for_address({"city": "府中市"}, "130000")
             hiroshima = _jma_area_for_address({"city": "府中市"}, "340000")
@@ -599,7 +599,7 @@ class TestJMAAreaFilter:
         assert hiroshima["codes"] == ["3420800"]
 
     def test_a_city_split_into_parts_pools_them(self):
-        from linecast.weather.sources import _jma_area_for_address
+        from linecast.weather.alert_feeds.jma import _jma_area_for_address
         table = {
             "offices": {"140000": {"name": "神奈川県"}},
             "class10s": {"140010": {"name": "東部", "parent": "140000"}},
@@ -615,14 +615,14 @@ class TestJMAAreaFilter:
         assert area["names"] == {"横浜市北部", "横浜市南部", "横浜・川崎", "東部", "神奈川県"}
 
     def test_a_headline_that_excepts_an_area_counts_its_reader_out(self):
-        from linecast.weather.sources import _jma_headline_for
+        from linecast.weather.alert_feeds.jma import _jma_headline_for
         headline = "小笠原諸島を除く東京都では、乾燥に注意してください。"
         mainland = {"品川区", "２３区西部", "東京地方", "東京都"}
         assert _jma_headline_for(headline, mainland) == headline
         assert _jma_headline_for(headline, {"小笠原村", "小笠原諸島", "東京都"}) == ""
 
     def test_a_sentence_that_names_no_area_is_for_everyone(self):
-        from linecast.weather.sources import _jma_headline_for
+        from linecast.weather.alert_feeds.jma import _jma_headline_for
         headline = "落雷に注意してください。伊豆諸島南部では、高波に注意してください。"
         assert _jma_headline_for(headline, {"品川区"}) == "落雷に注意してください。"
 
@@ -673,7 +673,7 @@ class TestAlertExpiry:
         from linecast.weather.sources import fetch_alerts
         lapsed = _alert("2026-01-01T00:00:00+00:00", event="Old")
         current = _alert("2035-01-01T00:00:00+00:00", event="New")
-        with patch("linecast.weather.sources._fetch_alerts_nws",
+        with patch("linecast.weather.alert_feeds.nws.fetch",
                    return_value=[lapsed, current]):
             assert fetch_alerts(40.7, -74.0, country_code="US") == [current]
 
@@ -682,7 +682,7 @@ class TestAlertExpiry:
         lapsed = [_alert("2026-01-01T00:00:00+00:00", event=f"Old {i}",
                          severity="Extreme") for i in range(MAX_ALERTS + 1)]
         current = _alert("2035-01-01T00:00:00+00:00", event="New")
-        with patch("linecast.weather.sources._fetch_alerts_nws",
+        with patch("linecast.weather.alert_feeds.nws.fetch",
                    return_value=lapsed + [current]):
             assert fetch_alerts(40.7, -74.0, country_code="US") == [current]
 
@@ -713,75 +713,75 @@ class TestAlertProviderRouting:
 
     def test_routes_us_to_nws(self):
         from linecast.weather.sources import fetch_alerts
-        with patch("linecast.weather.sources._fetch_alerts_nws",
+        with patch("linecast.weather.alert_feeds.nws.fetch",
                    return_value=[{"event": "x"}]) as mock_fn:
             result = fetch_alerts(40.7, -74.0, country_code="US")
-        mock_fn.assert_called_once_with(40.7, -74.0)
+        mock_fn.assert_called_once_with(40.7, -74.0, "en", None)
         assert result == [{"event": "x"}]
 
     def test_routes_ca_to_eccc(self):
         from linecast.weather.sources import fetch_alerts
-        with patch("linecast.weather.sources._fetch_alerts_eccc",
+        with patch("linecast.weather.alert_feeds.eccc.fetch",
                    return_value=[{"event": "x"}]) as mock_fn:
             result = fetch_alerts(45.4, -75.7, country_code="CA", lang="fr")
-        mock_fn.assert_called_once_with(45.4, -75.7, lang="fr")
+        mock_fn.assert_called_once_with(45.4, -75.7, "fr", None)
         assert result == [{"event": "x"}]
 
     def test_routes_de_to_brightsky(self):
         from linecast.weather.sources import fetch_alerts
-        with patch("linecast.weather.sources._fetch_alerts_brightsky",
+        with patch("linecast.weather.alert_feeds.dwd.fetch",
                    return_value=[{"event": "x"}]) as mock_fn:
             result = fetch_alerts(52.52, 13.405, country_code="DE", lang="de")
-        mock_fn.assert_called_once_with(52.52, 13.405, lang="de")
+        mock_fn.assert_called_once_with(52.52, 13.405, "de", None)
         assert result == [{"event": "x"}]
 
     def test_routes_no_to_metno(self):
         from linecast.weather.sources import fetch_alerts
-        with patch("linecast.weather.sources._fetch_alerts_metno",
+        with patch("linecast.weather.alert_feeds.metno.fetch",
                    return_value=[{"event": "x"}]) as mock_fn:
             result = fetch_alerts(59.91, 10.75, country_code="NO")
-        mock_fn.assert_called_once_with(59.91, 10.75)
+        mock_fn.assert_called_once_with(59.91, 10.75, "en", None)
         assert result == [{"event": "x"}]
 
     def test_routes_ie_to_meteireann(self):
         from linecast.weather.sources import fetch_alerts
-        with patch("linecast.weather.sources._fetch_alerts_meteireann",
+        with patch("linecast.weather.alert_feeds.meteireann.fetch",
                    return_value=[{"event": "x"}]) as mock_fn:
             result = fetch_alerts(53.35, -6.26, country_code="IE")
-        mock_fn.assert_called_once_with(53.35, -6.26, address=None)
+        mock_fn.assert_called_once_with(53.35, -6.26, "en", None)
         assert result == [{"event": "x"}]
 
     def test_routes_jp_to_jma(self):
         from linecast.weather.sources import fetch_alerts
-        with patch("linecast.weather.sources._fetch_alerts_jma",
+        with patch("linecast.weather.alert_feeds.jma.fetch",
                    return_value=[{"event": "x"}]) as mock_fn:
             result = fetch_alerts(35.68, 139.76, country_code="JP", lang="ja")
-        mock_fn.assert_called_once_with(35.68, 139.76, lang="ja", address=None)
+        mock_fn.assert_called_once_with(35.68, 139.76, "ja", None)
         assert result == [{"event": "x"}]
 
     def test_routes_meteoalarm_country(self):
         from linecast.weather.sources import fetch_alerts
         address = {"city": "Amsterdam", "state": "Noord-Holland"}
-        with patch("linecast.weather.sources._fetch_alerts_meteoalarm",
+        with patch("linecast.weather.alert_feeds.meteoalarm.fetch",
                    return_value=[{"event": "x"}]) as mock_fn:
             result = fetch_alerts(52.37, 4.89, country_code="NL", lang="en", address=address)
-        mock_fn.assert_called_once_with(52.37, 4.89, "netherlands", lang="en", address=address)
+        mock_fn.assert_called_once_with(52.37, 4.89, "en", address, slug="netherlands")
         assert result == [{"event": "x"}]
 
     def test_routes_in_to_sachet(self):
         from linecast.weather.sources import fetch_alerts
-        with patch("linecast.weather.sources._fetch_alerts_sachet",
+        with patch("linecast.weather.alert_feeds.sachet.fetch",
                    return_value=[{"event": "x"}]) as mock_fn:
             result = fetch_alerts(28.61, 77.21, country_code="IN")
-        mock_fn.assert_called_once_with(28.61, 77.21, lang="en")
+        mock_fn.assert_called_once_with(28.61, 77.21, "en", None)
         assert result == [{"event": "x"}]
 
     def test_routes_nz_to_metservice(self):
         from linecast.weather.sources import fetch_alerts
-        with patch("linecast.weather.sources._fetch_alerts_metservice",
+        with patch("linecast.weather.alert_feeds.metservice.fetch",
                    return_value=[{"event": "x"}]) as mock_fn:
             result = fetch_alerts(-41.29, 174.78, country_code="NZ")
-        mock_fn.assert_called_once_with(-41.29, 174.78)
+        mock_fn.assert_called_once_with(-41.29, 174.78, "en", None)
         assert result == [{"event": "x"}]
 
     def test_routes_newer_meteoalarm_members(self):
@@ -790,11 +790,10 @@ class TestAlertProviderRouting:
                 ("UA", "ukraine", 50.45, 30.52),
                 ("BA", "bosnia-herzegovina", 43.86, 18.41),
                 ("MK", "republic-of-north-macedonia", 41.99, 21.43)):
-            with patch("linecast.weather.sources._fetch_alerts_meteoalarm",
+            with patch("linecast.weather.alert_feeds.meteoalarm.fetch",
                        return_value=[{"event": "x"}]) as mock_fn:
                 result = fetch_alerts(lat, lng, country_code=code)
-            mock_fn.assert_called_once_with(lat, lng, slug, lang="en",
-                                            address=None)
+            mock_fn.assert_called_once_with(lat, lng, "en", None, slug=slug)
             assert result == [{"event": "x"}]
 
     def test_unknown_country_returns_empty(self):
@@ -810,7 +809,7 @@ class TestLocationMatching:
     """Test MeteoAlarm area matching helpers."""
 
     def test_extract_location_words(self):
-        from linecast.weather.sources import _extract_location_words
+        from linecast.weather.alert_feeds.meteoalarm import _extract_location_words
         address = {"city": "Madrid", "state": "Comunidad de Madrid"}
         words = _extract_location_words(address)
         assert "madrid" in words
@@ -818,29 +817,29 @@ class TestLocationMatching:
         assert "de" not in words  # too short
 
     def test_area_matches_positive(self):
-        from linecast.weather.sources import _area_matches
+        from linecast.weather.alert_feeds.meteoalarm import _area_matches
         words = {"madrid", "comunidad"}
         assert _area_matches("Sierra de Madrid", words)
 
     def test_area_matches_negative(self):
-        from linecast.weather.sources import _area_matches
+        from linecast.weather.alert_feeds.meteoalarm import _area_matches
         words = {"madrid", "comunidad"}
         assert not _area_matches("Bizkaia interior", words)
 
     def test_area_matches_empty(self):
-        from linecast.weather.sources import _area_matches
+        from linecast.weather.alert_feeds.meteoalarm import _area_matches
         assert not _area_matches("", {"madrid"})
         assert not _area_matches("Madrid", set())
 
     def test_meteireann_severity(self):
-        from linecast.weather.sources import _meteireann_severity
+        from linecast.weather.alert_feeds.meteireann import _meteireann_severity
         assert _meteireann_severity("red") == "Extreme"
         assert _meteireann_severity("orange") == "Severe"
         assert _meteireann_severity("yellow") == "Moderate"
         assert _meteireann_severity("green") == "Minor"
 
     def test_parse_meteireann_dt(self):
-        from linecast.weather.sources import _parse_meteireann_dt
+        from linecast.weather.alert_feeds.meteireann import _parse_meteireann_dt
         # Irish local time, with the offset of the day: GMT in winter, IST in summer
         assert _parse_meteireann_dt("00:00 Saturday 07/03/2026") == "2026-03-07T00:00:00+00:00"
         assert _parse_meteireann_dt("14:30 Monday 15/12/2025") == "2025-12-15T14:30:00+00:00"
@@ -850,7 +849,7 @@ class TestLocationMatching:
         assert _parse_meteireann_dt(None) == ""
 
     def test_cma_severity_from_pic(self):
-        from linecast.weather.sources import _cma_severity_from_pic
+        from linecast.weather.alert_feeds.cma import _cma_severity_from_pic
         assert (_cma_severity_from_pic("https://image.nmc.cn/assets/img/alarm/p0005001.png")
                 == "Extreme")
         assert (_cma_severity_from_pic("https://image.nmc.cn/assets/img/alarm/p0007002.png")
@@ -862,14 +861,14 @@ class TestLocationMatching:
         assert _cma_severity_from_pic("") == "Moderate"
 
     def test_parse_cma_issuetime(self):
-        from linecast.weather.sources import _parse_cma_issuetime
+        from linecast.weather.alert_feeds.cma import _parse_cma_issuetime
         assert _parse_cma_issuetime("2026/03/07 22:39") == "2026-03-07T22:39:00"
         assert _parse_cma_issuetime("2026/03/07 06:00") == "2026-03-07T06:00:00"
         assert _parse_cma_issuetime("") == ""
         assert _parse_cma_issuetime(None) == ""
 
     def test_cma_provinces_for_coords(self):
-        from linecast.weather.sources import _cma_provinces_for_coords
+        from linecast.weather.alert_feeds.cma import _cma_provinces_for_coords
         # Beijing is unambiguous
         codes = _cma_provinces_for_coords(39.9, 116.4)
         assert codes[0] == "11"
@@ -903,7 +902,7 @@ class TestCMAAlerts:
 
     def test_parse_shanxi_en(self):
         """Parse alerts for Shanxi province (14) in English."""
-        from linecast.weather.sources import _parse_cma_data
+        from linecast.weather.alert_feeds.cma import _parse_cma_data
         alerts = _parse_cma_data(self.data, "14", lang="en")
         assert isinstance(alerts, list)
         assert len(alerts) == 2  # Dense Fog + Road Icing (deduped across county/province)
@@ -920,7 +919,7 @@ class TestCMAAlerts:
 
     def test_parse_shanxi_zh(self):
         """Parse alerts for Shanxi province in Chinese."""
-        from linecast.weather.sources import _parse_cma_data
+        from linecast.weather.alert_feeds.cma import _parse_cma_data
         alerts = _parse_cma_data(self.data, "14", lang="zh")
         assert len(alerts) == 2
         # Events should be in Chinese
@@ -929,7 +928,7 @@ class TestCMAAlerts:
 
     def test_parse_beijing_en(self):
         """Parse alerts for Beijing (11) — red fog warning."""
-        from linecast.weather.sources import _parse_cma_data
+        from linecast.weather.alert_feeds.cma import _parse_cma_data
         alerts = _parse_cma_data(self.data, "11", lang="en")
         assert len(alerts) == 1
         a = alerts[0]
@@ -939,15 +938,15 @@ class TestCMAAlerts:
 
     def test_parse_other_province_returns_empty(self):
         """Province with no alerts in fixture returns empty list."""
-        from linecast.weather.sources import _parse_cma_data
+        from linecast.weather.alert_feeds.cma import _parse_cma_data
         alerts = _parse_cma_data(self.data, "65", lang="en")  # Xinjiang
         assert alerts == []
 
     def test_parse_with_fetch_mock(self):
-        """Smoke test: _fetch_alerts_cma parser produces our standard dict."""
-        from linecast.weather.sources import _fetch_alerts_cma
+        """Smoke test: the CMA parser produces our standard dict."""
+        from linecast.weather.alert_feeds import cma
         with answering(self.data):
-            alerts = _fetch_alerts_cma(35.5, 112.8, lang="en")  # Jincheng, Shanxi
+            alerts = cma.fetch(35.5, 112.8, lang="en")  # Jincheng, Shanxi
         assert isinstance(alerts, list)
         # Jincheng is a Shanxi border city — must find Shanxi alerts via multi-province match
         assert len(alerts) >= 2
@@ -959,12 +958,12 @@ class TestCMAAlerts:
                 assert key in a
 
     def test_routing_cn_to_cma(self):
-        """fetch_alerts routes CN to _fetch_alerts_cma."""
+        """fetch_alerts routes CN to alert_feeds.cma."""
         from linecast.weather.sources import fetch_alerts
-        with patch("linecast.weather.sources._fetch_alerts_cma",
+        with patch("linecast.weather.alert_feeds.cma.fetch",
                    return_value=[{"event": "x"}]) as mock_fn:
             result = fetch_alerts(39.9, 116.4, country_code="CN", lang="zh")
-        mock_fn.assert_called_once_with(39.9, 116.4, lang="zh")
+        mock_fn.assert_called_once_with(39.9, 116.4, "zh", None)
         assert result == [{"event": "x"}]
 
 
@@ -979,7 +978,7 @@ class TestHKOAlerts:
         self.data = _load("hko_warnsum.json")
 
     def test_parse_names_the_warnings_and_drops_cancelled(self):
-        from linecast.weather.sources import _parse_hko_warnsum
+        from linecast.weather.alert_feeds.hko import _parse_hko_warnsum
         alerts = _parse_hko_warnsum(self.data)
         assert [a["event"] for a in alerts] == [
             "Black Rainstorm Warning Signal",
@@ -995,22 +994,22 @@ class TestHKOAlerts:
                 assert key in a
 
     def test_parse_empty_feed(self):
-        from linecast.weather.sources import _parse_hko_warnsum
+        from linecast.weather.alert_feeds.hko import _parse_hko_warnsum
         assert _parse_hko_warnsum({}) == []
 
     def test_routing_hk_to_hko(self):
         from linecast.weather.sources import fetch_alerts
-        with patch("linecast.weather.sources._fetch_alerts_hko",
+        with patch("linecast.weather.alert_feeds.hko.fetch",
                    return_value=[{"event": "x"}]) as mock_fn:
             result = fetch_alerts(22.3, 114.2, country_code="HK", lang="zh-Hant")
-        mock_fn.assert_called_once_with(lang="zh-Hant")
+        mock_fn.assert_called_once_with(22.3, 114.2, "zh-Hant", None)
         assert result == [{"event": "x"}]
 
     def test_the_feed_and_the_links_follow_the_script(self):
         # The Observatory publishes the feed in English and both Chinese
         # scripts; the reader's language picks the one to ask for, and
         # the detail page to link.
-        from linecast.weather.sources import HKO_WARNINGS_URL, _HKO_LANG, _parse_hko_warnsum
+        from linecast.weather.alert_feeds.hko import HKO_WARNINGS_URL, _HKO_LANG, _parse_hko_warnsum
         assert _HKO_LANG == {"zh": "sc", "zh-Hant": "tc"}
         assert HKO_WARNINGS_URL.format(lang="tc").endswith("lang=tc")
         assert _parse_hko_warnsum(self.data, "zh-Hant")[0]["url"] == "https://www.hko.gov.hk/tc/detail.htm"
@@ -1131,10 +1130,9 @@ def _warning(event, severity, area_desc, polygon=None, description=None):
 
 
 def _alerts(data, lat, lng, address):
-    from linecast.weather import sources as ws
+    from linecast.weather.alert_feeds import meteoalarm
     with answering(data):
-        return ws._fetch_alerts_meteoalarm(lat, lng, "united-kingdom",
-                                          address=address)
+        return meteoalarm.fetch(lat, lng, address=address, slug="united-kingdom")
 
 
 EDINBURGH = (55.95, -3.19, {"city": "City of Edinburgh",
@@ -1232,21 +1230,21 @@ class TestMeteoAlarmLocationWords:
     """Words that name a tier rather than a place match far too much."""
 
     def test_administrative_words_are_dropped(self):
-        from linecast.weather.sources import _extract_location_words
+        from linecast.weather.alert_feeds.meteoalarm import _extract_location_words
         words = _extract_location_words({"city": "City of Edinburgh",
                                          "state": "Alba / Scotland"})
         assert "city" not in words
         assert {"edinburgh", "scotland"} <= words
 
     def test_a_place_survives_its_tier_word(self):
-        from linecast.weather.sources import _extract_location_words
+        from linecast.weather.alert_feeds.meteoalarm import _extract_location_words
         words = _extract_location_words({"state": "Auvergne-Rhône-Alpes Region"})
         assert words == {"auvergne-rhône-alpes"}
 
     def test_tier_words_are_dropped_in_the_countrys_own_language(self):
         # Issue #57: Nominatim names Warsaw in Polish, and "województwo"
         # begins every Polish areaDesc in the country.
-        from linecast.weather.sources import _extract_location_words
+        from linecast.weather.alert_feeds.meteoalarm import _extract_location_words
         words = _extract_location_words({"city": "Warszawa",
                                          "state": "województwo mazowieckie"})
         assert words == {"warszawa", "mazowieckie"}
@@ -1263,18 +1261,18 @@ class TestMeteoAlarmFeedWideWords:
         return [[f"{word} district {i}"] for i in range(n)]
 
     def test_a_word_across_the_whole_feed_is_dropped(self):
-        from linecast.weather.sources import _drop_feed_wide_words
+        from linecast.weather.alert_feeds.meteoalarm import _drop_feed_wide_words
         descs = self._descs(30, "zork")
         assert _drop_feed_wide_words({"zork", "york"}, descs) == {"york"}
 
     def test_a_word_in_a_few_warnings_is_kept(self):
-        from linecast.weather.sources import _drop_feed_wide_words
+        from linecast.weather.alert_feeds.meteoalarm import _drop_feed_wide_words
         descs = self._descs(30, "zork") + [["york"]] * 3
         assert "york" in _drop_feed_wide_words({"york"}, descs)
 
     def test_a_small_feed_is_not_judged(self):
         # Three warnings, all in one province: the province is not generic.
-        from linecast.weather.sources import _drop_feed_wide_words
+        from linecast.weather.alert_feeds.meteoalarm import _drop_feed_wide_words
         descs = self._descs(3, "masovia")
         assert _drop_feed_wide_words({"masovia"}, descs) == {"masovia"}
 
@@ -1354,20 +1352,20 @@ class TestMeteoAlarmRegions:
     """An EMMA_ID names ground; the baked geometry says whose."""
 
     def setup_method(self):
-        from linecast.weather import meteoalarm_regions as mr
+        from linecast.weather.alert_feeds import meteoalarm_regions as mr
         self._saved = (mr._REGIONS, mr._CODES)
         mr._REGIONS, mr._CODES = FAKE_REGIONS, None
 
     def teardown_method(self):
-        from linecast.weather import meteoalarm_regions as mr
+        from linecast.weather.alert_feeds import meteoalarm_regions as mr
         mr._REGIONS, mr._CODES = self._saved
 
     def test_a_point_is_in_its_region_and_the_province_around_it(self):
-        from linecast.weather.meteoalarm_regions import regions_at
+        from linecast.weather.alert_feeds.meteoalarm_regions import regions_at
         assert regions_at(50.5, 10.5) == {"XX001", "XX100", "NUTS3/XX002", "CISORP/0001"}
 
     def test_a_hole_is_outside(self):
-        from linecast.weather.meteoalarm_regions import regions_at
+        from linecast.weather.alert_feeds.meteoalarm_regions import regions_at
         assert regions_at(49.3, 9.3) == set()
 
     def test_a_warning_for_the_users_county_reaches_them(self):
@@ -1427,7 +1425,7 @@ class TestMeteoAlarmRegions:
         assert _alerts(_feed(info), 52.5, 10.5, {"city": "Nowhere"}) == []
 
     def test_keys_are_spelled_by_type(self):
-        from linecast.weather.meteoalarm_regions import key_for
+        from linecast.weather.alert_feeds.meteoalarm_regions import key_for
         assert key_for("EMMA_ID", "PL3001") == "PL3001"
         assert key_for("NUTS3", "FR101") == "NUTS3/FR101"
         assert key_for("NUTS2", "HU10") == "NUTS2/HU10"
@@ -1438,25 +1436,25 @@ class TestMeteoAlarmRegionsData:
     """The shipped file answers for real places."""
 
     def setup_method(self):
-        from linecast.weather import meteoalarm_regions as mr
+        from linecast.weather.alert_feeds import meteoalarm_regions as mr
         mr._REGIONS, mr._CODES = None, None
 
     def test_warsaw_is_in_one_polish_county(self):
-        from linecast.weather.meteoalarm_regions import regions_at
+        from linecast.weather.alert_feeds.meteoalarm_regions import regions_at
         assert regions_at(52.23, 21.01) == {"PL1465"}
 
     def test_issue_57s_county_is_where_the_feed_says(self):
-        from linecast.weather.meteoalarm_regions import regions_at, known
+        from linecast.weather.alert_feeds.meteoalarm_regions import regions_at, known
         assert known("PL3001")
         assert "PL3001" in regions_at(52.995, 16.92)  # Chodzież
         assert "PL3001" not in regions_at(52.23, 21.01)
 
     def test_a_district_sits_inside_its_state(self):
-        from linecast.weather.meteoalarm_regions import regions_at
+        from linecast.weather.alert_feeds.meteoalarm_regions import regions_at
         assert regions_at(48.209, 16.372) == {"AT901"}  # Vienna, its own district
 
     def test_the_atlantic_is_nowhere(self):
-        from linecast.weather.meteoalarm_regions import regions_at
+        from linecast.weather.alert_feeds.meteoalarm_regions import regions_at
         assert regions_at(43.66, -70.26) == set()
 
     # The NUTS-coded feeds (issue #59): each capital in its own region,
@@ -1465,55 +1463,55 @@ class TestMeteoAlarmRegionsData:
     def test_paris_is_in_its_departement_by_either_spelling(self):
         # FR101 is Paris both as an EMMA_ID and as a NUTS3 code; the two
         # are separate entries, and only the NUTS3 one answers for NUTS3.
-        from linecast.weather.meteoalarm_regions import regions_at
+        from linecast.weather.alert_feeds.meteoalarm_regions import regions_at
         got = regions_at(48.8566, 2.3522)
         assert "FR101" in got
         assert {k for k in got if k.startswith("NUTS")} == {"NUTS3/FR101"}
 
     def test_cayenne_is_in_overseas_france(self):
-        from linecast.weather.meteoalarm_regions import regions_at
+        from linecast.weather.alert_feeds.meteoalarm_regions import regions_at
         assert "NUTS3/FRA30" in regions_at(4.9224, -52.3135)
 
     def test_budapest_is_in_central_hungary_as_2013_spelled_it(self):
-        from linecast.weather.meteoalarm_regions import regions_at
+        from linecast.weather.alert_feeds.meteoalarm_regions import regions_at
         got = regions_at(47.4979, 19.0402)
         assert {k for k in got if k.startswith("NUTS")} == {"NUTS2/HU10"}
 
     def test_sofia_is_in_its_oblast(self):
-        from linecast.weather.meteoalarm_regions import regions_at
+        from linecast.weather.alert_feeds.meteoalarm_regions import regions_at
         got = regions_at(42.6977, 23.3219)
         assert {k for k in got if k.startswith("NUTS")} == {"NUTS3/BG411"}
 
     def test_bucharest_is_in_its_judet(self):
-        from linecast.weather.meteoalarm_regions import regions_at
+        from linecast.weather.alert_feeds.meteoalarm_regions import regions_at
         got = regions_at(44.4268, 26.1025)
         assert {k for k in got if k.startswith("NUTS")} == {"NUTS3/RO321"}
 
     def test_antwerp_is_in_its_province(self):
-        from linecast.weather.meteoalarm_regions import regions_at
+        from linecast.weather.alert_feeds.meteoalarm_regions import regions_at
         got = regions_at(51.2194, 4.4025)
         assert {k for k in got if k.startswith("NUTS")} == {"NUTS2/BE21"}
 
     def test_skopje_answers_under_the_label_its_feed_uses(self):
         # North Macedonia files its EMMA_IDs typed NUTS3.
-        from linecast.weather.meteoalarm_regions import regions_at
+        from linecast.weather.alert_feeds.meteoalarm_regions import regions_at
         assert regions_at(41.9973, 21.4280) == {"MK008", "NUTS3/MK008"}
 
     def test_split_is_in_its_county_beside_its_region(self):
         # Croatia files a county warning under an EMMA_ID no geocodes
         # edition carries, with the 2013 NUTS3 code beside it (#127).
-        from linecast.weather.meteoalarm_regions import regions_at
+        from linecast.weather.alert_feeds.meteoalarm_regions import regions_at
         assert regions_at(43.508, 16.44) == {"HR008", "NUTS3/HR035"}
 
     def test_prague_is_its_own_orp_by_both_spellings(self):
         # The statistical office codes Prague 1000; the feed files 1100.
-        from linecast.weather.meteoalarm_regions import regions_at
+        from linecast.weather.alert_feeds.meteoalarm_regions import regions_at
         got = regions_at(50.0755, 14.4378)
         assert {k for k in got if k.startswith("CISORP")} == {"CISORP/1000", "CISORP/1100"}
         assert "CZ01100" in got  # and the EMMA_ID the feed files beside it
 
     def test_brno_is_in_its_orp_and_not_the_next(self):
-        from linecast.weather.meteoalarm_regions import regions_at, known
+        from linecast.weather.alert_feeds.meteoalarm_regions import regions_at, known
         assert "CISORP/6203" in regions_at(49.1951, 16.6068)
         assert known("CISORP/6217")  # Tišnov, one ORP over
         assert "CISORP/6217" not in regions_at(49.1951, 16.6068)
@@ -1536,7 +1534,7 @@ class TestAlertCap:
     def test_the_cap_applies_to_every_provider(self):
         from linecast.weather import sources as ws
         many = [{"event": f"a{i}", "severity": "Moderate"} for i in range(40)]
-        with patch.object(ws, "_fetch_alerts_nws", return_value=many):
+        with patch("linecast.weather.alert_feeds.nws.fetch", return_value=many):
             got = ws.fetch_alerts(43.6, -70.3, "US")
         assert len(got) == ws.MAX_ALERTS
 
@@ -1565,38 +1563,38 @@ class TestCapPolygons:
     """Parsing and point-in-ring, the pieces the filtering rests on."""
 
     def test_parses_a_closed_ring(self):
-        from linecast.weather.sources import _cap_polygons
-        rings = _cap_polygons({"polygon": _box(0, 1, 0, 1)})
+        from linecast.weather.alert_feeds.cap import cap_polygons
+        rings = cap_polygons({"polygon": _box(0, 1, 0, 1)})
         assert len(rings) == 1
         assert rings[0][0] == (0.0, 0.0)
 
     def test_a_bare_string_is_accepted(self):
-        from linecast.weather.sources import _cap_polygons
-        assert len(_cap_polygons({"polygon": _box(0, 1, 0, 1)[0]})) == 1
+        from linecast.weather.alert_feeds.cap import cap_polygons
+        assert len(cap_polygons({"polygon": _box(0, 1, 0, 1)[0]})) == 1
 
     def test_no_polygon_is_no_rings(self):
-        from linecast.weather.sources import _cap_polygons
-        assert _cap_polygons({"areaDesc": "somewhere"}) == []
+        from linecast.weather.alert_feeds.cap import cap_polygons
+        assert cap_polygons({"areaDesc": "somewhere"}) == []
 
     def test_a_ring_too_short_to_enclose_anything_is_skipped(self):
-        from linecast.weather.sources import _cap_polygons
-        assert _cap_polygons({"polygon": ["1,1 2,2"]}) == []
+        from linecast.weather.alert_feeds.cap import cap_polygons
+        assert cap_polygons({"polygon": ["1,1 2,2"]}) == []
 
     def test_inside_and_outside(self):
-        from linecast.weather.sources import _cap_polygons, _point_in_ring
-        ring = _cap_polygons({"polygon": _box(50, 52, -2, 0)})[0]
-        assert _point_in_ring(51, -1, ring)
-        assert not _point_in_ring(55, -1, ring)
-        assert not _point_in_ring(51, 3, ring)
+        from linecast.weather.alert_feeds.cap import cap_polygons, point_in_ring
+        ring = cap_polygons({"polygon": _box(50, 52, -2, 0)})[0]
+        assert point_in_ring(51, -1, ring)
+        assert not point_in_ring(55, -1, ring)
+        assert not point_in_ring(51, 3, ring)
 
     def test_a_concave_ring_excludes_its_notch(self):
         # A C-shape: the middle of the opening is outside, though it sits
         # within the bounding box.
-        from linecast.weather.sources import _point_in_ring
+        from linecast.weather.alert_feeds.cap import point_in_ring
         ring = [(0, 0), (0, 3), (1, 3), (1, 1), (2, 1), (2, 3), (3, 3),
                 (3, 0), (0, 0)]
-        assert _point_in_ring(1.5, 0.5, ring)
-        assert not _point_in_ring(1.5, 2.0, ring)
+        assert point_in_ring(1.5, 0.5, ring)
+        assert not point_in_ring(1.5, 2.0, ring)
 
 
 # ---------------------------------------------------------------------------
@@ -1618,11 +1616,11 @@ class TestSachetAlerts:
         self.feed = _load("sachet_alerts.json")
 
     def _alerts(self, lat, lng, lang="en"):
-        from linecast.weather.sources import _fetch_alerts_sachet
+        from linecast.weather.alert_feeds import sachet
         with answering(self.feed), \
              patch("linecast._http.fetch_bytes_cached",
                    side_effect=_sachet_cap_from_fixtures):
-            return _fetch_alerts_sachet(lat, lng, lang=lang)
+            return sachet.fetch(lat, lng, lang=lang)
 
     def test_feed_entry_shape(self):
         for entry in self.feed:
@@ -1693,12 +1691,12 @@ class TestSachetAlerts:
                 assert key in alert
 
     def test_unusable_feed_is_no_alerts(self):
-        from linecast.weather.sources import _fetch_alerts_sachet
+        from linecast.weather.alert_feeds import sachet
         with answering(None):
-            assert _fetch_alerts_sachet(28.61, 77.21) == []
+            assert sachet.fetch(28.61, 77.21) == []
 
     def test_feed_datetime_parsing(self):
-        from linecast.weather.sources import _sachet_datetime
+        from linecast.weather.alert_feeds.sachet import _sachet_datetime
         assert (_sachet_datetime("Sun Aug 30 21:00:00 IST 2026")
                 == "2026-08-30T21:00:00+05:30")
         assert _sachet_datetime("nonsense") == ""
@@ -1707,7 +1705,7 @@ class TestSachetAlerts:
     def test_cap_language_codes_normalize_to_iso(self):
         # SACHET's own coinages ("OD" for Odia, "TL" for Telugu) beside
         # the upcased ISO codes it uses for most languages.
-        from linecast.weather.sources import _sachet_cap_lang
+        from linecast.weather.alert_feeds.sachet import _sachet_cap_lang
         assert _sachet_cap_lang("en-IN") == "en"
         assert _sachet_cap_lang("HI") == "hi"
         assert _sachet_cap_lang("MR") == "mr"
@@ -1969,10 +1967,10 @@ class TestMetServiceAlerts:
     """Parse a MetService CAP feed snapshot with its CAP files."""
 
     def _alerts(self, lat, lng, side_effect=_metservice_from_fixtures):
-        from linecast.weather.sources import _fetch_alerts_metservice
+        from linecast.weather.alert_feeds import metservice
         with patch("linecast._http.fetch_bytes_cached",
                    side_effect=side_effect):
-            return _fetch_alerts_metservice(lat, lng)
+            return metservice.fetch(lat, lng)
 
     def test_desert_road_gets_its_warning(self):
         alerts = self._alerts(-39.379, 175.709)

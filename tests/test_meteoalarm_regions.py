@@ -3,7 +3,7 @@ reads; the loader fails soft; and the shipped file holds together.
 
 tests/test_weather_parsing.py asks the shipped file about real places.
 This file is about the contract around it: scripts/build_meteoalarm_regions.py
-and linecast.weather.meteoalarm_regions agree on the format, a missing or
+and linecast.weather.alert_feeds.meteoalarm_regions agree on the format, a missing or
 broken file costs nobody an alert, and the file that ships carries
 every country the runtime will ask it about.
 """
@@ -36,7 +36,7 @@ def bake():
 @pytest.fixture
 def mr():
     """The runtime module, with its cache left the way it was found."""
-    from linecast.weather import meteoalarm_regions as _meteoalarm_regions
+    from linecast.weather.alert_feeds import meteoalarm_regions as _meteoalarm_regions
     saved = (_meteoalarm_regions._REGIONS, _meteoalarm_regions._CODES)
     _meteoalarm_regions._REGIONS, _meteoalarm_regions._CODES = None, None
     yield _meteoalarm_regions
@@ -163,9 +163,9 @@ def _coded_feed(area_desc, code):
 
 
 def _alerts(data, lat, lng, address):
-    from linecast.weather import sources as ws
+    from linecast.weather.alert_feeds import meteoalarm
     with answering(data):
-        return ws._fetch_alerts_meteoalarm(lat, lng, "poland", address=address)
+        return meteoalarm.fetch(lat, lng, address=address, slug="poland")
 
 
 class TestLoaderFailsSoft:

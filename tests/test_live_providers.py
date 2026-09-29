@@ -205,8 +205,8 @@ def test_alerts(failures, country, point, provider):
                          ids=sorted(_METEOALARM_SLUGS))
 def test_meteoalarm_feed_is_placed(failures, country, slug):
     from linecast._http import fetch_json
-    from linecast.weather.sources import (_METEOALARM_FEED_BYTES, _cap_polygons,
-                                           _region_keys)
+    from linecast.weather.alert_feeds.meteoalarm import _METEOALARM_FEED_BYTES, _region_keys
+    from linecast.weather.alert_feeds.cap import cap_polygons
     # under the runtime's own cap, so a feed outgrowing it fails here too
     feed = fetch_json(f"https://feeds.meteoalarm.org/api/v1/warnings/feeds-{slug}",
                       headers={"Accept": "application/json"}, timeout=15,
@@ -216,7 +216,7 @@ def test_meteoalarm_feed_is_placed(failures, country, slug):
     for w in feed.get("warnings", []):
         for info in w.get("alert", {}).get("info", []):
             for area in info.get("area", []):
-                if _cap_polygons(area) or _region_keys([area]):
+                if cap_polygons(area) or _region_keys([area]):
                     continue
                 codes = " ".join(f"{g.get('valueName')}/{g.get('value')}"
                                  for g in area.get("geocode") or []) or "(no geocode)"

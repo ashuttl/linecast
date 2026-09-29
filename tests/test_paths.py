@@ -18,7 +18,6 @@ from conftest import SESSION_ROOT, readonly
 
 from linecast import _cache, _config, _http, _location, _paths, _runtime
 from linecast import _geocode
-from linecast.weather import sources
 from linecast.settings import location
 from linecast.settings import units
 from linecast._paths import cache_dir, cache_root, config_root
@@ -200,7 +199,8 @@ class TestUnwritableCache:
         payload = json.loads(fixture.read_text(encoding="utf-8"))
         monkeypatch.setattr(_http, "fetch_json",
                             lambda url, headers=None, timeout=10: payload)
-        alerts = sources._fetch_alerts_nws(40.7, -74.0)
+        from linecast.weather.alert_feeds import nws
+        alerts = nws.fetch(40.7, -74.0)
         assert [a["event"] for a in alerts] == ["Heat Advisory"]
 
 

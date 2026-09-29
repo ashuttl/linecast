@@ -13,13 +13,12 @@ import pytest
 from linecast.terminal import help as _help
 
 from linecast.weather import view as weather
-from linecast.weather import sources as _weather_sources
 from linecast.terminal.textwidth import visible_len
 from linecast._runtime import WeatherRuntime
 from linecast.weather.json import build_payload
 from linecast._i18n import LANGUAGE_CODES
 from linecast.weather.sources import (
-    ATTRIBUTION, alert_attribution, alert_source, forecast_attribution,
+    ALERT_FEEDS, ATTRIBUTION, alert_attribution, alert_source, forecast_attribution,
     _METEOALARM_SLUGS)
 
 FIXTURES = Path(__file__).parent / "fixtures"
@@ -36,11 +35,22 @@ def lines_of(panel):
 
 
 class TestSources:
-    def test_every_routed_country_names_its_service(self):
-        # the router's explicit branches and the credit table must agree
-        routed = set(re.findall(r'country_code == "([A-Z]{2})"',
-                                inspect.getsource(_weather_sources._fetch_alerts_routed)))
-        assert routed == set(_weather_sources._ALERT_SOURCES)
+    def test_every_country_routes_to_a_service_that_fetches(self):
+        # One table routes the fetch and names the service: every module
+        # of alert_feeds that fetches is in it, and every service in it
+        # has a fetch that takes the place the table hands it.
+        import importlib
+        import pkgutil
+        from linecast.weather import alert_feeds
+        fetchers = {m.name for m in pkgutil.iter_modules(alert_feeds.__path__)} - {
+            "cap", "meteoalarm_regions"}
+        assert {feed.module for feed in ALERT_FEEDS.values()} == fetchers
+        for code, feed in ALERT_FEEDS.items():
+            assert alert_source(code) == feed.name
+            module = importlib.import_module(f"linecast.weather.alert_feeds.{feed.module}")
+            params = list(inspect.signature(module.fetch).parameters)
+            assert params[:4] == ["lat", "lng", "lang", "address"], feed.module
+            assert ("slug" in params) == bool(feed.slug), feed.module
 
     def test_ireland_is_met_eireann(self):
         assert alert_source("IE") == "Met Éireann"
