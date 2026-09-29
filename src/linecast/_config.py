@@ -242,3 +242,12 @@ def saved_location() -> dict[str, Any] | None:
             and -90 <= loc["lat"] <= 90 and -180 <= loc["lng"] <= 180):
         return loc
     return None
+
+
+def save_location(lat: float, lng: float, label: str, country: str = "") -> None:
+    """Save a place as the location every view starts from, in the shape
+    saved_location() reads back.  An OSError from write_config is left
+    to the caller, which says so in its own way."""
+    config = read_config()
+    config["location"] = dict(lat=lat, lng=lng, label=label, country=country)
+    write_config(config)

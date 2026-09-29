@@ -60,6 +60,7 @@ from linecast.weather.forecast import (
 from linecast.weather.air import apply_national_index, fetch_canada_aqhi, fetch_aqi
 from linecast._geocode import reverse_geocode, print_search, without_country
 from linecast.weather.cover import sky_condition
+from linecast.weather.location_menu import LocationMenu
 from linecast.weather.humidex import apply_canadian_indices
 from linecast.weather.observed import (
     apply_observation,
@@ -694,7 +695,7 @@ def render_from_data(data, alerts, runtime, location_name="", offset_minutes=0, 
 # ---------------------------------------------------------------------------
 # Live
 # ---------------------------------------------------------------------------
-class WeatherApp(_live.LiveApp):
+class WeatherApp(LocationMenu, _live.LiveApp):
     """The live weather view: the fetched data, refreshed every interval.
 
     Keep data in memory between renders: render_fn fires on every input
@@ -904,78 +905,24 @@ class WeatherApp(_live.LiveApp):
                 args=(self._generation, self.lat, self.lng, self.country), daemon=True)
             self._worker.start()
 
-    def _choose_location(self, place):
+    # --- the location menu (LocationMenu) ---------------------------------
+    def _here(self):
+        return self.lat, self.lng
+
+    def _label(self):
+        return self.location_name or f"{self.lat:.2f}, {self.lng:.2f}"
+
+    def _load_place(self, place, stale):
+        return gather(place.lat, place.lon, "", self.runtime, geo_label=place.name,
+                      stale=stale)
+
+    def _place_failed(self, place, result):
         from linecast.weather.locations_i18n import ls
-        if place is None:
-            return
-        if place == 'save':
-            self._save_default_location()
-            return
-        with self._state_lock:
-            self._generation += 1
-            generation = self._generation
-            self._location_result = None
-            self._loading = place
-            self._worker = None
-            self.flash([ls('loading', self.runtime.lang, name=place.name)], busy=True)
+        if not isinstance(result, dict) or not result.get('data'):
+            return ls('failed', self.runtime.lang, name=place.name)
+        return None
 
-        def fetch():
-            try:
-                result = gather(place.lat, place.lon, "", self.runtime, geo_label=place.name,
-                                stale=lambda: generation != self._generation)
-            except Exception as exc:
-                log_failure("weather", "change location", exc, fallback="keep current location")
-                result = None
-            with self._state_lock:
-                if generation == self._generation:
-                    self._location_result = (place, result)
-            _live.nudge()
-
-        self._location_worker = threading.Thread(target=fetch, daemon=True)
-        self._location_worker.start()
-
-    def _update_location_picker(self):
-        from linecast._config import saved_location
-        saved = saved_location()
-        self.locations.location_name = self.location_name or f"{self.lat:.2f}, {self.lng:.2f}"
-        self.locations.is_default = bool(
-            saved and (round(saved['lat'], 4), round(saved['lng'], 4))
-            == (round(self.lat, 4), round(self.lng, 4)))
-        self.locations.sel = 0
-
-    def _save_default_location(self):
-        """Persist the displayed place using the CLI's shared location setting."""
-        from linecast._config import read_config, write_config
-        from linecast.weather.locations_i18n import ls
-        label = self.location_name or f"{self.lat:.2f}, {self.lng:.2f}"
-        try:
-            config = read_config()
-            config['location'] = dict(lat=self.lat, lng=self.lng, label=label, country=self.country)
-            write_config(config)
-        except OSError as exc:
-            log_failure('weather', 'save default location', exc, fallback='keep previous default')
-            self.flash([ls('save_failed', self.runtime.lang)], seconds=5)
-            return
-        self._update_location_picker()
-        self.flash([ls('saved', self.runtime.lang, name=label)])
-
-    def _finish_location(self):
-        """Commit on the UI thread, so recents and panels never change mid-input."""
-        from linecast.maps.search import Result
-        from linecast.weather.locations_i18n import ls
-        if self._location_result is None:
-            return
-        place, result = self._location_result
-        self._location_result = self._loading = None
-        self.clear_flash()
-        if not result or not result.get('data'):
-            self.flash([ls('failed', self.runtime.lang, name=place.name)], seconds=5)
-            return
-        # Keep the departure point too, so the first trip has a way back.
-        if not any(round(p.lat, 4) == round(self.lat, 4) and
-                   round(p.lon, 4) == round(self.lng, 4) for p in self.locations.recent.places):
-            self.locations.recent.remember(
-                Result(self.location_name, '', self.lat, self.lng, 'point'))
+    def _commit_place(self, place, result):
         self.lat, self.lng = place.lat, place.lon
         self.data = result['data']
         self.alerts = result.get('alerts', [])
@@ -983,32 +930,36 @@ class WeatherApp(_live.LiveApp):
         self.historical = result.get('historical')
         self.country = result.get('country_code', '')
         self.location_name = result.get('name') or place.name
-        self._update_location_picker()
         self.aqi = apply_national_index(self.aqi, self.country, self.lat, self.lng,
                                         canada=result.get('aqhi'))
         self.fetched, self.attempted = _t.monotonic(), None
-        self.locations.recent.remember(place)
         self._start_climate(delay=_CLIMATE_RETRY_DELAY)
         self._start_year()
 
-    def text_mode(self):
-        return self.locations.search.open
+    def _on_place(self, col, row):
+        hit = self._location_hit
+        return row == 1 and hit is not None and hit[0] <= col <= hit[1]
+
+    def _choose_location(self, place):
+        if place not in (None, 'save'):
+            with self._state_lock:
+                # A refresh still out is for the place being left; it
+                # finds itself stale, and need not hold up the next.
+                self._worker = None
+        super()._choose_location(place)
 
     def intercept(self, action):
-        if self.locations.active:
-            self._choose_location(self.locations.handle(action, self.lat, self.lng))
+        if super().intercept(action):
             return True
         # The year view scrubs nothing; the arrows would move the
         # forecast behind it.
         return self.year_view and action in ("fwd", "back")
 
     def on_wheel(self, direction, col, row):
-        if not self.locations.active:
-            if self.year_view:
-                return True
-            return NotImplemented  # keep the forecast and alert modal's usual scrolling
-        self.locations.handle('fwd' if direction > 0 else 'back', self.lat, self.lng)
-        return True
+        if self.year_view and not self.locations.active:
+            return True
+        # else the menu's, or the forecast and alert modal's usual scrolling
+        return super().on_wheel(direction, col, row)
 
     def clamp_offset(self, offset_minutes):
         with self._state_lock:
@@ -1018,34 +969,10 @@ class WeatherApp(_live.LiveApp):
                 max(10, cols), offset_minutes=offset_minutes)
             return window["offset_minutes"] if window else 0
 
-    def on_drag(self, dcol, drow, done):
-        # Opt in to live_loop's press/release tracking for clicks.
-        return False
-
-    def on_click(self, col, row):
-        if self.locations.active:
-            self._choose_location(self.locations.click(col, row))
-            return True
-        if (row == 1 and self._location_hit
-                and self._location_hit[0] <= col <= self._location_hit[1]):
-            self.locations.start()
-            return True
-        return False
-
-    def stop(self):
-        self.clear_flash()
-        self.locations.close()
-        with self._state_lock:
-            self._generation += 1
-
     def on_action(self, key):
         """`r` asks for a newer forecast now rather than at the next
         interval -- the retry the stale-forecast line offers."""
-        if key == "l":
-            self.locations.start()
-            return True
-        if key == "/":
-            self.locations.choose('add')
+        if super().on_action(key):
             return True
         if key == "r":
             self._start_refresh()
@@ -1095,9 +1022,8 @@ class WeatherApp(_live.LiveApp):
         from linecast.weather.sections import location_chip, location_control
         label = location_chip(location_control(self.location_name, cols, self.runtime))
         self._location_hit = (cols - visible_len(label) + 1, cols)
-        floating = self.flash_overlay(cols, rows)
+        floating = self.menu_overlay(cols, rows)
         if panel:
-            floating += self.locations.overlay(cols, rows, (round(self.lat, 4), round(self.lng, 4)))
             alert_rows = {}  # a panel click must not open an alert beneath it
         if floating:
             body, _, previous = output.partition("\x00")
@@ -1107,11 +1033,9 @@ class WeatherApp(_live.LiveApp):
     def help_panel(self):
         from linecast.terminal.help import HelpPanel, entries
         from linecast.maps.search import ATTRIBUTION
-        from linecast.weather.locations_i18n import ls
         observed = ((self.data or {}).get("current") or {}).get("observed")
         return HelpPanel('weather', self.runtime.lang, content=lambda cols, rows:
-                         [('l', ls('locations', self.runtime.lang)),
-                          ('/', ls('add', self.runtime.lang))] +
+                         self.menu_rows() +
                          entries('weather_year' if self.year_view else 'weather',
                                  self.runtime.lang,
                                  credits=(forecast_attribution(self.runtime.lang),

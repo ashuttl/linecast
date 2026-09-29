@@ -53,6 +53,7 @@ from linecast.terminal.spinner import Spinner
 from linecast.tides.marine import fetch_marine, parse_marine_current, format_marine_line
 from linecast.tides.common import sweep_legacy_cache
 from linecast.tides.i18n import _ts
+from linecast.weather.location_menu import LocationMenu
 from linecast._i18n import moon_name
 from linecast.tides.tidecheck import budget_line as tidecheck_budget_line
 from linecast.tides.providers import (
@@ -946,7 +947,7 @@ def render(station_id, station_name, station_meta=None, runtime=None,
 # ---------------------------------------------------------------------------
 # Live
 # ---------------------------------------------------------------------------
-class TidesApp(_live.LiveApp):
+class TidesApp(LocationMenu, _live.LiveApp):
     """The live tide view: a sliding window over predictions fetched a
     week to either side, widened as the user scrolls toward an edge."""
 
@@ -956,6 +957,7 @@ class TidesApp(_live.LiveApp):
     scroll_step = 30
 
     help_view = 'tides'
+    LOG_AREA = 'tides'
 
     def __init__(self, provider, station_id, station_name, station_meta,
                  station_tz, runtime, predictions, hilo, fetched_start,
@@ -980,7 +982,7 @@ class TidesApp(_live.LiveApp):
             meta = station_meta or {}
             place = (meta.get("lat"), meta.get("lng"), "")
         self.lat, self.lng, self.place_label = place
-        self._country = country
+        self.country = country
         from linecast.weather.locations import LocationPicker
         self.locations = LocationPicker(runtime.lang, align='left')
         self._update_location_picker()
@@ -988,8 +990,9 @@ class TidesApp(_live.LiveApp):
         self._generation = 0
         self._loading = None
         self._location_result = None
+        self._location_worker = None
 
-    # --- the location menu, as weather has it -------------------------
+    # --- the location menu (LocationMenu) ---------------------------------
     def _here(self):
         try:
             return float(self.lat), float(self.lng)
@@ -1000,62 +1003,7 @@ class TidesApp(_live.LiveApp):
         lat, lng = self._here()
         return self.place_label or self.station_name or f"{lat:.2f}, {lng:.2f}"
 
-    def _update_location_picker(self):
-        from linecast._config import saved_location
-        saved = saved_location()
-        here = tuple(round(v, 4) for v in self._here())
-        self.locations.location_name = self._label()
-        self.locations.is_default = bool(
-            saved and (round(saved['lat'], 4), round(saved['lng'], 4)) == here)
-        self.locations.sel = 0
-
-    def _save_default_location(self):
-        """Persist the displayed place using the CLI's shared location setting."""
-        from linecast._config import read_config, write_config
-        from linecast.weather.locations_i18n import ls
-        lat, lng = self._here()
-        label = self._label()
-        try:
-            config = read_config()
-            config['location'] = dict(lat=lat, lng=lng, label=label,
-                                      country=self._country or "")
-            write_config(config)
-        except OSError as exc:
-            log_failure('tides', 'save default location', exc, fallback='keep previous default')
-            self.flash([ls('save_failed', self.runtime.lang)], seconds=5)
-            return
-        self._update_location_picker()
-        self.flash([ls('saved', self.runtime.lang, name=label)])
-
-    def _choose_location(self, place):
-        from linecast.weather.locations_i18n import ls
-        if place is None:
-            return
-        if place == 'save':
-            self._save_default_location()
-            return
-        with self._state_lock:
-            self._generation += 1
-            generation = self._generation
-            self._location_result = None
-            self._loading = place
-            self.flash([ls('loading', self.runtime.lang, name=place.name)], busy=True)
-
-        def fetch():
-            result = None
-            try:
-                result = self._load_place(place)
-            except Exception as exc:
-                log_failure("tides", "change location", exc, fallback="keep current station")
-                result = "failed"
-            with self._state_lock:
-                if generation == self._generation:
-                    self._location_result = (place, result)
-            _live.nudge()
-
-        threading.Thread(target=fetch, daemon=True).start()
-
-    def _load_place(self, place):
+    def _load_place(self, place, stale):
         """The nearest station to *place* and its data, as main() finds
         them: None when nothing covers it, "failed" when it would not load."""
         from linecast._geocode import reverse_geocode
@@ -1077,24 +1025,13 @@ class TidesApp(_live.LiveApp):
                     station_meta=station_meta, station_tz=station_tz, country=country,
                     fetched=fetched)
 
-    def _finish_location(self):
-        """Commit on the UI thread, so recents and the view never change mid-input."""
-        from linecast.maps.search import Result
-        if self._location_result is None:
-            return
-        place, result = self._location_result
-        self._location_result = self._loading = None
-        self.clear_flash()
-        if not isinstance(result, dict):
-            key = "no_tides" if result is None else "load_failed"
-            self.flash([_ts(key, self.runtime, name=place.name)], seconds=5)
-            return
-        # Keep the departure point too, so the first trip has a way back.
-        lat, lng = self._here()
-        if self.lat is not None and not any(
-                round(p.lat, 4) == round(lat, 4) and round(p.lon, 4) == round(lng, 4)
-                for p in self.locations.recent.places):
-            self.locations.recent.remember(Result(self._label(), '', lat, lng, 'point'))
+    def _place_failed(self, place, result):
+        if isinstance(result, dict):
+            return None
+        key = "no_tides" if result is None else "load_failed"
+        return _ts(key, self.runtime, name=place.name)
+
+    def _commit_place(self, place, result):
         (self.fetched_start, self.fetched_end, self.y_range, self.marine_data,
          self.predictions, self.hilo) = result["fetched"]
         self.provider = result["provider"]
@@ -1102,63 +1039,19 @@ class TidesApp(_live.LiveApp):
         self.station_name = result["station_name"]
         self.station_meta = result["station_meta"]
         self.station_tz = result["station_tz"]
-        self._country = result["country"]
+        self.country = result["country"]
         self.lat, self.lng, self.place_label = place.lat, place.lon, place.name
         self._retry_at = 0.0
-        self.locations.recent.remember(place)
-        self._update_location_picker()
 
-    def text_mode(self):
-        return self.locations.search.open
-
-    def intercept(self, action):
-        if self.locations.active:
-            self._choose_location(self.locations.handle(action, *self._here()))
-            return True
-        return False
-
-    def on_wheel(self, direction, col, row):
-        if not self.locations.active:
-            return NotImplemented  # keep the wheel scrubbing time
-        self.locations.handle('fwd' if direction > 0 else 'back', *self._here())
-        return True
-
-    def on_drag(self, dcol, drow, done):
-        # Opt in to live_loop's press/release tracking for clicks.
-        return False
-
-    def on_click(self, col, row):
-        if self.locations.active:
-            self._choose_location(self.locations.click(col, row))
-            return True
+    def _on_place(self, col, row):
         name = _pill_label(self.station_name, location_menu=True)
-        if row == 1 and name and col <= visible_len(name) + 4:
-            self.locations.start()
-            return True
-        return False
-
-    def on_action(self, key):
-        if key == "l":
-            self.locations.start()
-            return True
-        if key == "/":
-            self.locations.choose('add')
-            return True
-        return False
-
-    def stop(self):
-        self.clear_flash()
-        self.locations.close()
-        with self._state_lock:
-            self._generation += 1
+        return row == 1 and bool(name) and col <= visible_len(name) + 4
 
     def help_panel(self):
         from linecast.terminal.help import HelpPanel, entries
-        from linecast.weather.locations_i18n import ls
         lang = self.runtime.lang
         return HelpPanel('tides', lang, content=lambda cols, rows:
-                         [('l', ls('locations', lang)), ('/', ls('add', lang))]
-                         + entries('tides', lang))
+                         self.menu_rows() + entries('tides', lang))
 
     def expand_for(self, offset_minutes):
         """Widen the fetched range when the user scrolls near an edge.
@@ -1242,9 +1135,7 @@ class TidesApp(_live.LiveApp):
             location_menu=True,
         )
         cols, rows = get_terminal_size()
-        floating = self.flash_overlay(cols, rows)
-        if panel:
-            floating += self.locations.overlay(cols, rows, tuple(round(v, 4) for v in self._here()))
+        floating = self.menu_overlay(cols, rows)
         if floating:
             body, _, previous = output.partition("\x00")
             output = _live.overlay(body, previous + floating)

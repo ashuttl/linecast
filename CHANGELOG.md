@@ -40,6 +40,7 @@ Fixes:
   - Fixed alerts in Canada showing no times with Python 3.10.
   - Fixed Japanese warnings of the same severity changing places from one run to the next; they keep a steady order.
   - Fixed temperatures just below zero showing as "-0°".
+  - Fixed the location menu losing the way back to a place that had no name, as when it was first shown without a connection; the place is listed by its coordinates.
   - Fixed the year view, when the year's past days could not be fetched, drawing each month as though no rain had fallen, and comparing one day's rain in the header with the average for the whole year so far. It leaves both out until the days come.
   - Fixed the year view's label for the average in Thai, "ค่าปกติ", losing its tone mark.
   - `--oneline` no longer shows "Wind 0mph" when the air is all but still; it leaves the wind out, as it does when there is none.

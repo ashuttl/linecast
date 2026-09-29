@@ -210,6 +210,18 @@ def test_switch_commits_all_location_data_and_remembers_departure():
     assert [p.name for p in RecentLocations().places] == ['Paris', 'Portland']
 
 
+def test_a_departure_with_no_name_is_remembered_by_its_coordinates():
+    # The reverse geocoder had no name for the place on screen, offline
+    # say; RecentLocations drops blank names, and the way back with them.
+    view = app()
+    view.location_name = ''
+    result = dict(data={'new': 1}, name='Paris', country_code='FR')
+    with patch.object(weather, 'gather', return_value=result):
+        view._choose_location(place())
+        finish(view)
+    assert [p.name for p in RecentLocations().places] == ['Paris', '43.00, -70.00']
+
+
 def test_failed_switch_keeps_entire_current_location_and_history():
     view = app()
     with patch.object(weather, 'gather', return_value={'data': None}), \

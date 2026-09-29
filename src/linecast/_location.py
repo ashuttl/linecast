@@ -194,6 +194,12 @@ def resolve_location(
     return (lat, lng, country, label) if return_label else (lat, lng, country)
 
 
+def same_place(a, b) -> bool:
+    """Whether two (lat, lng) pairs are the same place: equal to four
+    decimal places, about ten metres."""
+    return (round(a[0], 4), round(a[1], 4)) == (round(b[0], 4), round(b[1], 4))
+
+
 def parse_latlng(text: str) -> tuple[float, float] | None:
     """'lat,lng' as two floats, or None for anything else.
 

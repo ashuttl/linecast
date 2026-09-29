@@ -240,3 +240,4 @@ class LocationPicker:
         elif n <= rows:
             row(n, ms('search_hint', self.lang), muted=True)
         return ''.join(out)
+
