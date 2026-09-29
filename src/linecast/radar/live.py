@@ -118,6 +118,13 @@ class RadarApp(LiveApp):
             _frames.use(source.with_theme(choice))
         return True
 
+    def on_wheel(self, direction, col, row):
+        """The wheel moves the theme picker's highlight while it is open,
+        as the arrows do; otherwise it steps the frames."""
+        if not self.picker.is_open:
+            return NotImplemented
+        return self.intercept('fwd' if direction > 0 else 'back')
+
     def on_drag(self, dcol, drow, done):
         if not done:
             # mid-drag: update the screen-space preview offset only

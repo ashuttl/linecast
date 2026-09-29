@@ -153,6 +153,17 @@ class TestThemePicker:
         assert app.intercept('space') is True
         assert app.picker.is_open
 
+    def test_the_wheel_moves_the_open_menu_not_the_frames(self, app):
+        # closed, the loop's own wheel handling steps the frames
+        assert app.on_wheel(1, 10, 10) is NotImplemented
+        app.intercept('key:t')
+        assert app.on_wheel(-1, 10, 10) is True
+        assert app.picker.sel == 1
+        assert app.on_wheel(1, 10, 10) is True
+        assert app.on_wheel(1, 10, 10) is True
+        assert app.picker.sel == 2
+        assert 'on_wheel' in app.hooks()
+
     def test_a_source_that_lost_its_themes_closes_it(self, app, monkeypatch):
         app.intercept('key:t')
         rf.use(FakeSource(None))
