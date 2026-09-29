@@ -7,7 +7,7 @@ from test_sky import LAT, LNG, NIGHT, NOON, _frame, _runtime
 from linecast.astro.ephemeris import mat_apply, mat_mul, mat_transpose
 from linecast.sky import view as sky
 from linecast.sky.scene import (
-    Scene, View, alt_az_of, camera_matrix, focal_length, horizontal_vector,
+    Lens, Scene, View, alt_az_of, camera_matrix, focal_length, horizontal_vector,
 )
 from linecast.sky import objects as _sky_objects
 from linecast.terminal.framebuffer import Framebuffer
@@ -25,8 +25,8 @@ def _paint(record, fov=6, moment=NIGHT, altitude=None):
     frame = mat_mul(cam, scene.horizontal)
     fb = Framebuffer(160, 50, bg_color=(0, 0, 0))
     with patch.object(_sky_objects, 'objects', return_value=[record]):
-        labels, hits = _sky_objects.paint(fb, scene, cam, frame,
-                                         focal_length(160, fov), 80, 50, 12, (160, 160, 160))
+        lens = Lens(cam, focal_length(160, fov), 80, 50)
+        labels, hits = _sky_objects.paint(fb, scene, lens, frame, 12, (160, 160, 160))
     return fb, labels, hits
 
 

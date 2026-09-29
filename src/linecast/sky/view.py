@@ -71,7 +71,7 @@ from linecast.sky import objects as _objects
 from linecast.sky.scene import (
     FOV_DEFAULT, FOV_MAX, FOV_MIN, Scene, alt_az_of, camera_matrix, compass_marks,
     compass_point, compass_points, default_view, easily_seen, extinction,
-    focal_length, horizontal_vector, project, unproject,
+    Lens, focal_length, horizontal_vector, project, unproject,
 )
 from linecast.sky.i18n import _sk, body_name
 from linecast.sunshine.i18n import clock_label, sky_phase
@@ -190,7 +190,7 @@ def _put_text(overlays, taken, text, x, row, rgb, bold, graph_w, graph_h,
     return True
 
 
-def _plot_arc(dots, a, b, cam, f, cx, cy, graph_w, graph_h, aspect=1.0):
+def _plot_arc(dots, a, b, lens, graph_w, graph_h):
     """A great-circle arc between two camera-frame vectors, as braille
     dots — two across and four down each cell — only above the horizon.
     *dots* maps a cell to its dot bits.
@@ -198,9 +198,10 @@ def _plot_arc(dots, a, b, cam, f, cx, cy, graph_w, graph_h, aspect=1.0):
     The camera matrix's third column gives the altitude of a camera-frame
     direction, which is how the arc knows where the ground cuts it.
     """
+    _cam, f, cx, cy, aspect = lens
     ax, ay, az = a
     bx, by, bz = b
-    u0, u1, u2 = cam[2], cam[5], cam[8]
+    u0, u1, u2 = lens.up
     # Normalized interpolation preserves the sign of the horizon's linear
     # dot product. Keep near-tangent arcs: roundoff in the original per-dot
     # check can put a sample just above the horizon even when both ends are
@@ -252,10 +253,11 @@ def _plot_arc(dots, a, b, cam, f, cx, cy, graph_w, graph_h, aspect=1.0):
             dots[(col, row)] = dots.get((col, row), 0) | DOT_BITS[dx & 1][dy & 3]
 
 
-def _glow(fb, x, y, rgb, radius, alpha, cam, f, cx, cy, aspect):
+def _glow(fb, x, y, rgb, radius, alpha, lens):
     """A radial glow about (x, y), as the framebuffer's, but only on the
     sky: the ground is not lit by what stands behind it."""
-    u0, u1, u2 = cam[2], cam[5], cam[8]
+    _cam, f, cx, cy, aspect = lens
+    u0, u1, u2 = lens.up
     xi, yi = int(round(x)), int(round(y))
     scan = int(radius) + 2
     scan_y = int(radius / aspect) + 2
@@ -278,12 +280,13 @@ def _glow(fb, x, y, rgb, radius, alpha, cam, f, cx, cy, aspect):
             px[sy][sx] = lerp(px[sy][sx], rgb, math.exp(-0.5 * (dist / sigma) ** 2) * alpha)
 
 
-def _behind_the_horizon(fb, x, y, radius, cam, f, cx, cy, aspect, draw):
+def _behind_the_horizon(fb, x, y, radius, lens, draw):
     """Run *draw*, then give the ground back wherever it looks below the
     horizon within *radius* of (x, y): a rising Sun or Moon is cut by
     the skyline, blended across the sub-pixel the horizon crosses as
     the sky pass blends it."""
-    u0, u1, u2 = cam[2], cam[5], cam[8]
+    _cam, f, cx, cy, aspect = lens
+    u0, u1, u2 = lens.up
     scan = int(radius) + 3
     scan_y = int(radius / aspect) + 3
     x0, x1 = max(0, int(x) - scan), min(fb.graph_w, int(x) + scan + 1)
@@ -370,11 +373,12 @@ def _sky_table(scene):
     return sky, ground
 
 
-def _paint_sky(fb, scene, cam, f, cx, cy, aspect):
+def _paint_sky(fb, scene, lens):
     """The background: sky and ground by direction, the Milky Way where
     the sky is dark. Returns the solid angle of sky on screen, in
     steradians, for the star count."""
     sky, ground = _sky_table(scene)
+    cam, f, cx, cy, aspect = lens
     # Rows of the camera matrix are the screen axes in the observer's
     # frame, so the observer-frame vector of a camera vector (x, y, z) is
     # x*right + y*up + z*forward.
@@ -474,7 +478,7 @@ def _star_limit(scene, omega, cells, fov=FOV_DEFAULT):
     return min(by_zoom, eye)
 
 
-def _star_candidates(frame, f, cx, cy, aspect, limit, deep=True):
+def _star_candidates(frame, lens, limit, deep=True):
     """Bright Yale stars followed by HYG stars in the screen's sky cone.
 
     Negative indices identify the separate supplement, leaving every
@@ -488,7 +492,7 @@ def _star_candidates(frame, f, cx, cy, aspect, limit, deep=True):
             break
         yield i, mag, bv, vectors[i]
     if deep:
-        radius = 2.0 * math.atan(math.hypot(cx, cy * aspect) / (2.0 * f))
+        radius = 2.0 * math.atan(math.hypot(lens.cx, lens.cy * lens.aspect) / (2.0 * lens.f))
         for i, mag, bv, vector in _deep.candidates(frame[6:9], radius, limit):
             yield -i - 1, mag, bv, vector
 
@@ -499,17 +503,17 @@ def _label_limit(fov):
     return 3.3 - 1.1 * math.log2(max(fov, 1.0) / 20.0)
 
 
-def _screen_up_deg(v_cam, cam, f, cx, cy, aspect):
+def _screen_up_deg(v_cam, lens):
     """The screen bearing (0 up, 90 right) of the local vertical at a
     camera-frame point: which way is 'up' there in the projection, as
     the eye sees it rather than as the grid counts it."""
-    e, n, u = mat_apply(mat_transpose(cam), v_cam)
+    e, n, u = mat_apply(mat_transpose(lens.cam), v_cam)
     alt, az = alt_az_of((e, n, u))
-    higher = mat_apply(cam, horizontal_vector(az, min(89.9, alt + 0.5)))
-    p0, p1 = project(v_cam, f, cx, cy, aspect), project(higher, f, cx, cy, aspect)
+    higher = mat_apply(lens.cam, horizontal_vector(az, min(89.9, alt + 0.5)))
+    p0, p1 = lens.project(v_cam), lens.project(higher)
     if p0 is None or p1 is None:
         return 0.0
-    return math.degrees(math.atan2(p1[0] - p0[0], -(p1[1] - p0[1]) * aspect))
+    return math.degrees(math.atan2(p1[0] - p0[0], -(p1[1] - p0[1]) * lens.aspect))
 
 
 def render(now_local, lat, lng, runtime, view, fullscreen=False,
@@ -531,14 +535,13 @@ def render(now_local, lat, lng, runtime, view, fullscreen=False,
 
     moment_utc = now_local.astimezone(timezone.utc)
     scene = Scene(moment_utc, lat, lng)
-    cam = camera_matrix(view.az, view.alt)
-    f = focal_length(graph_w, view.fov)
-    cx, cy = graph_w / 2.0, total_spy / 2.0
     # A sub-pixel's height in cell widths: 1.0 on the 2:1 cell that
     # makes a half-block's two sub-pixels square, and whatever the font
     # really has where the terminal says.  The field of view is set
     # across the width; the height follows the screen's true shape.
-    aspect = cell_aspect() / 2.0
+    lens = Lens(camera_matrix(view.az, view.alt), focal_length(graph_w, view.fov),
+                graph_w / 2.0, total_spy / 2.0, cell_aspect() / 2.0)
+    cam, f, cx, cy, aspect = lens
     frame = mat_mul(cam, scene.catalogue)   # the J2000 catalogue to camera
     lang = lang_of(runtime)
 
@@ -546,7 +549,7 @@ def render(now_local, lat, lng, runtime, view, fullscreen=False,
     names = names_for(view.culture, lang) if view.culture else star_names(lang)
 
     fb = Framebuffer(graph_w, graph_h, bg_color=NIGHT_RGB)
-    omega = _paint_sky(fb, scene, cam, f, cx, cy, aspect)
+    omega = _paint_sky(fb, scene, lens)
     limit = _star_limit(scene, omega, graph_w * graph_h, view.fov)
     eye_limit = _view_eye_limit(scene, view.fov)
     overlays = {}
@@ -566,27 +569,26 @@ def render(now_local, lat, lng, runtime, view, fullscreen=False,
         for x, row in tuple(taken):
             taken.update((c, row) for c in (x - 1, x + 1) if 0 <= c < graph_w)
     # Extended light is behind the foreground stars, Moon and planets.
-    object_labels, hits = _objects.paint(
-        fb, scene, cam, frame, f, cx, cy, eye_limit, STAR_RGB, aspect)
+    object_labels, hits = _objects.paint(fb, scene, lens, frame, eye_limit, STAR_RGB)
 
     # --- the Sun ---
     sun_cam = mat_apply(cam, scene.sun)
-    sun_at = project(sun_cam, f, cx, cy, aspect) if scene.sun_alt > -3.0 else None
+    sun_at = lens.project(sun_cam) if scene.sun_alt > -3.0 else None
     if sun_at is not None:
         sx, sy = sun_at
         radius = max(2.0, f * math.tan(math.radians(0.267)) * 2.0)
         glow = max(10.0, radius * 6.0)
         lift = max(0.0, min(1.0, (scene.sun_alt + 3.0) / 6.0))
-        _glow(fb, sx, sy, SUN_GLOW_RGB, glow, 0.9 * lift, cam, f, cx, cy, aspect)
+        _glow(fb, sx, sy, SUN_GLOW_RGB, glow, 0.9 * lift, lens)
         if scene.sun_alt > -0.9:
-            _behind_the_horizon(fb, sx, sy, radius, cam, f, cx, cy, aspect,
+            _behind_the_horizon(fb, sx, sy, radius, lens,
                                 lambda: _draw_disc(fb, sx, sy, radius, SUN_DOT_RGB,
                                                    aspect))
         hits.append((sx, sy, "sun", None))
 
     # --- the Moon ---
     moon_cam = mat_apply(cam, scene.moon)
-    moon_at = project(moon_cam, f, cx, cy, aspect) if scene.moon_alt > -1.0 else None
+    moon_at = lens.project(moon_cam) if scene.moon_alt > -1.0 else None
     if moon_at is not None:
         mx, my = moon_at
         radius = max(2.2, f * math.tan(math.radians(0.26)) * 2.0)
@@ -599,11 +601,11 @@ def render(now_local, lat, lng, runtime, view, fullscreen=False,
         dark = scene.darkness
         if dark > 0.0:
             _glow(fb, mx, my, MOON_GLOW_RGB, max(3.0, radius * 1.8),
-                  (0.12 + 0.28 * illum) * dark, cam, f, cx, cy, aspect)
+                  (0.12 + 0.28 * illum) * dark, lens)
         cell = fb.cell_bg(max(0, min(graph_w - 1, int(mx))),
                           max(0, min(graph_h - 1, int(my) // 2)))
-        up = _screen_up_deg(moon_cam, cam, f, cx, cy, aspect)
-        _behind_the_horizon(fb, mx, my, radius, cam, f, cx, cy, aspect, lambda: _draw_moon_disc(
+        up = _screen_up_deg(moon_cam, lens)
+        _behind_the_horizon(fb, mx, my, radius, lens, lambda: _draw_moon_disc(
             fb, int(round(mx)), int(round(my)), radius, illum,
             up + scene.moon_limb, up + scene.moon_axis, None,
             night=lerp(cell, darken(NIGHT_RGB, 0.5), dark),
@@ -621,13 +623,13 @@ def render(now_local, lat, lng, runtime, view, fullscreen=False,
     label_limit = _label_limit(view.fov)
     dim, mid, bright = STAR_DIM_RGB, STAR_RGB, STAR_BRIGHT_RGB
     m0, m1, m2, m3, m4, m5, m6, m7, m8 = frame
-    u0, u1, u2 = cam[2], cam[5], cam[8]
+    u0, u1, u2 = lens.up
     # The stars fade in at the edge of what the eye can see; where the
     # zoom sets the limit there is nothing to fade toward.
     fading = eye_limit < limit + 0.7
     gathered = []   # (above, sx, sy, col, row, glyph, color, bold, i, alt, mag)
     seen_cells = set()
-    candidates = _star_candidates(frame, f, cx, cy, aspect, limit + 0.5,
+    candidates = _star_candidates(frame, lens, limit + 0.5,
                                   deep=eye_limit > scene.eye_limit)
     for i, mag, bv, (x, y, z) in candidates:
         cxv = m0 * x + m1 * y + m2 * z
@@ -688,7 +690,7 @@ def render(now_local, lat, lng, runtime, view, fullscreen=False,
         fade = (eye_limit + 0.8 - (mag + extinction(alt))) / 1.0
         if fade <= 0.0 or mag > limit + 0.8:
             continue
-        p = project(mat_apply(cam, vec), f, cx, cy, aspect)
+        p = lens.project(mat_apply(cam, vec))
         if p is None:
             continue
         col, row = int(p[0]), int(p[1]) // 2
@@ -709,7 +711,7 @@ def render(now_local, lat, lng, runtime, view, fullscreen=False,
     # The cardinal points first, so they win the room from the others.
     marks = sorted(compass_marks(runtime, view.culture), key=lambda m: not m[2])
     for az, label, bold in marks:
-        p = project(mat_apply(cam, horizontal_vector(az, 0.0)), f, cx, cy, aspect)
+        p = lens.project(mat_apply(cam, horizontal_vector(az, 0.0)))
         if p is None:
             continue
         # The label sits on the row under the horizon, or on the edge row
@@ -747,7 +749,7 @@ def render(now_local, lat, lng, runtime, view, fullscreen=False,
             at = mat_apply(frame, record["at"])
             if at[2] < 0.0:
                 continue
-            p = project(at, f, cx, cy, aspect)
+            p = lens.project(at)
             if p is None:
                 continue
             e, n, u = mat_apply(mat_transpose(cam), at)
@@ -759,7 +761,7 @@ def render(now_local, lat, lng, runtime, view, fullscreen=False,
             px0, py0 = p
             for line in record["lines"]:
                 for v in line:
-                    q = project(mat_apply(frame, v), f, cx, cy, aspect)
+                    q = lens.project(mat_apply(frame, v))
                     if q is not None:
                         spread = max(spread, math.hypot(q[0] - px0, q[1] - py0))
             if spread < 10.0:
@@ -785,7 +787,7 @@ def render(now_local, lat, lng, runtime, view, fullscreen=False,
             for line in record["lines"]:
                 pts = [mat_apply(frame, v) for v in line]
                 for a, b in zip(pts, pts[1:]):
-                    _plot_arc(dots, a, b, cam, f, cx, cy, graph_w, graph_h, aspect)
+                    _plot_arc(dots, a, b, lens, graph_w, graph_h)
         strength = 0.6 * scene.darkness
         for (col, row), bits in dots.items():
             if (col, row) in taken:

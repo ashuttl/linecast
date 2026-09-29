@@ -10,7 +10,7 @@ import pytest
 from linecast.terminal import color as _color
 
 from linecast.sky import view as sky
-from linecast.sky.scene import View, camera_matrix, focal_length, unproject
+from linecast.sky.scene import Lens, View, camera_matrix, focal_length, unproject
 from linecast._runtime import RuntimeConfig
 
 
@@ -48,6 +48,12 @@ def _unculled_arc(dots, a, b, cam, f, cx, cy, graph_w, graph_h, aspect=1.0):
             dots[(col, row)] = dots.get((col, row), 0) | braille[dx & 1][dy & 3]
 
 
+def _unculled_lens_arc(dots, a, b, lens, graph_w, graph_h):
+    """The reference arc, called as render calls _plot_arc."""
+    cam, f, cx, cy, aspect = lens
+    _unculled_arc(dots, a, b, cam, f, cx, cy, graph_w, graph_h, aspect)
+
+
 def _unit(vector):
     length = math.sqrt(sum(value * value for value in vector))
     return tuple(value / length for value in vector)
@@ -59,7 +65,7 @@ def _assert_same(a, b, cam, width, height, fov, f=None):
     args = a, b, cam, f, width / 2.0, float(height), width, height
     expected, actual = {}, {}
     _unculled_arc(expected, *args)
-    sky._plot_arc(actual, *args)
+    sky._plot_arc(actual, a, b, Lens(cam, f, width / 2.0, float(height)), width, height)
     assert actual == expected
     return actual
 
@@ -76,7 +82,7 @@ def test_invisible_arcs_stop_before_projection_or_sampling(kind):
         cam = camera_matrix(0, 0)
     dots = {(0, 0): 1}
     with patch.object(sky, "project", side_effect=AssertionError("arc was not culled")):
-        sky._plot_arc(dots, a, b, cam, focal_length(118, 6), 59, 40, 118, 40)
+        sky._plot_arc(dots, a, b, Lens(cam, focal_length(118, 6), 59, 40), 118, 40)
     assert dots == {(0, 0): 1}
 
 
@@ -147,7 +153,7 @@ def test_complete_night_frames_keep_figures_labels_and_colors(size, view):
     with patch.object(sky, "get_terminal_size", return_value=size), \
             patch.object(sky, "install_banner", return_value=""), \
             patch.object(_color, "_COLOR_MODE", "truecolor"):
-        with patch.object(sky, "_plot_arc", _unculled_arc):
+        with patch.object(sky, "_plot_arc", _unculled_lens_arc):
             expected = sky.render(now, 40.7128, -74.006, runtime, view, fullscreen=True)
         actual = sky.render(now, 40.7128, -74.006, runtime, view, fullscreen=True)
     assert actual == expected

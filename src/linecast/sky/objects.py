@@ -14,7 +14,7 @@ from functools import lru_cache
 from linecast._log import log_failure
 from linecast.astro.ephemeris import mat_apply
 from linecast.sky.catalogue import _DATA, equatorial_vector
-from linecast.sky.scene import alt_az_of, extinction, project, unproject
+from linecast.sky.scene import alt_az_of, extinction
 
 
 @lru_cache(maxsize=1)
@@ -33,7 +33,7 @@ def object_name(record, lang):
     return record['names'].get(lang) or record['name']
 
 
-def paint(fb, scene, cam, frame, f, cx, cy, eye_limit, color, aspect=1.0):
+def paint(fb, scene, lens, frame, eye_limit, color):
     """Paint under stars and bodies; return label anchors and hover targets.
 
     The catalogue positions are J2000, so they reach the horizon and the
@@ -42,6 +42,8 @@ def paint(fb, scene, cam, frame, f, cx, cy, eye_limit, color, aspect=1.0):
     labels, hits = [], []
     if scene.darkness <= 0:
         return labels, hits
+    f, aspect = lens.f, lens.aspect
+    u0, u1, u2 = lens.up
     for record in objects():
         vec = record['at']
         alt, az = alt_az_of(mat_apply(scene.catalogue, vec))
@@ -55,7 +57,7 @@ def paint(fb, scene, cam, frame, f, cx, cy, eye_limit, color, aspect=1.0):
         at = mat_apply(frame, vec)
         if at[2] <= 0:
             continue
-        centre = project(at, f, cx, cy, aspect)
+        centre = lens.project(at)
         sx, sy = centre
         scale = 2.0 * f / (1.0 + at[2])
         major, minor = (math.radians(size / 120.0) * scale for size in record['size'])
@@ -68,7 +70,7 @@ def paint(fb, scene, cam, frame, f, cx, cy, eye_limit, color, aspect=1.0):
             axis = tuple(n * math.cos(pa) + e * math.sin(pa) for n, e in zip(north, east))
             offset = tuple(v * math.cos(0.001) + a * math.sin(0.001)
                            for v, a in zip(vec, axis))
-            tip = project(mat_apply(frame, offset), f, cx, cy, aspect)
+            tip = lens.project(mat_apply(frame, offset))
             # The ellipse is measured as the eye sees it, so its axis is
             # taken in cell widths both ways.
             ux, uy = tip[0] - sx, (tip[1] - sy) * aspect
@@ -92,8 +94,8 @@ def paint(fb, scene, cam, frame, f, cx, cy, eye_limit, color, aspect=1.0):
                 if r2 > 1:
                     continue
                 # Clip every part of an extended object at the horizon.
-                camera = unproject(x + 0.5, y + 0.5, f, cx, cy, aspect)
-                if cam[2] * camera[0] + cam[5] * camera[1] + cam[8] * camera[2] <= 0:
+                camera = lens.unproject(x + 0.5, y + 0.5)
+                if u0 * camera[0] + u1 * camera[1] + u2 * camera[2] <= 0:
                     continue
                 # Open clusters are their real constituent stars, with a
                 # name and hover footprint; do not turn them into nebulosity.

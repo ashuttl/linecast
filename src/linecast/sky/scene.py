@@ -109,6 +109,28 @@ def unproject(px, py, f, cx, cy, aspect=1.0):
     return (2.0 * u / d, 2.0 * v / d, (1.0 - rho2) / d)
 
 
+class Lens(namedtuple("Lens", "cam f cx cy aspect", defaults=(1.0,))):
+    """How one frame looks at the sky: the camera matrix from the
+    observer's frame, the focal length and the centre in sub-pixels, and
+    a sub-pixel's height in cell widths, as `project` takes them.  The
+    drawing's hot loops unpack it and keep the arithmetic inline."""
+    __slots__ = ()
+
+    def project(self, v):
+        return project(v, self.f, self.cx, self.cy, self.aspect)
+
+    def unproject(self, px, py):
+        return unproject(px, py, self.f, self.cx, self.cy, self.aspect)
+
+    @property
+    def up(self):
+        """The camera matrix's third column: a camera-frame vector's
+        component along it is the sine of its altitude, above the
+        horizon when positive."""
+        cam = self.cam
+        return cam[2], cam[5], cam[8]
+
+
 def alt_az_of(v):
     """Altitude and azimuth, degrees, of an observer-frame unit vector."""
     e, n, u = v
