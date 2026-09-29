@@ -54,6 +54,7 @@ Notable changes, by release. Notes for the next release collect under **Unreleas
 - Language: Fixed `linecast language` refusing `zh_Hant`, and a region given in numbers, such as `es-419` for Latin American Spanish, which `--lang` takes.
 - Link: Fixed `linecast link` ending in a Python traceback where linecast is installed in a directory the user cannot write in, as with a system package; it says so and suggests `--dir`.
 - Location: Fixed the moon, sunshine and sky views saying "Could not determine location" when offline, once an hour had passed since linecast last found where the machine is; with no location saved, they use the last place found.
+- Language: A list of languages in `LANGUAGE`, as some Linux desktops set it, is read as other programs read it, down to the first language linecast speaks: `ca:es` is Spanish rather than English.
 
 ## 2.9.2 — 2026-09-27
 

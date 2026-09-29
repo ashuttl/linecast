@@ -242,6 +242,19 @@ class ResolveLangTests(ConfigDirMixin):
         self.assertEqual(resolve_lang(None, {"LANGUAGE": "C:fil_PH:pt_BR"}),
                          ("pt", "LANGUAGE"))
 
+    def test_a_language_list_reads_down_to_a_language_linecast_speaks(self):
+        # As gettext reads it: a Catalan desktop that falls back to
+        # Spanish gets Spanish, a Kazakh one Russian
+        for value, code in (("ca:es:en", "es"), ("ca_ES.UTF-8:es_ES", "es-ES"),
+                            ("kk:ru", "ru"), ("en_GB:de", "en"), ("sk:cs", "sk")):
+            with self.subTest(value=value):
+                self.assertEqual(resolve_lang(None, {"LANGUAGE": value, "LANG": "de_DE.UTF-8"}),
+                                 (code, "LANGUAGE"))
+        # A language with no words here still beats English, for the
+        # providers that publish in it
+        self.assertEqual(resolve_lang(None, {"LANGUAGE": "hi:en"}), ("hi", "LANGUAGE"))
+        self.assertEqual(resolve_lang(None, {"LANGUAGE": "hi"}), ("hi", "LANGUAGE"))
+
     def test_the_c_and_posix_locales_mean_english(self):
         for value in ("C", "POSIX", "C.UTF-8", "c.utf8", ""):
             with self.subTest(value=value):

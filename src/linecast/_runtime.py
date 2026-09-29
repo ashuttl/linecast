@@ -7,7 +7,7 @@ import re
 import sys
 
 from linecast._commands import BLURB, formatter_class, parser_class
-from linecast._i18n import LANGUAGE_CODES, VARIANTS
+from linecast._i18n import LANGUAGE_CODES, LOCALE_CODES, VARIANTS
 
 
 # ---------------------------------------------------------------------------
@@ -384,10 +384,20 @@ def resolve_lang(namespace=None, environ=None):
     name = next((var for var in LOCALE_VARS[1:] if env.get(var, "").strip()), None)
     locale = env[name].strip() if name else ""
     if not re.fullmatch(r"(c|posix)(\..*)?", locale.lower()):
+        # The list is in order of preference, and gettext reads down it to
+        # the first language it has words in: "ca:es" is Spanish.  One
+        # linecast has no words in still stands ahead of English, for the
+        # providers that publish in it: "hi:en" is Hindi.
+        unspoken = None
         for value in env.get("LANGUAGE", "").split(":"):
             code = language_of(value)
-            if code is not None:
-                return code, "LANGUAGE"
+            if code is None:
+                continue
+            if code in LOCALE_CODES:
+                return (unspoken if code == "en" and unspoken else code), "LANGUAGE"
+            unspoken = unspoken or code
+        if unspoken is not None:
+            return unspoken, "LANGUAGE"
     code = language_of(locale)
     if code is not None:
         return code, name
