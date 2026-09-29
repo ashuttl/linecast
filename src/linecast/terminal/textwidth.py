@@ -334,9 +334,7 @@ def calibrate_from_terminal(timeout_s=None):
     global _CALIBRATED
     import os
     import sys
-    import time
     try:
-        import select
         import termios
         import tty
     except ImportError:
@@ -371,37 +369,18 @@ def calibrate_from_terminal(timeout_s=None):
         b"\r" + text.encode() + b"\033[6n" for _name, text in _PROBES)
     widths = []
     buf = ""
-    deadline = time.monotonic() + timeout_s
     try:
         tty.setraw(fd_in)
         os.write(fd_out, payload)
-        while time.monotonic() < deadline:
-            try:
-                ready, _, _ = select.select([fd_in], [], [],
-                                            deadline - time.monotonic())
-            except (InterruptedError, OSError):
-                continue
-            if not ready:
-                break
-            try:
-                chunk = os.read(fd_in, 512)
-            except OSError:
-                break
-            if not chunk:
-                break
-            buf += chunk.decode("utf-8", errors="ignore")
-            widths = _cpr_widths(buf)
-            if len(widths) >= len(_PROBES):
-                break
+        # A reply per probe; short of them, the input is flushed, since
+        # an answer that came later would reach the shell.
+        raw, _whole = _term.read_until_reply(fd_in, timeout_s, replies=len(_PROBES))
+        buf = raw.decode("utf-8", errors="ignore")
+        widths = _cpr_widths(buf)
     finally:
-        if widths:
-            _term.mark_answered()
         if _term.note_terminal_name(buf):
             from linecast.terminal import bidi as _bidi
             _bidi.refresh_mode()
-        if len(widths) < len(_PROBES):
-            # An answer that comes after this would reach the shell.
-            _term.flush_input(fd_in)
         try:
             os.write(fd_out, b"\r\033[2K")
         except OSError:

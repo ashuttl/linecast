@@ -261,6 +261,33 @@ class TestColourProbe:
         assert took < 0.5
         assert terminal.seen == b""   # nothing was even asked
 
+    def test_the_width_probe_takes_a_terminals_answers(self, pty, monkeypatch, fresh_answer):
+        from linecast.terminal import textwidth as _textwidth
+        monkeypatch.setattr(_textwidth, "_CALIBRATED", False)
+        monkeypatch.setattr(_textwidth, "_MEASURED", {})
+        monkeypatch.setattr(_textwidth, "_CLUSTER_CAPPED", _textwidth._CLUSTER_CAPPED)
+        # x one cell, the conjunct two (a terminal that groups clusters),
+        # the emoji two, the Nerd Font glyph one; each probe is asked after
+        # a \r, so its cursor report's column is its width plus one
+        widths = iter((1, 2, 2, 2, 2, 1))
+
+        def answer(seen):
+            if seen.count(b"\033[6n") < 6:
+                return None
+            return b"\033P>|testterm 1.0\033\\" + b"".join(
+                b"\033[1;%dR" % (w + 1) for w in widths)
+
+        terminal = Terminal(pty.attach(monkeypatch), answer)
+        try:
+            _textwidth.calibrate_from_terminal(timeout_s=1.0)
+        finally:
+            terminal.stop()
+        assert _textwidth.measured_widths() == {
+            "bmp_vs16": 2, "smp_vs16": 2, "smp_bare": 2, "pua": 1}
+        assert _textwidth._CLUSTER_CAPPED is True
+        assert _term.answered is True
+        assert _unread(pty.stdin.fileno()) == b""   # nothing left for the shell
+
 
 # ---------------------------------------------------------------------------
 # The live loop, in a child process on a pty
