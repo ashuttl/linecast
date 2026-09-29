@@ -760,8 +760,13 @@ def _(ctx):
     search.results = [Result("Portland", "Maine, United States", 43.66, -70.26, "city"),
                       Result("Portland", "Oregon, United States", 45.52, -122.68, "city")]
     route = _parse(_fixture("osrm_route.json"), "car")
+    directions = ui.RouteState(refresh=lambda: None, fetch=lambda *a, **k: None,
+                               home=(43.68, -70.35))
+    directions.dest = (43.66, -70.26, "Portland")
+    directions.route, directions.step, directions.panel = route, 1, True
     return "\n----\n".join((
         ui.search_overlay(search, cols, rows, ctx.lang),
+        ui.directions_overlay(directions, cols, rows, ctx.lang, "Westbrook"),
         ui.route_summary(route, ctx.lang),
         "\n".join(ui.steps_text(route, ctx.lang, "Portland", "Westbrook")),
         ui.help_overlay(cols, rows, ctx.lang, route=True),
@@ -788,10 +793,13 @@ def _(ctx):
 @scene("menus", size=(60, 20), themes=("stock", "dark"))
 def _(ctx):
     from linecast.terminal import live
+    from linecast.radar.i18n import rs
     ctx.runtime()
     cols, rows = ctx.size
     return "\n----\n".join((
         live.menu_box([" ● one", " two", None, " three"], cols, rows, title="Theme", sel=1),
+        live.menu_box([" ● Classic", " Universal Blue", " Rainbow"], cols, rows,
+                      title=rs("theme", ctx.lang), sel=0, more=(True, True)),
         live.toast_box("Saved as the default place", cols, rows),
     ))
 
