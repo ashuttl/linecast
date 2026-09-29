@@ -415,8 +415,17 @@ def _put_text(overlays, taken, text, x, row, rgb, bold, graph_w, graph_h,
         return False
     cells = []
     col = x
+    base = None
     for i, ch in enumerate(text):
         w = char_width(ch, text[i + 1] if i + 1 < len(text) else "")
+        if w == 0:
+            # A combining mark (a Thai vowel or tone mark, say) rides in
+            # its base's cell rather than claiming the next one.
+            if base is not None:
+                c, chars = cells[base]
+                cells[base] = (c, chars + ch)
+            continue
+        base = len(cells)
         cells.append((col, ch))
         if w == 2:
             cells.append((col + 1, ""))

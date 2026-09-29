@@ -15,6 +15,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 from linecast.sky import view as sky  # noqa: E402
 from linecast.sky.planets import PLANETS, planet_position  # noqa: E402
 from linecast._runtime import RuntimeConfig  # noqa: E402
+from linecast.terminal.textwidth import visible_len  # noqa: E402
 from linecast.sky.view import (  # noqa: E402
     Scene, View, alt_az_of, camera_matrix, default_view, focal_length,
     horizontal_matrix, horizontal_vector, parse_facing, project, render, unproject,
@@ -421,6 +422,15 @@ class TestFrame:
     def test_french(self):
         out = _strip(_frame(NIGHT, 100, 30, lang="fr"))
         assert "Saturne" in out and "vers E" in out and "POISSONS" in out
+
+    def test_thai_labels_keep_their_marks(self):
+        # Thai writes vowels and tone marks over and under their letters;
+        # given cells of their own, they were written over by the next
+        # letter, and "ตะวันออก" read "ตะวนออก".
+        out = _strip(_frame(NIGHT, 100, 30, lang="th"))
+        body = "\n".join(out.split("\n")[:-1])
+        assert "ดาวเสาร์" in body and "กลุ่มดาวปลา" in body and "ตะวันออก" in body
+        assert all(visible_len(line) <= 100 for line in out.split("\n"))
 
 
 # ---------------------------------------------------------------------------
