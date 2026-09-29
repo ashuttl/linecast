@@ -18,7 +18,7 @@ from linecast.radar.basemap import BORDER, COAST, _edge_dots
 from linecast.maps.paint import (
     BORDER_STROKE, COAST_STROKE, LAKE_FILL, build_terrain_buffer, compose_terrain,
 )
-from linecast.maps.views import _coast_dots, _water_subpixels
+from linecast.maps.loaders import _coast_dots, _water_subpixels
 
 _SIG = b"\x89PNG\r\n\x1a\n"
 

@@ -24,7 +24,7 @@ from linecast.maps import globe as _globe
 from linecast.maps import overscan as over
 from linecast.maps import streets as st
 from linecast.maps import style as _maps_style
-from linecast.maps import views as _views
+from linecast.maps import loaders as _loaders
 from linecast.radar.basemap import _BITS
 from linecast.radar.render import bbox_for
 from test_maps_streets import EXTENT, field, layer, line_feature, vstr
@@ -188,8 +188,8 @@ class TestTheBuildFollowsTheCamera:
                             lambda *a, **k: (7, 14, [(14, 0, 0)]))
         monkeypatch.setattr(st, "fetch_tiles", lambda keys: {(14, 0, 0): b"x"})
         for zoom in (0.002, 10.0):
-            _views._street_cache.clear()
-            _views._get_street_tiles(bbox_for(LAT, LON, zoom, GW, HC),
+            _loaders._street_cache.clear()
+            _loaders._get_street_tiles(bbox_for(LAT, LON, zoom, GW, HC),
                                      GW, HC, True)
         assert seen[0] is None
         assert isinstance(seen[1], _globe.Camera)
@@ -207,8 +207,8 @@ class TestTheBuildFollowsTheCamera:
         monkeypatch.setattr(st, "build_street_view",
                             lambda *a, **k: (None, None, None))
         for zoom in (0.002, 10.0):
-            _views._street_cache.clear()
-            _views._get_street_tiles(bbox_for(LAT, LON, zoom, GW, HC),
+            _loaders._street_cache.clear()
+            _loaders._get_street_tiles(bbox_for(LAT, LON, zoom, GW, HC),
                                      GW, HC, True)
         assert asked[0] is None
         # the window's bbox is a scale past the bound, not a footprint:
@@ -337,7 +337,7 @@ class TestTheLoaderPicksItsSource:
             None,
             maps.DotLayer((0.0, 0.0, 1.0, 1.0), gw, hc))
         monkeypatch.setattr(maps, "_get_globe", lambda *a, **k: view)
-        _views._terrain_cache.clear()
+        _loaders._terrain_cache.clear()
         fills, layer_, labels = maps._get_street(
             bbox_for(20.0, -30.0, 125.0, gw, hc), gw, hc, True)
         palette = _maps_style.palette()
@@ -715,8 +715,8 @@ class TestTheVectorTilesFollowTheFootprint:
         frame, _at = over.plan(bbox, GW, HC)
         cam = _globe.Camera.for_bbox(frame.bbox, frame.gw, frame.hc)
         assert not _globe.affine_ok(cam.lat, cam.zoom, frame.gw, frame.hc)
-        _views._street_cache.clear()
-        _views._get_street_tiles(frame.bbox, frame.gw, frame.hc, True, "en",
+        _loaders._street_cache.clear()
+        _loaders._get_street_tiles(frame.bbox, frame.gw, frame.hc, True, "en",
                                  (), over.window_hint(frame, GW, HC))
         assert asked == [cam.footprint]
         from linecast.maps.vtiles import tiles_for_bbox

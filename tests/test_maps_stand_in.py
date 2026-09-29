@@ -12,7 +12,7 @@ import pytest
 
 from linecast.maps import view as maps
 from linecast.maps import globe as _globe
-from linecast.maps import views
+from linecast.maps import loaders
 from linecast.terminal.color import BG_PRIMARY
 from linecast.radar.basemap import _BITS
 from linecast.radar.i18n import rs
@@ -495,11 +495,11 @@ class TestTheNewestViewStandsIn:
     @pytest.fixture(autouse=True)
     def _quiet(self, monkeypatch):
         monkeypatch.setattr(maps, "get_terminal_size", lambda: (COLS, ROWS))
-        views._street_landed[0] = None
-        views._terrain_landed[0] = None
+        loaders._street_landed[0] = None
+        loaders._terrain_landed[0] = None
         yield
-        views._street_landed[0] = None
-        views._terrain_landed[0] = None
+        loaders._street_landed[0] = None
+        loaders._terrain_landed[0] = None
         maps._last_street[0] = maps._last_terrain[0] = None
 
     def _windows(self, gw, hc):
@@ -531,11 +531,11 @@ class TestTheNewestViewStandsIn:
         assert _braille_between(before, 0, gw // 4) > 0
         assert _braille_between(before, gw - gw // 4, gw) == 0
         # the view the pan is heading for lands between the frames
-        views._street_landed[0] = (east, gw, hc, fills, layer)
+        loaders._street_landed[0] = (east, gw, hc, fills, layer)
         after = self._frame("street")
         assert _braille_between(after, gw - gw // 4, gw) > 0
         assert _braille_between(after, 0, gw // 4) == 0
-        assert views.take_street() is None     # taken once
+        assert loaders.take_street() is None     # taken once
         assert maps._last_street[0][0] == east
 
     def test_a_terrain_view_that_lands_mid_pan_does_the_same(
@@ -553,11 +553,11 @@ class TestTheNewestViewStandsIn:
         before = self._frame("terrain")
         assert _braille_between(before, 0, gw // 4) > 0
         assert _braille_between(before, gw - gw // 4, gw) == 0
-        views._terrain_landed[0] = (east, gw, hc, landed)
+        loaders._terrain_landed[0] = (east, gw, hc, landed)
         after = self._frame("terrain")
         assert _braille_between(after, gw - gw // 4, gw) > 0
         assert _braille_between(after, 0, gw // 4) == 0
-        assert views.take_terrain() is None
+        assert loaders.take_terrain() is None
         assert maps._last_terrain[0][0] == east
 
     def test_a_landing_at_another_terminal_size_is_left_alone(
@@ -571,7 +571,7 @@ class TestTheNewestViewStandsIn:
         layer = maps._ShiftedLayer([[0xFF] * gw for _ in range(hc)],
                                    [[ink] * gw for _ in range(hc)])
         maps._last_street[0] = (west, gw, hc, fills, layer)
-        views._street_landed[0] = (east, gw + 1, hc, fills, layer)
+        loaders._street_landed[0] = (east, gw + 1, hc, fills, layer)
         maps._render_street(bbox_for(self.LAT, self.LON, self.ZOOM, gw, hc),
                             gw, hc, False, (0, 0), None, None, None, None,
                             "en", None)

@@ -22,7 +22,7 @@ from linecast.maps import globe as _globe
 from linecast.maps import overscan as over
 from linecast.maps import places as _places
 from linecast.maps import style as _maps_style
-from linecast.maps import views as _views
+from linecast.maps import loaders as _loaders
 from linecast.maps.route import Route
 from linecast.radar import basemap as _basemap
 from linecast.radar.basemap import _BITS, _edge_dots
@@ -544,7 +544,7 @@ class TestEveryLayerIsTheCameras:
             view = maps.TerrainView(
                 [[500.0] * gw for _ in range(hc * 2)], None, None, None,
                 None)
-            _views._terrain_cache.clear()
+            _loaders._terrain_cache.clear()
             maps._terrain_buffer(view, bbox, gw, hc)
             assert asked == expect, zoom
 
@@ -654,10 +654,10 @@ class TestTheRestingCropIsTheWindow:
             return (size, size, rgba)
 
         monkeypatch.setattr(_elevation, "_decoded_tile", decoded)
-        monkeypatch.setattr(_views, "_tile_water",
+        monkeypatch.setattr(_loaders, "_tile_water",
                             lambda *a, **k: (None, None, None, None))
-        monkeypatch.setattr(_views, "_builtup_layer", lambda *a, **k: None)
-        _views._elev_cache.clear()
+        monkeypatch.setattr(_loaders, "_builtup_layer", lambda *a, **k: None)
+        _loaders._elev_cache.clear()
 
     def _pan(self, lat, lon, zoom, dcol):
         """(built overscan, its frame, the window, the view built for it)."""
@@ -667,9 +667,9 @@ class TestTheRestingCropIsTheWindow:
         colw, _rowh = frame.cell
         window = (bbox[0] + dcol * colw, bbox[1],
                   bbox[2] + dcol * colw, bbox[3])
-        built = _views._get_elevation(frame.bbox, frame.gw, frame.hc, True,
+        built = _loaders._get_elevation(frame.bbox, frame.gw, frame.hc, True,
                                       over.window_hint(frame, gw, hc))
-        real = _views._get_elevation(window, gw, hc, True)
+        real = _loaders._get_elevation(window, gw, hc, True)
         return built, frame, (at[0] + dcol, at[1]), window, real
 
     @staticmethod
@@ -707,8 +707,8 @@ class TestTheRestingCropIsTheWindow:
                            cap=_globe.cap(zoom, gw, hc)) == (dx, dy)
         sliced = over.crop_grid(built.coast, dx, dy, gw, hc)
         cut = over.Resample(frame, window, gw, hc)
-        exact = _edge_dots(cut.bits(built.shore, _views.SHORE_LAND),
-                           cut.bits(built.shore, _views.SHORE_WATER),
+        exact = _edge_dots(cut.bits(built.shore, _loaders.SHORE_LAND),
+                           cut.bits(built.shore, _loaders.SHORE_WATER),
                            gw, hc)
         # every dot of the resampled shore is on the real one or next
         # to it, at every one of these views; the slice is not

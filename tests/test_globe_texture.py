@@ -20,7 +20,7 @@ from linecast.terminal import theme as _theme
 from linecast.maps import globe as _globe
 from linecast.maps import globe_texture
 from linecast.maps import paint
-from linecast.maps import views
+from linecast.maps import loaders
 
 SMALL = (32, 16)    # mask texels: a planet small enough to bake in a blink
 
@@ -444,7 +444,7 @@ class TestFirstFrame:
 
 
 class TestThroughTheView:
-    """What `views._get_globe` hands back, baked and unbaked."""
+    """What `loaders._get_globe` hands back, baked and unbaked."""
     ARGS = (20.0, 10.0, 130.0, 30, 12)
 
     def test_the_view_falls_back_to_elevation(self, tiny, monkeypatch):
@@ -454,7 +454,7 @@ class TestThroughTheView:
             raise OSError("no tiles")
 
         monkeypatch.setattr(globe_texture, "bake", angry_bake)
-        view = views._get_globe(*self.ARGS, True)
+        view = loaders._get_globe(*self.ARGS, True)
         assert view.fill is None and view.wet is None
         assert view.elev is not None and view.coast is not None
         assert view.borders is not None
@@ -465,7 +465,7 @@ class TestThroughTheView:
         baked = []
         monkeypatch.setattr(globe_texture, "for_view",
                             lambda *a, **k: baked[0] if baked else None)
-        cold = views._get_globe(*self.ARGS, True)
+        cold = loaders._get_globe(*self.ARGS, True)
         assert cold.fill is None
 
         tex, _holes = globe_texture.bake(1, "terrain")
@@ -473,21 +473,21 @@ class TestThroughTheView:
         baked.append(tex)
         assert globe_texture.ready(130.0, 48, "terrain")
 
-        warm = views._get_globe(*self.ARGS, True)
+        warm = loaders._get_globe(*self.ARGS, True)
         assert warm.fill is not None and warm.wet is not None
         assert warm.elev is not None and warm.coast is not None
 
 
 class TestWarmingEarly:
-    """`views.warm_globe_texture`: the one thing the motion gate
+    """`loaders.warm_globe_texture`: the one thing the motion gate
     lets through, because it is a disk read or a bake, never a fetch."""
 
     def test_a_texture_in_hand_starts_nothing(self, tiny, monkeypatch):
         tex, _holes = globe_texture.bake(1, "terrain")
         globe_texture._finish(globe_texture._key(1, "terrain"), tex)
-        monkeypatch.setattr(views.threading, "Thread",
+        monkeypatch.setattr(loaders.threading, "Thread",
                             lambda *a, **k: _Dead())
-        views.warm_globe_texture(130.0, 12, False)
+        loaders.warm_globe_texture(130.0, 12, False)
 
     def test_a_level_not_in_memory_is_asked_for_off_the_loop(self, tiny,
                                                              monkeypatch):
@@ -500,7 +500,7 @@ class TestWarmingEarly:
             def start(self):
                 pass
 
-        monkeypatch.setattr(views.threading, "Thread", Caught)
-        views.warm_globe_texture(130.0, 12, True)
+        monkeypatch.setattr(loaders.threading, "Thread", Caught)
+        loaders.warm_globe_texture(130.0, 12, True)
         assert [kw["args"] for kw in started] == [(130.0, 48, "street", False)]
         assert all(kw["daemon"] for kw in started)

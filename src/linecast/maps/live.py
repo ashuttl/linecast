@@ -7,7 +7,7 @@ centre, the zoom and whatever motion they are in — plus the mode, the
 toggles and the search and directions panels; its methods are the
 hooks live_loop calls — zoom, drag, wheel, the keys, the clicks — and
 render, which draws the frame through render_map.  Everything drawn is
-in maps.view; everything fetched is in maps.views; the easing and the
+in maps.view; everything fetched is in maps.loaders; the easing and the
 flight path are in maps.motion.
 """
 
@@ -21,7 +21,7 @@ from linecast.maps import globe_now
 from linecast.maps import route as _route
 from linecast.maps import style
 from linecast.maps import ui
-from linecast.maps import views as _views
+from linecast.maps import loaders as _loaders
 from linecast._geo import wrap_lon
 from linecast.terminal.live import LiveApp, nudge as _nudge_repaint, print_frame
 from linecast._location import country_for_defaults, resolve_location
@@ -31,7 +31,7 @@ from linecast.maps.search import (
     SearchUnavailable, fly_to_zoom, resolve_place,
 )
 from linecast.maps import vtiles as _vtiles
-from linecast.maps.views import (
+from linecast.maps.loaders import (
     _zoom_hold, globe_warm, recentres, warm_globe_texture,
 )
 from linecast.radar.render import bbox_for
@@ -897,7 +897,7 @@ class MapApp(LiveApp):
         # wait for — it ends either at a stop, which fetches its own
         # view, or in a coast, whose destination goes to the network at
         # the release.
-        _views.hold_motion(moving, passing=not (self.camera.flying()
+        _loaders.hold_motion(moving, passing=not (self.camera.flying()
                                                 or self.camera.dragging()))
         # A view drawn from the world's own sources repaints
         # synchronously once they are warm: the frame is a few
@@ -932,7 +932,7 @@ class MapApp(LiveApp):
     def stop(self):
         self._running = False   # the loop is over; let the ticker park
         self.camera.halt()
-        _views.hold_motion(False)
+        _loaders.hold_motion(False)
         # tile workers are not daemons, so a queue of prefetched tiles
         # would be a wait between q and the shell
         _vtiles.shutdown()

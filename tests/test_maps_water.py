@@ -19,7 +19,7 @@ import pytest
 from linecast.maps import streets as st
 from linecast.maps import style
 from linecast.terminal import theme as _theme
-from linecast.maps.views import _coast_dots
+from linecast.maps.loaders import _coast_dots
 
 from test_maps_streets import (  # the tile-fixture writer, reused wholesale
     DARK_BG, EXTENT, WORLD, Z0, as_text, classed, dot_mask, feature, layer,

@@ -14,7 +14,7 @@ import pytest
 
 from linecast.maps import overscan as over
 from linecast.maps import view as maps
-from linecast.maps import views
+from linecast.maps import loaders
 from linecast.maps.hover import HoverIndex
 from linecast.radar.basemap import DotLayer
 from linecast.radar.render import bbox_for
@@ -193,12 +193,12 @@ class _Loader:
 @pytest.fixture
 def quiet(monkeypatch):
     monkeypatch.setattr(maps, "get_terminal_size", lambda: (COLS, ROWS))
-    views._street_landed[0] = None
-    views._terrain_landed[0] = None
+    loaders._street_landed[0] = None
+    loaders._terrain_landed[0] = None
     maps._last_street[0] = maps._last_terrain[0] = None
     yield
-    views._street_landed[0] = None
-    views._terrain_landed[0] = None
+    loaders._street_landed[0] = None
+    loaders._terrain_landed[0] = None
     maps._last_street[0] = maps._last_terrain[0] = None
 
 
@@ -261,13 +261,13 @@ class TestAWindowInsideTheMargin:
         assert len(loader.calls) == 1
         # the loader lands it under its own key, as _get_street does
         frame, _at = over.plan(here, gw, hc)
-        views._street_landed[0] = (frame.bbox, frame.gw, frame.hc,
+        loaders._street_landed[0] = (frame.bbox, frame.gw, frame.hc,
                                          *loader.view(frame.gw, frame.hc))
         after = maps.render_map(LAT, LON, "New York", ZOOM, block=False,
                                 view="street")
         assert len(loader.calls) == 1          # nothing more was asked
         assert _braille_between(after, 0, gw) > 0
-        assert views.take_street() is None   # taken once
+        assert loaders.take_street() is None   # taken once
 
     def test_a_pan_past_the_margin_asks_for_one_centred_ahead(
             self, quiet, monkeypatch):

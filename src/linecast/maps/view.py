@@ -22,7 +22,7 @@ sea-level contour of the elevation data itself (so it always matches
 the fill), borders are Natural Earth braille strokes, cities are
 labelled dots.  Drag to pan, +/- to zoom, and hover to read the
 elevation under the pointer.  The inks, the palette and the composers
-are in maps.paint; the loaders and their caches are in maps.views;
+are in maps.paint; the loaders and their caches are in maps.loaders;
 the live loop and its keys are in maps.live.
 
 Either flat view is built a margin wider than the window and the frame
@@ -57,7 +57,7 @@ from linecast.terminal.live import overlay
 from linecast.maps.i18n import ms
 from linecast.maps.motion import lon_delta
 from linecast.maps.paint import MARKER, compact_colors, compose_map, compose_terrain
-from linecast.maps.views import (
+from linecast.maps.loaders import (
     SHORE_LAND, SHORE_WATER, TerrainView, _EMPTY_TERRAIN, _get_clouds, _get_elevation,
     _get_globe, _get_street_tiles, _sphere, _terrain_buffer, _terrain_cache, _view_key,
     fetch_destination, take_street, take_terrain,
@@ -814,7 +814,7 @@ def _render_terrain(bbox, graph_w, height_cells, block, pan_offset,
                 # the shore is cut again rather than carried: the flat
                 # rule, that the coastline is the boundary of the fill,
                 # holds for the window's fill as it did for the built
-                # view's (maps.views.shore_bits)
+                # view's (maps.loaders.shore_bits)
                 coast = _edge_dots(exact.bits(shore, SHORE_LAND),
                                    exact.bits(shore, SHORE_WATER),
                                    graph_w, height_cells)
@@ -1282,7 +1282,7 @@ def prefetch_view(lat, lon, zoom, view, graph_w, height_cells, lang,
     stand-in waiting to be replaced.  The keys are composed exactly as
     the renderer will compose them, or the work would warm a view
     nobody asks for.  While it runs, no window the view is merely
-    passing over is built (maps.views.fetch_destination).
+    passing over is built (maps.loaders.fetch_destination).
     """
     def work():
         try:

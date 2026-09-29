@@ -412,7 +412,7 @@ class Resample:
         """One mask of a dot-pitch packed grid, gathered into the window.
 
         The land and the water the shoreline is cut from
-        (`maps.views.shore_bits`), which are areas: nearest sampling
+        (`maps.loaders.shore_bits`), which are areas: nearest sampling
         moves an area only at its own edge, and cutting the stroke
         again from what comes back gives the shore the window would
         have drawn.

@@ -19,7 +19,7 @@ from linecast.maps import globe_texture
 from linecast.maps import live as _maps_live
 from linecast.maps import route as _maps_route
 from linecast.maps import ui
-from linecast.maps import views
+from linecast.maps import loaders
 from linecast.maps.live import (
     COAST_CEILING, Camera, MapApp, ZOOM_EASE,
 )
@@ -81,7 +81,7 @@ def _quiet(monkeypatch):
                         types.SimpleNamespace(hold=lambda: None))
     monkeypatch.setattr(_maps_live, "prefetch_view", lambda *a, **k: None)
     yield
-    views.hold_motion(False)
+    loaders.hold_motion(False)
 
 
 @pytest.fixture
@@ -610,13 +610,13 @@ class TestDrag:
         app.on_drag(-10, 0, False)
         app.on_drag(-10, 0, True)
         app.render()
-        assert views._in_motion[0] and views._build_passing[0]
+        assert loaders._in_motion[0] and loaders._build_passing[0]
         app.camera.fly_to(44.0, -71.0, 0.5)
         app.render()
-        assert views._in_motion[0] and not views._build_passing[0]
+        assert loaders._in_motion[0] and not loaders._build_passing[0]
         settle(app)
         app.render()
-        assert not views._in_motion[0] and views._build_passing[0]
+        assert not loaders._in_motion[0] and loaders._build_passing[0]
 
     def test_a_press_stops_a_coast_and_a_flight(self):
         app = make(zoom=2.0)
@@ -801,11 +801,11 @@ class TestRender:
         app = make(zoom=1.0)
         app.zoom_to(2.0)
         app.render(mouse_pos=(4, 5))
-        assert views._in_motion[0] is True
+        assert loaders._in_motion[0] is True
         assert frames[-1]["mouse_pos"] is None
         settle(app, ZOOM_EASE + 0.01)
         app.render(mouse_pos=(4, 5))
-        assert views._in_motion[0] is False
+        assert loaders._in_motion[0] is False
         assert frames[-1]["mouse_pos"] == (4, 5)
 
     def test_a_frame_advances_the_motion(self, frames):
@@ -959,7 +959,7 @@ class TestFlights:
         settle(app)
         app.render()
         assert asked == [] and app._destination is None
-        assert views._in_motion[0] is False
+        assert loaders._in_motion[0] is False
 
     def test_the_destination_fetched_is_the_one_the_flight_lands_on(
             self, monkeypatch):
