@@ -30,7 +30,7 @@ from linecast.sunshine.i18n import (
     sky_phase,
 )
 from linecast.terminal.glyphs import _icon_set
-from linecast.terminal.textwidth import char_width
+from linecast.terminal.textwidth import cells as text_cells, char_width
 from linecast.terminal.theme import (
     best_contrast, darken, ensure_contrast, is_light_theme, lerp_rgb,
     surface_bg,
@@ -477,22 +477,8 @@ def _month_axis_cells(year, days, graph_w, runtime):
     ticks = _month_ticks(year, days, graph_w, runtime)
     cells = []
     for x, label in ticks:
-        last_base = None
-        for ch in label:
-            w = char_width(ch)
-            if w == 0:
-                # A combining mark (a Thai vowel sign, say) rides in
-                # its base's cell rather than claiming the next one.
-                if last_base is not None:
-                    bx, base = cells[last_base]
-                    cells[last_base] = (bx, base + ch)
-                continue
-            if x + w > graph_w:
-                break
-            cells.append((x, ch))
-            last_base = len(cells) - 1
-            cells.extend((x + k, "") for k in range(1, w))
-            x += w
+        laid, _width = text_cells(label, graph_w - x)
+        cells.extend((x + c, glyph) for c, glyph in laid)
     return cells
 
 

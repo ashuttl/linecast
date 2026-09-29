@@ -80,26 +80,8 @@ def corner_label_cells(label, graph_w, left=False):
     its own, and an empty one after it that the framebuffer skips.
     Truncated to half the chart.
     """
-    from linecast.terminal.textwidth import char_width
-    cells = []
-    used = 0
-    last_base = None
-    limit = _corner_limit(graph_w)
-    for ch in label:
-        w = char_width(ch)
-        if w == 0:
-            # A combining mark (a Thai vowel sign, say) rides in its
-            # base's cell rather than claiming the next one.
-            if last_base is not None:
-                x, base = cells[last_base]
-                cells[last_base] = (x, base + ch)
-            continue
-        if used + w > limit:
-            break
-        cells.append((used, ch))
-        last_base = len(cells) - 1
-        cells.extend((used + k, "") for k in range(1, w))
-        used += w
+    from linecast.terminal.textwidth import cells as text_cells
+    cells, used = text_cells(label, _corner_limit(graph_w))
     x0 = 1 if left else graph_w - used - 1
     return [(x0 + off, ch) for off, ch in cells if 0 <= x0 + off < graph_w]
 
