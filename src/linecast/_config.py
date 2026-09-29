@@ -77,26 +77,35 @@ def save_config(data: dict[str, Any]) -> None:
         sys.exit(f"Could not save settings to {config_file()}: {exc.strerror or exc}")
 
 
+def _choice(value, choices):
+    """*value* as *choices* spells it, or None. The case and the spaces
+    around a hand-edited value are forgiven: " Metric" is metric."""
+    if not isinstance(value, str):
+        return None
+    value = value.strip().lower()
+    return value if value in choices else None
+
+
+def _saved_choice(key, choices):
+    """The setting saved under *key*, as *choices* spells it, or None."""
+    return _choice(read_config().get(key), choices)
+
+
 UNITS_CHOICES = ("metric", "imperial")
 
 
 def saved_units() -> str | None:
     """Return 'metric' or 'imperial' saved via `linecast units`, or None."""
-    units = read_config().get("units")
-    if isinstance(units, str) and units.strip().lower() in UNITS_CHOICES:
-        return units.strip().lower()
-    return None
+    return _saved_choice("units", UNITS_CHOICES)
 
 
 CLOCK_CHOICES = ("12", "24")
 
 
 def saved_clock() -> str | None:
-    """Return '12' or '24' saved via `linecast clock`, or None."""
-    clock = read_config().get("clock")
-    if str(clock).strip() in CLOCK_CHOICES:
-        return str(clock).strip()
-    return None
+    """Return '12' or '24' saved via `linecast clock`, or None. A hand
+    edit may write the number itself, 24 rather than "24"."""
+    return _choice(str(read_config().get("clock")), CLOCK_CHOICES)
 
 
 # The day a printed calendar opens the week on. Monday nearly
@@ -108,10 +117,7 @@ WEEK_STARTS = ("monday", "sunday", "saturday")
 
 def saved_week_start() -> str | None:
     """Return 'monday', 'sunday' or 'saturday' saved via `linecast week`, or None."""
-    week = read_config().get("week")
-    if isinstance(week, str) and week.strip().lower() in WEEK_STARTS:
-        return week.strip().lower()
-    return None
+    return _saved_choice("week", WEEK_STARTS)
 
 
 DATES_CHOICES = ("gregorian", "solar-hijri")
@@ -121,10 +127,8 @@ def dates_choice(value):
     """A setting's value as DATES_CHOICES spells it, or None.
 
     Case and the separator are forgiven: solar_hijri, Solar-Hijri."""
-    if not isinstance(value, str):
-        return None
-    value = value.strip().lower().replace("_", "-")
-    return value if value in DATES_CHOICES else None
+    return _choice(value.replace("_", "-") if isinstance(value, str) else None,
+                   DATES_CHOICES)
 
 
 def saved_dates() -> str | None:
@@ -137,15 +141,12 @@ DIGITS_CHOICES = ("latin", "native")
 
 def digits_choice(value):
     """A setting's value as DIGITS_CHOICES spells it, or None."""
-    if not isinstance(value, str):
-        return None
-    value = value.strip().lower()
-    return value if value in DIGITS_CHOICES else None
+    return _choice(value, DIGITS_CHOICES)
 
 
 def saved_digits() -> str | None:
     """Return 'latin' or 'native' saved via `linecast digits`, or None."""
-    return digits_choice(read_config().get("digits"))
+    return _saved_choice("digits", DIGITS_CHOICES)
 
 
 ICON_SETS = ("nerd", "emoji", "plain")
@@ -153,10 +154,7 @@ ICON_SETS = ("nerd", "emoji", "plain")
 
 def saved_icons() -> str | None:
     """Return 'nerd', 'emoji' or 'plain' saved via `linecast icons`, or None."""
-    icons = read_config().get("icons")
-    if isinstance(icons, str) and icons.strip().lower() in ICON_SETS:
-        return icons.strip().lower()
-    return None
+    return _saved_choice("icons", ICON_SETS)
 
 
 def saved_language() -> str | None:
@@ -182,10 +180,7 @@ def saved_calendar() -> str | None:
     pins that calendar in every language; 'none' turns the calendar
     lines off even where the language would show them.
     """
-    cal = read_config().get("calendar")
-    if isinstance(cal, str) and cal.strip().lower() in CALENDAR_CHOICES:
-        return cal.strip().lower()
-    return None
+    return _saved_choice("calendar", CALENDAR_CHOICES)
 
 
 # The systems of hours sunshine can read the day in, by the names
@@ -213,10 +208,7 @@ def saved_hours() -> str | None:
     A name from HOURS_CHOICES pins that system in every language;
     'none' keeps the hours off.
     """
-    hours = read_config().get("hours")
-    if isinstance(hours, str) and hours.strip().lower() in HOURS_CHOICES:
-        return hours.strip().lower()
-    return None
+    return _saved_choice("hours", HOURS_CHOICES)
 
 
 # The sky's cultures, by the short names `linecast culture` and `sky
@@ -234,10 +226,7 @@ def saved_culture() -> str | None:
     every language; 'none' keeps the IAU sky even where the language
     would bring a culture with it.
     """
-    culture = read_config().get("culture")
-    if isinstance(culture, str) and culture.strip().lower() in CULTURE_CHOICES:
-        return culture.strip().lower()
-    return None
+    return _saved_choice("culture", CULTURE_CHOICES)
 
 
 def saved_location() -> dict[str, Any] | None:
