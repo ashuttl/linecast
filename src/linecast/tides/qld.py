@@ -18,9 +18,9 @@ import urllib.parse
 from datetime import date, datetime, timezone, timedelta, tzinfo
 from typing import Any
 
-from linecast._cache import location_cache_key, read_cache, read_stale, write_cache
+from linecast._cache import location_cache_key, read_cache, write_cache
 from linecast._geo import haversine_nm
-from linecast._http import fetch_json
+from linecast._http import fetch_json, fetch_json_cached
 from linecast._log import log_failure, log_skipped
 from linecast.tides.common import (
     M_TO_FT, NEAREST_STATION_MAX_NM, cache_dir, cached_y_range, dedup_sorted,
@@ -155,27 +155,20 @@ def fetch_all_stations_qld(max_age: float = 30 * 86400) -> list[dict[str, Any]]:
     every gauge with its per-year resource ids.  A gauge whose CSVs are
     not loaded into the datastore cannot be queried and is left out.
     """
-    cache_file = cache_dir() / "qld_stations.json"
-    cached = read_cache(cache_file, max_age)
-    if cached is not None:
-        return cached
-
     params = urllib.parse.urlencode({
         "q": '"predicted interval data"',
         "rows": "100",
     })
-    url = f"{QLD_BASE}/package_search?{params}"
-    try:
-        data = fetch_json(url, timeout=15)
-    except Exception as exc:
-        stale = read_stale(cache_file)
-        log_failure("tides/qld", "station list fetch", exc, url=url,
-                    fallback="stale cache" if stale else "no stations")
-        return stale if stale else []
+    return fetch_json_cached(
+        cache_dir() / "qld_stations.json", max_age, f"{QLD_BASE}/package_search?{params}",
+        timeout=15, fallback=[], provider="tides/qld", transform=_gauges)
 
+
+def _gauges(data):
+    """The gauges in a package_search answer. An answer with none in it
+    is not the list, and raising keeps it out of the cache."""
     if not data or not isinstance(data, dict):
-        return []
-
+        raise ValueError("package_search answered with no result")
     stations = []
     for pkg in data.get("result", {}).get("results", []):
         pkg_name = pkg.get("name", "")
@@ -202,9 +195,8 @@ def fetch_all_stations_qld(max_age: float = 30 * 86400) -> list[dict[str, Any]]:
             "lng": coords[1] if coords else None,
             "years": years,
         })
-
-    if stations:
-        write_cache(cache_file, stations)
+    if not stations:
+        raise ValueError("no gauges in the answer")
     return stations
 
 
@@ -269,7 +261,7 @@ def fetch_station_metadata_qld(station_name: str) -> dict[str, Any]:
     """
     cache_file = cache_dir() / f"qld_meta_{_safe_name(station_name)}.json"
     cached = read_cache(cache_file, 30 * 86400)
-    if cached and cached.get("source") == "qld":
+    if cached:
         return cached
 
     record = _station_record(station_name)
@@ -387,56 +379,46 @@ def _search_datastore(resource_id, dates, fields, limit, timeout=20):
 def _fetch_pred_chunk(station_name, start_date, end_date):
     """Fetch a chunk of QLD predictions.
 
-    Returns list of (datetime_aest, height_ft) tuples.
+    Returns list of (datetime_aest, height_ft) tuples.  A chunk that
+    spans New Year takes a request to each year's resource; only the
+    rows parsed from them are cached, and a request that fails leaves
+    the last rows standing.
     """
     start_str = start_date.strftime("%Y%m%d")
     end_str = end_date.strftime("%Y%m%d")
     cache_file = cache_dir() / f"qld_pred_{_safe_name(station_name)}_{start_str}_{end_str}.json"
 
-    cached = read_cache(cache_file, 86400)
-    if cached is not None:
-        return [(parse_cached_dt(r["dt"], AEST), r["v"]) for r in cached]
-
-    by_year = _dates_by_year(start_date, end_date)
-    years = _year_resources(station_name, by_year)
-    if years is None:
-        return []
-
-    rows = []
-    points = []
-    for year, dates in by_year.items():
-        resource_id = years.get(str(year))
-        if not resource_id:
-            # No resource for this year (typically next year's, not yet
-            # published): the range just ends where the data does.
-            continue
-        try:
-            records = _search_datastore(resource_id, dates,
-                                        "Date,Time,Reading", limit=5000)
-        except Exception as exc:
-            stale = read_stale(cache_file)
-            log_failure("tides/qld", "predictions fetch", exc,
-                        fallback="stale cache" if stale is not None else "no data")
-            if stale is not None:
-                return [(parse_cached_dt(r["dt"], AEST), r["v"]) for r in stale]
-            return []
-
-        kept = len(points)
-        bad = None
-        for rec in records:
-            try:
-                dt_local = _parse_gauge_dt(rec["Date"], rec["Time"])
-                height_ft = float(rec["Reading"]) * M_TO_FT
-            except (KeyError, ValueError, TypeError) as exc:
-                bad = exc
+    def fetch(url, timeout):
+        by_year = _dates_by_year(start_date, end_date)
+        years = _year_resources(station_name, by_year)
+        if years is None:
+            raise LookupError(f"no gauge named {station_name!r}")
+        rows = []
+        for year, dates in by_year.items():
+            resource_id = years.get(str(year))
+            if not resource_id:
+                # No resource for this year (typically next year's, not yet
+                # published): the range just ends where the data does.
                 continue
-            rows.append({"dt": dt_local.isoformat(), "v": height_ft})
-            points.append((dt_local, height_ft))
-        log_skipped("tides/qld", f"{year} prediction records",
-                    len(records) - (len(points) - kept), len(records), bad)
+            records = _search_datastore(resource_id, dates, "Date,Time,Reading",
+                                        limit=5000, timeout=timeout)
+            kept = len(rows)
+            bad = None
+            for rec in records:
+                try:
+                    dt_local = _parse_gauge_dt(rec["Date"], rec["Time"])
+                    height_ft = float(rec["Reading"]) * M_TO_FT
+                except (KeyError, ValueError, TypeError) as exc:
+                    bad = exc
+                    continue
+                rows.append({"dt": dt_local.isoformat(), "v": height_ft})
+            log_skipped("tides/qld", f"{year} prediction records",
+                        len(records) - (len(rows) - kept), len(records), bad)
+        return rows
 
-    write_cache(cache_file, rows)
-    return points
+    rows = fetch_json_cached(cache_file, 86400, f"{QLD_BASE}/datastore_search",
+                             fetch=fetch, timeout=20, fallback=[], provider="tides/qld")
+    return [(parse_cached_dt(r["dt"], AEST), r["v"]) for r in rows]
 
 
 def fetch_tides_range_qld(station_name: str, start_date: date, end_date: date,

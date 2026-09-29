@@ -12,6 +12,7 @@ from datetime import date, timedelta
 from pathlib import Path
 from unittest.mock import patch
 
+from linecast import _http
 from linecast.tides import common
 from linecast.tides import qld
 from linecast.tides.providers import QLD as QLD_PROVIDER
@@ -42,9 +43,9 @@ class TestStationList(unittest.TestCase):
 
     def _stations(self):
         data = _load("qld_package_search.json")
-        with patch.object(qld, "read_cache", return_value=None), \
-             patch.object(qld, "write_cache"), \
-             patch.object(qld, "fetch_json", return_value=data):
+        with patch.object(_http, "read_cache", return_value=None), \
+             patch.object(_http, "write_cache"), \
+             patch.object(_http, "fetch_json", return_value=data):
             return qld.fetch_all_stations_qld()
 
     def test_gauges_parsed_with_display_names(self):
@@ -71,6 +72,16 @@ class TestStationList(unittest.TestCase):
         southport = next(s for s in self._stations() if s["name"] == "Southport")
         self.assertAlmostEqual(southport["lat"], -27.9667)
         self.assertAlmostEqual(southport["lng"], 153.4167)
+
+    def test_an_answer_without_gauges_is_not_kept(self):
+        # kept, it would say "no gauge anywhere" for a month; the last
+        # list stands in for it
+        with patch.object(_http, "read_cache", return_value=None), \
+             patch.object(_http, "read_stale", return_value=STATIONS), \
+             patch.object(_http, "write_cache") as wc, \
+             patch.object(_http, "fetch_json", return_value={"result": {"results": []}}):
+            self.assertEqual(qld.fetch_all_stations_qld(), STATIONS)
+        wc.assert_not_called()
 
 
 # ---------------------------------------------------------------------------
@@ -119,8 +130,8 @@ class TestQLDTidePredictions:
 class TestPredictionFetch(unittest.TestCase):
     def _chunk(self, day=date(2026, 8, 26)):
         data = _load("qld_tide_predictions.json")
-        with patch.object(qld, "read_cache", return_value=None), \
-             patch.object(qld, "write_cache"), \
+        with patch.object(_http, "read_cache", return_value=None), \
+             patch.object(_http, "write_cache"), \
              patch.object(qld, "fetch_all_stations_qld", return_value=STATIONS), \
              patch.object(qld, "fetch_json", return_value=data) as fj:
             points = qld._fetch_pred_chunk("Southport", day, day)
@@ -148,8 +159,8 @@ class TestPredictionFetch(unittest.TestCase):
     def test_year_without_resource_is_skipped(self):
         """A window past the published years fetches nothing and returns
         what there is (nothing)."""
-        with patch.object(qld, "read_cache", return_value=None), \
-             patch.object(qld, "write_cache"), \
+        with patch.object(_http, "read_cache", return_value=None), \
+             patch.object(_http, "write_cache"), \
              patch.object(qld, "fetch_all_stations_qld", return_value=STATIONS), \
              patch.object(qld, "fetch_json") as fj:
             points = qld._fetch_pred_chunk("Southport",
@@ -158,14 +169,29 @@ class TestPredictionFetch(unittest.TestCase):
         fj.assert_not_called()
 
     def test_unknown_station_fetches_nothing(self):
-        with patch.object(qld, "read_cache", return_value=None), \
-             patch.object(qld, "write_cache") as wc, \
+        with patch.object(_http, "read_cache", return_value=None), \
+             patch.object(_http, "read_stale", return_value=None), \
+             patch.object(_http, "write_cache") as wc, \
              patch.object(qld, "fetch_all_stations_qld", return_value=[]), \
              patch.object(qld, "fetch_json") as fj:
             points = qld._fetch_pred_chunk("Southport",
                                            date(2026, 8, 26), date(2026, 8, 26))
         self.assertEqual(points, [])
         fj.assert_not_called()
+        wc.assert_not_called()
+
+    def test_a_failed_request_leaves_the_last_rows_standing(self):
+        stale = [{"dt": "2026-08-26T00:00:00+10:00", "v": 1.5}]
+        with patch.object(_http, "read_cache", return_value=None), \
+             patch.object(_http, "read_stale", return_value=stale), \
+             patch.object(_http, "write_cache") as wc, \
+             patch.object(qld, "fetch_all_stations_qld", return_value=STATIONS), \
+             patch.object(qld, "fetch_json", side_effect=OSError("offline")):
+            points = qld._fetch_pred_chunk("Southport",
+                                           date(2026, 8, 26), date(2026, 8, 26))
+        self.assertEqual(len(points), 1)
+        self.assertEqual(points[0][1], 1.5)
+        self.assertEqual(points[0][0].utcoffset(), timedelta(hours=10))
         wc.assert_not_called()
 
     def test_range_sorts_and_dedups_newest_first(self):
@@ -176,8 +202,8 @@ class TestPredictionFetch(unittest.TestCase):
             {"Date": "26/08/2026", "Time": "00:00", "Reading": "1.000"},
             {"Date": "26/08/2026", "Time": "00:10", "Reading": "9.999"},
         ]}}
-        with patch.object(qld, "read_cache", return_value=None), \
-             patch.object(qld, "write_cache"), \
+        with patch.object(_http, "read_cache", return_value=None), \
+             patch.object(_http, "write_cache"), \
              patch.object(qld, "fetch_all_stations_qld", return_value=STATIONS), \
              patch.object(qld, "fetch_json", return_value=data):
             points = qld.fetch_tides_range_qld("Southport",
