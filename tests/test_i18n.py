@@ -919,7 +919,7 @@ class TestRegionalVariants:
 
     def test_providers_take_the_base_language(self):
         from linecast._i18n import accept_language, base_language, geocoder_language
-        from linecast.weather.sources import alert_source
+        from linecast.weather.alert_feeds import alert_source
         assert base_language("pt-PT") == "pt" and base_language("pt") == "pt"
         assert geocoder_language("pt-PT") == "pt" and geocoder_language("es") == "es"
         assert accept_language("fr-CA") == "fr-CA,fr" and accept_language("fr") == "fr"

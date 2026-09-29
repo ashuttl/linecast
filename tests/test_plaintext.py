@@ -175,32 +175,32 @@ class TestAlerts:
         return {"features": [{"properties": base}]}
 
     def test_nws_text_is_clean_and_keeps_its_paragraphs(self):
-        from linecast.weather import sources
+        from linecast.weather import alert_feeds
         feed = self._nws(event="Heat\x1b[2J Advisory",
                          headline=MARKER + "Heat Advisory issued",
                          description="First.\x07\n\nSecond\x1b[31m.")
         with answering(feed):
-            (alert,) = sources.fetch_alerts(43.6, -70.2, "US")
+            (alert,) = alert_feeds.fetch_alerts(43.6, -70.2, "US")
         assert alert["event"] == "Heat Advisory"
         assert alert["headline"] == "Heat Advisory issued"
         assert alert["description"] == "First.\n\nSecond."
 
     def test_a_list_read_back_from_the_cache_is_cleaned(self):
-        from linecast.weather import sources
+        from linecast.weather import alert_feeds
         cached = [{"event": MARKER + "Wind Advisory", "headline": "",
                    "description": "", "expires": "", "severity": "Minor",
                    "url": ""}]
         from linecast import _http
         with patch.object(_http, "read_cache", return_value=cached):
-            (alert,) = sources.fetch_alerts(43.6, -70.2, "US")
+            (alert,) = alert_feeds.fetch_alerts(43.6, -70.2, "US")
         assert alert["event"] == "Wind Advisory"
 
     def test_the_link_is_the_apps_own_hyperlink(self):
-        from linecast.weather import sources
+        from linecast.weather import alert_feeds
         from linecast.weather.alerts import build_alert_modal
         feed = self._nws(web="https://www.weather.gov/\x1b\\\x1b]0;TITLE\x07")
         with answering(feed):
-            (alert,) = sources.fetch_alerts(43.6, -70.2, "US")
+            (alert,) = alert_feeds.fetch_alerts(43.6, -70.2, "US")
         assert alert["url"] == "https://www.weather.gov/"
         modal, _scroll = build_alert_modal(alert, 80, 24)
         text = "\n".join(modal) if isinstance(modal, list) else modal

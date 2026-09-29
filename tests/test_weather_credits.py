@@ -17,9 +17,8 @@ from linecast.terminal.textwidth import visible_len
 from linecast._runtime import WeatherRuntime
 from linecast.weather.json import build_payload
 from linecast._i18n import LANGUAGE_CODES
-from linecast.weather.sources import (
-    ALERT_FEEDS, ATTRIBUTION, alert_attribution, alert_source, forecast_attribution,
-    _METEOALARM_SLUGS)
+from linecast.weather.alert_feeds import ALERT_FEEDS, alert_source, _METEOALARM_SLUGS
+from linecast.weather.sources import ATTRIBUTION, alert_attribution, forecast_attribution
 
 FIXTURES = Path(__file__).parent / "fixtures"
 FIXED_NOW = datetime(2026, 3, 5, 14, 30)

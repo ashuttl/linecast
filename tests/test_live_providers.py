@@ -25,7 +25,7 @@ from datetime import date, datetime, timedelta, timezone
 
 import pytest
 
-from linecast.weather.sources import _METEOALARM_SLUGS
+from linecast.weather.alert_feeds import _METEOALARM_SLUGS
 
 pytestmark = pytest.mark.integration
 
@@ -182,7 +182,7 @@ ALERT_FEEDS = [
 @pytest.mark.parametrize("country, point, provider", ALERT_FEEDS,
                          ids=[f[2] for f in ALERT_FEEDS])
 def test_alerts(failures, country, point, provider):
-    from linecast.weather.sources import fetch_alerts
+    from linecast.weather.alert_feeds import fetch_alerts
     alerts = fetch_alerts(*point, country_code=country, address={})
     assert failures() == [], provider
     assert isinstance(alerts, list)

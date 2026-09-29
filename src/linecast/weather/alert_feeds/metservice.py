@@ -7,7 +7,7 @@ from linecast._paths import cache_dir
 from linecast.weather.alert_feeds.cap import (
     cap_polygons, local_tag, point_in_ring, sweep_cap_files,
 )
-from linecast.weather.sources import _ALERT_MAX_AGE, _expired, _note_alert_cache
+from linecast.weather.alert_feeds import _ALERT_MAX_AGE, _expired, _note_alert_cache
 
 _METSERVICE_FEED_URL = "https://alerts.metservice.com/cap/rss"
 _METSERVICE_CAP_URL = "https://alerts.metservice.com/cap/alert?id={identifier}"

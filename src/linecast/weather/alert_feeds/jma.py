@@ -2,7 +2,7 @@
 
 from linecast._http import fetch_json_cached
 from linecast._paths import cache_dir
-from linecast.weather.sources import _SEVERITY_RANK, _cached_feed
+from linecast.weather.alert_feeds import _SEVERITY_RANK, _cached_feed
 
 # Center coordinates for each JMA forecast office, used for nearest-match lookup.
 # Hokkaido is subdivided into 8 offices; Okinawa into 3; all others are 1:1 with prefectures.

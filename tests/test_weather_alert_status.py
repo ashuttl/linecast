@@ -16,7 +16,7 @@ import pytest
 from linecast import _cache, _http
 from linecast._runtime import WeatherRuntime
 from linecast.weather.json import build_payload
-from linecast.weather.sources import AlertList, alerts_status, fetch_alerts
+from linecast.weather.alert_feeds import AlertList, alerts_status, fetch_alerts
 
 FIXTURES = Path(__file__).parent / "fixtures"
 NOW = datetime(2026, 3, 5, 14, 30)

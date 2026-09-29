@@ -7,7 +7,7 @@ from linecast._cache import location_cache_key
 from linecast._http import fetch_json
 from linecast._paths import cache_dir
 from linecast.weather.alert_feeds.cap import cap_polygons, point_in_ring
-from linecast.weather.sources import _cached_feed
+from linecast.weather.alert_feeds import _cached_feed
 
 # A feed is the whole country's, and one that draws every warning's
 # outline runs big: Switzerland's was 9.4 MB on 2026-09-02, past the

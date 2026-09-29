@@ -642,7 +642,7 @@ class TestAlertExpiry:
     NOW = datetime(2026, 9, 3, 12, 0, tzinfo=timezone.utc)
 
     def test_expiry_reads_each_provider_format(self):
-        from linecast.weather.sources import _alert_expiry
+        from linecast.weather.alert_feeds import _alert_expiry
         # NWS, Bright Sky, MET Norway, MeteoAlarm, HKO: an offset
         assert (_alert_expiry(_alert("2026-09-03T18:00:00-04:00"))
                 == datetime(2026, 9, 3, 22, 0, tzinfo=timezone.utc))
@@ -654,7 +654,7 @@ class TestAlertExpiry:
                 == datetime(2026, 3, 7, 18, 0, tzinfo=timezone.utc))
 
     def test_no_expiry_is_none(self):
-        from linecast.weather.sources import _alert_expiry
+        from linecast.weather.alert_feeds import _alert_expiry
         assert _alert_expiry(_alert("")) is None
         assert _alert_expiry(_alert(None)) is None
         assert _alert_expiry(_alert("next Tuesday")) is None
@@ -662,7 +662,7 @@ class TestAlertExpiry:
         assert _alert_expiry("not an alert") is None
 
     def test_lapsed_alerts_are_dropped_and_the_rest_kept(self):
-        from linecast.weather.sources import _drop_expired
+        from linecast.weather.alert_feeds import _drop_expired
         lapsed = _alert("2026-09-01T18:00:00+00:00")
         current = _alert("2026-09-03T18:00:00+00:00")
         open_ended = _alert("")
@@ -670,7 +670,7 @@ class TestAlertExpiry:
             current, open_ended]
 
     def test_fetch_alerts_drops_a_lapsed_alert_from_any_provider(self):
-        from linecast.weather.sources import fetch_alerts
+        from linecast.weather.alert_feeds import fetch_alerts
         lapsed = _alert("2026-01-01T00:00:00+00:00", event="Old")
         current = _alert("2035-01-01T00:00:00+00:00", event="New")
         with patch("linecast.weather.alert_feeds.nws.fetch",
@@ -678,7 +678,7 @@ class TestAlertExpiry:
             assert fetch_alerts(40.7, -74.0, country_code="US") == [current]
 
     def test_lapsed_alerts_do_not_count_against_the_cap(self):
-        from linecast.weather.sources import MAX_ALERTS, fetch_alerts
+        from linecast.weather.alert_feeds import MAX_ALERTS, fetch_alerts
         lapsed = [_alert("2026-01-01T00:00:00+00:00", event=f"Old {i}",
                          severity="Extreme") for i in range(MAX_ALERTS + 1)]
         current = _alert("2035-01-01T00:00:00+00:00", event="New")
@@ -691,7 +691,7 @@ class TestAlertExpiry:
         alert that lapsed in the meantime must not come back with it."""
         from linecast._cache import location_cache_key
         from linecast._paths import cache_dir
-        from linecast.weather.sources import fetch_alerts
+        from linecast.weather.alert_feeds import fetch_alerts
         cache_file = cache_dir("weather") / f"alerts_{location_cache_key(40.7, -74.0)}.json"
         cache_file.parent.mkdir(parents=True, exist_ok=True)
         lapsed = _alert("2026-01-01T00:00:00+00:00", event="Old")
@@ -712,7 +712,7 @@ class TestAlertProviderRouting:
     """Ensure fetch_alerts routes to the expected provider for each country."""
 
     def test_routes_us_to_nws(self):
-        from linecast.weather.sources import fetch_alerts
+        from linecast.weather.alert_feeds import fetch_alerts
         with patch("linecast.weather.alert_feeds.nws.fetch",
                    return_value=[{"event": "x"}]) as mock_fn:
             result = fetch_alerts(40.7, -74.0, country_code="US")
@@ -720,7 +720,7 @@ class TestAlertProviderRouting:
         assert result == [{"event": "x"}]
 
     def test_routes_ca_to_eccc(self):
-        from linecast.weather.sources import fetch_alerts
+        from linecast.weather.alert_feeds import fetch_alerts
         with patch("linecast.weather.alert_feeds.eccc.fetch",
                    return_value=[{"event": "x"}]) as mock_fn:
             result = fetch_alerts(45.4, -75.7, country_code="CA", lang="fr")
@@ -728,7 +728,7 @@ class TestAlertProviderRouting:
         assert result == [{"event": "x"}]
 
     def test_routes_de_to_brightsky(self):
-        from linecast.weather.sources import fetch_alerts
+        from linecast.weather.alert_feeds import fetch_alerts
         with patch("linecast.weather.alert_feeds.dwd.fetch",
                    return_value=[{"event": "x"}]) as mock_fn:
             result = fetch_alerts(52.52, 13.405, country_code="DE", lang="de")
@@ -736,7 +736,7 @@ class TestAlertProviderRouting:
         assert result == [{"event": "x"}]
 
     def test_routes_no_to_metno(self):
-        from linecast.weather.sources import fetch_alerts
+        from linecast.weather.alert_feeds import fetch_alerts
         with patch("linecast.weather.alert_feeds.metno.fetch",
                    return_value=[{"event": "x"}]) as mock_fn:
             result = fetch_alerts(59.91, 10.75, country_code="NO")
@@ -744,7 +744,7 @@ class TestAlertProviderRouting:
         assert result == [{"event": "x"}]
 
     def test_routes_ie_to_meteireann(self):
-        from linecast.weather.sources import fetch_alerts
+        from linecast.weather.alert_feeds import fetch_alerts
         with patch("linecast.weather.alert_feeds.meteireann.fetch",
                    return_value=[{"event": "x"}]) as mock_fn:
             result = fetch_alerts(53.35, -6.26, country_code="IE")
@@ -752,7 +752,7 @@ class TestAlertProviderRouting:
         assert result == [{"event": "x"}]
 
     def test_routes_jp_to_jma(self):
-        from linecast.weather.sources import fetch_alerts
+        from linecast.weather.alert_feeds import fetch_alerts
         with patch("linecast.weather.alert_feeds.jma.fetch",
                    return_value=[{"event": "x"}]) as mock_fn:
             result = fetch_alerts(35.68, 139.76, country_code="JP", lang="ja")
@@ -760,7 +760,7 @@ class TestAlertProviderRouting:
         assert result == [{"event": "x"}]
 
     def test_routes_meteoalarm_country(self):
-        from linecast.weather.sources import fetch_alerts
+        from linecast.weather.alert_feeds import fetch_alerts
         address = {"city": "Amsterdam", "state": "Noord-Holland"}
         with patch("linecast.weather.alert_feeds.meteoalarm.fetch",
                    return_value=[{"event": "x"}]) as mock_fn:
@@ -769,7 +769,7 @@ class TestAlertProviderRouting:
         assert result == [{"event": "x"}]
 
     def test_routes_in_to_sachet(self):
-        from linecast.weather.sources import fetch_alerts
+        from linecast.weather.alert_feeds import fetch_alerts
         with patch("linecast.weather.alert_feeds.sachet.fetch",
                    return_value=[{"event": "x"}]) as mock_fn:
             result = fetch_alerts(28.61, 77.21, country_code="IN")
@@ -777,7 +777,7 @@ class TestAlertProviderRouting:
         assert result == [{"event": "x"}]
 
     def test_routes_nz_to_metservice(self):
-        from linecast.weather.sources import fetch_alerts
+        from linecast.weather.alert_feeds import fetch_alerts
         with patch("linecast.weather.alert_feeds.metservice.fetch",
                    return_value=[{"event": "x"}]) as mock_fn:
             result = fetch_alerts(-41.29, 174.78, country_code="NZ")
@@ -785,7 +785,7 @@ class TestAlertProviderRouting:
         assert result == [{"event": "x"}]
 
     def test_routes_newer_meteoalarm_members(self):
-        from linecast.weather.sources import fetch_alerts
+        from linecast.weather.alert_feeds import fetch_alerts
         for code, slug, lat, lng in (
                 ("UA", "ukraine", 50.45, 30.52),
                 ("BA", "bosnia-herzegovina", 43.86, 18.41),
@@ -797,7 +797,7 @@ class TestAlertProviderRouting:
             assert result == [{"event": "x"}]
 
     def test_unknown_country_returns_empty(self):
-        from linecast.weather.sources import fetch_alerts
+        from linecast.weather.alert_feeds import fetch_alerts
         assert fetch_alerts(0, 0, country_code="XX") == []
 
 
@@ -959,7 +959,7 @@ class TestCMAAlerts:
 
     def test_routing_cn_to_cma(self):
         """fetch_alerts routes CN to alert_feeds.cma."""
-        from linecast.weather.sources import fetch_alerts
+        from linecast.weather.alert_feeds import fetch_alerts
         with patch("linecast.weather.alert_feeds.cma.fetch",
                    return_value=[{"event": "x"}]) as mock_fn:
             result = fetch_alerts(39.9, 116.4, country_code="CN", lang="zh")
@@ -998,7 +998,7 @@ class TestHKOAlerts:
         assert _parse_hko_warnsum({}) == []
 
     def test_routing_hk_to_hko(self):
-        from linecast.weather.sources import fetch_alerts
+        from linecast.weather.alert_feeds import fetch_alerts
         with patch("linecast.weather.alert_feeds.hko.fetch",
                    return_value=[{"event": "x"}]) as mock_fn:
             result = fetch_alerts(22.3, 114.2, country_code="HK", lang="zh-Hant")
@@ -1521,7 +1521,7 @@ class TestAlertCap:
     """However many a feed sends, the board shows the gravest few."""
 
     def test_the_gravest_come_first_and_the_rest_are_cut(self):
-        from linecast.weather.sources import _trim_alerts, MAX_ALERTS
+        from linecast.weather.alert_feeds import _trim_alerts, MAX_ALERTS
         alerts = ([{"event": f"m{i}", "severity": "Moderate"} for i in range(6)]
                   + [{"event": "x", "severity": "Extreme"}]
                   + [{"event": f"s{i}", "severity": "Severe"} for i in range(6)])
@@ -1532,11 +1532,11 @@ class TestAlertCap:
         assert got[7]["event"] == "m0"
 
     def test_the_cap_applies_to_every_provider(self):
-        from linecast.weather import sources as ws
+        from linecast.weather import alert_feeds
         many = [{"event": f"a{i}", "severity": "Moderate"} for i in range(40)]
         with patch("linecast.weather.alert_feeds.nws.fetch", return_value=many):
-            got = ws.fetch_alerts(43.6, -70.3, "US")
-        assert len(got) == ws.MAX_ALERTS
+            got = alert_feeds.fetch_alerts(43.6, -70.3, "US")
+        assert len(got) == alert_feeds.MAX_ALERTS
 
 
 class TestMeteoAlarmDedup:
@@ -1641,7 +1641,7 @@ class TestSachetAlerts:
 
     def test_most_severe_first(self):
         # fetch_alerts orders every provider's alerts, gravest first
-        from linecast.weather.sources import fetch_alerts
+        from linecast.weather.alert_feeds import fetch_alerts
         with answering(self.feed), \
              patch("linecast._http.fetch_bytes_cached", side_effect=_sachet_cap_from_fixtures):
             alerts = fetch_alerts(28.61, 77.21, "IN")

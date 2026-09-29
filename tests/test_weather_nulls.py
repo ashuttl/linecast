@@ -17,7 +17,7 @@ from unittest.mock import patch
 import pytest
 
 from conftest import answering
-from linecast.weather import sources
+from linecast.weather import alert_feeds
 from linecast.weather.alert_feeds import cma, eccc
 from linecast.weather import view as weather
 from linecast.weather.oneline import weather_oneline
@@ -192,7 +192,7 @@ class TestAlertFeedsWithNulls:
         data = _load("jma_warning_tokyo.json")
         data["headlineText"] = None
         data["reportDatetime"] = None
-        alerts = _with_feed(data, lambda: sources.fetch_alerts(35.7, 139.7, "JP"))
+        alerts = _with_feed(data, lambda: alert_feeds.fetch_alerts(35.7, 139.7, "JP"))
         assert alerts
         assert all(alert["description"] == "" for alert in alerts)
         lines, _spans = render_alerts_mapped(alerts, 80, runtime=_runtime())
@@ -225,7 +225,7 @@ class TestAlertFeedsWithNulls:
         info["severity"] = None
         data["warnings"][1]["alert"] = None
         data["warnings"][2]["alert"]["info"][0]["area"] = None
-        alerts = _with_feed(data, lambda: sources.fetch_alerts(
+        alerts = _with_feed(data, lambda: alert_feeds.fetch_alerts(
             52.4, 4.9, "NL", address={"city": "Amsterdam"}))
         assert isinstance(alerts, list)
 
@@ -241,7 +241,7 @@ class TestAlertFeedsWithNulls:
     def test_met_eireann_with_a_null_category(self):
         data = _load("meteireann_warnings.json")
         data["warnings"]["national"] = None
-        alerts = _with_feed(data, lambda: sources.fetch_alerts(53.0, -6.0, "IE"))
+        alerts = _with_feed(data, lambda: alert_feeds.fetch_alerts(53.0, -6.0, "IE"))
         assert isinstance(alerts, list)
 
     def test_met_norway_with_a_null_when(self):
@@ -249,7 +249,7 @@ class TestAlertFeedsWithNulls:
         if not data.get("features"):
             data["features"] = [{"properties": {"event": "Gale", "severity": "Moderate"}}]
         data["features"][0]["when"] = None
-        alerts = _with_feed(data, lambda: sources.fetch_alerts(60.0, 10.0, "NO"))
+        alerts = _with_feed(data, lambda: alert_feeds.fetch_alerts(60.0, 10.0, "NO"))
         assert alerts and alerts[0]["expires"] == ""
 
 

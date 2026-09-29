@@ -256,7 +256,7 @@ def check(args):
     """
     sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
     from linecast.weather.alert_feeds.meteoalarm_regions import _parse, key_for
-    from linecast.weather.sources import _METEOALARM_SLUGS
+    from linecast.weather.alert_feeds import _METEOALARM_SLUGS
 
     with open(args.file, "rb") as fh:
         keys = {key for key, _, _ in _parse(gzip.decompress(fh.read()))}

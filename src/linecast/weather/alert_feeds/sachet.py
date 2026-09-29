@@ -6,7 +6,7 @@ from datetime import datetime, timedelta, timezone
 from linecast._log import log_failure
 from linecast._paths import cache_dir
 from linecast.weather.alert_feeds.cap import local_tag, sweep_cap_files
-from linecast.weather.sources import _cached_feed, _expired
+from linecast.weather.alert_feeds import _cached_feed, _expired
 
 _SACHET_FEED_URL = "https://sachet.ndma.gov.in/cap_public_website/FetchAllAlertDetails"
 _SACHET_CAP_URL = ("https://sachet.ndma.gov.in/cap_public_website/FetchXMLFile"

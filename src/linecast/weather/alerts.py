@@ -11,7 +11,7 @@ from linecast._log import log_failure
 from linecast.terminal.textwidth import fit, wrap_display_width
 from linecast.weather.i18n import _s
 from linecast._i18n import DAY_NAMES
-from linecast.weather.sources import ALERTS_OK, ALERTS_STALE, ALERTS_UNAVAILABLE
+from linecast.weather.alert_feeds import ALERTS_OK, ALERTS_STALE, ALERTS_UNAVAILABLE
 from linecast.weather.style import (
     ALERT_AMBER,
     ALERT_AMBER_RGB,

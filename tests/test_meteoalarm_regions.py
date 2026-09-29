@@ -248,7 +248,7 @@ class TestShippedFile:
         # polygon on every warning and publish no EMMA regions; Estonia,
         # Israel, Luxembourg and Sweden file polygons too, and their
         # regions left MeteoAlarm's list in its 2026 editions.
-        from linecast.weather.sources import _METEOALARM_SLUGS
+        from linecast.weather.alert_feeds import _METEOALARM_SLUGS
         emma_countries = {key[:2] for key, _, _ in self.regions if "/" not in key}
         assert (set(_METEOALARM_SLUGS) - emma_countries
                 == {"CH", "EE", "GB", "IL", "LU", "SE", "UA"})

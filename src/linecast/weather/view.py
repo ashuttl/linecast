@@ -50,9 +50,9 @@ from linecast.weather.style import (
     _colored_temp, _precip_rgb, _precip_type,
 )
 from linecast.weather.historical import fetch_historical
+from linecast.weather.alert_feeds import ALERTS_UNAVAILABLE, AlertList, alert_source, fetch_alerts
 from linecast.weather.sources import (
-    ALERTS_UNAVAILABLE, AlertList, alert_attribution, alert_source, fetch_alerts,
-    forecast_attribution, observation_attribution, observed_credit,
+    alert_attribution, forecast_attribution, observation_attribution, observed_credit,
 )
 from linecast.weather.forecast import (
     local_now, fetch_forecast, forecast_date, forecast_is_todays, FORECAST_SOURCE,

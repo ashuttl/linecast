@@ -2,7 +2,7 @@
 
 from linecast._i18n import base_language
 from linecast._paths import cache_dir
-from linecast.weather.sources import _cached_feed
+from linecast.weather.alert_feeds import _cached_feed
 
 # The warnsum feed is a dict keyed by warning type; each entry names the
 # warning and carries a code, which for rainstorms and tropical cyclones

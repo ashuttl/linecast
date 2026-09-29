@@ -2,7 +2,7 @@
 
 from linecast._i18n import base_language
 from linecast._paths import cache_dir
-from linecast.weather.sources import _cached_feed
+from linecast.weather.alert_feeds import _cached_feed
 
 # Warning type names parsed from titles: Chinese -> English
 _CMA_WARNING_NAMES = {

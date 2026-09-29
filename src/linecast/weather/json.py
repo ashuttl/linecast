@@ -13,7 +13,7 @@ from linecast.weather.cover import sky_condition
 from linecast.weather.i18n import _wmo_icons, wmo_label
 from linecast.weather.sections import comparative_sentence, narrative_text
 from linecast.weather.forecast import FORECAST_SOURCE, local_now, forecast_date
-from linecast.weather.sources import alert_source, alerts_status
+from linecast.weather.alert_feeds import alert_source, alerts_status
 
 SCHEMA_VERSION = 1
 

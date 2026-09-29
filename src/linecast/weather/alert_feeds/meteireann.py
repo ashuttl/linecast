@@ -6,7 +6,7 @@ from datetime import datetime
 from linecast._cache import location_cache_key
 from linecast._log import log_failure
 from linecast._paths import cache_dir
-from linecast.weather.sources import _cached_feed
+from linecast.weather.alert_feeds import _cached_feed
 
 # Met Éireann files a national warning under county codes, the FIPS
 # codes (EI07 is Dublin), with a code of a digit more for some islands
