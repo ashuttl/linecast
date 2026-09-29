@@ -179,7 +179,7 @@ def _temp_color(temp, runtime):
 
 def _colored_temp(temp, runtime, suffix=""):
     r, g, b = _temp_color(temp, runtime)
-    return f"{fg(r, g, b)}{temp:.0f}{suffix}"
+    return f"{fg(r, g, b)}{round(temp)}{suffix}"
 
 
 def _precip_type(wmo_code):

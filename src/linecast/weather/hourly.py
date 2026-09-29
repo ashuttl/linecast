@@ -774,7 +774,7 @@ def _render_extrema_line(extrema, graph_w, runtime, is_peak):
 
     segments, cursor = [], 0
     for x, temp in points:
-        label = f"{temp:.0f}°"
+        label = f"{round(temp)}°"
         pos = max(cursor, x - len(label) // 2)
         if pos + len(label) > graph_w:
             continue
@@ -822,7 +822,7 @@ def _compute_extrema_overlays(extrema, col_temps, n_rows, graph_w, runtime, valu
         else:
             label_row = min(n_rows - 1, curve_row + 1)
 
-        label = f"{temp:.0f}°"
+        label = f"{round(temp)}°"
         start = max(0, min(graph_w - len(label), x - len(label) // 2))
 
         if label_row not in occupied_by_row:
@@ -852,7 +852,7 @@ def _compute_axis_overlays(value_range, braille_rows, n_rows, graph_w, overlays,
         for start, label, _color in items:
             occupied.setdefault(row, set()).update(range(start, start + len(label)))
     for row, value in ((0, hi), (n_rows - 1, lo)):
-        label = f"{value:.0f}°"
+        label = f"{round(value)}°"
         left = 1
         if now_col is not None and now_col < left + len(label):
             left = now_col + 1

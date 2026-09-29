@@ -832,12 +832,13 @@ def _tooltip(climate, days, span, jan1, slots, runtime, col, mouse_row, cols, ro
         nls = [climate.normal_low[d] for d in dates if climate.normal_low[d] is not None]
         if nhs and nls:
             lines.append(f"{tbg}{tdim} {_s('avg', runtime)} {tfg}"
-                         f"{sum(nhs) / len(nhs):.0f}° / {sum(nls) / len(nls):.0f}° ")
+                         f"{round(sum(nhs) / len(nhs))}° / {round(sum(nls) / len(nls))}° ")
         tops = [climate.top[d] for d in dates if climate.top[d] is not None]
         bottoms = [climate.bottom[d] for d in dates if climate.bottom[d] is not None]
         if tops and bottoms:
             y0, y1 = climate.span
-            lines.append(f"{tbg}{tdim} {y0}–{y1} {tfg}{max(tops):.0f}° / {min(bottoms):.0f}° ")
+            lines.append(f"{tbg}{tdim} {y0}–{y1} {tfg}"
+                         f"{round(max(tops))}° / {round(min(bottoms))}° ")
     if not days:
         return _live.pointer_chip(lines, col + 3, mouse_row, cols, rows,
                                   pad_bg=tbg, flip_at=col + 2)

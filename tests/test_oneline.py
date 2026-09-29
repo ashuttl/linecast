@@ -74,6 +74,13 @@ class TestWeatherOneline:
         assert "km/h" in plain
         assert "°C" in plain
 
+    def test_a_temperature_just_below_zero_is_zero(self):
+        rt = self._runtime(celsius=True, metric=True)
+        data = self._sample_data()
+        data["current"]["temperature_2m"] = -0.4
+        plain = _strip_ansi(weather_oneline(data, "Montréal", rt))
+        assert "0°C" in plain and "-0" not in plain
+
     def test_imperial_units(self):
         rt = self._runtime(celsius=False, metric=False)
         line = weather_oneline(self._sample_data(), "Portland", rt)

@@ -217,7 +217,7 @@ def render_header(data, width, location_name="", runtime=None, aqi_data=None, hi
                 return result
         from linecast.terminal.help import fit
         room = max(0, width - visible_len(loc_part) - 1)
-        core = f"{icon} {name}" + (f" {temp:.0f}{deg}" if temp is not None else "")
+        core = f"{icon} {name}" + (f" {round(temp)}{deg}" if temp is not None else "")
         plain = fit(core, room)
         return f"{TEXT}{plain}{' ' * max(0, width - visible_len(plain) - visible_len(loc_part))}" \
                f"{loc_part}{RESET}"
