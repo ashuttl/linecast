@@ -60,6 +60,8 @@ linecast takes its colors from your terminal's color scheme. If you change the s
 
 ![the same desktop through ten Omarchy themes, light and dark, each app taking up the new colors as the theme changes](screenshots/themes.gif)
 
+Inside tmux, this needs tmux 3.6 or newer. Older versions don't pass the terminal's colors on, and linecast uses its own fixed palette instead. A change of scheme also comes through tmux only if the terminal reports it to tmux; if yours doesn't, detach and reattach to bring in the new colors. `linecast doctor` says which palette is in use.
+
 ## The apps
 
 The [gallery](docs/gallery.md) shows each one in more of its states.
