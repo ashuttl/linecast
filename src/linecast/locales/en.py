@@ -129,6 +129,9 @@ HELP = {
     "hide_text": "hide / show the text",
     "calendar": "disc / calendar view",
     "months": "move by one month",
+    "years": "move by one year",
+    "tide_views": "day / month / year view",
+    "tide_times": "the water at that hour",
     "moon_times": "phase and rise / set times",
     "day": "open day in disc view",
     "look": "look around",
@@ -494,6 +497,14 @@ TIDES = {
     "low": "Low",
     # The one-line summary for a station with no tide times to show.
     "no_data": "No tide data",
+    # The year view (v): the dotted line where the water starts to flood,
+    # the header's highest water of the year and its day ("highest 12.4′
+    # Jun 16"), and the hover chip's two rows, the tide tables' heights
+    # and the gauge's.
+    "flood_stage": "flood stage",
+    "highest_on": "highest {h} {date}",
+    "predicted": "predicted",
+    "measured": "measured",
 }
 
 

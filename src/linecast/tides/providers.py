@@ -108,6 +108,17 @@ class TideProvider:
                 station_tz: tzinfo | None) -> tuple[float, float] | None:
         raise NotImplementedError
 
+    def observed_extremes(self, station_id: str, year: int,
+                          today: date) -> dict[date, tuple[float, float]]:
+        """{day: (lowest, highest)} the station's gauge measured in *year*
+        before *today*, in feet above MLLW: the year view's pen.  Only
+        NOAA's stations report what they measured; the rest predict."""
+        return {}
+
+    def flood_stage(self, station_id: str) -> float | None:
+        """Where the water starts to flood, in feet above MLLW, or None."""
+        return None
+
 
 def _noaa_label(station):
     name = station.get("name", "")
@@ -159,6 +170,12 @@ class _NOAA(TideProvider):
     def y_range(self, station_id, center_date, station_tz):
         # NOAA serves its predictions in station local time already.
         return noaa.fetch_y_range(station_id, center_date)
+
+    def observed_extremes(self, station_id, year, today):
+        return noaa.fetch_observed_extremes(station_id, year, today)
+
+    def flood_stage(self, station_id):
+        return noaa.fetch_flood_stage(station_id)
 
 
 class _CHS(TideProvider):

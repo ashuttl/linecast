@@ -326,6 +326,102 @@ def fetch_hilo_range(station_id: str, start_date: date, end_date: date,
     return points
 
 
+# ---------------------------------------------------------------------------
+# What the gauge measured, and where the water floods
+# ---------------------------------------------------------------------------
+def _observed_url(station_id, product, begin, end):
+    return (
+        "https://api.tidesandcurrents.noaa.gov/api/prod/datagetter"
+        f"?begin_date={begin:%Y%m%d}&end_date={end:%Y%m%d}"
+        f"&station={station_id}&product={product}&datum=MLLW"
+        f"&units=english&time_zone=lst_ldt&format=json"
+    )
+
+
+def _observed_rows(data):
+    """["YYYY-MM-DD HH:MM", height_ft] rows of a water level answer.
+
+    A station without a gauge answers with an error payload, kept as no
+    rows so the question is not asked again until the file ages out."""
+    rows = []
+    for sample in data.get("data") or []:
+        time_str, value = sample.get("t", ""), sample.get("v")
+        if not value or _row_dt(time_str, None) is None:
+            continue
+        try:
+            rows.append([time_str, float(value)])
+        except (TypeError, ValueError):
+            continue
+    return rows
+
+
+def fetch_observed_extremes(station_id: str, year: int,
+                            today: date) -> dict[date, tuple[float, float]]:
+    """{day: (lowest, highest)} of the water the gauge measured in *year*
+    before *today*, in feet above MLLW; empty for a station without one.
+
+    NOAA's verified highs and lows come a year to a request, and reach
+    to about a month ago. The weeks after that come from the preliminary
+    six-minute series, 31 days to a request: two or three requests in
+    all, and the past years' are kept for a month.
+    """
+    first = date(year, 1, 1)
+    last = min(date(year, 12, 31), today - timedelta(days=1))
+    if last < first:
+        return {}
+    days = {}
+
+    def take(rows):
+        for time_str, value in rows or []:
+            day = date.fromisoformat(time_str[:10])
+            lo, hi = days.get(day, (value, value))
+            days[day] = (min(lo, value), max(hi, value))
+
+    past = year < today.year
+    take(fetch_json_cached(
+        cache_dir() / f"obs_hl_{station_id}_{year}.json", 30 * 86400 if past else 86400,
+        _observed_url(station_id, "high_low", first, last), timeout=15,
+        fallback=None, provider="tides/noaa", transform=_observed_rows))
+    # Without verified days the gauge may be new or absent: look only at
+    # the last few weeks, not the whole year a month at a time.
+    start = max(days) + timedelta(days=1) if days else max(first, last - timedelta(days=45))
+    while start <= last:
+        end = min(start + timedelta(days=30), last)
+        take(fetch_json_cached(
+            cache_dir() / f"obs_wl_{station_id}_{start:%Y%m%d}.json",
+            30 * 86400 if past else 3 * 3600,
+            _observed_url(station_id, "water_level", start, end), timeout=15,
+            fallback=None, provider="tides/noaa", transform=_observed_rows))
+        start = end + timedelta(days=1)
+    return days
+
+
+def fetch_flood_stage(station_id: str) -> float | None:
+    """The station's minor flood level in feet above MLLW, or None:
+    the National Weather Service's where it has set one, else NOS's.
+
+    NOAA gives flood levels over the station's own datum, so MLLW's
+    height on that datum comes off: Portland, Maine floods at 20.55 ft
+    over its datum, which is 12.0 over MLLW.
+    """
+    base = f"https://api.tidesandcurrents.noaa.gov/mdapi/prod/webapi/stations/{station_id}"
+    levels = fetch_json_cached(cache_dir() / f"flood_{station_id}.json", 30 * 86400,
+                               f"{base}/floodlevels.json", timeout=10, fallback=None,
+                               provider="tides/noaa")
+    datums = fetch_json_cached(cache_dir() / f"datums_{station_id}.json", 30 * 86400,
+                               f"{base}/datums.json?units=english", timeout=10,
+                               fallback=None, provider="tides/noaa")
+    if not isinstance(levels, dict) or not isinstance(datums, dict):
+        return None
+    minor = levels.get("nws_minor") or levels.get("nos_minor")
+    mllw = next((d.get("value") for d in datums.get("datums") or []
+                 if d.get("name") == "MLLW"), None)
+    try:
+        return float(minor) - float(mllw)
+    except (TypeError, ValueError):
+        return None
+
+
 def is_subordinate_station(station_id: str) -> bool:
     """True when the station list marks this station type "S".
 

@@ -297,8 +297,12 @@ def _pill_label(station_name, location_menu=False):
     return f"{name} \u25bc" if name and location_menu else name
 
 
-def _render_header_line(cols, station_name, runtime, offset_minutes=0, location_menu=False):
-    """Render the top line with pill-styled station name."""
+def _render_header_line(cols, station_name, runtime, offset_minutes=0, location_menu=False,
+                        right=None):
+    """Render the top line with pill-styled station name.
+
+    *right* replaces the Moon's phase at the right end: the month and
+    year views' titles, already inked."""
     name = _pill_label(station_name, location_menu)
 
     # Station name pill (left)
@@ -314,6 +318,14 @@ def _render_header_line(cols, station_name, runtime, offset_minutes=0, location_
     else:
         pill = ""
         pill_w = 0
+
+    if right is not None:
+        if offset_minutes:
+            hint = f"{DIM}{_ts('space_to_now', runtime)}{RESET}   "
+            if pill_w + visible_len(hint + right) + 2 <= cols:
+                right = hint + right
+        padding = max(1, cols - pill_w - visible_len(right))
+        return f"{pill}{' ' * padding}{right}"
 
     # Moon phase (right-aligned)
     idx, _, moon_icon = moon_phase(datetime.now(timezone.utc), runtime)
