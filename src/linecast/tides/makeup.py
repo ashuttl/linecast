@@ -16,7 +16,7 @@ and the year each part is drawn as its envelope, mirrored about a line
 like a sound wave, and all four are on one scale, so the eye can weigh
 one part against the other.  Over the nineteen years the change is a
 few percent, less than a dot on that scale, so those two are lines on a
-scale of their own with the change written under them.
+scale of their own with their least and their most written under them.
 
 At the left, in the Moon view's manner, are the causes and the height
 of each: half the swing from low water to high, and that height against
@@ -51,7 +51,7 @@ M_PER_FT = 0.3048
 # Tide Analysis and Tidal Power" (2019), Table I.5.  A twice-a-day
 # constituent takes cos² of the latitude, a once-a-day one sin of twice
 # the latitude (Pugh, "Tides, Surges and Mean Sea-Level", 1987, §3:2).
-EQUILIBRIUM_M = {"M2": 0.2423, "S2": 0.1128, "O1": 0.1006, "P1": 0.0468}
+EQUILIBRIUM_M = {"M2": 0.2423, "S2": 0.1128, "N2": 0.0464, "O1": 0.1006, "P1": 0.0468}
 # The Moon's share of K1, which the Moon and the Sun raise together
 # (Pugh's Table 4:1: 0.3990 lunar, 0.1852 solar)
 K1_LUNAR = 0.68
@@ -99,7 +99,7 @@ class Makeup:
         # (string key, amplitude in feet, the constituent its gain is read from)
         self.twice = [("makeup_moon", amp.get("M2", 0.0), "M2"),
                       ("makeup_sun", amp.get("S2", 0.0), "S2"),
-                      ("makeup_distance", amp.get("N2", 0.0), None)]
+                      ("makeup_distance", amp.get("N2", 0.0), "N2")]
         self.once = [("makeup_moon_tilt", amp.get("O1", 0.0) + K1_LUNAR * k1, "O1"),
                      ("makeup_sun_tilt", amp.get("P1", 0.0) + (1 - K1_LUNAR) * k1, "P1")]
         self.gain = {}
@@ -372,14 +372,17 @@ def render_makeup(first, made, runtime, *, header, footer, station_tz, now_local
 
     # --- the left column: the causes, and the size of each -----------------
     makeup = made[0] if made else None
+    tables = [(title, [(_ts(key, runtime), _height(a, runtime), makeup.gain.get(source))
+                       for key, a, source in rows_of])
+              for title, rows_of in (("makeup_twice", makeup.twice if makeup else ()),
+                                     ("makeup_once", makeup.once if makeup else ()))]
+    # The two tables are one set of columns, so the eye runs down the
+    # heights and the gains of both
+    name_w = max([visible_len(n) for _t, table in tables for n, _h, _g in table] + [0])
+    size_w = max([visible_len(h) for _t, table in tables for _n, h, _g in table] + [0])
     groups = []
-    for title, rows_of in (("makeup_twice", makeup.twice if makeup else ()),
-                           ("makeup_once", makeup.once if makeup else ())):
+    for title, table in tables:
         lines = [f"{text}{_ts(title, runtime)}{RESET}"]
-        table = [(_ts(key, runtime), _height(a, runtime),
-                  makeup.gain.get(source) if source else None) for key, a, source in rows_of]
-        name_w = max([visible_len(n) for n, _h, _g in table] + [0])
-        size_w = max([visible_len(h) for _n, h, _g in table] + [0])
         for name, size, gain in table:
             line = (f"{muted}{name}{' ' * (name_w - visible_len(name))}  "
                     f"{' ' * (size_w - visible_len(size))}{size}")
@@ -495,16 +498,15 @@ def render_makeup(first, made, runtime, *, header, footer, station_tz, now_local
                 letters = {"N": north, "S": south, "0": "0"}
                 moon, near = [(f, letters[m]) for f, m in sky["moon"]], []
             sun = [(f, {"N": north, "S": south, "0": "0"}[m]) for f, m in sky["sun"]]
+            # The line is on a scale of its own, so its least and its
+            # most are written under where they fall, as heights
             lo, hi = min(long_rows[part]), max(long_rows[part])
-            lo_y = long_start + YEARS_SPAN * long_rows[part].index(lo) / (len(long_rows[part]) - 1)
-            hi_y = long_start + YEARS_SPAN * long_rows[part].index(hi) / (len(long_rows[part]) - 1)
-            ends = sorted(((lo_y, "▼"), (hi_y, "▲")))
-            change = "  ".join(f"{glyph} {int(y)}" for y, glyph in ends)
-            if lo > 0:
-                change += f"  {round(100 * (hi - lo) / lo)}%"
+            last = len(long_rows[part]) - 1
+            ends = sorted((long_rows[part].index(v) / last, f"{glyph} {_height(v, runtime)}")
+                          for v, glyph in ((lo, "▼"), (hi, "▲")))
             mark_text = {"month": _placed(cell_w, sorted(moon), near),
                          "year": _placed(cell_w, sun),
-                         "long": change}
+                         "long": _placed(cell_w, ends)}
             for s in spans:
                 strips[(part, s)] = values[s]
                 cells.append(_line(values[s], cell_w, strip_rows, now_at[s], ink) if s == "long"
