@@ -341,7 +341,8 @@ def _series_points(data, station_tz):
         try:
             dt_local = parse_utc_iso(row["time"], station_tz)
             height_ft = _maybe_convert_height(float(row["height"]), data)
-        except (KeyError, ValueError, TypeError) as exc:
+        except (KeyError, ValueError, TypeError, AttributeError) as exc:
+            # AttributeError: a time that is null or not a string
             bad = exc
             continue
         points.append((parse_cached_dt(dt_local.isoformat(), station_tz), height_ft))
@@ -383,7 +384,7 @@ def fetch_hilo_range_tidecheck(
         return [(parse_cached_dt(r["dt"], station_tz), r["v"], r["t"]) for r in cached]
 
     data = _fetch_tides_raw(station_id, days=_fetch_days(start_date, end_date))
-    if not data:
+    if not data or not isinstance(data, dict):
         return []
 
     extremes = data.get("extremes") or []
@@ -406,7 +407,7 @@ def fetch_hilo_range_tidecheck(
             else:
                 typ = "H"  # default; will be corrected below
             labeled.append((dt_local, height_ft, typ))
-        except (KeyError, ValueError, TypeError) as exc:
+        except (KeyError, ValueError, TypeError, AttributeError) as exc:
             bad = exc
             continue
     log_skipped("tides/tidecheck", "extremes",

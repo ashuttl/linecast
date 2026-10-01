@@ -152,7 +152,9 @@ def _fetch_year(lat, lng, year, today):
     """The model's hourly heights for a calendar year, through yesterday
     when it is this year. A finished year never changes and is kept for
     a year; this year's latest days are revised as the model runs, so
-    they are kept for three hours."""
+    they are kept for three hours. A copy made while the year was
+    running stops short of its end, and is not taken for the finished
+    year once the year has turned."""
     last = min(date(year, 12, 31), today - timedelta(days=1))
     if last < date(year, 1, 1):
         return None
@@ -164,8 +166,13 @@ def _fetch_year(lat, lng, year, today):
         "&hourly=sea_level_height_msl&timezone=auto"
         f"&start_date={year}-01-01&end_date={last.isoformat()}"
     )
+    def reaches_the_end(cached):
+        hours = (cached.get("hourly") or {}).get("time") if isinstance(cached, dict) else None
+        return bool(hours) and str(hours[-1])[:10] >= last.isoformat()
+
     return fetch_json_cached(cache_file, 366 * 86400 if finished else RAW_CACHE_MAX_AGE,
-                             url, timeout=20, fallback=None, provider="tides/open-meteo")
+                             url, timeout=20, fallback=None, provider="tides/open-meteo",
+                             fresh=reaches_the_end if finished else None)
 
 
 def _instants(data):

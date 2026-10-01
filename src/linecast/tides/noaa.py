@@ -6,7 +6,7 @@ for NOAA's CO-OPS APIs.
 
 import math
 import threading
-from datetime import date, datetime, timedelta, tzinfo
+from datetime import date, datetime, timedelta, timezone, tzinfo
 from typing import Any
 
 from linecast._cache import location_cache_key
@@ -378,8 +378,20 @@ def fetch_observed_extremes(station_id: str, year: int,
             days[day] = (min(lo, value), max(hi, value))
 
     past = year < today.year
+    # A past year's files are good for a month, but only the copies made
+    # since the year ended: one made while it ran stops where it stood.
+    ended = datetime(year + 1, 1, 2, tzinfo=timezone.utc).timestamp()
+
+    def keep(cache_file, running):
+        try:
+            made_after = cache_file.stat().st_mtime >= ended
+        except OSError:
+            made_after = True   # no copy: the age decides nothing
+        return 30 * 86400 if past and made_after else running
+
+    hl_file = cache_dir() / f"obs_hl_{station_id}_{year}.json"
     take(fetch_json_cached(
-        cache_dir() / f"obs_hl_{station_id}_{year}.json", 30 * 86400 if past else 86400,
+        hl_file, keep(hl_file, 86400),
         _observed_url(station_id, "high_low", first, last), timeout=15,
         fallback=None, provider="tides/noaa", transform=_observed_rows))
     # Without verified days the gauge may be new or absent: look only at
@@ -387,9 +399,9 @@ def fetch_observed_extremes(station_id: str, year: int,
     start = max(days) + timedelta(days=1) if days else max(first, last - timedelta(days=45))
     while start <= last:
         end = min(start + timedelta(days=30), last)
+        wl_file = cache_dir() / f"obs_wl_{station_id}_{start:%Y%m%d}.json"
         take(fetch_json_cached(
-            cache_dir() / f"obs_wl_{station_id}_{start:%Y%m%d}.json",
-            30 * 86400 if past else 3 * 3600,
+            wl_file, keep(wl_file, 3 * 3600),
             _observed_url(station_id, "water_level", start, end), timeout=15,
             fallback=None, provider="tides/noaa", transform=_observed_rows))
         start = end + timedelta(days=1)
