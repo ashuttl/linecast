@@ -130,7 +130,7 @@ HELP = {
     "calendar": "disc / calendar view",
     "months": "move by one month",
     "years": "move by one year",
-    "tide_views": "day / month / year view",
+    "tide_views": "day / month / year / makeup view",
     "tide_views_no_year": "day / month view",
     "tide_times": "the water at that hour",
     "moon_times": "phase and rise / set times",
@@ -508,6 +508,31 @@ TIDES = {
     "predicted": "predicted",
     "measured": "measured",
     "modeled": "modeled",
+    # The makeup view (v): the tide's two parts and what raises each. The
+    # rows of the table at the left are causes: the Moon's pull and the
+    # Sun's, the Moon's changing distance, and how far north or south of
+    # the equator each of them stands ("tilt"). The key under the strips
+    # explains the sizes, the × figures, and the marks on the axes. The
+    # two sentences are set as one paragraph, the second after the first,
+    # and what the pull alone would raise is the tide on an Earth all
+    # ocean, with no shores to shape it. makeup_mark_near is the
+    # one-letter mark for the Moon's nearest approach (p for perigee).
+    # makeup_headline is the view's title, set quietly above it.
+    "makeup_headline": "What moves the tide here",
+    "makeup_twice": "Twice a day",
+    "makeup_once": "Once a day",
+    "makeup_moon": "The Moon",
+    "makeup_sun": "The Sun",
+    "makeup_distance": "The Moon's distance",
+    "makeup_moon_tilt": "The Moon's tilt",
+    "makeup_sun_tilt": "The Sun's tilt",
+    "makeup_key_size": "Each size is half the swing from low water to high due to that cause.",
+    "makeup_key_gain": "× is how many times the shape of the sea here amplifies what the pull alone would raise.",
+    "makeup_key_phases": "new, full moon",
+    "makeup_mark_near": "p",
+    "makeup_key_near": "Moon nearest",
+    "makeup_key_far": "farthest north, south",
+    "makeup_key_equator": "over the equator",
 }
 
 

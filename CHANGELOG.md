@@ -26,6 +26,7 @@ New this version:
   - About 1,200 tide gauges in 103 countries, such as Brest, Cape Town, and Auckland, give the tides where no national service reaches, for any date.
   - The global tide model's tides reach any date, where they stopped about a week ahead.
   - TideCheck stations draw the curve TideCheck predicts, not one estimated from the highs and lows. On a sea with hardly a tide, such as the Black Sea, the chart no longer has gaps.
+  - `v` reaches a view of what moves the tide at a place: its twice-a-day and once-a-day parts through the month, the year, and the 18.6 years of the Moon's cycle, with the size of each cause and how far the sea there amplifies it.
 - Help: The help pages list a flag's choices first and then say what it does, in a sentence or two.
 
 Fixes:

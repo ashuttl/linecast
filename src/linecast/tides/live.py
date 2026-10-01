@@ -54,7 +54,7 @@ class TidesApp(LocationMenu, _live.LiveApp):
     LOG_AREA = 'tides'
     # v steps through them: the day's chart, a month of days, the year
     # (where the source can fill one: see views)
-    VIEWS = ("day", "month", "year")
+    VIEWS = ("day", "month", "year", "makeup")
 
     def __init__(self, provider, station_id, station_name, station_meta,
                  station_tz, runtime, predictions, hilo, fetched_start,
@@ -99,17 +99,19 @@ class TidesApp(LocationMenu, _live.LiveApp):
 
     @property
     def views(self):
-        """The views v steps through at this station: no year where the
-        source's predictions stop weeks ahead."""
+        """The views v steps through at this station: no year, and no
+        makeup, which is fitted to a year, where the source's predictions
+        stop weeks ahead."""
         if self.provider.year_view:
             return self.VIEWS
-        return tuple(v for v in self.VIEWS if v != "year")
+        return tuple(v for v in self.VIEWS if v not in ("year", "makeup"))
 
     @property
     def help_view(self):
         if not self.provider.year_view:
             return {"day": "tides_no_year", "month": "tides_month_no_year"}[self.view]
-        return {"day": "tides", "month": "tides_month", "year": "tides_year"}[self.view]
+        return {"day": "tides", "month": "tides_month", "year": "tides_year",
+                "makeup": "tides_makeup"}[self.view]
 
     # --- the location menu (LocationMenu) ---------------------------------
     def _here(self):
@@ -236,8 +238,8 @@ class TidesApp(LocationMenu, _live.LiveApp):
         """What the month or year view on screen draws, as _long keys it."""
         from linecast.tides.month import month_of
         today = self._today()
-        if self.view == "month":
-            return ("month", self.station_id, month_of(today, self.months))
+        if self.view in ("month", "makeup"):
+            return (self.view, self.station_id, month_of(today, self.months))
         return ("year", self.station_id, today.year + self.years)
 
     def _start_long(self):
@@ -260,6 +262,8 @@ class TidesApp(LocationMenu, _live.LiveApp):
                     data = (provider.tides_range(station_id, when, last, tz),
                             provider.hilo_range(station_id, when - timedelta(days=1),
                                                 last + timedelta(days=1), tz))
+                elif kind == "makeup":
+                    data = self._make_up(provider, station_id, tz, today, when)
                 else:
                     from linecast.tides.year import daily_ranges
                     hilo = provider.hilo_range(station_id, date(when, 1, 1),
@@ -279,8 +283,26 @@ class TidesApp(LocationMenu, _live.LiveApp):
         self._long_worker = threading.Thread(target=worker, daemon=True)
         self._long_worker.start()
 
+    def _make_up(self, provider, station_id, tz, today, first):
+        """What the makeup view draws for the month from *first*.  The
+        fit is to this year's high and low waters, the request the year
+        view makes, and is kept: another month costs only its own sums."""
+        from linecast.tides.makeup import Makeup, sky_marks
+        fit_key = ("makeup fit", station_id)
+        made = self._long.get(fit_key)
+        if made is None:
+            turns = provider.hilo_range(station_id, date(today.year, 1, 1),
+                                        date(today.year, 12, 31), tz)
+            try:
+                lat = float((self.station_meta or {}).get("lat"))
+            except (TypeError, ValueError):
+                lat = None
+            made = self._long[fit_key] = Makeup(turns, lat)
+        return (made, made.month(first, tz), made.year(first.year), made.long(today.year),
+                sky_marks(first, tz), today.year)
+
     def _step(self, n):
-        if self.view == "month":
+        if self.view in ("month", "makeup"):
             self.months += n
         else:
             self.years += n
@@ -315,6 +337,15 @@ class TidesApp(LocationMenu, _live.LiveApp):
                                 self.runtime, header=header, footer=footer,
                                 station_meta=self.station_meta, station_tz=self.station_tz,
                                 now_local=now_local, mouse_pos=mouse_pos)
+        if self.view == "makeup":
+            from linecast.tides.makeup import render_makeup
+            header = _render_header_line(cols, self.station_name, self.runtime,
+                                         offset_minutes=self.months, location_menu=True,
+                                         right="")
+            return render_makeup(key[2], data, self.runtime, header=header,
+                                 footer=_help.footer(source, cols, lang),
+                                 station_tz=self.station_tz, now_local=now_local,
+                                 mouse_pos=mouse_pos)
         from linecast.tides import year as _year
         year = key[2]
         predicted, observed, flood = data or ({}, {}, None)
