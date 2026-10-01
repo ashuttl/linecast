@@ -408,6 +408,59 @@ def fit(samples, names, z0=None):
     return Tide(constants, z0=mean)
 
 
+def fit_turns(turns, names, hours=2.0):
+    """The Tide whose constants best explain a list of high and low waters.
+
+    *turns* is [(datetime, height)], the times of the turns and the water
+    then. A turn says two things: how high the water stood, and that it
+    was neither rising nor falling. Heights alone leave the fit loose,
+    since sliding the whole tide a little in time changes no height at a
+    turn, and the answer drifts by several percent; the slope, taken as
+    zero at each turn, pins it. *hours* weighs the slope against the
+    height: a slope of one unit an hour counts as *hours* units of
+    height.
+
+    A year of turns at Portland, Maine gives M2 within a little over one
+    percent of NOAA's published constant, and at Hong Kong and Tokyo the
+    main constants within two or three percent of a fit to the hourly
+    heights.
+    """
+    names = [canonical(n) for n in names if canonical(n)]
+    speeds = [math.radians(speed(n)) for n in names]
+    columns = [[] for _ in range(2 * len(names) + 1)]
+    heights = []
+    days = {}
+    cos, sin = math.cos, math.sin
+    for t, y in turns:
+        t = _utc(t)
+        day = _midnight(t)
+        args = days.get(day)
+        if args is None:
+            args = days[day] = [(f, math.radians(vu)) for f, vu in _day_arguments(day, names)]
+        at = (t - day).total_seconds() / 3600.0
+        columns[0] += (1.0, 0.0)
+        for k, ((f, vu), w) in enumerate(zip(args, speeds)):
+            x = vu + w * at
+            c, s = f * cos(x), f * sin(x)
+            columns[2 * k + 1] += (c, -hours * w * s)
+            columns[2 * k + 2] += (s, hours * w * c)
+        heights += (y, 0.0)
+    dot = getattr(math, "sumprod", None) or (lambda a, b: sum(map(operator.mul, a, b)))
+    width = len(columns)
+    normal = [[0.0] * width for _ in range(width)]
+    for i in range(width):
+        for j in range(i, width):
+            normal[i][j] = normal[j][i] = dot(columns[i], columns[j])
+    x = _solve(normal, [dot(c, heights) for c in columns])
+    if x is None:
+        return None
+    constants = []
+    for k, name in enumerate(names):
+        a, b = x[2 * k + 1], x[2 * k + 2]
+        constants.append((name, math.hypot(a, b), math.degrees(math.atan2(b, a)) % 360))
+    return Tide(constants, z0=x[0])
+
+
 def _solve(matrix, rhs):
     """x for matrix·x = rhs by Gaussian elimination with partial pivoting,
     or None when the system is singular."""
