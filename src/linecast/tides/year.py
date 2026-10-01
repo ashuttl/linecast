@@ -14,7 +14,8 @@ The field swells and shrinks twice a month, springs and neaps, and the
 largest swells come where the full or new Moon falls near perigee; the
 Moon's new and full phases are marked above the chart.  NOAA stations
 also have a flood stage, drawn as a dotted line, and any water, predicted
-or measured, above it is in the alert ink.  Other providers predict
+or measured, above it is in the alert ink.  CHS stations have the pen
+but no flood stage, which CHS does not publish.  Other providers predict
 without measuring, so their year is the field alone.
 """
 
