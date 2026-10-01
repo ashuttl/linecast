@@ -48,6 +48,10 @@ HELP = {
     "hide_text": "fela / sýna textann",
     "calendar": "skífa / dagatal",
     "months": "skipta um mánuð",
+    "years": "skipta um ár",
+    "tide_views": "dags- / mánaðar- / árssýn / samsetning",
+    "tide_views_no_year": "dags- / mánaðarsýn",
+    "tide_times": "sjávarhæð á þeirri klukkustund",
     "moon_times": "kvartil og ris / set",
     "day": "opna dag í tunglsýn",
     "look": "líta í kringum sig",
@@ -370,6 +374,30 @@ TIDES = {
     "high": "Flóð",
     "low": "Fjara",
     "no_data": "Engin sjávarfallagögn",
+    # sjávarflóð is the sea flooding the land; flóðmörk alone would be the high-water line
+    "flood_stage": "sjávarflóðamörk",
+    "highest_on": "hæst {h} {date}",
+    "predicted": "spáð",
+    "measured": "mælt",
+    "modeled": "úr líkani",
+    "makeup_headline": "Það sem knýr sjávarföllin hér",
+    "makeup_twice": "Tvisvar á sólarhring",
+    "makeup_once": "Einu sinni á sólarhring",
+    "makeup_moon": "Tunglið",
+    "makeup_sun": "Sólin",
+    "makeup_distance": "Fjarlægð tunglsins",
+    # The tilt of the path, not of the body, which would read as an axis or a tipped crescent
+    "makeup_moon_tilt": "Halli tunglbrautar",
+    "makeup_sun_tilt": "Halli sólbrautar",
+    "makeup_key_size": "Hver hæð er helmingur þess munar á flóði og fjöru sem sú orsök ein veldur.",
+    "makeup_key_gain": "× ber hæðina saman við sama framlag í fræðilegu heimshafi.",
+    "makeup_key_sea": "Lögun og dýpi hafsins breyta því hve stórt framlagið verður hér.",
+    "makeup_key_phases": "nýtt, fullt tungl",
+    # j for jarðnánd, the Moon nearest the Earth (jörðu in the legend)
+    "makeup_mark_near": "j",
+    "makeup_key_near": "tungl næst jörðu",
+    "makeup_key_far": "lengst í norðri, suðri",
+    "makeup_key_equator": "yfir miðbaug",
 }
 
 

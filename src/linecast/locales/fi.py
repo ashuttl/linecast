@@ -46,6 +46,10 @@ HELP = {
     "hide_text": "piilota / näytä teksti",
     "calendar": "kiekko / kalenteri",
     "months": "vaihda kuukautta",
+    "years": "vaihda vuotta",
+    "tide_views": "päivä- / kuukausi- / vuosi- / koostumusnäkymä",
+    "tide_views_no_year": "päivä- / kuukausinäkymä",
+    "tide_times": "vedenkorkeus sinä tuntina",
     "moon_times": "vaihe ja nousu- / laskuajat",
     "day": "avaa päivä kuunäkymässä",
     "look": "katsele ympärillesi",
@@ -405,6 +409,31 @@ TIDES = {
     "high": "Nousuvesi",
     "low": "Laskuvesi",
     "no_data": "Ei vuorovesitietoja",
+    "flood_stage": "tulvaraja",
+    "highest_on": "korkein {h} {date}",
+    "predicted": "ennuste",
+    "measured": "havainto",
+    "modeled": "malli",
+    "makeup_headline": "Mikä vuorovettä täällä liikuttaa",
+    "makeup_twice": "Kahdesti päivässä",
+    "makeup_once": "Kerran päivässä",
+    "makeup_moon": "Kuu",
+    "makeup_sun": "Aurinko",
+    "makeup_distance": "Kuun etäisyys",
+    # "Kuun kallistuma" would read as the Moon's axis; the tilt is
+    # given to its path, and to the Sun's
+    "makeup_moon_tilt": "Kuun radan kaltevuus",
+    "makeup_sun_tilt": "Auringon radan kaltevuus",
+    "makeup_key_size": "Kukin korkeus on puolet tekijänsä aiheuttamasta lasku- ja nousuveden erosta.",
+    "makeup_key_gain": "× vertaa sitä saman tekijän osuuteen ideaalisessa valtameressä.",
+    "makeup_key_sea": "Meren muoto ja syvyys muuttavat sitä, kuinka suureksi se täällä tulee.",
+    "makeup_key_phases": "uusikuu, täysikuu",
+    # Not p (perigeum): P is north here. Not l (lähinnä): it reads as
+    # a 1 or a bar under the axis. m for Maa, the Earth it is nearest
+    "makeup_mark_near": "m",
+    "makeup_key_near": "Kuu lähinnä Maata",
+    "makeup_key_far": "kauimpana pohjoisessa, etelässä",
+    "makeup_key_equator": "päiväntasaajan kohdalla",
 }
 
 

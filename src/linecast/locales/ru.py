@@ -49,6 +49,10 @@ HELP = {
     "hide_text": "скрыть / показать текст",
     "calendar": "диск / календарь",
     "months": "на месяц вперёд или назад",
+    "years": "на год вперёд или назад",
+    "tide_views": "вид дня / месяца / года / состава",
+    "tide_views_no_year": "вид дня / месяца",
+    "tide_times": "вода в этот час",
     "moon_times": "фаза и время восхода / захода",
     "day": "открыть день в виде диска",
     "look": "осмотреться",
@@ -411,6 +415,30 @@ TIDES = {
     "high": "Прилив",
     "low": "Отлив",
     "no_data": "Нет данных о приливах",
+    # Roshydromet's term for the level past which the water does harm
+    "flood_stage": "опасная отметка",
+    "highest_on": "максимум {h} {date}",
+    "predicted": "прогноз",
+    "measured": "измерено",
+    "modeled": "модель",
+    "makeup_headline": "Что здесь движет приливами",
+    "makeup_twice": "Дважды в сутки",
+    "makeup_once": "Раз в сутки",
+    "makeup_moon": "Луна",
+    "makeup_sun": "Солнце",
+    "makeup_distance": "Расстояние до Луны",
+    # "Наклон Луны" would read as a tilted crescent; this says not over the equator
+    "makeup_moon_tilt": "Луна не над экватором",
+    "makeup_sun_tilt": "Солнце не над экватором",
+    "makeup_key_size": "Каждая высота — половина разницы между отливом и приливом от этой причины.",
+    "makeup_key_gain": "× сравнивает её с тем, что та же причина дала бы в идеальном океане.",
+    "makeup_key_sea": "Форма и глубина моря меняют то, какой эта высота получается здесь.",
+    "makeup_key_phases": "новолуние, полнолуние",
+    # Cyrillic п, for перигей: a Latin p would be read as the letter р
+    "makeup_mark_near": "п",
+    "makeup_key_near": "Луна ближе всего",
+    "makeup_key_far": "дальше всего к северу, югу",
+    "makeup_key_equator": "над экватором",
 }
 
 

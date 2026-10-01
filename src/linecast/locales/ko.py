@@ -50,6 +50,10 @@ HELP = {
     "hide_text": "글자 숨기기 / 보이기",
     "calendar": "달 표면 / 달력",
     "months": "월 이동",
+    "years": "연도 이동",
+    "tide_views": "일간 / 월간 / 연간 / 구성 보기",
+    "tide_views_no_year": "일간 / 월간 보기",
+    "tide_times": "그 시각의 조위",
     "moon_times": "달 위상과 뜨고 지는 시각",
     "day": "해당 날짜의 달 열기",
     "look": "둘러보기",
@@ -407,6 +411,31 @@ TIDES = {
     "high": "만조",
     "low": "간조",
     "no_data": "조석 정보 없음",
+    "flood_stage": "침수 시작 조위",
+    "highest_on": "최고 조위 {h} {date}",
+    "predicted": "예측",
+    "measured": "실측",
+    "modeled": "모델",
+    # "tilt" is the north-south position: 달의 기울기 would be read as
+    # the Moon's own lean. 이상 alone also means "abnormal" (이상 기후)
+    # and 이상적인 "perfect", so the ideal ocean is 이론상의 바다, the
+    # sea in theory, set against 실제 바다
+    "makeup_headline": "이곳의 조석을 움직이는 것",
+    "makeup_twice": "하루 두 번",
+    "makeup_once": "하루 한 번",
+    "makeup_moon": "달",
+    "makeup_sun": "태양",
+    "makeup_distance": "달과의 거리",
+    "makeup_moon_tilt": "달의 남북 위치",
+    "makeup_sun_tilt": "태양의 남북 위치",
+    "makeup_key_size": "각 높이는 그 원인만으로 생기는 만조와 간조 차이의 절반입니다.",
+    "makeup_key_gain": "×는 이론상의 바다에서 같은 원인이 만드는 높이에 대한 비율입니다.",
+    "makeup_key_sea": "실제 바다의 모양과 깊이에 따라 이곳의 높이는 커지거나 작아집니다.",
+    "makeup_key_phases": "삭, 보름달",
+    "makeup_mark_near": "p",
+    "makeup_key_near": "달이 가장 가까움",
+    "makeup_key_far": "가장 북쪽, 남쪽",
+    "makeup_key_equator": "적도 바로 위",
 }
 
 

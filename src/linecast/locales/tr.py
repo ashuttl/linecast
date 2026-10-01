@@ -47,6 +47,10 @@ HELP = {
     "hide_text": "metni gizle / göster",
     "calendar": "disk / takvim görünümü",
     "months": "bir ay kaydır",
+    "years": "bir yıl kaydır",
+    "tide_views": "gün / ay / yıl / bileşim görünümü",
+    "tide_views_no_year": "gün / ay görünümü",
+    "tide_times": "o saatteki su seviyesi",
     "moon_times": "evre ve doğuş / batış saatleri",
     "day": "günü disk görünümünde aç",
     "look": "etrafa bak",
@@ -395,6 +399,30 @@ TIDES = {
     "high": "Met",
     "low": "Cezir",
     "no_data": "Gelgit verisi yok",
+    "flood_stage": "taşkın seviyesi",
+    "highest_on": "en yüksek {h} {date}",
+    "predicted": "tahmin",
+    "measured": "ölçüm",
+    "modeled": "model",
+    # A heading that is a statement: "what makes the tide here", with
+    # the textbooks' verb (gelgiti oluşturan etkenler)
+    "makeup_headline": "Burada gelgiti oluşturanlar",
+    "makeup_twice": "Günde iki kez",
+    "makeup_once": "Günde bir kez",
+    "makeup_moon": "Ay",
+    "makeup_sun": "Güneş",
+    "makeup_distance": "Ay'ın uzaklığı",
+    "makeup_moon_tilt": "Ay'ın eğimi",
+    "makeup_sun_tilt": "Güneş'in eğimi",
+    "makeup_key_size": "Her yükseklik, o nedenin oluşturduğu met-cezir farkının yarısıdır.",
+    "makeup_key_gain": "×, bunu aynı nedenin ideal bir okyanustaki katkısıyla karşılaştırır.",
+    "makeup_key_sea": "Denizin biçimi ve derinliği, bunun buradaki büyüklüğünü değiştirir.",
+    "makeup_key_phases": "yeni Ay, dolunay",
+    # y for yakın (and yerberi, perigee); the compass marks here are K and G
+    "makeup_mark_near": "y",
+    "makeup_key_near": "Ay en yakın konumda",
+    "makeup_key_far": "en kuzeyde, en güneyde",
+    "makeup_key_equator": "Ekvator'un üzerinde",
 }
 
 
