@@ -473,9 +473,10 @@ class TestChart:
         assert "804mm · avg 537mm" in head
 
     def _painted(self, theme_available):
-        from linecast.terminal import color as _color
+        from linecast.terminal import chart as _chart, color as _color
         with patch.object(_color, "_COLOR_MODE", "truecolor"), \
              patch.object(year, "RESET", "\x1b[0m"), \
+             patch.object(_chart, "RESET", "\x1b[0m"), \
              patch.object(year._theme, "theme_available", theme_available):
             out = _render(_climate(), _days(), size=(120, 34), footer="Open-Meteo")
         return out.split("\n"), "\x1b[48;2;{};{};{}m".format(*year._theme.theme_bg)
@@ -718,19 +719,25 @@ class TestSolarHijri:
     months it runs by, since a number would read as a Solar Hijri month,
     and the hover gives both dates."""
 
+    @staticmethod
+    def _axis(width, runtime):
+        from linecast.sunshine.i18n import gregorian_axis_labels
+        from linecast.terminal.chart import month_axis, month_starts
+        starts, n = month_starts(2026)
+        labels, named = gregorian_axis_labels(runtime, narrow=width < 72)
+        return _strip(month_axis(labels, starts, n, width, "", "", whole=named))
+
     def test_the_axis_names_the_months_and_never_numbers_them(self):
-        starts, n = year._month_starts(2026)
         rt = _runtime(lang="fa")
-        wide = _strip(year._month_axis(starts, n, 115, rt))
+        wide = self._axis(115, rt)
         assert "ژانویه" in wide and "سپتامبر" in wide and "دسامبر" in wide
-        narrow = _strip(year._month_axis(starts, n, 64, rt))
+        narrow = self._axis(64, rt)
         assert "مه" in narrow
         assert not any(ch.isdigit() for ch in narrow)
         assert "سپتامبر" not in narrow   # seven letters in a five-cell month
 
     def test_other_languages_keep_their_axis(self):
-        starts, n = year._month_starts(2026)
-        assert "Jan" in _strip(year._month_axis(starts, n, 115, _runtime()))
+        assert "Jan" in self._axis(115, _runtime())
 
     def test_the_hover_gives_both_calendars(self):
         text = _strip(_render(_climate(), _days(), mouse_pos=(40, 10),

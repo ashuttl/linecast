@@ -27,13 +27,14 @@ from linecast._i18n import fmt_decimal
 from linecast.terminal import live as _live
 from linecast.terminal import theme as _theme
 from linecast.terminal.braille import DOT_BITS, line_dots
+from linecast.terminal.chart import day_span, month_axis, month_starts, on_the_page
 from linecast.terminal.color import RESET, bg, fg
 from linecast.terminal.framebuffer import Framebuffer, get_terminal_size
 from linecast.terminal.textwidth import cells as text_cells, visible_len
 from linecast.terminal.theme import ensure_contrast, lerp_rgb, surface_bg
 from linecast.tides import palette as _palette
+from linecast.sunshine.i18n import gregorian_axis_labels
 from linecast.tides.i18n import _ts
-from linecast.weather.year import _month_axis, _month_starts, _on_the_page, _span
 
 BAND_RGB = BAND_FLOOD_RGB = PEN_RGB = WARM_RGB = COOL_RGB = FLOOD_RGB = GUIDE_RGB = None
 
@@ -93,7 +94,7 @@ def render_year(year, predicted, observed, flood, runtime, *, header, footer, to
     "modeled" for a model's own heights.
     """
     cols, rows = get_terminal_size()
-    starts, n = _month_starts(year)
+    starts, n = month_starts(year)
     jan1 = date(year, 1, 1)
     days = [jan1 + timedelta(days=k) for k in range(n)]
     predicted = predicted or {}
@@ -125,7 +126,7 @@ def render_year(year, predicted, observed, flood, runtime, *, header, footer, to
     field = Framebuffer(width, n_chart)
     tops = [None] * width
     for x in range(width):
-        span = [days[k] for k in _span(x, width, n) if days[k] in predicted]
+        span = [days[k] for k in day_span(x, width, n) if days[k] in predicted]
         if not span:
             continue
         low = min(predicted[d][0] for d in span)
@@ -167,7 +168,7 @@ def render_year(year, predicted, observed, flood, runtime, *, header, footer, to
 
     top_trace, bottom_trace = [], []
     for i in range(width * 2):
-        span = [days[k] for k in _span(i, width * 2, n) if days[k] in observed]
+        span = [days[k] for k in day_span(i, width * 2, n) if days[k] in observed]
         if not span:
             top_trace.append(None)
             bottom_trace.append(None)
@@ -250,18 +251,19 @@ def render_year(year, predicted, observed, flood, runtime, *, header, footer, to
     for row, body in enumerate(field.render(over)):
         text = label_at.get(row, "")
         lines.append(f"{dim}{' ' * (gutter - 1 - visible_len(text))}{text} {RESET}{body}")
-    lines.append(" " * gutter + _month_axis(
-        starts, n, width, runtime,
-        this_month=today.month - 1 if today.year == year else None))
+    labels, named = gregorian_axis_labels(runtime, narrow=width < 72)
+    lines.append(" " * gutter + month_axis(
+        labels, starts, n, width, fg(*_palette.TEXT_RGB), dim,
+        this_month=today.month - 1 if today.year == year else None, whole=named))
     lines.append(footer)
 
     tip = ""
     if hover_x is not None:
-        span = [days[k] for k in _span(hover_x, width, n)]
+        span = [days[k] for k in day_span(hover_x, width, n)]
         tip = _tooltip(span, predicted, observed, observed_name, runtime,
                        hover_x + gutter, mouse_pos[1],
                        cols, rows)
-    return _live.overlay(_on_the_page(lines, cols), tip)
+    return _live.overlay(on_the_page(lines, cols), tip)
 
 
 def summary(year, predicted, observed, runtime, today):

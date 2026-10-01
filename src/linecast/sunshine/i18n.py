@@ -114,6 +114,22 @@ def axis_month_labels(runtime, narrow=False):
     return [name[:3] for name in names]
 
 
+def gregorian_axis_labels(runtime, narrow=False):
+    """(labels, named): the twelve labels for a year axis that runs by
+    the Gregorian months whatever the reader's calendar, as weather's and
+    the tides' do.
+
+    Where dates are Solar Hijri, a month's number would read as a Solar
+    Hijri month -- 7 as Mehr, not July -- so the months are named, in
+    full, since Persian does not abbreviate its months, and *named* says
+    so: a name is not to be cut short, and a month too narrow for its
+    name goes without a label rather than take a number."""
+    from linecast.astro.calendars.civil import SOLAR_HIJRI, civil_calendar
+    if civil_calendar(runtime.lang) == SOLAR_HIJRI:
+        return table_for(MONTHS, runtime.lang), True
+    return axis_month_labels(runtime, narrow=narrow), False
+
+
 def clock_label(now, runtime, today=None):
     """'2:14p': the time of the shown moment on the location's own clock,
     so a pinned place reads as a world clock. The weekday is added only

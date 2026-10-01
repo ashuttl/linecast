@@ -33,8 +33,7 @@ import calendar
 import math
 from datetime import date, datetime, timedelta, timezone
 
-from linecast._i18n import DAY_NAMES, MONTHS, fmt_decimal, lang_of, table_for
-from linecast.astro.calendars.civil import SOLAR_HIJRI, civil_calendar
+from linecast._i18n import DAY_NAMES, fmt_decimal, lang_of, table_for
 from linecast.terminal import live as _live
 from linecast.terminal.color import RESET, bg, fg
 from linecast.terminal.framebuffer import get_terminal_size
@@ -389,7 +388,7 @@ def render_makeup(first, made, runtime, *, header, footer, station_tz, now_local
     from linecast.moon.calendar import _month_title
     from linecast.moon.phase import moon_phase
     from linecast.radar.i18n import rs
-    from linecast.sunshine.i18n import axis_month_labels
+    from linecast.sunshine.i18n import gregorian_axis_labels
 
     cols, rows = get_terminal_size()
     lang = lang_of(runtime)
@@ -484,14 +483,12 @@ def render_makeup(first, made, runtime, *, header, footer, station_tz, now_local
     now_at = {k: (v if 0 <= v < 1 else None) for k, v in now_at.items()}
 
     # --- the axes, the same under both parts --------------------------------
-    month_labels = axis_month_labels(runtime, narrow=True)
+    month_labels, named = gregorian_axis_labels(runtime, narrow=True)
     every = 1 if cell_w >= 24 else 2 if cell_w >= 18 else 3
-    if civil_calendar(lang) == SOLAR_HIJRI:
-        # A month's number would read as a Solar Hijri month, 7 as Mehr,
-        # so the Gregorian months are named (weather.year._month_axis):
-        # every month, or every second, third, fourth or sixth, the
-        # first of those whose names stand clear of one another
-        month_labels = table_for(MONTHS, lang)
+    if named:
+        # Names in full are not cut short: every month, or every second,
+        # third, fourth or sixth, the first of those whose names stand
+        # clear of one another
 
         def clear(step):
             end = -1

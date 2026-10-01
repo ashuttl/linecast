@@ -36,11 +36,12 @@ from linecast._i18n import fmt_decimal
 from linecast.terminal import live as _live
 from linecast.terminal import theme as _theme
 from linecast.terminal.braille import DOT_BITS
+from linecast.terminal.chart import day_span, month_axis, month_starts, on_the_page
 from linecast.terminal.color import RESET, bg, fg
 from linecast.terminal.textwidth import pad, visible_len
 from linecast.terminal.framebuffer import Framebuffer, get_terminal_size
 from linecast.terminal.live import overlay
-from linecast.terminal.textwidth import cells as text_cells, char_width
+from linecast.terminal.textwidth import cells as text_cells
 from linecast.terminal.theme import ensure_contrast, lerp_rgb, surface_bg
 from linecast.weather import style as _style
 from linecast.weather.daily import mostly_snow
@@ -230,20 +231,8 @@ def fetch_year(lat, lng, today, runtime, stale=None):
     return climate, archive
 
 
-def _span(i, width, n):
-    """The days, as a range, that column i of `width` covers."""
-    a = int(i * n / width)
-    return range(a, max(a + 1, int((i + 1) * n / width)))
 
 
-def _month_starts(year):
-    """Day index of each month's first day, and the year's length;
-    `starts[1:] + [n]` are the months' ends."""
-    starts, k = [], 0
-    for m in range(1, 13):
-        starts.append(k)
-        k += calendar.monthrange(year, m)[1]
-    return starts, k
 
 
 def _temp_ticks(lo, hi, rows, celsius):
@@ -406,7 +395,7 @@ def _header(climate, days, runtime, cols, location_name, location_menu):
                 key = "hist_above_avg" if diff > 0 else "hist_below_avg"
                 text = _s(key, runtime, diff=f"{fmt_decimal(abs(diff), 1, runtime)}°")
             parts.append(f"{_style.MUTED}{text}")
-        starts, n = _month_starts(days.year)
+        starts, n = month_starts(days.year)
         observed = [p for p in days.precip[:days.today] if p is not None]
         normal = _normal_to_date(climate, days.today, starts, starts[1:] + [n])
         if observed and len(observed) >= whole and normal is not None:
@@ -496,7 +485,7 @@ def render_year(climate, days, runtime, *, location_name="", location_menu=False
     colored, fringe = colors == "colored", colors == "fringe"
     cols, rows = get_terminal_size()
     year = days.year if days else date.today().year
-    starts, n = _month_starts(year)
+    starts, n = month_starts(year)
     ends = starts[1:] + [n]
     jan1 = date(year, 1, 1)
     slots = [_slot(jan1 + timedelta(days=k)) for k in range(n)]
@@ -591,9 +580,11 @@ def render_year(climate, days, runtime, *, location_name="", location_menu=False
     for row, body in enumerate(temp_fb.render(temp_over)):
         text = label_at.get(row, "")
         lines.append(f"{dim}{' ' * (gutter - 1 - visible_len(text))}{text} {RESET}{body}")
-    lines.append(" " * gutter + _month_axis(starts, n, width, runtime,
-                                            this_month=precip.month_of[today]
-                                            if today is not None else None))
+    from linecast.sunshine.i18n import gregorian_axis_labels
+    labels, named = gregorian_axis_labels(runtime, narrow=width < 72)
+    lines.append(" " * gutter + month_axis(
+        labels, starts, n, width, _style.TEXT, _style.DIM,
+        this_month=precip.month_of[today] if today is not None else None, whole=named))
     for body in precip_fb.render(precip_over):
         lines.append(" " * gutter + body)
     if hint:
@@ -605,7 +596,7 @@ def render_year(climate, days, runtime, *, location_name="", location_menu=False
     if hovered is not None:
         tip = _tooltip(climate, days, hovered, jan1, slots, runtime, hover_x + gutter,
                        mouse_pos[1], cols, rows)
-    return overlay(_on_the_page(lines, cols), tip)
+    return overlay(on_the_page(lines, cols), tip)
 
 
 def _temp_bands(climate, slots, axes):
@@ -624,7 +615,7 @@ def _temp_bands(climate, slots, axes):
         return [series[slots[k]] for k in span if series[slots[k]] is not None]
 
     for x in range(width):
-        span = _span(x, width, axes.n)
+        span = day_span(x, width, axes.n)
         tops, bots = known(climate.top, span), known(climate.bottom, span)
         nhs = known(climate.normal_high, span)
         nls = known(climate.normal_low, span)
@@ -650,7 +641,7 @@ def _day_bars(days, axes):
     if not days:
         return bars
     for i in range(axes.width * 2):
-        span = _span(i, axes.width * 2, axes.n)
+        span = day_span(i, axes.width * 2, axes.n)
         his = [days.highs[k] for k in span if days.highs[k] is not None]
         los = [days.lows[k] for k in span if days.lows[k] is not None]
         if not his or not los:
@@ -718,7 +709,7 @@ def _precip_dots(days, precip, starts, axes, runtime):
     dots = _Braille(width, precip.rows)
     prev = None   # (dot row, month, day) of the last column's running total
     for i in range(width * 2):
-        k = min(n - 1, _span(i, width * 2, n)[-1])
+        k = min(n - 1, day_span(i, width * 2, n)[-1])
         if cum[k] is None:
             prev = None
             continue
@@ -737,7 +728,7 @@ def _precip_dots(days, precip, starts, axes, runtime):
                 dots.dot(i, yy, ink, wins=snowy)
         prev = (y, month_of[k], k)
     for i in range(width * 2):
-        span = _span(i, width * 2, n)
+        span = day_span(i, width * 2, n)
         normal = precip.normals[month_of[min(n - 1, span[len(span) // 2])]]
         if normal is not None:
             dots.dot(i, precip.py(normal), PRECIP_NORMAL_RGB, guide=True)
@@ -820,56 +811,8 @@ def _precip_labels(over, dots, days, precip, starts, ends, axes, runtime):
                    precip.py(precip.normals[m]) // 4 - 1, PRECIP_NORMAL_RGB, last + 1)
 
 
-def _on_the_page(lines, cols):
-    """The view's lines, joined, and painted to the margin in the
-    theme's background where that is not the terminal's own: in
-    linecast's palette (--classic-colors, or a terminal that did not say
-    what its colors are).  The panels paint every cell, and without this
-    the header, the degrees, the month axis and the footer would sit on
-    the terminal's background beside them."""
-    page = "" if _theme.theme_available else bg(*_theme.theme_bg)
-    if not (page and RESET):
-        return "\n".join(lines)
-    return "\n".join(
-        page + line.replace(RESET, RESET + page) + " " * max(0, cols - visible_len(line))
-        + RESET for line in lines)
 
 
-def _month_axis(starts, n, width, runtime, this_month=None):
-    """The month labels at their months' starts, the current one brighter.
-
-    The axis runs by the Gregorian months, as the running totals do.
-    Where dates are Solar Hijri, a month's number would read as a Solar
-    Hijri month -- 7 as Mehr, not July -- so the months are named, in
-    full, since Persian does not abbreviate its months; a month too
-    narrow for its name goes without a label rather than take a number."""
-    from linecast.astro.calendars.civil import SOLAR_HIJRI, civil_calendar
-    from linecast.sunshine.i18n import axis_month_labels
-    from linecast._i18n import MONTHS, table_for
-    named = civil_calendar(runtime.lang) == SOLAR_HIJRI
-    labels = (table_for(MONTHS, runtime.lang) if named
-              else axis_month_labels(runtime, narrow=width < 72))
-    cells = [" "] * width
-    xs = [min(width - 1, int(s / n * width)) for s in starts] + [width]
-    for m, label in enumerate(labels):
-        x = xs[m]
-        if named and visible_len(label) + 1 > xs[m + 1] - x:
-            continue
-        ink = _style.TEXT if m == this_month else _style.DIM
-        placed = []
-        for ch in label:
-            w = char_width(ch)
-            if w == 0 and placed:
-                cells[placed[-1]] += ch
-                continue
-            if x + w > width:
-                break
-            cells[x] = f"{ink}{ch}"
-            placed.append(x)
-            for j in range(1, w):
-                cells[x + j] = ""
-            x += w
-    return "".join(cells) + RESET
 
 
 def _tooltip(climate, days, span, jan1, slots, runtime, col, mouse_row, cols, rows):
