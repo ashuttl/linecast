@@ -31,6 +31,7 @@ the romanized names are on each station's own page, so both are kept: a
 reader in Japanese sees the Japanese name, everyone else the romanized.
 """
 
+import re
 from datetime import date, datetime, timedelta, timezone, tzinfo
 from statistics import median
 from typing import Any
@@ -394,10 +395,22 @@ def _fetch_text(url: str, timeout: float) -> str:
         raise
 
 
+# A row of any of JMA's files opens with its 24 hourly figures, three
+# columns each in the tables and four in the deviations: digits, minus
+# signs and blanks, and nothing else.
+_ROW = re.compile(r"[\d \-]{72}")
+
+
 def _lines(text: str) -> list[str]:
-    # Every file's lines carry the date and code by column 80, which a
-    # line cut short in transit would not.
-    return [line for line in text.splitlines() if len(line) >= 80]
+    # Every file's lines run to column 80 at least, which a line cut
+    # short in transit would not.
+    lines = [line for line in text.splitlines() if len(line) >= 80]
+    # An answer with no row of a table in it, a page saying the service
+    # is down for maintenance, is a failed fetch and not a year without
+    # tides.  Kept, it would stand for the table until it aged out.
+    if text.strip() and not any(_ROW.match(line) for line in lines):
+        raise ValueError("not one of JMA's tables")
+    return lines
 
 
 def _fetch_lines(cache_file, max_age: float, url: str) -> list[str]:
@@ -451,7 +464,9 @@ def _turns(line: str, day: date, start: int) -> list[tuple[datetime, int]]:
     for slot in range(4):
         field = line[start + slot * 7:start + slot * 7 + 7]
         hhmm = field[:4]
-        if not hhmm.strip() or hhmm == "9999":
+        # a line cut short inside a slot has the front of a height, which
+        # would read as a smaller one
+        if len(field) < 7 or not hhmm.strip() or hhmm == "9999":
             continue
         try:
             dt = datetime(day.year, day.month, day.day,
@@ -659,16 +674,25 @@ def _hourly_ranges(lines: list[str]) -> dict[date, tuple[int, int]]:
 
 
 def _final_ranges(lines: list[str]) -> dict[date, tuple[int, int]]:
-    """{day: (lowest, highest)} in cm of the highs and lows a final file
-    lists; a day whose turns the gauge missed falls to its hours."""
+    """{day: (lowest, highest)} in cm from a final file: the highs and
+    lows it lists, with the day's hours beside them, since the gauge may
+    have missed one turn and caught the others, and the hours on either
+    side of the one it missed are within a few centimetres of it.  A day
+    with none of its turns falls to its hours alone; a day with hours
+    missing as well, and no high or no low to go by, is left out, as a
+    range narrower than the water's would be worse than none."""
     days = {}
     for line in lines:
         day = _day(line)
         if day is None:
             continue
-        turns = [cm for start in (80, 108) for _dt, cm in _turns(line, day, start)]
-        if turns:
-            days[day] = (min(turns), max(turns))
+        highs = [cm for _dt, cm in _turns(line, day, 80)]
+        lows = [cm for _dt, cm in _turns(line, day, 108)]
+        hours = [cm for cm in _hourly(line) if cm is not None]
+        if not (highs or lows) or (len(hours) < 24 and not (highs and lows)):
+            continue
+        seen = highs + lows + hours
+        days[day] = (min(seen), max(seen))
     missed = [line for line in lines if _day(line) not in days]
     if missed:
         days.update(_hourly_ranges(missed))
@@ -683,7 +707,8 @@ def fetch_observed_extremes_jma(station_id: str, year: int,
 
     A month to a request, and one more for the deviations that give the
     datum: thirteen requests for a past year, kept for a month, and as
-    many as the months so far for this one.
+    many as the months so far for this one; the year's table, which the
+    views have usually fetched already, is one more.
     """
     code = station_code(station_id)
     first = date(year, 1, 1)
