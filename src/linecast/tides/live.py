@@ -247,7 +247,23 @@ class TidesApp(LocationMenu, _live.LiveApp):
         of NOAA's requests; a year of high and low waters is twelve, and
         what the gauge measured two or three more."""
         key = self._long_key()
-        if (key in self._long or self._loading is not None
+        if key in self._long:
+            return
+        if key[0] == "makeup" and ("makeup fit", self.station_id) in self._long:
+            # The makeup view fetches once, for its fit.  With that in
+            # hand another month is sums alone, a twentieth of a second
+            # of them, so it is made here and the view never draws a
+            # month it has not got.
+            if _t.monotonic() < self._long_retry_at:
+                return
+            try:
+                self._long[key] = self._make_up(self.provider, self.station_id,
+                                                self.station_tz, self._today(), key[2])
+            except Exception as exc:
+                log_failure("tides", "makeup view", exc, fallback="view left empty")
+                self._long_retry_at = _t.monotonic() + 30
+            return
+        if (self._loading is not None
                 or _t.monotonic() < self._long_retry_at
                 or (self._long_worker and self._long_worker.is_alive())):
             return

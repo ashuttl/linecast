@@ -64,6 +64,13 @@ LEAST_PULL = 0.15
 YEARS_BEFORE, YEARS_SPAN = 10, 19
 LONG_STEP_DAYS = 30
 
+# The table's rows: (string key, the constituent the row's height and
+# its gain are read from).  The once-a-day rows share K1 between them.
+TWICE = (("makeup_moon", "M2"), ("makeup_sun", "S2"), ("makeup_distance", "N2"))
+ONCE = (("makeup_moon_tilt", "O1"), ("makeup_sun_tilt", "P1"))
+# A strip narrower than this cannot carry its axis
+LEAST_STRIP = 16
+
 LEFT_COLUMN = (0x01, 0x02, 0x04, 0x40)
 RIGHT_COLUMN = (0x08, 0x10, 0x20, 0x80)
 
@@ -97,11 +104,9 @@ class Makeup:
         self.diur = harmonic.Tide([c for c in constants if _species(c[0]) == 1])
         k1 = amp.get("K1", 0.0)
         # (string key, amplitude in feet, the constituent its gain is read from)
-        self.twice = [("makeup_moon", amp.get("M2", 0.0), "M2"),
-                      ("makeup_sun", amp.get("S2", 0.0), "S2"),
-                      ("makeup_distance", amp.get("N2", 0.0), "N2")]
-        self.once = [("makeup_moon_tilt", amp.get("O1", 0.0) + K1_LUNAR * k1, "O1"),
-                     ("makeup_sun_tilt", amp.get("P1", 0.0) + (1 - K1_LUNAR) * k1, "P1")]
+        self.twice = [(key, amp.get(name, 0.0), name) for key, name in TWICE]
+        self.once = [(key, amp.get(name, 0.0) + share * k1, name)
+                     for (key, name), share in zip(ONCE, (K1_LUNAR, 1 - K1_LUNAR))]
         self.gain = {}
         if lat is not None:
             phi = math.radians(lat)
@@ -289,6 +294,27 @@ def _placed(width, marks, beside=()):
     return "".join(line)
 
 
+def _spread(width, marks):
+    """A line *width* wide with each (fraction, text) as near its place
+    as the others allow: two that would touch are moved apart to leave a
+    space between them.  None where the line cannot hold them all."""
+    marks = sorted(marks)
+    widths = [visible_len(text) for _f, text in marks]
+    if sum(widths) + len(marks) - 1 > width:
+        return None
+    at = [max(0, min(width - w, round(f * width - w / 2))) for (f, _t), w in zip(marks, widths)]
+    for k in range(1, len(at)):                 # each clear of the one before
+        at[k] = max(at[k], at[k - 1] + widths[k - 1] + 1)
+    limit = width
+    for k in reversed(range(len(at))):          # and all of them on the line
+        at[k] = min(at[k], limit - widths[k])
+        limit = at[k] - 1
+    line = [" "] * width
+    for x, (_f, text) in zip(at, marks):
+        _set(line, x, text)
+    return "".join(line)
+
+
 def _flowed(items, width, between="   "):
     """*items* set on as few lines as hold them, none wider than *width*;
     an item wider than that is left out."""
@@ -312,9 +338,11 @@ def _fitted(room, key_rows):
     still fits, since the marks cannot be read without it; then the
     strips grow, to six rows; then the key takes an open line between
     what it says of the figures and what it says of the marks.  The
-    headline is for a window with room to spare: it is set only where
-    the strips keep five rows and a blank row is left above the view
-    and below it."""
+    headline is set where the strips keep five rows and a blank row is
+    left above it.  It closes up to the view first, with no blank row
+    under its rule, since the row of the spans' titles is empty on its
+    side; a window with more room opens that up, and then gives the
+    strips their sixth row."""
     def needs(strip_rows, air, key, open_line=False):
         # the spans' titles, two parts of strips over an axis and its
         # marks with a blank between, the key under a blank, the
@@ -323,9 +351,11 @@ def _fitted(room, key_rows):
                 + (0 if air is None else 2 + air))
     key = next((k for k in range(key_rows, 0, -1) if needs(3, None, k) <= room), 0)
     whole = key > 0 and key == key_rows
-    for strip_rows, air in ((6, 2), (6, 1), (5, 2), (5, 1)):
+    for strip_rows, air in ((6, 2), (6, 1), (5, 2), (5, 1), (5, 0)):
         if needs(strip_rows, air, key, whole) + 2 <= room:
             return strip_rows, air, key, whole
+    if needs(5, 0, key, whole) + 1 <= room:
+        return 5, 0, key, whole
     if whole and needs(6, None, key, True) <= room:
         return 6, None, key, True
     for strip_rows in (6, 5, 4, 3):
@@ -349,10 +379,10 @@ def render_makeup(first, made, runtime, *, header, footer, station_tz, now_local
                   mouse_pos=None):
     """The makeup view of the tides, sized to the terminal.
 
-    *first* is the first day of the month on screen and *made* what the
-    worker built for it: (Makeup, month, year, long, marks, the year the
-    nineteen are counted from), or None while it loads, when the view
-    draws its frame empty.  *header* and *footer* are the lines the live
+    *first* is the first day of the month on screen and *made* what was
+    built for it: (Makeup, month, year, long, marks, the year the
+    nineteen are counted from), or None while the tide is fetched and
+    fitted, when the view draws the same frame without its figures.  *header* and *footer* are the lines the live
     view puts above and below it.
     """
     from linecast.moon.calendar import _month_title
@@ -372,53 +402,62 @@ def render_makeup(first, made, runtime, *, header, footer, station_tz, now_local
 
     # --- the left column: the causes, and the size of each -----------------
     makeup = made[0] if made else None
-    tables = [(title, [(_ts(key, runtime), _height(a, runtime), makeup.gain.get(source))
-                       for key, a, source in rows_of])
-              for title, rows_of in (("makeup_twice", makeup.twice if makeup else ()),
-                                     ("makeup_once", makeup.once if makeup else ()))]
+
+    def factor(gain):
+        return "" if gain is None else f"×{fmt_decimal(gain, 0 if gain >= 3 else 1, runtime)}"
+    if makeup:
+        tables = [(title, [(_ts(key, runtime), _height(a, runtime), factor(makeup.gain.get(source)))
+                           for key, a, source in rows_of])
+                  for title, rows_of in (("makeup_twice", makeup.twice),
+                                         ("makeup_once", makeup.once))]
+    else:
+        # Until the tide is fitted the table is its names alone, set in
+        # the room the figures will want, so that nothing moves when
+        # they come
+        tables = [(title, [(_ts(key, runtime), "", "") for key, _name in rows_of])
+                  for title, rows_of in (("makeup_twice", TWICE), ("makeup_once", ONCE))]
     # The two tables are one set of columns, so the eye runs down the
     # heights and the gains of both
-    name_w = max([visible_len(n) for _t, table in tables for n, _h, _g in table] + [0])
-    size_w = max([visible_len(h) for _t, table in tables for _n, h, _g in table] + [0])
+    cells_of = [row for _t, table in tables for row in table]
+    name_w = max(visible_len(n) for n, _h, _g in cells_of)
+    size_w = max([visible_len(h) for _n, h, _g in cells_of] + [visible_len(_height(0, runtime))])
+    gain_w = max(visible_len(g) for _n, _h, g in cells_of) if makeup else visible_len(factor(1.0))
     groups = []
     for title, table in tables:
         lines = [f"{text}{_ts(title, runtime)}{RESET}"]
         for name, size, gain in table:
             line = (f"{muted}{name}{' ' * (name_w - visible_len(name))}  "
                     f"{' ' * (size_w - visible_len(size))}{size}")
-            if gain is not None:
-                line += f"  ×{fmt_decimal(gain, 0 if gain >= 3 else 1, runtime)}"
-            lines.append(line + RESET)
+            lines.append(line + (f"  {gain}" if gain else "") + RESET)
         groups.append(lines)
-    left_w = max([visible_len(line) for g in groups for line in g] + [12]) + 3
+    left_w = max([visible_len(g[0]) for g in groups]
+                 + [name_w + 2 + size_w + (2 + gain_w if gain_w else 0), 12]) + 3
 
     # --- the strips: as many of the three spans as the width holds ---------
     gap = 3
     spans = ["month", "year", "long"]
-    while len(spans) > 1 and (cols - 2 - left_w - gap * (len(spans) - 1)) // len(spans) < 20:
+    while (len(spans) > 1
+           and (cols - 2 - left_w - gap * (len(spans) - 1)) // len(spans) < LEAST_STRIP):
         spans.pop()
     cell_w = max(8, min(60, (cols - 2 - left_w - gap * (len(spans) - 1)) // len(spans)))
 
-    says, marks = [], []
-    north = south = ""
-    if made:
-        compass = rs("compass", lang).split()
-        north, south = compass[0], compass[4]
-        new_moon = moon_phase(datetime(2000, 1, 6, 18, 14, tzinfo=UTC), runtime)[2]
-        full_moon = moon_phase(datetime(2000, 1, 21, 4, 40, tzinfo=UTC), runtime)[2]
-        # What the table's figures are, then what the axes' marks are;
-        # a short window keeps the marks' lines and lets the others go.
-        # Each sentence has a line to itself where the longest fits;
-        # where it does not they are wrapped together as one paragraph,
-        # so that none is left with a word on a line of its own.
-        says = [_ts(k, runtime) for k in ("makeup_key_size", "makeup_key_gain", "makeup_key_sea")]
-        if max(visible_len(line) for line in says) > cols - 2:
-            says = wrap_display_width(" ".join(says), cols - 2)
-        marks = _flowed([
-            f"{new_moon} {full_moon} {_ts('makeup_key_phases', runtime)}",
-            f"{_ts('makeup_mark_near', runtime)} {_ts('makeup_key_near', runtime)}",
-            f"{north} {south} {_ts('makeup_key_far', runtime)}",
-            f"0 {_ts('makeup_key_equator', runtime)}"], cols - 2)
+    compass = rs("compass", lang).split()
+    north, south = compass[0], compass[4]
+    new_moon = moon_phase(datetime(2000, 1, 6, 18, 14, tzinfo=UTC), runtime)[2]
+    full_moon = moon_phase(datetime(2000, 1, 21, 4, 40, tzinfo=UTC), runtime)[2]
+    # What the table's figures are, then what the axes' marks are; a
+    # short window keeps the marks' lines and lets the others go.  Each
+    # sentence has a line to itself where the longest fits; where it
+    # does not they are wrapped together as one paragraph, so that none
+    # is left with a word on a line of its own.
+    says = [_ts(k, runtime) for k in ("makeup_key_size", "makeup_key_gain", "makeup_key_sea")]
+    if max(visible_len(line) for line in says) > cols - 2:
+        says = wrap_display_width(" ".join(says), cols - 2)
+    marks = _flowed([
+        f"{new_moon} {full_moon} {_ts('makeup_key_phases', runtime)}",
+        f"{_ts('makeup_mark_near', runtime)} {_ts('makeup_key_near', runtime)}",
+        f"{north} {south} {_ts('makeup_key_far', runtime)}",
+        f"0 {_ts('makeup_key_equator', runtime)}"], cols - 2)
     key_lines = [f" {dim}{line}{RESET}" for line in says + marks]
     # The headline is the one line set in full ink over a rule, which
     # is what puts it above the parts' own titles
@@ -445,7 +484,7 @@ def render_makeup(first, made, runtime, *, header, footer, station_tz, now_local
 
     # --- the axes, the same under both parts --------------------------------
     month_labels = axis_month_labels(runtime, narrow=True)
-    every = 1 if cell_w >= 24 else 2
+    every = 1 if cell_w >= 24 else 2 if cell_w >= 18 else 3
     if civil_calendar(lang) == SOLAR_HIJRI:
         # A month's number would read as a Solar Hijri month, 7 as Mehr,
         # so the Gregorian months are named (weather.year._month_axis):
@@ -506,7 +545,9 @@ def render_makeup(first, made, runtime, *, header, footer, station_tz, now_local
                           for v, glyph in ((lo, "▼"), (hi, "▲")))
             mark_text = {"month": _placed(cell_w, sorted(moon), near),
                          "year": _placed(cell_w, sun),
-                         "long": _placed(cell_w, ends)}
+                         "long": (_spread(cell_w, ends)
+                                  or _spread(cell_w, [(f, t.replace(" ", "", 1)) for f, t in ends])
+                                  or _placed(cell_w, ends))}
             for s in spans:
                 strips[(part, s)] = values[s]
                 cells.append(_line(values[s], cell_w, strip_rows, now_at[s], ink) if s == "long"
@@ -529,9 +570,10 @@ def render_makeup(first, made, runtime, *, header, footer, station_tz, now_local
         out.append("")
         out.extend(key_lines)
     # The header keeps the top of the window and the footer the bottom;
-    # what is between sits midway.
+    # what is between sits midway, and an odd row goes over the headline
+    # to keep it off the station's name.
     spare = max(0, room - len(out))
-    above = spare // 2
+    above = spare // 2 if air is None else (spare + 1) // 2
     output = "\n".join([header] + [""] * above + out + [""] * (spare - above) + [footer])
 
     # a part's strips open on the terminal row after the header, the
