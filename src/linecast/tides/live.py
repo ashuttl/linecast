@@ -310,14 +310,16 @@ class TidesApp(LocationMenu, _live.LiveApp):
         header = _render_header_line(cols, self.station_name, self.runtime,
                                      offset_minutes=self.years, location_menu=True, right=right)
         legend = source
+        pen_name = self.provider.observed_label
         if observed:
             pen, band = fg(*_year.PEN_RGB), fg(*_year.BAND_RGB)
-            legend += (f"   {pen}⠤⠒⠉{RESET} {dim}{_ts('measured', self.runtime)}{RESET}"
+            legend += (f"   {pen}⠤⠒⠉{RESET} {dim}{_ts(pen_name, self.runtime)}{RESET}"
                        f"   {band}██{RESET} {dim}{_ts('predicted', self.runtime)}{RESET}")
         footer = _help.footer(legend, cols, lang)
         return _year.render_year(year, predicted, observed, flood, self.runtime,
                                  header=header, footer=footer, today=now_local.date(),
-                                 tzinfo=self.station_tz, mouse_pos=mouse_pos)
+                                 tzinfo=self.station_tz, mouse_pos=mouse_pos,
+                                 observed_name=pen_name)
 
     # --- keys and the wheel -----------------------------------------------
     def intercept(self, action):

@@ -30,7 +30,7 @@ Tokyo.
 
 import gzip
 import json
-from datetime import date, datetime, timedelta, timezone, tzinfo
+from datetime import date, datetime, tzinfo
 from functools import lru_cache
 from typing import Any
 
@@ -38,7 +38,7 @@ from linecast._geo import haversine_nm
 from linecast._log import log_failure
 from linecast._paths import data_path
 from linecast.tides import harmonic
-from linecast.tides.common import M_TO_FT, local_day_bounds, y_range_window
+from linecast.tides.common import computed_hilo, computed_range, computed_y_range
 
 PREFIX = "ticon:"
 # How far a gauge's tide is allowed to stand in for a place's.
@@ -138,46 +138,19 @@ def _tide(station_id: str) -> harmonic.Tide | None:
     return harmonic.Tide(s["constants"], z0=s["z0"])
 
 
-def _window(start_date, end_date, station_tz):
-    lo, hi = local_day_bounds(start_date, end_date, station_tz)
-    if station_tz is None:
-        lo, hi = lo.replace(tzinfo=timezone.utc), hi.replace(tzinfo=timezone.utc)
-    return lo, hi
-
-
-def _local(t: datetime, station_tz: tzinfo | None) -> datetime:
-    return t.astimezone(station_tz) if station_tz is not None else t.replace(tzinfo=None)
-
-
 def fetch_tides_range_ticon(station_id: str, start_date: date, end_date: date,
                             station_tz: tzinfo | None) -> list[tuple[datetime, float]]:
-    """Six-minute heights across the dates, in feet, as NOAA serves them."""
     tide = _tide(station_id)
-    if tide is None:
-        return []
-    lo, hi = _window(start_date, end_date, station_tz)
-    return [(_local(t, station_tz), h * M_TO_FT) for t, h in tide.series(lo, hi, 6)]
+    return computed_range(tide, start_date, end_date, station_tz) if tide else []
 
 
 def fetch_hilo_range_ticon(station_id: str, start_date: date, end_date: date,
                            station_tz: tzinfo | None) -> list[tuple[datetime, float, str]]:
-    """The highs and lows across the dates, in feet."""
     tide = _tide(station_id)
-    if tide is None:
-        return []
-    lo, hi = _window(start_date, end_date, station_tz)
-    return [(_local(t, station_tz), h * M_TO_FT, kind) for t, h, kind in tide.extremes(lo, hi)]
+    return computed_hilo(tide, start_date, end_date, station_tz) if tide else []
 
 
 def fetch_y_range_ticon(station_id: str, center_date: date,
                         station_tz: tzinfo | None) -> tuple[float, float] | None:
-    """(lowest, highest) of the highs and lows over the y-axis window.
-
-    Three months of extremes take a few hundredths of a second to
-    compute, so unlike the network providers' this is not cached.
-    """
-    start, end, _key = y_range_window(center_date)
-    heights = [h for _t, h, _k in fetch_hilo_range_ticon(station_id, start, end, station_tz)]
-    if not heights:
-        return None
-    return min(heights), max(heights)
+    tide = _tide(station_id)
+    return computed_y_range(tide, center_date, station_tz) if tide else None

@@ -79,13 +79,15 @@ def _ticks(lo, hi, rows, runtime):
 
 
 def render_year(year, predicted, observed, flood, runtime, *, header, footer, today,
-                tzinfo=None, mouse_pos=None):
+                tzinfo=None, mouse_pos=None, observed_name="measured"):
     """The year view of the tides, sized to the terminal.
 
     *predicted* and *observed* are {day: (lowest, highest)} in feet
     above the datum; *flood* is the flood stage, or None.  Any of them
     may be empty while the year loads.  *header* and *footer* are the
-    lines the live view puts above and below it.
+    lines the live view puts above and below it.  *observed_name* is the
+    string key the hover calls the pen by: "measured" for a gauge,
+    "modeled" for a model's own heights.
     """
     cols, rows = get_terminal_size()
     starts, n = _month_starts(year)
@@ -251,7 +253,8 @@ def render_year(year, predicted, observed, flood, runtime, *, header, footer, to
     tip = ""
     if hover_x is not None:
         span = [days[k] for k in _span(hover_x, width, n)]
-        tip = _tooltip(span, predicted, observed, runtime, hover_x + gutter, mouse_pos[1],
+        tip = _tooltip(span, predicted, observed, observed_name, runtime,
+                       hover_x + gutter, mouse_pos[1],
                        cols, rows)
     return _live.overlay(_on_the_page(lines, cols), tip)
 
@@ -285,9 +288,9 @@ def _moon_row(year, width, n, tzinfo, runtime):
     return "".join(cells)
 
 
-def _tooltip(span, predicted, observed, runtime, col, mouse_row, cols, rows):
+def _tooltip(span, predicted, observed, observed_name, runtime, col, mouse_row, cols, rows):
     """The chip for the hovered column's days: the predicted and the
-    measured highest and lowest water."""
+    measured (or modeled) highest and lowest water."""
     from linecast.moon.i18n import _fmt_month_day
     tbg = bg(*_palette.TIP_BG_RGB)
     tfg = fg(*_palette.TIP_TEXT_RGB)
@@ -301,7 +304,7 @@ def _tooltip(span, predicted, observed, runtime, col, mouse_row, cols, rows):
     if span[-1] != span[0]:
         when += f" – {_fmt_month_day(span[-1], runtime)}"
     lines = [f"{tbg}{tdim} {when} "]
-    for name, table in (("predicted", predicted), ("measured", observed)):
+    for name, table in (("predicted", predicted), (observed_name, observed)):
         known = [table[d] for d in span if d in table]
         if not known:
             continue

@@ -27,6 +27,7 @@ and lows agree to a minute or two.
 """
 
 import math
+import operator
 from datetime import datetime, timedelta, timezone
 from functools import lru_cache
 
@@ -239,6 +240,10 @@ class Tide:
         self.speeds = [math.radians(speed(n)) for n in self.names]
         self._days = {}
 
+    def constants(self):
+        """[(name, amplitude, phase)], as the constructor takes them."""
+        return list(zip(self.names, self.amps, self.phases))
+
     def _terms(self, day_start):
         """[(amplitude, phase at midnight in radians, speed in radians an
         hour)] for the UTC day opening at *day_start*, kept by the day."""
@@ -304,7 +309,7 @@ class Tide:
         start, end = _utc(start), _utc(end)
         points = self.series(start - timedelta(minutes=20), end + timedelta(minutes=20), 20)
         out = []
-        for (t0, a), (t1, b), (t2, c) in zip(points, points[1:], points[2:]):
+        for (_t0, a), (t1, b), (_t2, c) in zip(points, points[1:], points[2:]):
             if b > a and b >= c:
                 kind = "H"
             elif b < a and b <= c:
@@ -360,13 +365,17 @@ def fit(samples, names, z0=None):
     every pair here but S2 from T2 and R2, and K1 from S1, so leave those
     out of a fit that short. The mean level is solved for too, unless
     *z0* fixes it.
+
+    The normal equations are built a column at a time, so the long sums
+    run as products of whole lists rather than one sample at a time: a
+    year of hours and thirty constituents takes about a second.
     """
     names = [canonical(n) for n in names if canonical(n)]
-    width = 2 * len(names) + (0 if z0 is not None else 1)
-    normal = [[0.0] * width for _ in range(width)]
-    rhs = [0.0] * width
     speeds = [math.radians(speed(n)) for n in names]
+    columns = [[] for _ in range(2 * len(names))]
+    heights = []
     days = {}
+    cos, sin = math.cos, math.sin
     for t, y in samples:
         t = _utc(t)
         day = _midnight(t)
@@ -374,22 +383,20 @@ def fit(samples, names, z0=None):
         if args is None:
             args = days[day] = [(f, math.radians(vu)) for f, vu in _day_arguments(day, names)]
         hours = (t - day).total_seconds() / 3600.0
-        row = [] if z0 is not None else [1.0]
-        for (f, vu), w in zip(args, speeds):
+        for k, ((f, vu), w) in enumerate(zip(args, speeds)):
             x = vu + w * hours
-            row.append(f * math.cos(x))
-            row.append(f * math.sin(x))
-        if z0 is not None:
-            y -= z0
-        for i, ri in enumerate(row):
-            rhs[i] += ri * y
-            line = normal[i]
-            for j in range(i, width):
-                line[j] += ri * row[j]
+            columns[2 * k].append(f * cos(x))
+            columns[2 * k + 1].append(f * sin(x))
+        heights.append(y if z0 is None else y - z0)
+    if z0 is None:
+        columns.insert(0, [1.0] * len(heights))
+    dot = getattr(math, "sumprod", None) or (lambda a, b: sum(map(operator.mul, a, b)))
+    width = len(columns)
+    normal = [[0.0] * width for _ in range(width)]
     for i in range(width):
-        for j in range(i):
-            normal[i][j] = normal[j][i]
-    x = _solve(normal, rhs)
+        for j in range(i, width):
+            normal[i][j] = normal[j][i] = dot(columns[i], columns[j])
+    x = _solve(normal, [dot(c, heights) for c in columns])
     if x is None:
         return None
     mean = z0 if z0 is not None else x[0]

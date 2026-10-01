@@ -500,11 +500,13 @@ TIDES = {
     # The year view (v): the dotted line where the water starts to flood,
     # the header's highest water of the year and its day ("highest 12.4′
     # Jun 16"), and the hover chip's two rows, the tide tables' heights
-    # and the gauge's.
+    # and the gauge's. Where there is no gauge, the second row is the
+    # global model's own heights, tide and weather together: "modeled".
     "flood_stage": "flood stage",
     "highest_on": "highest {h} {date}",
     "predicted": "predicted",
     "measured": "measured",
+    "modeled": "modeled",
 }
 
 

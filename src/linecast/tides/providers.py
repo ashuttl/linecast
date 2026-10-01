@@ -64,6 +64,9 @@ class TideProvider:
     # requested point: the name it returns is one it made up for that
     # point, so a caller holding a better name should use its own.
     stationless: bool = False
+    # The string key for what observed_extremes returns: "measured" for
+    # a gauge's record, "modeled" for a model's own heights.
+    observed_label: str = "measured"
 
     def available(self) -> bool:
         """False when the provider needs something the user has not set up."""
@@ -399,6 +402,7 @@ class _OpenMeteo(TideProvider):
     name = "openmeteo"
     label = "Open-Meteo tide model"
     stationless = True
+    observed_label = "modeled"
 
     def id_matches(self, text):
         return openmeteo.is_openmeteo_station_id(text)
@@ -441,6 +445,9 @@ class _OpenMeteo(TideProvider):
 
     def y_range(self, station_id, center_date, station_tz):
         return openmeteo.fetch_y_range_openmeteo(station_id, center_date, station_tz)
+
+    def observed_extremes(self, station_id, year, today):
+        return openmeteo.fetch_modeled_extremes_openmeteo(station_id, year, today)
 
 
 NOAA = _NOAA()
