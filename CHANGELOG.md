@@ -23,6 +23,7 @@ New this version:
   - More colors at the ends of the temperature scale: a deeper blue that pales toward ice down to -40°F (-40°C), and a crimson that deepens toward maroon up to 115°F (46°C).
   - In the daily forecast, the conditions for calm days are dimmed, so the days with rain, snow, or wind stand out.
   - With `--classic-colors`, and in terminals that do not report their colors, the year view's background fills the whole window.
+- Tides: A TideCheck key can be kept in `config.json`, under `tidecheck_key`, as well as in the `LINECAST_TIDECHECK_KEY` environment variable.
 - Help: The help pages list a flag's choices first and then say what it does, in a sentence or two.
 
 Fixes:

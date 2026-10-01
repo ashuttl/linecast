@@ -34,6 +34,27 @@ class AvailabilityTests(unittest.TestCase):
             self.assertTrue(tc.is_available())
             self.assertEqual(tc._api_key(), "test-key-123")
 
+    def test_a_key_saved_in_config_is_used(self):
+        from linecast import _config
+        _config.write_config({"units": "metric", "tidecheck_key": " saved-key "})
+        self.assertTrue(tc.is_available())
+        self.assertEqual(tc._headers(), {"X-API-Key": "saved-key"})
+        # an empty variable is no key at all, so the saved one stands
+        with patch.dict("os.environ", {"LINECAST_TIDECHECK_KEY": ""}):
+            self.assertEqual(tc._api_key(), "saved-key")
+
+    def test_the_environment_beats_the_saved_key(self):
+        from linecast import _config
+        _config.write_config({"tidecheck_key": "saved-key"})
+        with patch.dict("os.environ", {"LINECAST_TIDECHECK_KEY": "env-key"}):
+            self.assertEqual(tc._api_key(), "env-key")
+
+    def test_a_saved_key_that_is_not_text_is_no_key(self):
+        from linecast import _config
+        for junk in ("", "   ", 12345, None, ["k"]):
+            _config.write_config({"tidecheck_key": junk})
+            self.assertFalse(tc.is_available(), junk)
+
     def test_headers_include_api_key(self):
         with patch.dict("os.environ", {"LINECAST_TIDECHECK_KEY": "my-key"}):
             h = tc._headers()

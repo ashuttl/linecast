@@ -286,7 +286,7 @@ class _HKO(TideProvider):
 
 
 class _TideCheck(TideProvider):
-    """Optional: inert without LINECAST_TIDECHECK_KEY."""
+    """Optional: inert without a key."""
 
     name = "tidecheck"
     tag = " (TideCheck)"

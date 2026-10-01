@@ -229,6 +229,16 @@ def saved_culture() -> str | None:
     return _saved_choice("culture", CULTURE_CHOICES)
 
 
+def saved_tidecheck_key() -> str | None:
+    """Return the TideCheck API key under `tidecheck_key`, or None.
+
+    No command saves it: a key given on a command line would stay in
+    the shell's history, so it is written into config.json by hand.
+    """
+    key = read_config().get("tidecheck_key")
+    return (key.strip() or None) if isinstance(key, str) else None
+
+
 def saved_location() -> dict[str, Any] | None:
     """Return the location saved via `linecast location set`, or None.
 

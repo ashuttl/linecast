@@ -2,8 +2,9 @@
 
 Provides station discovery and tide prediction fetchers for TideCheck's
 global API (6,470+ stations, 176 countries).  Activated only when the user
-sets the LINECAST_TIDECHECK_KEY environment variable.  Without the key this
-module is completely inert — no network calls, no errors, no noise.
+gives a key, in the LINECAST_TIDECHECK_KEY environment variable or under
+`tidecheck_key` in config.json.  Without the key this module is
+completely inert — no network calls, no errors, no noise.
 
 The API publishes high/low extremes only (heights in meters, times in
 UTC alongside a localTime with offset); the smooth curve is synthesized
@@ -25,6 +26,7 @@ from datetime import date, datetime, timezone, tzinfo
 from typing import Any
 
 from linecast._cache import location_cache_key, read_cache, read_stale, write_cache
+from linecast._config import saved_tidecheck_key
 from linecast._http import fetch_json, fetch_json_cached
 from linecast._log import log_failure, log_skipped
 from linecast.tides.common import (
@@ -40,8 +42,10 @@ TIDECHECK_BASE = "https://tidecheck.com/api"
 # Key management
 # ---------------------------------------------------------------------------
 def _api_key():
-    """Return the TideCheck API key from the environment, or None."""
-    return os.environ.get("LINECAST_TIDECHECK_KEY", "").strip() or None
+    """Return the TideCheck API key, or None: LINECAST_TIDECHECK_KEY,
+    then the key saved in config.json."""
+    return (os.environ.get("LINECAST_TIDECHECK_KEY", "").strip()
+            or saved_tidecheck_key())
 
 
 def is_available() -> bool:
