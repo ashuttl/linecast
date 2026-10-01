@@ -57,6 +57,24 @@ def km_apart(a, b):
     return 12742 * math.asin(math.sqrt(h))
 
 
+# Names the database has wrong at v1.0.0-beta.20260930, by gauge.  Seven
+# of the Channel Coastal Observatory's gauges carry one another's names
+# (the coordinates and the constants go with the id), and three names
+# lost the letters that are not ASCII.
+NAMES = {
+    "brighton-btn-gbr-cco": "Brighton",
+    "hastings_pier-hgp-gbr-cco": "Hastings Pier",
+    "port_isaac-pti-gbr-cco": "Port Isaac",
+    "scarborough-sca-gbr-cco": "Scarborough",
+    "severn_bridge-ssc-gbr-cco": "Severn Bridge",
+    "teignmouth_pier-tnp-gbr-cco": "Teignmouth Pier",
+    "west_bay_harbour-wbh-gbr-cco": "West Bay Harbour",
+    "nylesund-823-nor-uhslc_fd": "Ny-Ålesund",
+    "ueckermnde-9690088-deu-wsv": "Ueckermünde",
+    "wittowerfhre-9670055-deu-wsv": "Wittower Fähre",
+}
+
+
 def main(root):
     quality = {q["id"]: q for q in json.load(open(os.path.join(root, "quality.json")))}
     try:
@@ -111,7 +129,8 @@ def main(root):
         chart = station.get("chart_datum") or "MSL"
         z0 = datums["MSL"] - (datums[chart] if chart != "MSL" else datums["MSL"])
         rows.append([
-            ident, station["name"], station.get("region") or "", station["country"],
+            ident, NAMES.get(ident, station["name"]), station.get("region") or "",
+            station["country"],
             round(station["latitude"], 4), round(station["longitude"], 4),
             station["timezone"], chart, round(z0 * 1000), amps, phases,
         ])

@@ -11,7 +11,7 @@ their constants for whatever dates the view asks for. There is no
 request and no horizon: next week and the year 2040 cost the same.
 
 Heights are above the chart datum Slackwater gives the gauge's country
-(LAT in most of Europe, MLLW in Japan, mean sea level where the tide is
+(LAT in most of Europe, NLLW in Japan, mean sea level where the tide is
 too small to chart), in the gauge's own time zone. A gauge is used for
 places within 30 nautical miles of it; tides change too much along a
 coast for one farther off to stand in, and the global model takes over
@@ -30,6 +30,7 @@ Tokyo.
 
 import gzip
 import json
+import zlib
 from datetime import date, datetime, tzinfo
 from functools import lru_cache
 from typing import Any
@@ -51,19 +52,20 @@ def _bundle() -> dict[str, Any]:
     file's columns. Empty when the file cannot be read."""
     try:
         raw = json.loads(gzip.decompress(data_path("ticon.json.gz").read_bytes()))
-    except (OSError, ValueError) as exc:
+        names = raw["constituents"]
+        stations = {}
+        for (ident, name, region, country, lat, lng, tz, datum, z0,
+             amps, phases) in raw["stations"]:
+            stations[ident] = {
+                "id": ident, "name": name, "region": region, "country": country,
+                "lat": lat, "lng": lng, "tz": tz, "datum": datum, "z0": z0 / 1000,
+                "constants": [(n, a / 1000, p / 10)
+                              for n, a, p in zip(names, amps, phases) if a],
+            }
+    except (OSError, EOFError, zlib.error, ValueError, KeyError, TypeError) as exc:
+        # a file cut short or damaged, or not in the shape this reads
         log_failure("tides/ticon", "read of ticon.json.gz", exc, fallback="no TICON stations")
         return {}
-    names = raw["constituents"]
-    stations = {}
-    for (ident, name, region, country, lat, lng, tz, datum, z0,
-         amps, phases) in raw["stations"]:
-        stations[ident] = {
-            "id": ident, "name": name, "region": region, "country": country,
-            "lat": lat, "lng": lng, "tz": tz, "datum": datum, "z0": z0 / 1000,
-            "constants": [(n, a / 1000, p / 10)
-                          for n, a, p in zip(names, amps, phases) if a],
-        }
     return stations
 
 
