@@ -30,6 +30,7 @@ from linecast.tides.i18n import _ts
 from linecast.tides import palette as _palette
 from linecast.terminal.color import RESET, fg
 from linecast.weather.location_menu import LocationMenu
+from linecast.weather.locations_i18n import ls
 from linecast.tides.providers import NOAA, PROVIDERS, TIDECHECK, provider_for_id
 from linecast.tides.stations import (
     _fetch_station, _find_matching_stations, _search_stations, _station_details,
@@ -55,6 +56,10 @@ class TidesApp(LocationMenu, _live.LiveApp):
     # v steps through them: the day's chart, a month of days, the year
     # (where the source can fill one: see views)
     VIEWS = ("day", "month", "year", "makeup")
+    # A month or year that takes longer than this to arrive shows the
+    # loading toast.  One already on disk is back well inside it, and a
+    # toast for it would only flicker.
+    LONG_GRACE = 0.4
 
     def __init__(self, provider, station_id, station_name, station_meta,
                  station_tz, runtime, predictions, hilo, fetched_start,
@@ -95,6 +100,7 @@ class TidesApp(LocationMenu, _live.LiveApp):
         # worker fetches the one on screen, and a failure waits a while
         self._long = {}
         self._long_worker = None
+        self._long_started = 0.0     # monotonic; when that worker set out
         self._long_retry_at = 0.0
 
     @property
@@ -296,8 +302,28 @@ class TidesApp(LocationMenu, _live.LiveApp):
                 self._long[key] = data
             _live.nudge()
 
+        self._long_started = _t.monotonic()
         self._long_worker = threading.Thread(target=worker, daemon=True)
         self._long_worker.start()
+
+    def _long_toast(self, cols, rows):
+        """The loading toast, the location menu's own, while the month
+        or year on screen is still on its way.  It names what is awaited:
+        the month, the year, or for the makeup view, which is fitted to
+        the station's year of turns, the station."""
+        key = self._long_key()
+        worker = self._long_worker
+        if key in self._long or self._flash is not None or not (worker and worker.is_alive()):
+            return ""
+        kind, _station, when = key
+        if kind == "month":
+            from linecast._i18n import lang_of
+            from linecast.moon.calendar import _month_title
+            name = _month_title(when.year, when.month, lang_of(self.runtime))
+        else:
+            name = str(when) if kind == "year" else self.station_name
+        return self.busy_toast(ls('loading', self.runtime.lang, name=name), cols, rows,
+                               after=self._long_started + self.LONG_GRACE - _t.monotonic())
 
     def _make_up(self, provider, station_id, tz, today, first):
         """What the makeup view draws for the month from *first*.  The
@@ -419,7 +445,8 @@ class TidesApp(LocationMenu, _live.LiveApp):
         if self.view != "day":
             output = self._render_long(None if panel else mouse_pos)
             cols, rows = get_terminal_size()
-            return _live.overlay(output, self.menu_overlay(cols, rows)), {}
+            floating = self._long_toast(cols, rows) + self.menu_overlay(cols, rows)
+            return _live.overlay(output, floating), {}
         self.expand_for(offset_minutes)
         output = render(
             self.station_id,

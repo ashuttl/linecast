@@ -1029,16 +1029,28 @@ class LiveApp:
         self._flash = (list(paragraphs), _time.monotonic() + seconds, busy)
         self._flash_repaint(0.08 if busy else seconds + 0.05)
 
+    def busy_toast(self, text, cols, rows, after=0.0):
+        """The animated toast for work under way, on overlay()'s floating
+        channel.  It asks for its own next frame, so it turns for as long
+        as each frame asks for it again, and a view that stops asking
+        has nothing to dismiss.  *after* is how long the toast is still
+        to be held back: work that is over by then never shows one.
+        """
+        if after > 0:
+            self._flash_repaint(after)
+            return ""
+        from linecast.terminal.spinner import SPINNER_FRAMES
+        spinner = SPINNER_FRAMES[int(_time.monotonic() / 0.08) % len(SPINNER_FRAMES)]
+        self._flash_repaint(0.08)
+        return toast_box(text, cols, rows, icon=spinner)
+
     def flash_overlay(self, cols, rows):
         """The current note on overlay()'s floating channel."""
         if self._flash is None:
             return ""
         paragraphs, deadline, busy = self._flash
         if busy:
-            from linecast.terminal.spinner import SPINNER_FRAMES
-            spinner = SPINNER_FRAMES[int(_time.monotonic() / 0.08) % len(SPINNER_FRAMES)]
-            self._flash_repaint(0.08)
-            return toast_box(' '.join(paragraphs), cols, rows, icon=spinner)
+            return self.busy_toast(' '.join(paragraphs), cols, rows)
         if _time.monotonic() >= deadline:
             self.clear_flash()
             return ""

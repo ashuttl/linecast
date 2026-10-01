@@ -422,3 +422,103 @@ class TestLongViews:
         frame, _ = app.render()
         assert "2026" in _lines(frame)[0] and "highest 9.9′ Jan 2" in _lines(frame)[0]
         assert "measured" in _lines(frame)[-1] and "predicted" in _lines(frame)[-1]
+
+
+class SlowProvider(TidalProvider):
+    """A source that keeps the longer views waiting until the test lets go."""
+
+    def __init__(self):
+        super().__init__()
+        self.gate = threading.Event()
+
+    def tides_range(self, station_id, start, end, tz):
+        self.gate.wait(10.0)
+        return super().tides_range(station_id, start, end, tz)
+
+    def hilo_range(self, station_id, start, end, tz):
+        self.gate.wait(10.0)
+        return super().hilo_range(station_id, start, end, tz)
+
+
+class TestLoadingToast:
+    """While a month or a year is on its way the view says so, with the
+    toast the location menu shows for a place."""
+
+    @pytest.fixture
+    def waiting(self, window):
+        """(app, let go): a view whose fetch is held, and its release."""
+        apps = []
+
+        def make(view):
+            app, _provider = _tidal_app(view)
+            app.provider = SlowProvider()
+            apps.append(app)
+            return app
+
+        yield make
+        for app in apps:
+            app.provider.gate.set()
+            if app._long_worker is not None:
+                app._long_worker.join(10.0)
+            app.clear_flash()
+
+    @staticmethod
+    def _floating(app):
+        frame, _ = app.render()
+        return frame.partition("\x00")[2]
+
+    @pytest.mark.parametrize("view, awaited", [
+        ("month", "Loading Mar 2026…"),
+        ("year", "Loading 2026…"),
+        ("makeup", "Loading Portland, ME…"),
+    ])
+    def test_a_fetch_still_out_after_a_moment_is_named_in_a_toast(self, waiting, view, awaited):
+        app = waiting(view)
+        assert "Loading" not in self._floating(app)       # it has only just set out
+        app._long_started -= app.LONG_GRACE
+        assert awaited in self._floating(app)
+        app.provider.gate.set()
+        app._long_worker.join(10.0)
+        assert "Loading" not in self._floating(app)
+        assert app._long_key() in app._long
+
+    def test_the_toast_turns(self, waiting):
+        app = waiting("year")
+        self._floating(app)
+        app._long_started = 0.0
+        with patch.object(_tides_live._live._time, "monotonic", return_value=100.0):
+            first = self._floating(app)
+        with patch.object(_tides_live._live._time, "monotonic", return_value=100.08):
+            second = self._floating(app)
+        assert first != second and "Loading 2026…" in first and "Loading 2026…" in second
+
+    def test_a_month_in_hand_shows_none(self, window):
+        app, _provider = _tidal_app("month")
+        app.render()
+        app._long_worker.join(10.0)
+        app._long_started -= app.LONG_GRACE
+        assert "Loading" not in self._floating(app)
+
+    def test_the_month_stepped_to_is_the_one_named(self, waiting):
+        app = waiting("month")
+        self._floating(app)
+        app._long_started -= app.LONG_GRACE
+        app.intercept("fwd")              # March's fetch is still out
+        assert "Loading Apr 2026…" in self._floating(app)
+
+    def test_a_note_already_up_is_not_covered(self, waiting):
+        app = waiting("month")
+        self._floating(app)
+        app._long_started -= app.LONG_GRACE
+        app.flash(["Saved Portland as the default"])
+        floating = self._floating(app)
+        assert "Saved Portland" in floating and "Loading" not in floating
+
+    def test_the_days_chart_has_no_toast(self, waiting):
+        app = waiting("month")
+        self._floating(app)
+        app._long_started -= app.LONG_GRACE
+        app.view = "day"
+        with patch.object(app, "expand_for"):
+            frame, _ = app.render()
+        assert "Loading" not in frame
