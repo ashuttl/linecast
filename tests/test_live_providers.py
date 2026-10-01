@@ -33,6 +33,9 @@ PORTLAND = (43.66, -70.25)          # Portland, Maine: NOAA tides, NWS alerts
 HALIFAX = (44.65, -63.57)           # CHS tides, ECCC alerts
 BRISBANE = (-27.47, 153.03)         # Queensland tides
 HONG_KONG = (22.28, 114.16)         # HKO tides and warnings
+VANCOUVER = (49.29, -123.11)        # a CHS gauge still reporting; Halifax's stopped in 2025
+TOKYO = (35.65, 139.77)             # JMA tide tables and gauge
+BERGEN = (60.398, 5.320)            # Kartverket tides, at its Bergen gauge
 PORTLAND_BBOX = (-70.35, 43.60, -70.15, 43.72)   # west, south, east, north
 MANHATTAN_BBOX = (-74.02, 40.70, -73.93, 40.80)
 
@@ -55,6 +58,12 @@ def failures(capfd):
 def _today_span():
     today = date.today()
     return today, today + timedelta(days=1)
+
+
+def _last_month():
+    """The first and last day of the month before this one."""
+    last = date.today().replace(day=1) - timedelta(days=1)
+    return last.replace(day=1), last
 
 
 # ---------------------------------------------------------------------------
@@ -244,6 +253,25 @@ def test_noaa_tides(failures):
     _check_hilo(hilo)
 
 
+def test_noaa_gauge(failures):
+    """What the year view's pen is drawn from: the verified highs and
+    lows, the six-minute levels since, and the flood level."""
+    from linecast.tides.noaa import fetch_flood_stage, fetch_observed_extremes
+    today = date.today()
+    # In its first weeks a year has few days behind it: ask for the last
+    year = today.year if today.month > 2 else today.year - 1
+    days = fetch_observed_extremes("8418150", year, today)
+    flood = fetch_flood_stage("8418150")
+    assert failures() == []
+    assert len(days) > 30 and all(lo < hi for lo, hi in days.values())
+    if year == today.year:
+        # verified days from long ago, and preliminary ones from lately
+        assert min(days) < today - timedelta(days=45)
+        assert max(days) > today - timedelta(days=14)
+    # Portland floods at 12.0 ft over MLLW
+    assert flood is not None and 10 < flood < 14
+
+
 def test_chs_tides(failures):
     from linecast.tides.chs import (fetch_hilo_range_chs, fetch_station_metadata_chs,
                                      find_nearest_station_chs)
@@ -254,6 +282,74 @@ def test_chs_tides(failures):
     assert failures() == []
     assert meta and meta.get("name")
     _check_hilo(hilo)
+
+
+def test_chs_gauge(failures):
+    """One month of what a gauge measured, and the holdings that say
+    which months it has; a year would be a dozen paced requests."""
+    from linecast._http import fetch_json
+    from linecast.tides import chs
+    station, _name = chs.find_nearest_station_chs(*VANCOUVER)
+    assert station, "no CHS station near Vancouver"
+    series = chs._series_id(station, "wlo")
+    held = chs._holdings(fetch_json(f"{chs.CHS_BASE}/stations/{station}/holdings", timeout=10))
+    first, last = _last_month()
+    month = chs._observed_month(station, first, last, timezone.utc, True, fetch_json)
+    assert failures() == []
+    assert series and held.get(series), "the gauge has no water level series"
+    assert month and month["to"] == last.isoformat()
+    assert sum(v is not None for v in month["m"]) > len(month["m"]) / 2
+
+
+def test_jma_tides(failures):
+    from linecast.tides.jma import (fetch_hilo_range_jma, fetch_station_metadata_jma,
+                                     find_nearest_station_jma)
+    station, _name = find_nearest_station_jma(*TOKYO)
+    assert station, "no JMA station near Tokyo"
+    meta = fetch_station_metadata_jma(station)
+    hilo = fetch_hilo_range_jma(station, *_today_span(), timezone.utc)
+    assert failures() == []
+    assert meta and meta.get("name")
+    _check_hilo(hilo)
+
+
+def test_jma_gauge(failures):
+    """A month of the gauge's heights, and the deviations that put them
+    on the tide table's datum."""
+    from linecast.tides import jma
+    station, _name = jma.find_nearest_station_jma(*TOKYO)
+    code = jma.station_code(station)
+    assert code in jma.GAUGES
+    first, _last = _last_month()
+    predicted = jma._fetch_year(code, first.year)
+    lines, final = jma._observed_month(code, first.year, first.month, date.today())
+    offset = jma._datum_offset(code, first.year, first.month, final, lines, predicted)
+    assert failures() == []
+    assert predicted
+    assert any(cm is not None for line in lines for cm in jma._hourly(line))
+    assert offset is not None
+
+
+def test_kartverket_tides(failures):
+    from linecast.tides.kartverket import (fetch_hilo_range_kartverket,
+                                            fetch_tides_range_kartverket,
+                                            find_point_kartverket)
+    station = find_point_kartverket(*BERGEN)
+    assert station, "Kartverket predicts no tide at Bergen"
+    hilo = fetch_hilo_range_kartverket(station, *_today_span(), timezone.utc)
+    heights = fetch_tides_range_kartverket(station, *_today_span(), timezone.utc)
+    assert failures() == []
+    _check_hilo(hilo)
+    assert len(heights) > 100       # ten minutes apart
+
+
+def test_kartverket_gauge(failures):
+    from linecast.tides import kartverket
+    today = date.today()
+    days = kartverket._observed(kartverket.GAUGE_BY_CODE["BGO"],
+                                today - timedelta(days=7), today, 3600)
+    assert failures() == []
+    assert len(days) >= 5 and all(lo < hi for lo, hi in days.values())
 
 
 def test_queensland_tides(failures):
