@@ -185,7 +185,7 @@ Without a saved location, linecast guesses from your IP address, which can be fa
 
 Persian support is experimental. It works in Ghostty, Alacritty, and foot, but not well in the Mac's Terminal or iTerm2. See [docs/languages.md](https://github.com/ashuttl/linecast/blob/main/docs/languages.md#persian-and-right-to-left-text).
 
-Environment variables are in [docs/configuration.md](https://github.com/ashuttl/linecast/blob/main/docs/configuration.md), and data sources and credits in [docs/sources.md](https://github.com/ashuttl/linecast/blob/main/docs/sources.md).
+Environment variables, and the optional TideCheck key for more tide stations, are in [docs/configuration.md](https://github.com/ashuttl/linecast/blob/main/docs/configuration.md), and data sources and credits in [docs/sources.md](https://github.com/ashuttl/linecast/blob/main/docs/sources.md).
 
 ### Extras
 

@@ -2,7 +2,7 @@
 
 linecast draws on many providers, and where a country has its own scale or its own published figure, linecast prefers that to a global model. This page says, for each kind of data, which source is asked first, what stands in when it does not answer, what linecast computes itself, and what that computation was checked against. [Credits](#credits), at the end, has the same in a line each, with the licenses.
 
-Every request goes out with a User-Agent that names linecast and its version. Nothing here needs a key except TideCheck, which is optional.
+Every request goes out with a User-Agent that names linecast and its version. Nothing here needs a key except TideCheck, which is optional; [configuration.md](configuration.md#the-tidecheck-key) says where the key goes.
 
 ## Location
 
