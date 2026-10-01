@@ -92,6 +92,9 @@ MAPS = {
 
 TIDES = {
              "high": "Preia-mar",
+             "highest_on": "máxima {h} a {date}",
+             "makeup_key_size": "Cada altura é metade do desnível de baixa-mar a preia-mar devido a essa causa.",
+             "makeup_key_far": "o mais a norte, a sul",
 }
 
 

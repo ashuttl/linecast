@@ -141,9 +141,20 @@ Press `-` a few times and the view lies back until the horizon closes into a cir
 
 ### Tides
 
-National tide services in the US, Canada, Queensland, and Hong Kong, and a global model elsewhere. `--nearby` lists stations.
+National tide services in the US, Canada, Queensland, Hong Kong, Japan, and Norway; 1,215 tide gauges elsewhere, predicted on your computer from their harmonic constants; and a global model beyond them. `--nearby` lists stations.
 
 ![tide chart](screenshots/tides.png)
+
+Press `v` for the month, with a row for each day and the hours across, and again for the year, where what the gauge measured is drawn over what was predicted:
+
+<p align="center">
+  <img src="screenshots/tides-month.png" width="49%" alt="October 2026 at Portland, Maine: the high water as two slanting bands a day, sunrise and sunset as dotted lines down the month, and each day's lowest low water in daylight at the right">
+  <img src="screenshots/tides-year.png" width="49%" alt="2026 at Portland, Maine: each day's predicted range as a band, the gauge's highest and lowest water traced over it, and the pointer on the middle of June, where the water measured 12.4 feet and passed the flood stage">
+</p>
+
+Press `v` once more to see what moves the tide at that place: how much of it comes twice a day and how much once a day, what causes each part, and how each changes through the month, the year, and nineteen years of the Moon's long cycle. [About the tides](docs/tides.md) explains what it shows.
+
+![what moves the tide at Portland, Maine: a table of five causes and the height of each, beside strips for the twice-a-day and once-a-day parts through October 2026, the year 2026, and 2016 to 2034](screenshots/tides-makeup.png)
 
 ### Radar
 
@@ -201,7 +212,7 @@ Without a saved location, linecast guesses from your IP address, which can be fa
 
 Persian support is experimental. It works in Ghostty, Alacritty, and foot, but not well in the Mac's Terminal or iTerm2. See [docs/languages.md](docs/languages.md#persian-and-right-to-left-text).
 
-Environment variables are in [docs/configuration.md](docs/configuration.md), and data sources and credits in [docs/sources.md](docs/sources.md).
+Environment variables, and the optional TideCheck key for more tide stations, are in [docs/configuration.md](docs/configuration.md), and data sources and credits in [docs/sources.md](docs/sources.md).
 
 ### Extras
 

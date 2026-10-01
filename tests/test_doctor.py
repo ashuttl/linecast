@@ -144,6 +144,16 @@ class TestSecrets:
             for leak in ("abc123secret", "tok-xyz", "user:pw@", "pw@", "x=1"):
                 assert leak not in text
 
+    def test_a_saved_key_is_named_and_not_shown(self, monkeypatch):
+        from linecast import _config
+        _config.write_config({"units": "metric", "tidecheck_key": "abc123secret"})
+        _, out, _ = _run("--offline", monkeypatch=monkeypatch)
+        assert "(exists; units, tidecheck_key)" in out
+        assert "  TideCheck: 0 of 50 free-tier requests used today (UTC)" in out
+        _, as_json, _ = _run("--offline", "--json", monkeypatch=monkeypatch)
+        for text in (out, as_json):
+            assert "abc123secret" not in text
+
     def test_a_url_override_loses_its_userinfo_and_query(self, no_probes, monkeypatch):
         monkeypatch.setenv("LINECAST_LIBREWXR_URL", "https://alice:pw-1@wxr.example/base?token=abc")
         monkeypatch.setenv("LINECAST_ELEVATION_URL", "https://bob:pw-2@dem.example/tiles/")

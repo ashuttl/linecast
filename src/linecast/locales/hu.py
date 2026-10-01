@@ -68,6 +68,10 @@ HELP = {
     "hide_text": "szöveg elrejtése / megjelenítése",
     "calendar": "korong / naptár nézet",
     "months": "léptetés hónaponként",
+    "years": "léptetés évenként",
+    "tide_views": "nap / hónap / év / összetétel nézet",
+    "tide_views_no_year": "nap / hónap nézet",
+    "tide_times": "vízállás abban az órában",
     "moon_times": "holdfázis, kelte és nyugta",
     "day": "nap megnyitása korong nézetben",
     "look": "körülnézés",
@@ -514,6 +518,30 @@ TIDES = {
     "high": "Dagály",
     "low": "Apály",
     "no_data": "Nincs árapály-adat",
+    "flood_stage": "árvízi szint",
+    "highest_on": "legmagasabb {h} {date}",
+    "predicted": "előrejelzés",
+    "measured": "mérés",
+    "modeled": "modell",
+    "makeup_headline": "Ami itt az árapályt mozgatja",
+    "makeup_twice": "Naponta kétszer",
+    "makeup_once": "Naponta egyszer",
+    "makeup_moon": "A Hold",
+    "makeup_sun": "A Nap",
+    "makeup_distance": "A Hold távolsága",
+    # "A Hold dőlése" would read as the Moon itself leaning over; the
+    # tilt is given to its path, and to the Sun's
+    "makeup_moon_tilt": "A holdpálya dőlése",
+    "makeup_sun_tilt": "A nappálya dőlése",
+    "makeup_key_size": "Minden magasság az adott okból eredő apály–dagály különbség fele.",
+    "makeup_key_gain": "A × ezt azzal veti össze, amit ugyanez az ok egy ideális óceánban keltene.",
+    "makeup_key_sea": "A tenger alakja és mélysége változtat azon, hogy ez itt mekkora lesz.",
+    "makeup_key_phases": "újhold, telihold",
+    # f for földközel, the Hungarian for perigee
+    "makeup_mark_near": "f",
+    "makeup_key_near": "a Hold földközelben",
+    "makeup_key_far": "legészakabbra, legdélebbre",
+    "makeup_key_equator": "az Egyenlítő felett",
 }
 
 

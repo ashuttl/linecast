@@ -49,6 +49,10 @@ HELP = {
     "hide_text": "сховати / показати текст",
     "calendar": "диск / календар",
     "months": "на місяць уперед чи назад",
+    "years": "на рік уперед чи назад",
+    "tide_views": "вигляд дня / місяця / року / складників",
+    "tide_views_no_year": "вигляд дня / місяця",
+    "tide_times": "вода о цій годині",
     "moon_times": "фаза та час сходу / заходу",
     "day": "відкрити день у вигляді диска",
     "look": "озирнутися",
@@ -402,6 +406,30 @@ TIDES = {
     "high": "Приплив",
     "low": "Відплив",
     "no_data": "Немає даних про припливи",
+    # Ukrhydrometcentre's term for the level where flooding begins
+    "flood_stage": "небезпечна відмітка",
+    "highest_on": "максимум {h} {date}",
+    "predicted": "прогноз",
+    "measured": "виміряно",
+    "modeled": "модель",
+    "makeup_headline": "Що тут рухає припливами",
+    "makeup_twice": "Двічі на добу",
+    "makeup_once": "Раз на добу",
+    "makeup_moon": "Місяць",
+    "makeup_sun": "Сонце",
+    "makeup_distance": "Відстань до Місяця",
+    # "Нахил Місяця" would read as a tilted crescent; this says not over the equator
+    "makeup_moon_tilt": "Місяць не над екватором",
+    "makeup_sun_tilt": "Сонце не над екватором",
+    "makeup_key_size": "Кожна висота — половина різниці між відпливом і припливом від цієї причини.",
+    "makeup_key_gain": "× порівнює її з тим, що та сама причина дала б в ідеальному океані.",
+    "makeup_key_sea": "Форма й глибина моря змінюють те, якою ця висота виходить тут.",
+    "makeup_key_phases": "новий, повний Місяць",
+    # б for найближче: п (перигей) would sit beside the compass's Пн and Пд
+    "makeup_mark_near": "б",
+    "makeup_key_near": "Місяць найближче",
+    "makeup_key_far": "найдалі на північ, південь",
+    "makeup_key_equator": "над екватором",
 }
 
 

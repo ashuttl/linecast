@@ -18,7 +18,13 @@ from linecast._plaintext import plain_text
 from linecast._log import log_failure
 from linecast.tides.marine import fetch_marine
 from linecast.tides.tidecheck import budget_line as tidecheck_budget_line
-from linecast.tides.providers import CHS, HKO, NOAA, OPENMETEO, PROVIDERS, QLD, TIDECHECK
+from linecast.tides.providers import (
+    CHS, HKO, JMA, KARTVERKET, NOAA, OPENMETEO, PROVIDERS, QLD, TICON, TIDECHECK,
+)
+
+
+# The United States and the territories whose tides NOAA tabulates.
+NOAA_COUNTRIES = {"US", "PR", "VI", "GU", "AS", "MP", "UM"}
 
 
 def _is_qld_lat_lng(lat, lng):
@@ -35,10 +41,15 @@ def _station_for_location(lat, lng, country_code, label=""):
     """Pick a provider and station for a location: (provider, id, name).
 
     The regional provider for the country goes first (CHS for Canada, QLD
-    for Queensland, HKO for Hong Kong), then NOAA, which may have a station in range even
-    when the regional one found nothing (Victoria BC, or an outage).
-    TideCheck follows when a key is set, and Open-Meteo's global model is
-    the last resort. (None, None, None) when nothing covers the spot.
+    for Queensland, HKO for Hong Kong, JMA for Japan, Kartverket for
+    Norway, Svalbard and Jan Mayen). Then the TICON-4 gauges, which leave
+    out the United States and Canada, and NOAA, which may have a station
+    in range even when the regional one found nothing (Victoria BC, or an
+    outage): in the US and its territories NOAA comes first, and abroad,
+    where its stations are few and far apart, a TICON gauge within 30 nm
+    does. TideCheck follows when a key is set, and Open-Meteo's global
+    model is the last resort. (None, None, None) when nothing covers the
+    spot.
 
     *label* is the name the geocoder gave the place the user asked for.
     A stationless provider names its pseudo-station by reverse-geocoding
@@ -52,7 +63,14 @@ def _station_for_location(lat, lng, country_code, label=""):
         order.append(QLD)
     elif country_code == "HK":
         order.append(HKO)
-    order.append(NOAA)
+    elif country_code == "JP":
+        order.append(JMA)
+    elif country_code in ("NO", "SJ"):
+        order.append(KARTVERKET)
+    if country_code in NOAA_COUNTRIES or country_code == "CA":
+        order += [NOAA, TICON]
+    else:
+        order += [TICON, NOAA]
     if TIDECHECK.available():
         order.append(TIDECHECK)
     order.append(OPENMETEO)

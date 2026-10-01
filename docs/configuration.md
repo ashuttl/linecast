@@ -2,6 +2,8 @@
 
 Settings are saved in `~/.config/linecast/config.json` by the settings commands (`linecast location`, `linecast units`, and the rest; `linecast --help` lists them). A flag on the command line beats an environment variable, which beats a saved setting.
 
+Not every environment variable has a saved setting. The ones that do say what they override in the tables below; the rest are read from the environment alone. The [TideCheck key](#the-tidecheck-key) is the one setting written into `config.json` by hand.
+
 Cached data lives in `~/Library/Caches/linecast` on macOS and `~/.cache/linecast` elsewhere. Both paths honor the `XDG_*` variables, and `LINECAST_CACHE_DIR` and `LINECAST_CONFIG_DIR` override everything.
 
 ## Environment variables
@@ -42,7 +44,7 @@ Cached data lives in `~/Library/Caches/linecast` on macOS and `~/.cache/linecast
 
 | Variable | Description |
 | --- | --- |
-| `LINECAST_TIDECHECK_KEY` | Optional [TideCheck](https://tidecheck.com/) API key, for more named tide stations |
+| `LINECAST_TIDECHECK_KEY` | Optional [TideCheck](https://tidecheck.com/) API key, for more named tide stations; overrides the [saved key](#the-tidecheck-key) |
 | `LINECAST_TIDECHECK_PAID` | Set to `1` on a paid TideCheck plan, and linecast stops holding itself to the free tier's 50 requests a day |
 | `LINECAST_RADAR_THEME` | Default radar color theme |
 | `LINECAST_RADAR_SOURCE` | Pin the radar frame source: `librewxr`, `rainviewer`, or `iem` |
@@ -55,3 +57,15 @@ Cached data lives in `~/Library/Caches/linecast` on macOS and `~/.cache/linecast
 | `LINECAST_MAPS_CACHE_MB` | Size, in megabytes, that `maps` trims its tile cache back to when it starts (default `256`) |
 | `LINECAST_CACHE_DIR` | Directory for cached data, used exactly as given |
 | `LINECAST_CONFIG_DIR` | Directory for `config.json`, used exactly as given |
+
+## The TideCheck key
+
+[TideCheck](https://tidecheck.com/) adds named tide stations in places where linecast would otherwise fall back on the global tide model. It is optional, and it needs a key, which is free for 50 requests a day. linecast reads the key from `LINECAST_TIDECHECK_KEY`, or from `config.json`, where it is added by hand beside whatever settings the file already holds:
+
+```json
+{
+  "tidecheck_key": "your-key"
+}
+```
+
+No command saves the key, so that it stays out of the shell's history. The environment variable is the better place for it if `config.json` is kept in a public dotfiles repository. `linecast doctor` shows whether a key is set, never the key itself, and how many of the day's requests have been sent.

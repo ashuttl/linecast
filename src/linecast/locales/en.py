@@ -129,6 +129,10 @@ HELP = {
     "hide_text": "hide / show the text",
     "calendar": "disc / calendar view",
     "months": "move by one month",
+    "years": "move by one year",
+    "tide_views": "day / month / year / makeup view",
+    "tide_views_no_year": "day / month view",
+    "tide_times": "the water at that hour",
     "moon_times": "phase and rise / set times",
     "day": "open day in disc view",
     "look": "look around",
@@ -494,6 +498,47 @@ TIDES = {
     "low": "Low",
     # The one-line summary for a station with no tide times to show.
     "no_data": "No tide data",
+    # The year view (v): the dotted line where the water starts to flood,
+    # the header's highest water of the year and its day ("highest 12.4′
+    # Jun 16"), and the hover chip's two rows, the tide tables' heights
+    # and the gauge's. Where there is no gauge, the second row is the
+    # global model's own heights, tide and weather together: "modeled".
+    "flood_stage": "flood stage",
+    "highest_on": "highest {h} {date}",
+    "predicted": "predicted",
+    "measured": "measured",
+    "modeled": "modeled",
+    # The makeup view (v): the tide's two parts and what raises each. The
+    # rows of the table at the left are causes: the Moon's pull and the
+    # Sun's, the Moon's changing distance, and each one's declination,
+    # which is how far north or south of the equator it stands. The word
+    # is exact, and it is one a reader can look up. A language may say
+    # it plainly instead ("the Moon off the equator"), but not with its
+    # word for tilt where that would be read as the body's own axis. The
+    # key under the strips explains the heights, the × figures, and the
+    # marks on the axes. Its three sentences are set one to a line, in
+    # this order. The ideal ocean is the tide the pull alone would raise
+    # on an Earth all ocean, with no shores to shape it; × is the height
+    # here over the height there, and may be less than one.
+    # makeup_mark_near is the one-letter mark for the Moon's nearest
+    # approach (p for perigee).
+    # makeup_headline is the view's title, set above it over a rule.
+    "makeup_headline": "What moves the tide here",
+    "makeup_twice": "Twice a day",
+    "makeup_once": "Once a day",
+    "makeup_moon": "The Moon",
+    "makeup_sun": "The Sun",
+    "makeup_distance": "The Moon's distance",
+    "makeup_moon_tilt": "The Moon's declination",
+    "makeup_sun_tilt": "The Sun's declination",
+    "makeup_key_size": "Each height is half the low-to-high swing from that cause.",
+    "makeup_key_gain": "× compares it with the same contribution in an ideal ocean.",
+    "makeup_key_sea": "The sea's shape and depth change how large it becomes here.",
+    "makeup_key_phases": "new, full moon",
+    "makeup_mark_near": "p",
+    "makeup_key_near": "Moon nearest",
+    "makeup_key_far": "farthest north, south",
+    "makeup_key_equator": "over the equator",
 }
 
 

@@ -71,7 +71,9 @@ Targets:
              sky-hawaiian.png the same winter sky in the Hawaiian tradition;
              sky-time.gif (and .mp4), the whole sky through an August
              afternoon and night
-  tides      tides.png
+  tides      tides.png, then tides-month.png, tides-year.png, and
+             tides-makeup.png, the views v steps through, and
+             tides-makeup-tokyo.png in Japanese
   radar      radar.png and radar.gif, wherever the scout finds weather
   maps       maps-street.png, maps-terrain.png over New Zealand, and the
              zoom series maps-zoom-blocks/streets/city/region/state.png
@@ -283,9 +285,34 @@ sky() {
 }
 
 tides() {
+    # The day's curve, then the three longer views v steps through: the
+    # month, the year, and what moves the tide there. The year is a dozen
+    # requests on a cold cache, so its wait is long, and the makeup is
+    # fitted to the same year. The year has the pointer on the middle of
+    # June, where 2026's highest water ran over the flood stage (column
+    # 53, row 14 on 110x40; the first hover only carries the pointer onto
+    # the window). Then Tokyo's makeup in Japanese, for README.ja.md:
+    # there the Sun's part is half the Moon's and the once-a-day tide is
+    # nearly as large as the twice-a-day.
     printf 'Capturing tides…\n'
     "$CAPTURE_TOOL" -s 120x36 -w 12 --font "$CAPTURE_FONT" -o "$SHOT_DIR/tides.png" \
         uv --directory "$REPO_DIR" run linecast tides --station "$TIDE_STATION"
+    "$CAPTURE_TOOL" -s 110x40 -w 12 --font "$CAPTURE_FONT" --press v --sleep 8 \
+        -o "$SHOT_DIR/tides-month.png" \
+        uv --directory "$REPO_DIR" run linecast tides --station "$TIDE_STATION"
+    "$CAPTURE_TOOL" -s 110x40 -w 12 --font "$CAPTURE_FONT" \
+        --press v --sleep 2 --press v --sleep 25 \
+        --hover 90x10 --sleep 0.7 --hover 53x14 --sleep 1.5 \
+        -o "$SHOT_DIR/tides-year.png" \
+        uv --directory "$REPO_DIR" run linecast tides --station "$TIDE_STATION"
+    "$CAPTURE_TOOL" -s 120x36 -w 12 --font "$CAPTURE_FONT" \
+        --press v --sleep 2 --press v --sleep 2 --press v --sleep 25 \
+        -o "$SHOT_DIR/tides-makeup.png" \
+        uv --directory "$REPO_DIR" run linecast tides --station "$TIDE_STATION"
+    "$CAPTURE_TOOL" -s 120x36 -w 12 --font "$CAPTURE_FONT" \
+        --press v --sleep 2 --press v --sleep 2 --press v --sleep 25 \
+        -o "$SHOT_DIR/tides-makeup-tokyo.png" \
+        uv --directory "$REPO_DIR" run linecast tides --station jma:TK --lang ja --metric --24h
 }
 
 # A radar frame is only worth taking where something is happening, and

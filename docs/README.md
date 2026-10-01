@@ -9,6 +9,7 @@ The README says what linecast does. These pages go further, one subject each.
 - [calendars.md](calendars.md) — the traditional calendars the moon can show, how each is computed, and what it was checked against.
 - [hours.md](hours.md) — the traditional hours the sunshine view can read the day in, and how each is checked.
 - [cultures.md](cultures.md) — the twenty-two sky cultures besides the IAU's, with their sources and credits.
+- [tides.md](tides.md) — about the tides themselves: why Portland, Hong Kong and Tokyo draw three different months, what the sea adds to the Moon's pull, and the 18.6-year cycle.
 
 For anyone changing linecast:
 

@@ -227,6 +227,49 @@ def local_day_bounds(start_date: date, end_date: date,
     return lo, hi
 
 
+# ---------------------------------------------------------------------------
+# Tides computed from their constants
+# ---------------------------------------------------------------------------
+# A provider with a harmonic.Tide (in metres, UTC) rather than a table
+# serves it through these, in the shapes the NOAA pipeline reads.
+def _utc_bounds(start_date, end_date, station_tz):
+    lo, hi = local_day_bounds(start_date, end_date, station_tz)
+    if station_tz is None:
+        lo, hi = lo.replace(tzinfo=timezone.utc), hi.replace(tzinfo=timezone.utc)
+    return lo, hi
+
+
+def _station_time(t, station_tz):
+    return t.astimezone(station_tz) if station_tz is not None else t.replace(tzinfo=None)
+
+
+def computed_range(tide, start_date: date, end_date: date,
+                   station_tz: tzinfo | None) -> list[tuple[datetime, float]]:
+    """Six-minute heights in feet across the dates, as NOAA serves its own."""
+    lo, hi = _utc_bounds(start_date, end_date, station_tz)
+    return [(_station_time(t, station_tz), h * M_TO_FT) for t, h in tide.series(lo, hi, 6)]
+
+
+def computed_hilo(tide, start_date: date, end_date: date,
+                  station_tz: tzinfo | None) -> list[tuple[datetime, float, str]]:
+    """The highs and lows across the dates, in feet."""
+    lo, hi = _utc_bounds(start_date, end_date, station_tz)
+    return [(_station_time(t, station_tz), h * M_TO_FT, kind)
+            for t, h, kind in tide.extremes(lo, hi)]
+
+
+def computed_y_range(tide, center_date: date,
+                     station_tz: tzinfo | None) -> tuple[float, float] | None:
+    """(lowest, highest) of the highs and lows over the y-axis window.
+
+    Three months of turns take a few hundredths of a second, so unlike
+    the fetched ranges this one is not cached.
+    """
+    start, end, _key = y_range_window(center_date)
+    heights = [h for _t, h, _k in computed_hilo(tide, start, end, station_tz)]
+    return (min(heights), max(heights)) if heights else None
+
+
 def dedup_sorted(points: list[tuple[datetime, float]]) -> list[tuple[datetime, float]]:
     """(datetime, height) points sorted by time, one per minute."""
     seen = set()

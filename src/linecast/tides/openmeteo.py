@@ -12,17 +12,43 @@ the nearest wet grid cell automatically; a series of all-null heights
 means the model genuinely has no coverage (far inland).
 
 Heights are metres relative to mean sea level; converted to feet for the
-rendering pipeline.  High/low events are derived locally from the hourly
-series with parabolic refinement for sub-hour timing.
+rendering pipeline.
+
+The model forecasts about ten days, but it keeps its past hours back to
+the start of 2023, and a tide is the same sum of cosines every year. So
+one request brings last year's hourly heights, the tide machine
+(tides/harmonic.py) fits a tide's constants to them, and the predictions
+come from those, for any date, every six minutes: one request a year
+for each place, with the constants kept on disk. Extrapolating a year
+adds nothing to the model's own error; at Portland, Maine the fit's
+2026 is as close to NOAA's tables as the model's own hours are, about
+half an hour early and a twentieth short on the range, which is the
+model's grid cell sitting out in the bay, not the method.
+
+What the fit leaves out is the weather: surge, wind setup, the seasons'
+swell of the sea. The model's own heights, tide and weather together,
+are the year view's pen, marked as modeled rather than measured; at
+Portland their daily departures from the tide track the gauge's with a
+correlation of 0.95, though inside bays they run short of the gauge's
+peaks.
+
+Where last year cannot be had, the hourly window is served as it comes,
+with the highs and lows found by a parabola through each turn.
 """
 
+import threading
+import time
 from datetime import date, datetime, timedelta, timezone, tzinfo
 from typing import Any
 
-from linecast._cache import location_cache_key
+from linecast._cache import location_cache_key, read_cache, write_cache
 from linecast._http import fetch_json_cached
 from linecast._log import log_failure, log_skipped
-from linecast.tides.common import M_TO_FT, cache_dir, cached_y_range, local_day_bounds
+from linecast.tides import harmonic
+from linecast.tides.common import (
+    M_TO_FT, cache_dir, cached_y_range, computed_hilo, computed_range, computed_y_range,
+    local_day_bounds,
+)
 
 # One standard fetch window serves every caller (range, hilo, y-range,
 # metadata) from a single cached payload.  The marine API caps forecasts
@@ -30,6 +56,18 @@ from linecast.tides.common import M_TO_FT, cache_dir, cached_y_range, local_day_
 PAST_DAYS = 31
 FORECAST_DAYS = 8
 RAW_CACHE_MAX_AGE = 3 * 3600
+
+# The constituents fitted to a year of the model's hours: all that a
+# year separates, down to the quarter-diurnal overtides. M8 is left to
+# the gauges; the model's grid is too coarse to make one.
+FIT_NAMES = (
+    "SA", "SSA", "MM", "MSF", "MF",
+    "2Q1", "Q1", "RHO1", "O1", "M1", "P1", "K1", "J1", "OO1",
+    "2N2", "MU2", "N2", "NU2", "M2", "LAMBDA2", "L2", "S2", "K2", "2SM2",
+    "2MK3", "M3", "MK3", "MN4", "M4", "MS4", "S4", "M6", "2MS6",
+)
+# A fit wants most of the year: 300 days of hours.
+FIT_MIN_HOURS = 300 * 24
 
 
 # ---------------------------------------------------------------------------
@@ -108,6 +146,124 @@ def _series(data, station_tz):
 
 
 # ---------------------------------------------------------------------------
+# A year of the model, and the tide fitted to it
+# ---------------------------------------------------------------------------
+def _fetch_year(lat, lng, year, today):
+    """The model's hourly heights for a calendar year, through yesterday
+    when it is this year. A finished year never changes and is kept for
+    a year; this year's latest days are revised as the model runs, so
+    they are kept for three hours. A copy made while the year was
+    running stops short of its end, and is not taken for the finished
+    year once the year has turned."""
+    last = min(date(year, 12, 31), today - timedelta(days=1))
+    if last < date(year, 1, 1):
+        return None
+    finished = last == date(year, 12, 31)
+    cache_file = cache_dir() / f"om_year_{location_cache_key(lat, lng)}_{year}.json"
+    url = (
+        "https://marine-api.open-meteo.com/v1/marine"
+        f"?latitude={lat}&longitude={lng}"
+        "&hourly=sea_level_height_msl&timezone=auto"
+        f"&start_date={year}-01-01&end_date={last.isoformat()}"
+    )
+    def reaches_the_end(cached):
+        hours = (cached.get("hourly") or {}).get("time") if isinstance(cached, dict) else None
+        return bool(hours) and str(hours[-1])[:10] >= last.isoformat()
+
+    return fetch_json_cached(cache_file, 366 * 86400 if finished else RAW_CACHE_MAX_AGE,
+                             url, timeout=20, fallback=None, provider="tides/open-meteo",
+                             fresh=reaches_the_end if finished else None)
+
+
+def _instants(data):
+    """[(UTC datetime, height in metres)] from a payload: each stamp read
+    in the one offset Open-Meteo gives the whole response (see _series)."""
+    if not data or not isinstance(data, dict):
+        return []
+    hourly = data.get("hourly") or {}
+    offset = timedelta(seconds=int(data.get("utc_offset_seconds") or 0))
+    out = []
+    for t, h in zip(hourly.get("time") or [], hourly.get("sea_level_height_msl") or []):
+        if h is None:
+            continue
+        try:
+            out.append((datetime.fromisoformat(t).replace(tzinfo=timezone.utc) - offset, float(h)))
+        except (TypeError, ValueError):
+            continue
+    return out
+
+
+_tides = {}
+_tides_lock = threading.Lock()
+# How long a place whose year could not be had waits before asking again.
+_RETRY_AFTER = 300
+
+
+def _tide(lat, lng):
+    """The tide fitted to last year's model hours here, or None.
+
+    Fitted once a year for each place and kept on disk; a second caller
+    while the first is fitting waits for its answer rather than fitting
+    again, since the day view asks for the curve, the turns and the axis
+    all at once.
+    """
+    year = date.today().year - 1
+    key = (location_cache_key(lat, lng), year)
+    with _tides_lock:
+        known = _tides.get(key)
+        if known is not None and (known[0] is not None or time.monotonic() < known[1]):
+            return known[0]
+        cache_file = cache_dir() / f"om_fit_{key[0]}_{year}.json"
+        cached = read_cache(cache_file, 400 * 86400)
+        tide = None
+        if cached:
+            try:
+                tide = harmonic.Tide([tuple(c) for c in cached["constants"]], z0=cached["z0"])
+            except (KeyError, TypeError, ValueError) as exc:
+                log_failure("tides/open-meteo", "read of fitted tide", exc, fallback="fit again")
+        if tide is None:
+            samples = _instants(_fetch_year(lat, lng, year, date.today()))
+            if len(samples) >= FIT_MIN_HOURS:
+                tide = harmonic.fit(samples, FIT_NAMES)
+            if tide is not None:
+                write_cache(cache_file, {"z0": tide.z0, "constants": tide.constants()})
+        _tides[key] = (tide, time.monotonic() + _RETRY_AFTER)
+        return tide
+
+
+def _payload(lat, lng):
+    """A response to read the model's cell and the place's zone from:
+    last year's, which is kept a year, or else the forecast window's."""
+    data = _fetch_year(lat, lng, date.today().year - 1, date.today())
+    return data if _instants(data) else _fetch_raw(lat, lng)
+
+
+def fetch_modeled_extremes_openmeteo(station_id: str, year: int,
+                                     today: date) -> dict[date, tuple[float, float]]:
+    """{day: (lowest, highest)} of the model's own heights in *year*
+    before *today*, tide and weather together, in feet: the year view's
+    pen, which the view marks as modeled."""
+    coords = parse_station_id(station_id)
+    if coords is None:
+        return {}
+    data = _fetch_year(*coords, year, today)
+    try:
+        from zoneinfo import ZoneInfo
+        zone = ZoneInfo(data.get("timezone")) if data and data.get("timezone") else timezone.utc
+    except Exception as exc:
+        log_failure("tides/open-meteo", "zone of the year", exc, fallback="UTC days")
+        zone = timezone.utc
+    days = {}
+    for t, h in _instants(data):
+        day = t.astimezone(zone).date()
+        if day.year != year or day >= today:
+            continue
+        lo, hi = days.get(day, (h, h))
+        days[day] = (min(lo, h), max(hi, h))
+    return {d: (lo * M_TO_FT, hi * M_TO_FT) for d, (lo, hi) in days.items()}
+
+
+# ---------------------------------------------------------------------------
 # Coverage check
 # ---------------------------------------------------------------------------
 def find_nearest_openmeteo(lat: float | None, lng: float | None
@@ -119,8 +275,7 @@ def find_nearest_openmeteo(lat: float | None, lng: float | None
     """
     if lat is None or lng is None:
         return None, None
-    data = _fetch_raw(lat, lng)
-    if not _series(data, None):
+    if not _instants(_payload(lat, lng)):
         return None, None
     return make_station_id(lat, lng), None
 
@@ -133,7 +288,7 @@ def fetch_station_metadata_openmeteo(station_id: str) -> dict[str, Any] | None:
     coords = parse_station_id(station_id)
     if coords is None:
         return None
-    data = _fetch_raw(*coords)
+    data = _payload(*coords)
     if not data or not isinstance(data, dict):
         return None
     try:
@@ -160,14 +315,17 @@ def fetch_station_metadata_openmeteo(station_id: str) -> dict[str, Any] | None:
 def fetch_tides_range_openmeteo(
     station_id: str, start_date: date, end_date: date, station_tz: tzinfo | None,
 ) -> list[tuple[datetime, float]]:
-    """Hourly model heights across a date range as [(dt, height_ft)].
-
-    The model window is fixed (31 days back, 8 days ahead); dates outside
-    it are simply absent from the result.
+    """Heights across a date range as [(dt, height_ft)]: six-minute ones
+    from the fitted tide, or without one the model's own hours, whose
+    window is fixed (31 days back, 8 days ahead); dates outside it are
+    simply absent from the result.
     """
     coords = parse_station_id(station_id)
     if coords is None:
         return []
+    tide = _tide(*coords)
+    if tide is not None:
+        return computed_range(tide, start_date, end_date, station_tz)
     points = _series(_fetch_raw(*coords), station_tz)
     lo, hi = local_day_bounds(start_date, end_date, station_tz)
     return [(dt, h) for dt, h in points if lo <= dt <= hi]
@@ -213,6 +371,9 @@ def fetch_hilo_range_openmeteo(
     coords = parse_station_id(station_id)
     if coords is None:
         return []
+    tide = _tide(*coords)
+    if tide is not None:
+        return computed_hilo(tide, start_date, end_date, station_tz)
     points = _series(_fetch_raw(*coords), station_tz)
     lo, hi = local_day_bounds(start_date, end_date, station_tz)
     return [(dt, h, t) for dt, h, t in _extrema(points) if lo <= dt <= hi]
@@ -220,10 +381,14 @@ def fetch_hilo_range_openmeteo(
 
 def fetch_y_range_openmeteo(station_id: str, center_date: date,
                             station_tz: tzinfo | None) -> tuple[float, float] | None:
-    """Y-axis range from the full fetched window (spans spring/neap)."""
+    """Y-axis range: the fitted tide's over the months around the date,
+    or without one the fetched window's (it spans spring and neap)."""
     coords = parse_station_id(station_id)
     if coords is None:
         return None
+    tide = _tide(*coords)
+    if tide is not None:
+        return computed_y_range(tide, center_date, station_tz)
     return cached_y_range(
         cache_dir() / f"om_yrange_{location_cache_key(*coords)}.json",
         lambda: [h for _, h in _series(_fetch_raw(*coords), station_tz)],
