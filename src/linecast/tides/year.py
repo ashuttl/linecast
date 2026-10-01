@@ -214,7 +214,8 @@ def render_year(year, predicted, observed, flood, runtime, *, header, footer, to
 
     # --- hairlines for today and the pointer, where the cell is free ---
     over = {}
-    x_today = int((today - jan1).days * width / n) if jan1 <= today < jan1 + timedelta(days=n) else None
+    this_year = jan1 <= today < jan1 + timedelta(days=n)
+    x_today = int((today - jan1).days * width / n) if this_year else None
     hover_x = None
     if mouse_pos:
         gx, gy = mouse_pos[0] - 1 - gutter, mouse_pos[1] - 3

@@ -382,8 +382,9 @@ def render_makeup(first, made, runtime, *, header, footer, station_tz, now_local
     *first* is the first day of the month on screen and *made* what was
     built for it: (Makeup, month, year, long, marks, the year the
     nineteen are counted from), or None while the tide is fetched and
-    fitted, when the view draws the same frame without its figures.  *header* and *footer* are the lines the live
-    view puts above and below it.
+    fitted, when the view draws the same frame without its figures.
+    *header* and *footer* are the lines the live view puts above and
+    below it.
     """
     from linecast.moon.calendar import _month_title
     from linecast.moon.phase import moon_phase

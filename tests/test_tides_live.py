@@ -4,9 +4,15 @@ import threading
 from datetime import date, datetime, timedelta
 from types import SimpleNamespace
 from unittest.mock import patch
+from zoneinfo import ZoneInfo
 
+import pytest
+
+from linecast._runtime import TidesRuntime
+from linecast.tides import harmonic
 from linecast.tides import live as _tides_live
 from linecast.tides import view as tides
+from linecast.tides.common import computed_hilo, computed_range
 from linecast.tides.live import TidesApp
 
 NOW = datetime(2026, 3, 5, 12, 0, 0)
@@ -14,6 +20,8 @@ TODAY = NOW.date()
 
 
 class FakeProvider:
+    year_view = True
+
     def __init__(self):
         self.calls = []
         self.answer = None   # None answers a real range; [] a failed fetch
@@ -178,3 +186,239 @@ class TestTuning:
         # The location menu's hooks; the wheel still scrubs time while it is shut.
         assert set(_app()[0].hooks()) == {
             "on_action", "on_drag", "on_wheel", "intercept", "on_click", "text_mode"}
+
+
+# ---------------------------------------------------------------------------
+# The month, year and makeup views
+# ---------------------------------------------------------------------------
+ZONE = ZoneInfo("America/New_York")
+NOON = datetime(2026, 3, 5, 12, 0, tzinfo=ZONE)
+
+
+class TidalProvider(FakeProvider):
+    """A source whose water is predicted here, so the longer views have
+    a month and a year to draw."""
+
+    observed_label = "measured"
+    TIDE = harmonic.Tide([("M2", 1.40, 100.0), ("S2", 0.21, 135.0), ("N2", 0.28, 70.0),
+                          ("K1", 0.14, 200.0), ("O1", 0.11, 180.0)], z0=1.5)
+
+    def __init__(self):
+        super().__init__()
+        self.fail = False
+
+    def tides_range(self, station_id, start, end, tz):
+        self.calls.append(("tides", station_id, start, end, tz))
+        return computed_range(self.TIDE, start, end, tz)
+
+    def hilo_range(self, station_id, start, end, tz):
+        self.calls.append(("hilo", station_id, start, end, tz))
+        if self.fail:
+            raise OSError("the network is down")
+        return computed_hilo(self.TIDE, start, end, tz)
+
+    def observed_extremes(self, station_id, year, today):
+        self.calls.append(("observed", station_id, year, today))
+        return {date(year, 1, 2): (0.1, 9.9)}
+
+    def flood_stage(self, station_id):
+        return 12.0
+
+    def footer_label(self, runtime):
+        return "Test Harbour"
+
+
+def _tidal_app(view="day"):
+    provider = TidalProvider()
+    runtime = TidesRuntime(live=True, icons="nerd", lang="en", metric=False, oneline=False,
+                           use_24h=False)
+    app = TidesApp(provider, "8418150", "Portland, ME",
+                   {"name": "Portland", "lat": "43.66", "lng": "-70.25"}, ZONE, runtime,
+                   [], [], TODAY - timedelta(days=7), TODAY + timedelta(days=7), y_range=(0, 4))
+    app.view = view
+    return app, provider
+
+
+@pytest.fixture
+def window(monkeypatch):
+    """A terminal 110 columns by 40 rows, and the station's clock stopped."""
+    monkeypatch.setenv("COLUMNS", "110")
+    monkeypatch.setenv("LINES", "40")
+    monkeypatch.setattr(_tides_live, "_station_now", lambda *a, **k: NOON)
+
+
+def _lines(frame):
+    return frame.partition("\x00")[0].split("\n")
+
+
+class TestViews:
+    def test_v_goes_round_the_four_views(self):
+        app, _provider = _tidal_app()
+        seen = []
+        for _ in range(5):
+            assert app.on_action("v")
+            seen.append(app.view)
+        assert seen == ["month", "year", "makeup", "day", "month"]
+
+    def test_a_source_that_cannot_fill_a_year_has_two(self):
+        app, provider = _tidal_app()
+        provider.year_view = False
+        assert app.views == ("day", "month")
+        seen = []
+        for _ in range(3):
+            app.on_action("v")
+            seen.append(app.view)
+        assert seen == ["month", "day", "month"]
+
+    def test_each_view_has_its_own_help(self):
+        app, provider = _tidal_app()
+        pages = {}
+        for view in app.VIEWS:
+            app.view = view
+            pages[view] = app.help_view
+        assert pages == {"day": "tides", "month": "tides_month", "year": "tides_year",
+                         "makeup": "tides_makeup"}
+        provider.year_view = False
+        app.view = "day"
+        assert app.help_view == "tides_no_year"
+        app.view = "month"
+        assert app.help_view == "tides_month_no_year"
+
+    def test_every_help_page_named_exists(self):
+        from linecast.terminal import help as _help
+        names = {"tides", "tides_month", "tides_year", "tides_makeup", "tides_no_year",
+                 "tides_month_no_year"}
+        assert names <= set(_help.CONTROLS)
+
+    def test_another_key_is_not_taken(self):
+        app, _provider = _tidal_app()
+        assert not app.on_action("x")
+        assert app.view == "day"
+
+
+class TestSteps:
+    def test_the_days_view_keeps_its_own_time_scrub(self, window):
+        app, _provider = _tidal_app("day")
+        assert not app.intercept("fwd")
+        assert (app.months, app.years) == (0, 0)
+
+    def test_the_month_and_the_makeup_step_by_months(self, window):
+        for view in ("month", "makeup"):
+            app, _provider = _tidal_app(view)
+            assert app.intercept("fwd") and app.intercept("fwd") and app.intercept("back")
+            assert (app.months, app.years) == (1, 0)
+            assert app._long_key() == (view, "8418150", date(2026, 4, 1))
+
+    def test_the_year_steps_by_years(self, window):
+        app, _provider = _tidal_app("year")
+        assert app.intercept("back")
+        assert (app.months, app.years) == (0, -1)
+        assert app._long_key() == ("year", "8418150", 2025)
+
+    def test_a_step_back_crosses_the_years_start(self, window):
+        app, _provider = _tidal_app("month")
+        for _ in range(3):
+            app.intercept("back")
+        assert app._long_key() == ("month", "8418150", date(2025, 12, 1))
+
+    def test_reset_returns_to_this_month_and_this_year(self, window):
+        app, _provider = _tidal_app("month")
+        app.months, app.years = 7, -2
+        assert app.intercept("reset")
+        assert (app.months, app.years) == (0, 0)
+
+    def test_the_wheel_steps_too(self, window):
+        app, _provider = _tidal_app("year")
+        assert app.on_wheel(1, 40, 10)
+        assert app.years == 1
+        app.view = "month"
+        app.on_wheel(-1, 40, 10)
+        assert app.months == -1
+
+
+class TestLongViews:
+    def _settle(self, app):
+        app._start_long()
+        if app._long_worker is not None:
+            app._long_worker.join(10.0)
+
+    def test_a_month_is_its_curve_and_its_turns_with_a_day_either_side(self, window):
+        app, provider = _tidal_app("month")
+        self._settle(app)
+        first, last = date(2026, 3, 1), date(2026, 3, 31)
+        assert provider.calls == [
+            ("tides", "8418150", first, last, ZONE),
+            ("hilo", "8418150", first - timedelta(days=1), last + timedelta(days=1), ZONE)]
+        predictions, hilo = app._long[("month", "8418150", first)]
+        assert predictions[0][0].date() == first and hilo
+
+    def test_a_year_is_its_daily_ranges_the_gauge_and_the_flood_stage(self, window):
+        app, provider = _tidal_app("year")
+        self._settle(app)
+        assert provider.calls == [
+            ("hilo", "8418150", date(2026, 1, 1), date(2026, 12, 31), ZONE),
+            ("observed", "8418150", 2026, NOON.date())]
+        predicted, observed, flood = app._long[("year", "8418150", 2026)]
+        assert len(predicted) == 365 and flood == 12.0
+        assert observed == {date(2026, 1, 2): (0.1, 9.9)}
+
+    def test_the_makeup_fetches_once_and_fits(self, window):
+        app, provider = _tidal_app("makeup")
+        self._settle(app)
+        assert provider.calls == [("hilo", "8418150", date(2026, 1, 1), date(2026, 12, 31), ZONE)]
+        fit, month, year, long_, marks, counted_from = app._long[
+            ("makeup", "8418150", date(2026, 3, 1))]
+        assert [key for key, _a, _s in fit.twice] == [
+            "makeup_moon", "makeup_sun", "makeup_distance"]
+        assert len(month[0]) == 31 * 4 + 1 and len(year[0]) == 365 and counted_from == 2026
+        assert fit.gain                                   # the station's latitude was read
+
+    def test_with_the_fit_in_hand_another_month_is_made_where_it_is_asked_for(self, window):
+        app, provider = _tidal_app("makeup")
+        self._settle(app)
+        worker, calls = app._long_worker, list(provider.calls)
+        for _ in range(11):                               # on into next year
+            app.intercept("fwd")
+            app._start_long()
+            assert app._long_key() in app._long           # at once, with no frame between
+        assert app._long_worker is worker and provider.calls == calls
+        made = app._long[("makeup", "8418150", date(2027, 2, 1))]
+        assert len(made[1][0]) == 28 * 4 + 1 and len(made[2][0]) == 365
+        assert made[5] == 2026                            # the nineteen years stay put
+
+    def test_a_fetch_that_fails_waits_before_it_is_tried_again(self, window):
+        app, provider = _tidal_app("year")
+        provider.fail = True
+        self._settle(app)
+        assert ("year", "8418150", 2026) not in app._long
+        assert app._long_retry_at > 0
+        calls, worker = len(provider.calls), app._long_worker
+        app._start_long()                                 # inside the pause
+        assert len(provider.calls) == calls and app._long_worker is worker
+
+    def test_what_is_made_is_kept(self, window):
+        app, provider = _tidal_app("month")
+        self._settle(app)
+        calls = len(provider.calls)
+        self._settle(app)
+        app.intercept("fwd")
+        app.intercept("back")
+        self._settle(app)
+        assert len(provider.calls) == calls
+
+    @pytest.mark.parametrize("view", ["month", "year", "makeup"])
+    def test_each_view_fills_the_window_before_and_after_its_data_lands(self, window, view):
+        app, _provider = _tidal_app(view)
+        before, _ = app.render()
+        app._long_worker.join(10.0)
+        after, _ = app.render()
+        assert len(_lines(before)) == len(_lines(after)) == 40
+        assert "Portland, ME" in _lines(after)[0]
+        assert "Test Harbour" in _lines(after)[-1]
+
+    def test_the_years_header_names_its_highest_water(self, window):
+        app, _provider = _tidal_app("year")
+        self._settle(app)
+        frame, _ = app.render()
+        assert "2026" in _lines(frame)[0] and "highest 9.9′ Jan 2" in _lines(frame)[0]
+        assert "measured" in _lines(frame)[-1] and "predicted" in _lines(frame)[-1]
