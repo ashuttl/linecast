@@ -220,6 +220,14 @@ def _location_block(root):
     return block
 
 
+def _instant(text):
+    """The moment a time in an answer names.  The requests ask for UTC
+    (tzone=0) and the service states the offset; one that came without
+    it is read as UTC, never on the machine's own clock."""
+    moment = datetime.fromisoformat(text)
+    return moment if moment.tzinfo is not None else moment.replace(tzinfo=timezone.utc)
+
+
 def _waterlevels(block, what):
     """(epoch seconds, feet, flag) for each predicted <waterlevel>."""
     levels = []
@@ -231,7 +239,7 @@ def _waterlevels(block, what):
         per = _feet_per(data.get("unit"))
         for level in data.iter("waterlevel"):
             try:
-                moment = datetime.fromisoformat(level.get("time", ""))
+                moment = _instant(level.get("time", ""))
                 levels.append((int(moment.timestamp()),
                                round(float(level.get("value")) * per, 4),
                                level.get("flag", "")))
@@ -441,19 +449,21 @@ def _daily_rows(root, zone, start, end):
     if block is None:
         raise ValueError("no stationdata in the answer")
     days = {}
+    readings = 0
     for data in block.iter("data"):
         if data.get("type") != "observation":
             continue
         if data.get("reflevelcode", "CD") != "CD":
             raise ValueError(f"observations on {data.get('reflevelcode')}")
         per = _feet_per(data.get("unit"))
-        ref = datetime.fromisoformat(data.get("reftime", "")).timestamp()
+        ref = _instant(data.get("reftime", "")).timestamp()
         for level in data.iter("waterlevel"):
             try:
                 moment = ref + int(level.get("time"))
                 height = float(level.get("value")) * per
             except (TypeError, ValueError):
                 continue
+            readings += 1
             if not -15 < height < 35:
                 # Norway's water keeps within a few metres of chart
                 # datum, and one fault tens of metres out would flatten
@@ -465,6 +475,11 @@ def _daily_rows(root, zone, start, end):
                 continue
             lo, hi, n = days.get(day, (height, height, 0))
             days[day] = (min(lo, height), max(hi, height), n + 1)
+    if not readings:
+        # An answer with no readings in it is the gauge's service down,
+        # not a gauge that measured nothing: kept, it would blank the
+        # year's pen until the copy aged out.
+        raise ValueError("no observations in the answer")
     return [[day.isoformat(), round(lo, 4), round(hi, 4)]
             for day, (lo, hi, n) in sorted(days.items()) if n >= MIN_READINGS]
 
@@ -518,7 +533,9 @@ def fetch_observed_extremes_kartverket(station_id: str, year: int,
     this_month = month_start(today)
     days = {}
     if first < this_month:
-        days.update(_observed(gauge, first, this_month, 30 * 86400))
+        # A copy stops being fresh when the month turns (its "end" no
+        # longer matches), so its age only has to outlast a month.
+        days.update(_observed(gauge, first, this_month, 32 * 86400))
     if this_month < end:
         days.update(_observed(gauge, this_month, end, 3 * 3600))
     return days
