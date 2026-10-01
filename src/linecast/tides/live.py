@@ -53,6 +53,7 @@ class TidesApp(LocationMenu, _live.LiveApp):
 
     LOG_AREA = 'tides'
     # v steps through them: the day's chart, a month of days, the year
+    # (where the source can fill one: see views)
     VIEWS = ("day", "month", "year")
 
     def __init__(self, provider, station_id, station_name, station_meta,
@@ -97,7 +98,17 @@ class TidesApp(LocationMenu, _live.LiveApp):
         self._long_retry_at = 0.0
 
     @property
+    def views(self):
+        """The views v steps through at this station: no year where the
+        source's predictions stop weeks ahead."""
+        if self.provider.year_view:
+            return self.VIEWS
+        return tuple(v for v in self.VIEWS if v != "year")
+
+    @property
     def help_view(self):
+        if not self.provider.year_view:
+            return {"day": "tides_no_year", "month": "tides_month_no_year"}[self.view]
         return {"day": "tides", "month": "tides_month", "year": "tides_year"}[self.view]
 
     # --- the location menu (LocationMenu) ---------------------------------
@@ -150,6 +161,8 @@ class TidesApp(LocationMenu, _live.LiveApp):
         self.country = result["country"]
         self.lat, self.lng, self.place_label = place.lat, place.lon, place.name
         self._retry_at = 0.0
+        if self.view not in self.views:
+            self.view = "month"   # the new station's source has no year
 
     def _on_place(self, col, row):
         name = _pill_label(self.station_name, location_menu=True)
@@ -346,7 +359,8 @@ class TidesApp(LocationMenu, _live.LiveApp):
         if super().on_action(key):
             return True
         if key == "v":
-            self.view = self.VIEWS[(self.VIEWS.index(self.view) + 1) % len(self.VIEWS)]
+            views = self.views
+            self.view = views[(views.index(self.view) + 1) % len(views)]
             return True
         return False
 

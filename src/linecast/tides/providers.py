@@ -91,6 +91,10 @@ class TideProvider:
     # The string key for what observed_extremes returns: "measured" for
     # a gauge's record, "modeled" for a model's own heights.
     observed_label: str = "measured"
+    # False for a source whose predictions reach only weeks ahead: a
+    # year of them is a sliver, so the live view offers the day and the
+    # month and no year.
+    year_view: bool = True
 
     def available(self) -> bool:
         """False when the provider needs something the user has not set up."""
@@ -431,6 +435,7 @@ class _TideCheck(TideProvider):
     name = "tidecheck"
     tag = " (TideCheck)"
     label = "TideCheck"
+    year_view = False   # the API serves the next 30 days and no more
 
     def available(self):
         return tidecheck.is_available()

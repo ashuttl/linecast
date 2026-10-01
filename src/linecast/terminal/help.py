@@ -86,6 +86,11 @@ CONTROLS = {
                     ('hover', 'tide_times'), ('v', 'tide_views')],
     'tides_year': [('wheel / ←→', 'years'), ('space / n', 'now'),
                    ('hover', 'help_hover'), ('v', 'tide_views')],
+    # A source that cannot fill a year (tides.providers year_view)
+    'tides_no_year': [('wheel / ←→', 'time30'), ('space / n', 'now'),
+                      ('hover', 'help_hover'), ('v', 'tide_views_no_year')],
+    'tides_month_no_year': [('wheel / ←→', 'months'), ('space / n', 'now'),
+                            ('hover', 'tide_times'), ('v', 'tide_views_no_year')],
     'sunshine': [('wheel / ←→', 'time15'), ('space / n', 'now'), ('v / y', 'year')],
     'sunshine_year': [('hover', 'sun_times'), ('v / y', 'year')],
     'moon': [('wheel / ←→', 'time15'), ('space / n', 'now'),

@@ -131,6 +131,7 @@ HELP = {
     "months": "move by one month",
     "years": "move by one year",
     "tide_views": "day / month / year view",
+    "tide_views_no_year": "day / month view",
     "tide_times": "the water at that hour",
     "moon_times": "phase and rise / set times",
     "day": "open day in disc view",
