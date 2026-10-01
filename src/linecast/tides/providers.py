@@ -84,6 +84,9 @@ class TideProvider:
     name: str = ""   # the source key: cache names and the --json payload
     tag: str = ""    # suffix on --search and --nearby listing lines
     label: str = ""  # the source's human name: the view's footer
+    # The name as the source writes its own, for the display languages
+    # it has one in; label stands for the rest (as alert_feeds.AlertFeed)
+    names: "dict[str, str]" = {}
     # True for a model with no stations behind it, whose "station" is the
     # requested point: the name it returns is one it made up for that
     # point, so a caller holding a better name should use its own.
@@ -101,9 +104,11 @@ class TideProvider:
         return True
 
     def footer_label(self, runtime) -> str:
-        """The label as the footer shows it: the source's own name, which
-        stays as it is in every language."""
-        return self.label
+        """The label as the footer shows it: the source's own name, as it
+        writes it for a reader of that language where it has such a name,
+        and never a translation."""
+        from linecast._i18n import base_language, lang_of
+        return self.names.get(base_language(lang_of(runtime)), self.label)
 
     def id_matches(self, text: str) -> bool:
         """True when a --station value looks like one of this provider's IDs."""
@@ -307,6 +312,7 @@ class _HKO(TideProvider):
     name = "hko"
     tag = " (Hong Kong)"
     label = "Hong Kong Observatory"
+    names = {"zh": "香港天文台", "zh-Hant": "香港天文台"}
 
     def id_matches(self, text):
         return hko.is_hko_station_id(text)
@@ -350,6 +356,7 @@ class _JMA(TideProvider):
     name = "jma"
     tag = " (Japan)"
     label = "Japan Meteorological Agency"
+    names = {"ja": "気象庁"}
 
     def id_matches(self, text):
         return jma.is_jma_station_id(text)
