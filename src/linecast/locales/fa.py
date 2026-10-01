@@ -67,6 +67,10 @@ HELP = {
     "hide_text": "پنهان / نمایش متن",
     "calendar": "نمای قرص / تقویم",
     "months": "جابه\u200cجایی یک ماه",
+    "years": "جابه\u200cجایی یک سال",
+    "tide_views": "نمای روز / ماه / سال / ترکیب",
+    "tide_views_no_year": "نمای روز / ماه",
+    "tide_times": "سطح آب در آن ساعت",
     "moon_times": "گام ماه و ساعت طلوع / غروب",
     "day": "باز کردن روز در نمای قرص",
     "look": "نگاه به اطراف",
@@ -435,6 +439,30 @@ TIDES = {
     "high": "مد",
     "low": "جزر",
     "no_data": "بدون داده\u200cهای جزر و مد",
+    "flood_stage": "آستانهٔ سیلاب",
+    "highest_on": "بالاترین {h} در {date}",
+    "predicted": "پیش\u200cبینی",
+    "measured": "اندازه\u200cگیری",
+    "modeled": "مدل",
+    "makeup_headline": "آنچه اینجا جزر و مد را پدید می\u200cآورد",
+    "makeup_twice": "روزی دو بار",
+    "makeup_once": "روزی یک بار",
+    "makeup_moon": "ماه",
+    "makeup_sun": "خورشید",
+    "makeup_distance": "فاصلهٔ ماه از زمین",
+    # "Tilt" is standing north or south of the equator;فاصله is kept for the Moon's distance.
+    "makeup_moon_tilt": "دوری ماه از استوا",
+    "makeup_sun_tilt": "دوری خورشید از استوا",
+    "makeup_key_size": "هر ارتفاع نصف اختلاف جزر و مدی است که آن عامل پدید می\u200cآورد.",
+    "makeup_key_gain": "× آن ارتفاع را با سهم همان عامل در اقیانوسی ایده\u200cآل می\u200cسنجد.",
+    "makeup_key_sea": "شکل و عمق دریا آن ارتفاع را در اینجا بیشتر یا کمتر می\u200cکنند.",
+    "makeup_key_phases": "ماه نو، ماه کامل",
+    # The first letter of the legend's words.
+    "makeup_mark_near": "ن",
+    "makeup_key_near": "نزدیک\u200cترین فاصلهٔ ماه",
+    # The marks before this are the words شمال and جنوب themselves.
+    "makeup_key_far": "بیشترین دوری از استوا",
+    "makeup_key_equator": "روی استوا",
 }
 
 

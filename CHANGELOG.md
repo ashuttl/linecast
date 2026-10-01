@@ -10,129 +10,80 @@ New this version:
 
 - Language:
   - linecast speaks Hungarian and Slovak. `linecast language hu` or `sk`, or a terminal locale in either, puts every view in that language, and the sky names its constellations, and some of the brightest stars, in each.
-  - Names set in capitals follow Greek and Turkish spelling. Greek capitals drop their accents, on the maps and in the sky: "ΑΘΗΝΑ", not "ΑΘΉΝΑ". On the maps, Turkish i becomes İ: "İZMİR", not "İZMIR".
-  - The Moon's phases are named in sentence case in Danish, Dutch, Finnish, Icelandic, Indonesian, Italian, Norwegian, Polish, Portuguese, Spanish, and Swedish, as they are in French: "Første kvarter", not "Første Kvarter".
-  - In Japanese, the maps label a place whose name is written in kana, such as さいたま市 or ファミリーマート, with that name rather than its romanization, as they already did for names in kanji.
+  - Names set in capitals follow Greek and Turkish spelling: "ΑΘΗΝΑ", not "ΑΘΉΝΑ", and "İZMİR", not "İZMIR".
+  - The Moon's phases are named in sentence case in eleven more languages, as they are in French: "Første kvarter", not "Første Kvarter".
+  - In Japanese, the maps label a place whose name is written in kana, such as さいたま市, with that name rather than its romanization.
 - Moon:
-  - The Moon stays in the middle of the view at every size, with the phase, the day's rising and setting, the month's new and full moons, and the year's days in the four corners, each laid out as a small table of dates and countdowns.
-  - `t` hides the text and leaves the Moon alone in its sky; press it again to bring the text back.
-  - `--month` opens on the month view, as `--year` does for weather and sunshine, and `moon --help` lists it. `--grid` still works. The month view's title sits at the left, over the first day of the week.
-  - `--calendar icelandic` follows the old Icelandic calendar: the week of summer or winter beside the phase, the month, the next of the days the almanac names, such as the first day of winter and bóndadagur, and the moons it names, such as the jólatungl. In Icelandic it is the moon's calendar by default.
-  - The help panel names the place the Moon is seen from, with its coordinates.
+  - The Moon stays in the middle of the view at every size, with the phase, the day's rising and setting, the month's new and full moons, and the year's days in the four corners.
+  - `t` hides the text and leaves the Moon alone in its sky.
+  - `--month` opens on the month view. `--grid` still works.
+  - `--calendar icelandic` follows the old Icelandic calendar, with its weeks of summer and winter, the days its almanac names, such as bóndadagur, and the moons it names, such as the jólatungl. It is the default in Icelandic.
 - Weather:
-  - More colors at the ends of the temperature scale: a deeper blue that pales toward ice down to -40°F (-40°C), and a crimson that deepens toward maroon up to 115°F (46°C).
+  - More colors at the ends of the temperature scale: a deeper blue down to -40°F (-40°C), and a crimson up to 115°F (46°C).
   - In the daily forecast, the conditions for calm days are dimmed, so the days with rain, snow, or wind stand out.
-  - With `--classic-colors`, and in terminals that do not report their colors, the year view's background fills the whole window.
-- Tides: A TideCheck key can be kept in `config.json`, under `tidecheck_key`, as well as in the `LINECAST_TIDECHECK_KEY` environment variable.
+- Tides:
+  - Japan's tides come from the Japan Meteorological Agency, and those of Norway, Svalbard, and Jan Mayen from Kartverket.
+  - About 1,200 tide gauges in 103 countries, such as Brest, Cape Town, and Auckland, give the tides where no national service reaches, for any date.
+  - The global tide model's tides reach any date, where they stopped about a week ahead.
+  - TideCheck stations draw the curve TideCheck predicts, not one estimated from the highs and lows. On a sea with hardly a tide, such as the Black Sea, the chart no longer has gaps.
+  - `v` steps the live view from the day to a month: a day to a row and the hours across, with sunrise and sunset and each day's lowest low water in daylight.
+  - `v` again reaches the year: each day's predicted range, the new and full moons, and what the gauge measured, where the station has one. NOAA stations show their flood stage.
+  - A last `v` shows what moves the tide at a place: its twice-a-day and once-a-day parts through the month, the year, and nineteen years of the Moon's long cycle, with the height of each cause and how it compares with the same cause in an ideal ocean.
+  - A TideCheck key can be kept in `config.json`, under `tidecheck_key`, as well as in the `LINECAST_TIDECHECK_KEY` environment variable.
 - Help: The help pages list a flag's choices first and then say what it does, in a sentence or two.
 
 Fixes:
 
-- Weather:
-  - Fixed the forecast in words saying "Below freezing overnight, down to 32°" for a low that rounds to freezing itself.
-  - Fixed the forecast in words leaving out the snow total when snow changes to rain and the rain lasts longer than the snow did.
-  - Fixed blowing or drifting snow at a nearby weather station being shown as falling snow, in the conditions and in the forecast in words.
-  - Fixed the last 24 hours' precipitation naming a kind too slight to mention, such as "0.4 cm of snow" after a dusting that was followed by 15 mm of rain. Snow in inches is given to the tenth, as the daily forecast gives it.
-  - Fixed a day of rain with a little snow in it giving its amount as the snow, such as "Snow 0.0″", in the daily forecast and its hover; it gives the rain's amount unless most of the day's precipitation is snow. The year view's hover does the same.
-  - Fixed the hourly chart's hover giving an hour of snow the water it melts to, such as "0.12″" for an hour with nearly an inch of snow; it gives the snow, as the daily forecast does.
-  - Fixed the daily forecast's hover for a day of freezing rain, which read "40% chance of Mix"; it now reads "40% chance of mixed precipitation", in every language.
-  - Fixed the daily forecast's rain hover saying "through the day" for a day with showers in the small hours and again at night but dry between; it gives the hours they fall between.
-  - Fixed alert times on the 12-hour clock leaving out the minutes, so that a warning in force until 3:45pm read "until 3pm". In Greek they are written in words, as in the forecast.
-  - Fixed alerts in Canada showing no times with Python 3.10.
-  - Fixed Japanese warnings of the same severity changing places from one run to the next; they keep a steady order.
-  - Fixed temperatures just below zero showing as "-0°".
-  - Fixed the location menu losing the way back to a place that had no name, as when it was first shown without a connection; the place is listed by its coordinates.
-  - Fixed the year view, when the year's past days could not be fetched, drawing each month as though no rain had fallen, and comparing one day's rain in the header with the average for the whole year so far. It leaves both out until the days come.
-  - Fixed the year view's label for the average in Thai, "ค่าปกติ", losing its tone mark.
-  - `--oneline` no longer shows "Wind 0mph" when the air is all but still; it leaves the wind out, as it does when there is none.
-  - Fixed the live view's hover chips, cloud shading, credit line, and alert hint keeping the old colors after the terminal's theme changed; they follow it, as the rest of the view does.
-- Moon:
-  - Fixed Blue Moons being missed, or named where there was none, when the two full moons of a month fell close to 29½ days apart, as in March 2029 in East Asia.
-  - Fixed the wait for a moonrise or moonset after the clocks change being an hour out, such as "in 15h 00m" for a moonset sixteen hours off on the night the clocks go back.
-  - Fixed the next moonrise or moonset in the far north on the few days a year when the Moon rises or sets twice on one date: the view, `--oneline`, and `--json` gave the next day's, or none at all, in place of the second.
-  - Fixed the Hebrew and Islamic dates turning at noon through the polar night, where the Sun does not set; they keep to the civil date, as they do under the midnight sun.
-  - Fixed the Moon's age passing the length of the month, as in "Day 29.8 of 29.5"; it is given out of this month's own length, from new moon to new moon.
-  - Fixed the countdown to a new or full moon, an equinox, or a solstice reading "in 0.0d" in its last hour. In the last day the wait is given in hours and minutes, as it is for moonrise and moonset.
-  - In a window too short to draw the month view's discs, each day's phase sits beside its own date; it sat just before the next day's and read as that day's.
-  - Fixed the almanac's lines in Thai breaking sooner than they needed to, as though each vowel and tone mark took a column of its own, which split the best fishing times across two lines.
-- Moon, sky: Fixed times and dates past the next change of clock being an hour off where the location comes from the network rather than a setting, which could put a new or full moon on the wrong day.
-- Sunshine:
-  - Fixed the day view's scale south of the equator, which drew a winter day's arc as high as a summer day's.
-  - Fixed `sunshine --json` giving tomorrow's sunrise and sunset an hour off on the evening before the clocks change.
-  - Fixed `--oneline` giving a sunrise and sunset through the polar night and the midnight sun; it now shows dashes and names the season, as the full view does. Fixed a sunrise just before midnight, in the far north in summer, showing as just after midnight.
-  - Fixed `--oneline` in Persian giving the day's length in Latin letters, as "10h52m"; it is written in words, as the change beside it is.
-  - Fixed the Moon on `--oneline` being worked out for a moment hours from now wherever the clock is not UTC, so that near a new or full moon it could show the phase before or after.
-  - Fixed a change in the day's length under a minute reading "−0m 15s", as it does every day near the equator and for weeks around each solstice; it reads "−15s".
-  - Fixed the year view in Chinese, Japanese, and Korean drawing a row a column too long or too short near midnight, when the sun sat on a month's or the place's name.
-  - Fixed the line under the day view running a cell past the edge in Chinese, Japanese, and Korean at some window widths; the sky's name after the day's length is added only where it fits.
-- Tides:
-  - Fixed most NOAA stations picked with `--station`, such as Back Cove in Portland, Maine, running an hour behind through summer time: the chart drew now an hour early, and `--json` gave a fixed offset for the time zone.
-  - Fixed tides from the global tide model, as for Sydney, Melbourne, and the coasts of Europe, being an hour off in the days either side of a change of clock.
-  - Fixed the chart's night shading, which began and ended an hour early during summer time. Tide times for Adak and the other western Aleutian stations are no longer an hour off in summer.
-  - Fixed the view failing with "Could not fetch tide data" in north Burnaby and around Vancouver's Second Narrows, where the nearest Canadian station predicts only the current; it now picks the nearest station with tides.
-  - Fixed the line marking now, midnight, or the pointer cutting through the time of a high or low tide, so that 11:10a read "11:1│a".
-  - Fixed a low tide just below the datum, such as -0.01 ft, showing as "-0.0′".
-  - Fixed `--oneline` naming high and low tide in English in every language.
-  - Fixed the waves and swell running past the edge of a narrow window, as they did in Thai. Where both do not fit, the swell is left out.
-  - Fixed the station's name and the tide readings showing stray half blocks at their ends with color turned off, as with `NO_COLOR`; they are plain text, as the place is in the weather view.
-  - Fixed Canadian stations showing no tides for a day after a run without a connection; offline, they keep the last predictions fetched.
-  - Fixed Canadian stations, and TideCheck's, placing the tides an hour off past a change of clock on a run that had just fetched them; they fall where they do when read from the cache.
-  - Fixed Ctrl-C, while a station's tides were still loading, waiting for a slow provider to answer or give up, up to half a minute; it quits at once.
-- Sky:
-  - Fixed dawn and dusk being named the wrong way round south of the equator, in the languages that name the morning and evening twilight apart, such as Polish and Swedish.
-  - Fixed the names on the chart in Thai losing their vowel and tone marks, so that "ตะวันออก" read "ตะวนออก".
-  - Fixed `--oneline` ignoring `--culture`, so that `--culture hawaiian` did not give the directions by the star compass's houses as the view does.
-  - Fixed `--print` not asking the terminal how wide it draws emoji and other symbols, as the live view does, so a row holding one could run past the edge.
-  - Fixed `--location` with a place name looking the place up twice before the sky opened; it looks it up once.
-- Radar:
-  - Fixed a view that crosses the 180th meridian, such as Fiji's or the Aleutians', leaving out the land and cities on the far side of it, and never loading the temperature and wind layers.
-  - Fixed `radar --help`, which named the wrong keys for the satellite and wind layers.
-  - Fixed `A`, which the help lists for showing and hiding the alerts, doing nothing.
-  - Fixed the mouse wheel stepping through the frames behind the theme menu while it was open; it moves the menu's highlight, as the arrow keys do.
-  - Fixed the theme menu's top edge running past its corner in Japanese, Chinese, and Korean, and falling short of it in Thai. The sky's tradition picker had the same fault, and is fixed too.
-  - Fixed `--print` in Persian, Arabic, and Hebrew writing the map's labels backwards, with their letters unjoined; they read as they do in the live view.
-  - Fixed a long place name in Chinese, Japanese, or Korean running the header past the edge of the window, hiding the time; it is shortened to fit, as other names are. The maps' header had the same fault.
-- Maps:
-  - Fixed a map tile that failed to load on a slow or dropped connection leaving a gap in the street or terrain view for as long as the view stayed put; the tile is asked for again a few seconds later.
-  - Fixed one damaged map tile in the cache blanking the whole street view with "street tiles unavailable"; it now leaves a gap only where it was.
-  - Fixed the saved street tiles being deleted when OpenFreeMap did not answer as the map opened and OSM US stood in for it, so that the next map downloaded them all again.
-  - Fixed `n` and space, which the help lists as "back to start", leaving the map where it was. They fly back to the place and zoom the map opened on, and still clear a route.
-  - Fixed a search that found nothing as you typed, with Enter pressed before it answered, stopping at "no results" instead of looking the name up, as Enter pressed afterwards does.
-  - Fixed a search for a city, such as Paris, listing it twice.
-  - Directions between two places with no road between them say "no route" rather than "directions unavailable", and are not asked for again.
-  - Fixed `--print` with `--from` and `--to` drawing your location's marker in the middle of the route and naming the map after your location. The marker stays where you are, and the header names the place the map is centred on, as the live view does.
-  - Fixed directions whose ends lie either side of the 180th meridian, as on Taveuni in Fiji, opening on the whole planet centred on Africa. On a street map that crosses the meridian, the route, your marker, and the destination on its far side are drawn where they are.
-  - Fixed elevations in languages that write a decimal comma, where "5,094 m" read as five metres; they are grouped with a space, "5 094 m". A distance just short of a kilometre reads "1.0 km" rather than "1,000 m".
-  - Fixed the names of neighbourhoods, parks, and water in Persian, and in other right-to-left scripts, being drawn letter by letter with their words in the wrong order.
-  - Fixed the space around the globe keeping the old background after the terminal's theme changed.
-  - Fixed the woods, fields, sand, ice, and towns on the terrain map and the globe keeping the old theme's colors after the terminal's theme changed.
-  - Fixed the terrain map's credits leaving out the built-up areas' source, GHSL, while clouds are shown.
-  - Fixed `--print` with directions writing the turn-by-turn list backwards in Persian, Arabic, and Hebrew, its letters unjoined and its distances in Latin digits; it reads as the map above it does.
-  - Fixed the directions' street names not lining up in Thai when some steps were in feet, which Thai writes ฟุต; the distances are aligned by what they take on the screen.
-- Radar, maps:
-  - `--zoom` with zero, a negative number, or anything not a number of degrees now says so rather than ending in a Python traceback.
-  - `--help` no longer offers `--oneline`, which printed the whole frame; neither view has a single line to give.
-- Live views:
-  - Fixed Ctrl-Z leaving the shell on the view's screen, with mouse reporting on and the cursor hidden. The terminal now goes back to the shell as it was, and `fg` returns to the view.
-  - Fixed Esc pressed while the mouse was moving turning the mouse's report into keypresses, which could swing the sky's view or fly it to the Moon.
-  - Fixed Ctrl-C in the moon, sunshine, sky, tides, radar, and maps views printing a Python traceback when pressed while the view was still loading, or during `--print`.
-  - Fixed a row holding an emoji or a Nerd Font icon in the live sunshine and moon views sitting a cell out of line on terminals that draw those glyphs at another width than most; it lines up, as it did with `--print`.
+- Near a change of clock:
+  - Fixed the countdown to a moonrise or moonset after the clocks change, and tomorrow's sunrise and sunset in `sunshine --json` on the evening before, being an hour off.
+  - Fixed tides from the global tide model, as for Sydney and the coasts of Europe, and from Canadian and TideCheck stations, being an hour off near a change of clock.
+  - Fixed times past the next change of clock being an hour off in the moon and sky views where the location comes from the network, which could put a new or full moon on the wrong day.
+- Far north and south:
+  - Fixed the next moonrise or moonset in the far north on the days the Moon rises or sets twice on one date.
+  - Fixed `sunshine --oneline` giving a sunrise and sunset through the polar night and the midnight sun; it names the season, as the full view does.
+  - Fixed the Hebrew and Islamic dates turning at noon through the polar night.
+  - Fixed the sunshine day view's scale south of the equator, which drew a winter day's arc as high as a summer day's.
+  - Fixed the sky naming dawn and dusk the wrong way round south of the equator, in languages that name them apart, such as Polish and Swedish.
 - Language:
-  - Fixed a crash in the live views when Hebrew or Arabic text, such as a place name in a hover chip, was drawn beside numbers, in every language but Persian.
-  - Fixed `LC_ALL=C` being passed over for the language in `LANG`, such as German with `LANG=de_DE.UTF-8`; linecast speaks English under it, as other programs do.
-  - Fixed a list of languages in `LANGUAGE`, as some Linux desktops set it, leaving linecast in English when the first language on it is one linecast does not speak. It reads down the list, as other programs do: `ca:es` is Spanish.
-  - Fixed `linecast language` refusing `zh_Hant`, and a region given in numbers, such as `es-419` for Latin American Spanish, which `--lang` takes.
-  - Fixed a place given with `--location` being named in English in Traditional Chinese in the sunshine, moon, radar, and maps views; they name it in Chinese where the map has a name for it, as weather, tides, and sky do.
-- Location:
-  - Fixed `--location`, `--to`, `--from`, and `linecast location set` refusing coordinates that start with a minus sign, such as `-33.87,151.21` for Sydney, with Python 3.13 and older.
-  - Fixed the moon, sunshine, and sky views saying "Could not determine location" when offline, once an hour had passed since linecast last found where the machine is; with no location saved, they use the last place found.
-  - Fixed place names, and the address that matches alerts to your area, going missing when offline for more than a day; the last name found for the place is used. Moving between two places no longer looks each one up again.
-- Settings:
-  - Fixed a setting command, such as `linecast units imperial`, replacing a config.json that could not be read, and every setting in it, with the one setting. It now says what is wrong with the file and leaves it alone.
-  - Fixed saving a setting replacing a config.json that is a symbolic link, as from a dotfiles repository, with a plain file; the setting is written to the file it points to.
-- Link: Fixed `linecast link` ending in a Python traceback where linecast is installed in a directory the user cannot write in, as with a system package; it says so and suggests `--dir`.
-- Cache: Fixed the cache growing for as long as linecast is used. Once a day, the views clear out the forecasts, alerts, and tide predictions they will not read again, and the place names and tide stations not used in a year; the ten years of climate a place is compared with are kept until a new year replaces them.
-- Doctor: Fixed `linecast doctor` not checking the airport reports the current sky comes from, or, outside the US and New Zealand, the service the alerts come from; it checks both, the alert service for your own country.
+  - Fixed a crash in the live views when Hebrew or Arabic text, such as a place name, was drawn beside numbers.
+  - Fixed Persian, Arabic, and Hebrew text being written backwards, with its letters unjoined, in `radar --print`, in the directions from `maps --print`, and in the maps' names for neighbourhoods, parks, and water.
+  - Fixed Thai text losing its vowel and tone marks on the sky chart and in the weather year view, and the Moon's almanac breaking its Thai lines too soon.
+  - Fixed lines holding Chinese, Japanese, or Korean text running past the edge of the window, or falling short of it, in the sunshine views, the radar and maps headers, and the theme menu.
+  - Fixed elevations on the maps in languages that write a decimal comma, where "5,094 m" read as five metres.
+  - Fixed tides `--oneline` naming high and low tide in English in every language.
+  - linecast reads its language from the environment as other programs do: under `LC_ALL=C` it speaks English, and a list in `LANGUAGE`, such as `ca:es`, is read down to the first language linecast speaks.
+- Weather:
+  - Fixed the forecast in words leaving out the snow total when snow changes to rain and the rain lasts longer than the snow did.
+  - Fixed blowing or drifting snow at a nearby weather station being shown as falling snow.
+  - Fixed rain and snow amounts in the daily forecast, the hourly chart's hover, and the last 24 hours, which could give a day of rain with a little snow as "Snow 0.0″", or an hour of snow as the water it melts to.
+  - Fixed alert times on the 12-hour clock leaving out the minutes, so that a warning in force until 3:45pm read "until 3pm".
+  - Fixed temperatures just below zero showing as "-0°", and tides just below the datum as "-0.0′".
+  - Fixed the year view drawing the months as dry when the year's past days could not be fetched.
+- Moon:
+  - Fixed Blue Moons being missed, or named where there was none, when a month's two full moons fell close to 29½ days apart.
+  - Fixed the Moon's age passing the length of the month, as in "Day 29.8 of 29.5".
+  - Fixed countdowns reading "in 0.0d" in their last hour. In the last day the wait is given in hours and minutes.
+  - Fixed `sunshine --oneline` showing the wrong phase of the Moon near a new or full moon wherever the clock is not UTC.
+- Tides:
+  - Fixed tides running an hour off through summer time at most NOAA stations picked with `--station`, such as Back Cove in Portland, Maine, and in the western Aleutians, and the chart's night shading beginning and ending an hour early.
+  - Fixed "Could not fetch tide data" around Vancouver's Second Narrows, where the nearest Canadian station predicts only the current; it picks the nearest station with tides.
+- Maps, radar:
+  - Fixed radar and street maps that cross the 180th meridian, as in Fiji or the Aleutians, leaving out what lies on the far side, and directions across it opening on the whole planet.
+  - Fixed a map tile that failed to load leaving a gap until the view moved, and one damaged tile in the cache blanking the whole street view.
+  - Fixed the saved street tiles being deleted when OSM US stood in for OpenFreeMap, so that the next map downloaded them all again.
+  - Fixed the help and the keys disagreeing: `n` and space in maps fly back to where the map opened, `A` in radar shows and hides the alerts, and `radar --help` names the right keys for the satellite and wind layers.
+  - Fixed `--zoom` ending in a Python traceback when given anything but a positive number of degrees; it says what is wrong.
+- Live views:
+  - Fixed Ctrl-Z leaving the shell on the view's screen, with mouse reporting on and the cursor hidden. `fg` returns to the view.
+  - Fixed Ctrl-C while a view was still loading, or during `--print`, printing a Python traceback or, in tides, waiting up to half a minute for a slow provider. It quits at once.
+  - Fixed Esc pressed while the mouse was moving turning the mouse's report into keypresses, which could swing the sky's view.
+  - Fixed parts of the weather view and the maps, such as the hover chips and the space around the globe, keeping the old colors after the terminal's theme changed.
+- Location and settings:
+  - Fixed coordinates that start with a minus sign, such as `-33.87,151.21` for Sydney, being refused by `--location`, `--to`, `--from`, and `linecast location set` with Python 3.13 and older.
+  - Fixed the moon, sunshine, and sky views saying "Could not determine location" when offline, place names going missing after a day offline, and Canadian tide stations showing no tides after a run without a connection.
+  - Fixed a setting command, such as `linecast units imperial`, replacing a config.json that could not be read, and every setting in it, with the one setting. A config.json that is a symbolic link, as from a dotfiles repository, is no longer replaced with a plain file.
+  - Fixed `linecast link` ending in a Python traceback where linecast is installed in a directory the user cannot write in; it says so and suggests `--dir`.
+- Cache: Fixed the cache growing for as long as linecast is used. Once a day, the views clear out what they will not read again.
 
 ## 2.9.2 — 2026-09-27
 

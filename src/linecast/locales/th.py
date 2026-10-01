@@ -49,6 +49,10 @@ HELP = {
     "hide_text": "ซ่อน / แสดงข้อความ",
     "calendar": "ดวงจันทร์ / ปฏิทิน",
     "months": "เลื่อนเดือน",
+    "years": "เลื่อนปี",
+    "tide_views": "มุมมองวัน / เดือน / ปี / องค์ประกอบ",
+    "tide_views_no_year": "มุมมองวัน / เดือน",
+    "tide_times": "ระดับน้ำในชั่วโมงนั้น",
     "moon_times": "ข้างขึ้นข้างแรมและเวลาขึ้น / ตก",
     "day": "เปิดดวงจันทร์ของวันนั้น",
     "look": "มองไปรอบ ๆ",
@@ -370,6 +374,30 @@ TIDES = {
     "high": "น้ำขึ้น",
     "low": "น้ำลง",
     "no_data": "ไม่มีข้อมูลน้ำขึ้นน้ำลง",
+    "flood_stage": "ระดับเริ่มท่วม",
+    "highest_on": "สูงสุด {h} {date}",
+    "predicted": "พยากรณ์",
+    "measured": "วัดได้",
+    "modeled": "แบบจำลอง",
+    "makeup_headline": "สิ่งที่ทำให้น้ำขึ้นน้ำลงที่นี่",
+    "makeup_twice": "วันละสองครั้ง",
+    "makeup_once": "วันละครั้ง",
+    "makeup_moon": "ดวงจันทร์",
+    "makeup_sun": "ดวงอาทิตย์",
+    "makeup_distance": "ระยะห่างของดวงจันทร์",
+    # "Tilt" is standing north or south of the equator: เฉียง, not เอียง (a tilted axis).
+    "makeup_moon_tilt": "ดวงจันทร์เฉียงเหนือ-ใต้",
+    "makeup_sun_tilt": "ดวงอาทิตย์เฉียงเหนือ-ใต้",
+    # The spaces are phrase breaks: the view wraps these lines only at spaces.
+    "makeup_key_size": "ความสูงแต่ละค่า คือครึ่งหนึ่งของความต่างระหว่างน้ำลงกับน้ำขึ้น ที่เกิดจากสาเหตุนั้น",
+    "makeup_key_gain": "× เทียบความสูงนั้น กับความสูงจากสาเหตุเดียวกัน ในมหาสมุทรอุดมคติ",
+    "makeup_key_sea": "รูปร่างและความลึกของทะเลที่นี่ ทำให้ความสูงนั้นมากขึ้นหรือน้อยลง",
+    "makeup_key_phases": "จันทร์ดับ จันทร์เต็มดวง",
+    # ก for ใกล้: one consonant, with no mark above or below it.
+    "makeup_mark_near": "ก",
+    "makeup_key_near": "ดวงจันทร์ใกล้โลกที่สุด",
+    "makeup_key_far": "เฉียงเหนือสุด ใต้สุด",
+    "makeup_key_equator": "ตรงเส้นศูนย์สูตร",
 }
 
 

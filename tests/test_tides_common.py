@@ -8,6 +8,7 @@ from unittest.mock import patch
 from zoneinfo import ZoneInfo
 
 from linecast.tides import common
+from linecast.tides import harmonic
 
 AEST = timezone(timedelta(hours=10))
 
@@ -257,6 +258,135 @@ class LabelHiloTests(unittest.TestCase):
 
     def test_label_hilo_empty(self):
         self.assertEqual(common.label_hilo([]), [])
+
+
+class ComputedTideTests(unittest.TestCase):
+    """A tide computed from its constants, served in the shapes a table
+    is: feet, on the station's clock, a day running from its midnight to
+    the next."""
+
+    # A semidiurnal tide of about Portland, Maine's size, in metres. The
+    # constants are round numbers, not NOAA's: nothing here is compared
+    # with a published table, only the tide with itself.
+    TIDE = harmonic.Tide([("M2", 1.36, 103.0), ("S2", 0.21, 139.0), ("N2", 0.30, 73.0),
+                          ("K1", 0.14, 201.0), ("O1", 0.11, 182.0)], z0=1.51)
+    NEW_YORK = ZoneInfo("America/New_York")
+    SIX_MINUTES = timedelta(minutes=6)
+
+    @staticmethod
+    def _elapsed(points):
+        """The time that passes between each point and the next."""
+        instants = [p[0].astimezone(timezone.utc) for p in points]
+        return {b - a for a, b in zip(instants, instants[1:])}
+
+    def test_the_curve_runs_every_six_minutes_from_midnight_to_midnight(self):
+        tz = self.NEW_YORK
+        curve = common.computed_range(self.TIDE, date(2026, 8, 20), date(2026, 8, 21), tz)
+        self.assertEqual(curve[0][0], datetime(2026, 8, 20, tzinfo=tz))
+        self.assertEqual(curve[-1][0], datetime(2026, 8, 22, tzinfo=tz))
+        self.assertEqual(len(curve), 2 * 240 + 1)
+        self.assertEqual(self._elapsed(curve), {self.SIX_MINUTES})
+        self.assertTrue(all(t.tzinfo is tz for t, _h in curve))
+
+    def test_the_heights_are_the_tides_own_in_feet(self):
+        curve = common.computed_range(self.TIDE, date(2026, 8, 20), date(2026, 8, 20),
+                                      self.NEW_YORK)
+        for t, feet in curve[::40]:
+            self.assertAlmostEqual(feet * 0.3048, self.TIDE.height(t), places=9)
+        # the mean level is 1.51 m, and the curve swings about it
+        heights = [h for _t, h in curve]
+        self.assertLess(min(heights), 1.51 / 0.3048)
+        self.assertGreater(max(heights), 1.51 / 0.3048)
+
+    def test_a_day_the_clocks_change_is_as_long_as_it_is(self):
+        tz = self.NEW_YORK
+        # New York's clocks go back on 1 November 2026 and forward on 8 March
+        for day, hours in ((date(2026, 11, 1), 25), (date(2026, 3, 8), 23)):
+            with self.subTest(day=day):
+                curve = common.computed_range(self.TIDE, day, day, tz)
+                self.assertEqual(len(curve), hours * 10 + 1)
+                self.assertEqual(self._elapsed(curve), {self.SIX_MINUTES})
+                self.assertEqual(curve[0][0], datetime(day.year, day.month, day.day, tzinfo=tz))
+                self.assertEqual(curve[-1][0],
+                                 datetime(day.year, day.month, day.day + 1, tzinfo=tz))
+
+    def test_without_a_zone_the_days_are_utc_and_the_times_naive(self):
+        curve = common.computed_range(self.TIDE, date(2026, 12, 31), date(2026, 12, 31), None)
+        self.assertEqual((curve[0][0], curve[-1][0]),
+                         (datetime(2026, 12, 31), datetime(2027, 1, 1)))
+        self.assertEqual(len(curve), 241)
+        t, feet = curve[100]
+        self.assertAlmostEqual(feet * 0.3048,
+                               self.TIDE.height(t.replace(tzinfo=timezone.utc)), places=9)
+        turns = common.computed_hilo(self.TIDE, date(2026, 12, 31), date(2026, 12, 31), None)
+        self.assertTrue(turns)
+        self.assertTrue(all(t.tzinfo is None and datetime(2026, 12, 31) <= t
+                            <= datetime(2027, 1, 1) for t, _h, _k in turns))
+
+    def test_a_zone_a_quarter_hour_off_keeps_within_its_own_day(self):
+        # Kathmandu is UTC+5:45, so its midnight falls between two of
+        # the six-minute marks, which are counted on UTC's clock
+        tz = ZoneInfo("Asia/Kathmandu")
+        curve = common.computed_range(self.TIDE, date(2026, 8, 20), date(2026, 8, 20), tz)
+        self.assertEqual(len(curve), 240)
+        self.assertEqual({t.date() for t, _h in curve}, {date(2026, 8, 20)})
+        self.assertEqual(self._elapsed(curve), {self.SIX_MINUTES})
+
+    def test_the_turns_alternate_within_the_dates(self):
+        tz = self.NEW_YORK
+        turns = common.computed_hilo(self.TIDE, date(2026, 8, 20), date(2026, 8, 22), tz)
+        # two highs and two lows a day, less one where the lunar day runs over
+        self.assertIn(len(turns), (11, 12))
+        kinds = [k for _t, _h, k in turns]
+        self.assertTrue(all(a != b for a, b in zip(kinds, kinds[1:])), kinds)
+        self.assertEqual(set(kinds), {"H", "L"})
+        for t, _h, _k in turns:
+            self.assertIs(t.tzinfo, tz)
+            self.assertTrue(datetime(2026, 8, 20, tzinfo=tz) <= t
+                            <= datetime(2026, 8, 23, tzinfo=tz))
+
+    def test_each_turn_is_where_the_curve_turns(self):
+        tz = self.NEW_YORK
+        day = date(2026, 8, 20)
+        curve = common.computed_range(self.TIDE, day, day, tz)
+        turns = common.computed_hilo(self.TIDE, day, day, tz)
+        for t, feet, kind in turns:
+            # the six-minute samples either side of it: within three
+            # minutes of the turn, the curve's own extreme for the hour
+            near = [(dt, h) for dt, h in curve if abs(dt - t) <= timedelta(minutes=30)]
+            pick = max if kind == "H" else min
+            at, height = pick(near, key=lambda p: p[1])
+            self.assertLessEqual(abs(at - t), timedelta(minutes=3))
+            # and a hundredth of a foot is more than six minutes can hide
+            self.assertAlmostEqual(feet, height, delta=0.01)
+
+    def test_the_axis_range_is_the_range_of_three_months_of_turns(self):
+        tz = self.NEW_YORK
+        low, high = common.computed_y_range(self.TIDE, date(2026, 8, 23), tz)
+        # July through September: the window every source's axis is
+        # measured over, so springs and neaps are both inside it
+        curve = common.computed_range(self.TIDE, date(2026, 7, 1), date(2026, 9, 30), tz)
+        heights = [h for _t, h in curve]
+        self.assertAlmostEqual(low, min(heights), delta=0.01)
+        self.assertAlmostEqual(high, max(heights), delta=0.01)
+        # wider than the one day's own range, which a neap would make it
+        day = [h for _t, h, _k in common.computed_hilo(
+            self.TIDE, date(2026, 8, 23), date(2026, 8, 23), tz)]
+        self.assertLess(low, min(day))
+        self.assertGreater(high, max(day))
+
+    def test_every_day_of_the_month_has_the_same_axis(self):
+        ranges = {common.computed_y_range(self.TIDE, day, self.NEW_YORK)
+                  for day in (date(2026, 8, 1), date(2026, 8, 23), date(2026, 8, 31))}
+        self.assertEqual(len(ranges), 1)
+
+    def test_a_sea_with_no_tide_has_a_level_and_no_turns(self):
+        still = harmonic.Tide([], z0=0.25)
+        day = date(2026, 8, 20)
+        curve = common.computed_range(still, day, day, timezone.utc)
+        self.assertEqual({round(h, 9) for _t, h in curve}, {round(0.25 / 0.3048, 9)})
+        self.assertEqual(common.computed_hilo(still, day, day, timezone.utc), [])
+        self.assertIsNone(common.computed_y_range(still, day, timezone.utc))
 
 
 if __name__ == "__main__":

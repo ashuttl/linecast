@@ -5,8 +5,9 @@ import os
 import tempfile
 import time
 import unittest
-from datetime import date, timezone
+from datetime import date, datetime, timedelta, timezone
 from unittest.mock import patch
+from zoneinfo import ZoneInfo
 
 from linecast._cache import location_cache_key
 from linecast.tides import common
@@ -528,3 +529,281 @@ class BudgetTests(unittest.TestCase):
             tc._fetch("https://example.invalid/x")
         fetch.assert_called_once()
         self.assertEqual(tc.requests_today(), 51)
+
+
+def _quarter_hours(start, count, height=lambda i: 1.0):
+    """timeSeries rows as the API writes them, fifteen minutes apart from
+    *start* (an aware UTC datetime): {"time": "…T00:15:00.000Z", "height": metres}."""
+    return [{"time": (start + timedelta(minutes=15 * i)).strftime("%Y-%m-%dT%H:%M:%S.000Z"),
+             "height": height(i)} for i in range(count)]
+
+
+class SeriesCurveTests(unittest.TestCase):
+    """The curve is the response's own fifteen-minute series, where it
+    has one, and is drawn between the highs and lows where it has not."""
+
+    EXTREMES = [
+        {"time": "2026-03-27T00:00:00.000Z", "localTime": "2026-03-27T00:00:00+00:00",
+         "localDate": "2026-03-27", "height": 1.0, "type": "high"},
+        {"time": "2026-03-27T06:00:00.000Z", "localTime": "2026-03-27T06:00:00+00:00",
+         "localDate": "2026-03-27", "height": 0.2, "type": "low"},
+        {"time": "2026-03-27T12:00:00.000Z", "localTime": "2026-03-27T12:00:00+00:00",
+         "localDate": "2026-03-27", "height": 1.5, "type": "high"},
+    ]
+
+    def _curve(self, raw, tz=timezone.utc, start=date(2026, 3, 27), end=date(2026, 3, 27)):
+        """The curve for a response, with nothing read from the cache or
+        kept in it, and no request made."""
+        with patch.dict("os.environ", {"LINECAST_TIDECHECK_KEY": "k"}), \
+             patch.object(tc, "read_cache", return_value=None), \
+             patch.object(tc, "_fetch_tides_raw", return_value=raw), \
+             patch.object(tc, "fetch_json", side_effect=AssertionError("no request")), \
+             patch.object(tc, "write_cache"):
+            return tc.fetch_tides_range_tidecheck("fes2022-lisbon", start, end, tz)
+
+    def test_a_row_whose_time_is_null_is_passed_over(self):
+        raw = {"datum": "MLLW", "extremes": self.EXTREMES, "timeSeries": [
+            {"time": None, "height": 1.0},
+            {"time": 20260327, "height": 1.0},
+            {"time": "2026-03-27T00:15:00.000Z", "height": 0.994},
+            {"time": "2026-03-27T00:30:00.000Z", "height": None},
+        ]}
+        curve = self._curve(raw)
+        self.assertEqual([when.strftime("%H:%M") for when, _height in curve], ["00:15"])
+
+    def test_a_turn_whose_time_is_null_is_passed_over(self):
+        extremes = [{"time": None, "height": 0.5, "type": "low"}, *self.EXTREMES]
+        with patch.dict("os.environ", {"LINECAST_TIDECHECK_KEY": "k"}), \
+             patch.object(tc, "read_cache", return_value=None), \
+             patch.object(tc, "_fetch_tides_raw", return_value={"extremes": extremes}), \
+             patch.object(tc, "write_cache"):
+            turns = tc.fetch_hilo_range_tidecheck("fes2022-lisbon", date(2026, 3, 27),
+                                                  date(2026, 3, 27), timezone.utc)
+        self.assertEqual([kind for _when, _height, kind in turns], ["H", "L", "H"])
+
+    def test_an_answer_that_is_a_list_is_no_turns(self):
+        with patch.dict("os.environ", {"LINECAST_TIDECHECK_KEY": "k"}), \
+             patch.object(tc, "read_cache", return_value=None), \
+             patch.object(tc, "_fetch_tides_raw", return_value=[{"extremes": []}]), \
+             patch.object(tc, "write_cache"):
+            self.assertEqual(tc.fetch_hilo_range_tidecheck(
+                "fes2022-lisbon", date(2026, 3, 27), date(2026, 3, 27), timezone.utc), [])
+
+    def test_the_series_is_the_curve_at_its_own_instants(self):
+        raw = {"datum": "MLLW", "extremes": self.EXTREMES, "timeSeries": [
+            {"time": "2026-03-27T00:00:00.000Z", "height": 1.0},
+            {"time": "2026-03-27T00:15:00.000Z", "height": 0.994},
+            {"time": "2026-03-27T00:30:00.000Z", "height": 0.976},
+        ]}
+        curve = self._curve(raw)
+        self.assertEqual([t for t, _h in curve],
+                         [datetime(2026, 3, 27, 0, m, tzinfo=timezone.utc) for m in (0, 15, 30)])
+        # metres, as every TideCheck height is; the pipeline works in feet
+        for (_t, feet), metres in zip(curve, (1.0, 0.994, 0.976)):
+            self.assertAlmostEqual(feet, metres / 0.3048, places=6)
+
+    def test_nothing_is_drawn_between_the_samples(self):
+        start = datetime(2026, 3, 27, tzinfo=timezone.utc)
+        raw = {"extremes": self.EXTREMES, "timeSeries": _quarter_hours(start, 49)}
+        curve = self._curve(raw)
+        # twelve hours of the API's quarter hours, not the six-minute
+        # steps of a curve made from the three turns
+        self.assertEqual(len(curve), 49)
+        self.assertEqual({b[0] - a[0] for a, b in zip(curve, curve[1:])},
+                         {timedelta(minutes=15)})
+
+    def test_the_curve_is_whole_where_the_turns_are_days_apart(self):
+        # A sea with hardly a tide: the API names a high and, forty
+        # hours on, a low. Too far apart to be one falling tide, so a
+        # curve made from the turns draws nothing between them.
+        extremes = [
+            {"time": "2026-03-27T02:00:00.000Z", "height": 0.31, "type": "high"},
+            {"time": "2026-03-28T18:00:00.000Z", "height": 0.22, "type": "low"},
+        ]
+        start = datetime(2026, 3, 27, tzinfo=timezone.utc)
+        series = _quarter_hours(start, 2 * 96 + 1, height=lambda i: 0.25 + 0.0001 * i)
+        self.assertEqual(self._curve({"extremes": extremes}, end=date(2026, 3, 28)), [])
+        curve = self._curve({"extremes": extremes, "timeSeries": series},
+                            end=date(2026, 3, 28))
+        self.assertEqual((curve[0][0], curve[-1][0]), (start, start + timedelta(days=2)))
+        self.assertEqual({b[0] - a[0] for a, b in zip(curve, curve[1:])},
+                         {timedelta(minutes=15)})
+
+    def test_the_curve_runs_on_to_midnight_utc_past_the_last_turn(self):
+        # The end of a real answer for Mumbai (October 2026): the API's
+        # days are UTC's, so the series stops at 00:00Z, which is 05:30
+        # in the morning there, a quarter hour after the last high water
+        mumbai = ZoneInfo("Asia/Kolkata")
+        raw = {
+            "station": {"id": "fes2022-mumbai", "name": "Mumbai", "timezone": "Asia/Kolkata"},
+            "datum": "MLLW",
+            "extremes": [
+                {"time": "2026-10-30T17:45:34.027Z", "localTime": "2026-10-30T23:15:34+05:30",
+                 "localDate": "2026-10-30", "height": -1.323, "type": "low"},
+                {"time": "2026-10-30T23:44:38.344Z", "localTime": "2026-10-31T05:14:38+05:30",
+                 "localDate": "2026-10-31", "height": 8.649, "type": "high"},
+            ],
+            "timeSeries": [
+                {"time": "2026-10-30T23:30:00.000Z", "height": 8.631},
+                {"time": "2026-10-30T23:45:00.000Z", "height": 8.649},
+                {"time": "2026-10-31T00:00:00.000Z", "height": 8.62},
+            ],
+        }
+        curve = self._curve(raw, tz=mumbai, start=date(2026, 10, 30), end=date(2026, 10, 31))
+        last, feet = curve[-1]
+        self.assertEqual(last.isoformat(), "2026-10-31T05:30:00+05:30")
+        self.assertAlmostEqual(feet, 8.62 / 0.3048, places=6)
+        with patch.dict("os.environ", {"LINECAST_TIDECHECK_KEY": "k"}), \
+             patch.object(tc, "read_cache", return_value=None), \
+             patch.object(tc, "_fetch_tides_raw", return_value=raw), \
+             patch.object(tc, "write_cache"):
+            turns = tc.fetch_hilo_range_tidecheck(
+                "fes2022-mumbai", date(2026, 10, 30), date(2026, 10, 31), mumbai)
+        self.assertGreater(last, turns[-1][0])
+
+    def test_samples_are_placed_as_the_highs_and_lows_are(self):
+        # Lisbon's clocks go back at 01:00 UTC on 25 October 2026. The
+        # samples either side are a quarter hour apart all the same,
+        # and the low among them sits on the sample taken at its instant.
+        lisbon = ZoneInfo("Europe/Lisbon")
+        start = datetime(2026, 10, 25, 0, 30, tzinfo=timezone.utc)
+        raw = {"timeSeries": _quarter_hours(start, 4), "extremes": [
+            {"time": "2026-10-24T19:00:00.000Z", "height": 3.1, "type": "high"},
+            {"time": "2026-10-25T01:00:00.000Z", "height": 0.4, "type": "low"},
+        ]}
+        curve = self._curve(raw, tz=lisbon, start=date(2026, 10, 25), end=date(2026, 10, 25))
+        self.assertEqual([t.strftime("%H:%M %z") for t, _h in curve],
+                         ["01:30 +0100", "01:45 +0100", "01:00 +0000", "01:15 +0000"])
+        self.assertEqual([b[0] - a[0] for a, b in zip(curve, curve[1:])],
+                         [timedelta(minutes=15)] * 3)
+        with patch.dict("os.environ", {"LINECAST_TIDECHECK_KEY": "k"}), \
+             patch.object(tc, "read_cache", return_value=None), \
+             patch.object(tc, "_fetch_tides_raw", return_value=raw), \
+             patch.object(tc, "write_cache"):
+            turns = tc.fetch_hilo_range_tidecheck(
+                "fes2022-lisbon", date(2026, 10, 25), date(2026, 10, 25), lisbon)
+        low = turns[-1][0]
+        self.assertEqual(low, curve[2][0])
+        self.assertEqual(low.utcoffset(), curve[2][0].utcoffset())
+
+    def test_a_series_out_of_order_comes_back_in_order(self):
+        start = datetime(2026, 3, 27, tzinfo=timezone.utc)
+        rows = _quarter_hours(start, 8, height=lambda i: 0.1 * i)
+        curve = self._curve({"extremes": self.EXTREMES, "timeSeries": rows[4:] + rows[:4]})
+        self.assertEqual([round(h * 0.3048, 6) for _t, h in curve],
+                         [round(0.1 * i, 6) for i in range(8)])
+
+    def test_rows_that_cannot_be_read_are_left_out_and_the_rest_kept(self):
+        raw = {"extremes": self.EXTREMES, "timeSeries": [
+            {"time": "2026-03-27T00:00:00.000Z", "height": 1.0},
+            {"time": "not a time", "height": 0.9},
+            {"height": 0.9},
+            {"time": "2026-03-27T00:45:00.000Z"},
+            {"time": "2026-03-27T01:00:00.000Z", "height": None},
+            {"time": "2026-03-27T01:15:00.000Z", "height": "high"},
+            None,
+            {"time": "2026-03-27T01:30:00.000Z", "height": 0.8},
+        ]}
+        with patch.object(tc, "log_skipped") as skipped:
+            curve = self._curve(raw)
+        self.assertEqual([t.strftime("%H:%M") for t, _h in curve], ["00:00", "01:30"])
+        # and --debug says how many went
+        self.assertEqual(skipped.call_args.args[:4], ("tides/tidecheck", "series", 6, 8))
+
+    def test_a_response_with_no_series_has_its_curve_made_from_the_turns(self):
+        unreadable = [{"time": "not a time", "height": 1.0}, {"height": 1.0}]
+        for name, series in (("null", None), ("empty", []), ("not a list", {"0": 1.0}),
+                             ("no row readable", unreadable)):
+            with self.subTest(series=name):
+                curve = self._curve({"extremes": self.EXTREMES, "timeSeries": series})
+                # six-minute steps from the first turn to the last
+                self.assertEqual(curve[0][0], datetime(2026, 3, 27, tzinfo=timezone.utc))
+                self.assertEqual(curve[-1][0], datetime(2026, 3, 27, 12, tzinfo=timezone.utc))
+                self.assertEqual({b[0] - a[0] for a, b in zip(curve, curve[1:])},
+                                 {timedelta(minutes=6)})
+                self.assertAlmostEqual(curve[60][1], 0.2 / 0.3048, places=6)
+
+    def test_a_response_with_neither_is_no_curve(self):
+        for raw in (None, {}, {"extremes": [], "timeSeries": []},
+                    {"extremes": None, "timeSeries": None}):
+            with self.subTest(raw=raw):
+                self.assertEqual(self._curve(raw), [])
+
+    def test_a_series_marked_in_feet_is_left_in_feet(self):
+        raw = {"unit": "feet", "extremes": self.EXTREMES,
+               "timeSeries": [{"time": "2026-03-27T00:00:00.000Z", "height": 3.5}]}
+        self.assertEqual([h for _t, h in self._curve(raw)], [3.5])
+
+
+class SeriesRequestTests(unittest.TestCase):
+    """What the curve costs the day's fifty requests, counted in a cache
+    of the test's own; the answers come from a stub, never the service."""
+
+    RAW = {
+        "station": {"id": "fes2022-lisbon", "name": "Lisbon", "timezone": "Europe/Lisbon"},
+        "datum": "MLLW",
+        "extremes": [
+            {"time": "2026-03-27T00:00:00.000Z", "height": 1.0, "type": "high"},
+            {"time": "2026-03-27T06:00:00.000Z", "height": 0.2, "type": "low"},
+        ],
+        "timeSeries": [
+            {"time": "2026-03-27T00:00:00.000Z", "height": 1.0},
+            {"time": "2026-03-27T00:15:00.000Z", "height": 0.994},
+        ],
+    }
+
+    def setUp(self):
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        env = patch.dict("os.environ", {"LINECAST_CACHE_DIR": tmp.name,
+                                        "LINECAST_TIDECHECK_KEY": "k"})
+        env.start()
+        self.addCleanup(env.stop)
+        fetch = patch.object(tc, "fetch_json", return_value=self.RAW)
+        self.fetch = fetch.start()
+        self.addCleanup(fetch.stop)
+
+    def test_the_curve_and_the_turns_share_one_request(self):
+        day = date(2026, 3, 27)
+        curve = tc.fetch_tides_range_tidecheck("fes2022-lisbon", day, day, timezone.utc)
+        turns = tc.fetch_hilo_range_tidecheck("fes2022-lisbon", day, day, timezone.utc)
+        again = tc.fetch_tides_range_tidecheck("fes2022-lisbon", day, day, timezone.utc)
+        self.assertEqual(len(curve), 2)
+        self.assertEqual([k for _t, _h, k in turns], ["H", "L"])
+        self.assertEqual(again, curve)
+        self.fetch.assert_called_once()
+        self.assertEqual(tc.requests_today(), 1)
+
+    def test_the_request_covers_the_range_with_two_days_to_spare(self):
+        def days_asked(start, end):
+            self.fetch.reset_mock()
+            tc.fetch_tides_range_tidecheck("fes2022-lisbon", start, end, timezone.utc)
+            url = self.fetch.call_args.args[0]
+            self.assertIn("/station/fes2022-lisbon/tides?", url)
+            self.assertIn("datum=MLLW", url)
+            return int(url.split("days=")[1].split("&")[0])
+
+        self.assertEqual(days_asked(date(2026, 3, 27), date(2026, 3, 27)), 3)
+        self.assertEqual(days_asked(date(2026, 3, 27), date(2026, 4, 2)), 9)
+        # a month view's 31 days, and the 30 that are the most the API serves
+        self.assertEqual(days_asked(date(2026, 3, 1), date(2026, 3, 31)), 30)
+
+    def test_without_a_key_nothing_is_asked(self):
+        with patch.dict("os.environ", {"LINECAST_TIDECHECK_KEY": ""}):
+            self.assertEqual(tc.fetch_tides_range_tidecheck(
+                "fes2022-lisbon", date(2026, 3, 27), date(2026, 3, 27), timezone.utc), [])
+        self.fetch.assert_not_called()
+        self.assertEqual(tc.requests_today(), 0)
+
+    def test_a_refused_request_draws_the_curve_from_the_copy_it_has(self):
+        day = date(2026, 3, 27)
+        curve = tc.fetch_tides_range_tidecheck("fes2022-lisbon", day, day, timezone.utc)
+        # the copy has gone stale and the day's budget is spent
+        raw_file = common.cache_dir() / "tc_raw_fes2022-lisbon_3d.json"
+        then = time.time() - 2 * 86400
+        os.utime(raw_file, (then, then))
+        tc.write_cache(tc._tally_file(), {"count": tc.FREE_TIER_LIMIT})
+        self.fetch.reset_mock()
+        self.assertEqual(
+            tc.fetch_tides_range_tidecheck("fes2022-lisbon", day, day, timezone.utc), curve)
+        self.fetch.assert_not_called()

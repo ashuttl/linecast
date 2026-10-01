@@ -820,6 +820,52 @@ def _(ctx):
     return "\n----\n".join(frames)
 
 
+@scene("tides-views", size=(110, 40))
+def _(ctx):
+    """The month, the year and the makeup, each bare and under the
+    pointer.  Their data is made here, from a tide predicted on the
+    device, and handed to the app as its worker would have left it."""
+    from datetime import date, timedelta
+    from zoneinfo import ZoneInfo
+    from linecast.tides import harmonic
+    from linecast.tides.common import computed_hilo, computed_range
+    from linecast.tides.live import TidesApp
+    from linecast.tides.makeup import Makeup, sky_marks
+    from linecast.tides.providers import NOAA
+    from linecast.tides.year import daily_ranges
+    _mirror(True)
+    zone = ZoneInfo(ZONE)
+    tide = harmonic.Tide([("M2", 1.40, 100.0), ("S2", 0.21, 135.0), ("N2", 0.28, 70.0),
+                          ("K1", 0.14, 200.0), ("O1", 0.11, 180.0), ("P1", 0.046, 198.0)],
+                         z0=1.5)
+    station = "8418150"
+    meta = {"lat": "43.66", "lng": "-70.25", "timeZoneCode": ZONE}
+    app = TidesApp(NOAA, station, "Portland, ME", meta, zone,
+                   ctx.runtime("TidesRuntime", live=True, **_feet(ctx)), [], [],
+                   date(2026, 2, 26), date(2026, 3, 12), y_range=(-0.8, 10.4))
+    first, last = date(2026, 3, 1), date(2026, 3, 31)
+    day = timedelta(days=1)
+    turns = computed_hilo(tide, date(2026, 1, 1), date(2026, 12, 31), zone)
+    made = Makeup(turns, 43.66)
+    predicted = daily_ranges(turns)
+    # the gauge ran four tenths of a foot over the tables, through yesterday
+    measured = {d: (lo + 0.4, hi + 0.4) for d, (lo, hi) in predicted.items()
+                if d < _now().date()}
+    app._long.update({
+        ("month", station, first): (computed_range(tide, first - day, last + day, zone),
+                                    computed_hilo(tide, first - day, last + day, zone)),
+        ("year", station, 2026): (predicted, measured, 12.0),
+        ("makeup fit", station): made,
+        ("makeup", station, first): (made, made.month(first, zone), made.year(2026),
+                                     made.long(2026), sky_marks(first, zone), 2026),
+    })
+    frames = []
+    for view, pointer in (("month", (50, 12)), ("year", (60, 14)), ("makeup", (70, 14))):
+        app.view = view
+        frames += [ctx.live(app.render()), ctx.live(app.render(mouse_pos=pointer))]
+    return "\n----\n".join(frames)
+
+
 @scene("tides-json", themes=("stock",), langs=("en",))
 def _(ctx):
     from linecast.tides.json import build_payload

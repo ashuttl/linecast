@@ -14,7 +14,7 @@ import os
 import sys
 import threading
 import time as _t
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 
 from linecast.terminal.textwidth import visible_len
 from linecast.terminal.framebuffer import get_terminal_size
@@ -25,15 +25,19 @@ from linecast._runtime import TidesRuntime, set_current
 from linecast._parsers import tides_parser
 from linecast._log import log_failure
 from linecast.terminal.spinner import Spinner
-from linecast.tides.common import sweep_legacy_cache
+from linecast.tides.common import month_after, sweep_legacy_cache
 from linecast.tides.i18n import _ts
+from linecast.tides import palette as _palette
+from linecast.terminal.color import RESET, fg
 from linecast.weather.location_menu import LocationMenu
 from linecast.tides.providers import NOAA, PROVIDERS, TIDECHECK, provider_for_id
 from linecast.tides.stations import (
     _fetch_station, _find_matching_stations, _search_stations, _station_details,
     _station_for_location, _station_now,
 )
-from linecast.tides.view import LIVE_WINDOW_HOURS, _live_window_start, _pill_label, render
+from linecast.tides.view import (
+    LIVE_WINDOW_HOURS, _live_window_start, _pill_label, _render_header_line, render,
+)
 
 
 
@@ -47,8 +51,10 @@ class TidesApp(LocationMenu, _live.LiveApp):
     # Larger step makes wheel/arrow scrubbing practical for multi-day browsing.
     scroll_step = 30
 
-    help_view = 'tides'
     LOG_AREA = 'tides'
+    # v steps through them: the day's chart, a month of days, the year
+    # (where the source can fill one: see views)
+    VIEWS = ("day", "month", "year", "makeup")
 
     def __init__(self, provider, station_id, station_name, station_meta,
                  station_tz, runtime, predictions, hilo, fetched_start,
@@ -82,6 +88,30 @@ class TidesApp(LocationMenu, _live.LiveApp):
         self._loading = None
         self._location_result = None
         self._location_worker = None
+        self.view = "day"
+        self.months = 0              # the month view's offset from this month
+        self.years = 0               # the year view's from this year
+        # (view, station, month or year) -> what that view draws; a
+        # worker fetches the one on screen, and a failure waits a while
+        self._long = {}
+        self._long_worker = None
+        self._long_retry_at = 0.0
+
+    @property
+    def views(self):
+        """The views v steps through at this station: no year, and no
+        makeup, which is fitted to a year, where the source's predictions
+        stop weeks ahead."""
+        if self.provider.year_view:
+            return self.VIEWS
+        return tuple(v for v in self.VIEWS if v not in ("year", "makeup"))
+
+    @property
+    def help_view(self):
+        if not self.provider.year_view:
+            return {"day": "tides_no_year", "month": "tides_month_no_year"}[self.view]
+        return {"day": "tides", "month": "tides_month", "year": "tides_year",
+                "makeup": "tides_makeup"}[self.view]
 
     # --- the location menu (LocationMenu) ---------------------------------
     def _here(self):
@@ -133,6 +163,8 @@ class TidesApp(LocationMenu, _live.LiveApp):
         self.country = result["country"]
         self.lat, self.lng, self.place_label = place.lat, place.lon, place.name
         self._retry_at = 0.0
+        if self.view not in self.views:
+            self.view = "month"   # the new station's source has no year
 
     def _on_place(self, col, row):
         name = _pill_label(self.station_name, location_menu=True)
@@ -198,11 +230,196 @@ class TidesApp(LocationMenu, _live.LiveApp):
         self._worker = threading.Thread(target=worker, daemon=True)
         self._worker.start()
 
+    # --- the month and year views -------------------------------------------
+    def _today(self):
+        return _station_now(self.station_meta, self.predictions).date()
+
+    def _long_key(self):
+        """What the month or year view on screen draws, as _long keys it."""
+        from linecast.tides.month import month_of
+        today = self._today()
+        if self.view in ("month", "makeup"):
+            return (self.view, self.station_id, month_of(today, self.months))
+        return ("year", self.station_id, today.year + self.years)
+
+    def _start_long(self):
+        """Fetch the month or year on screen, off the loop.  A month is one
+        of NOAA's requests; a year of high and low waters is twelve, and
+        what the gauge measured two or three more."""
+        key = self._long_key()
+        if key in self._long:
+            return
+        if key[0] == "makeup" and ("makeup fit", self.station_id) in self._long:
+            # The makeup view fetches once, for its fit.  With that in
+            # hand another month is sums alone, a twentieth of a second
+            # of them, so it is made here and the view never draws a
+            # month it has not got.
+            if _t.monotonic() < self._long_retry_at:
+                return
+            try:
+                self._long[key] = self._make_up(self.provider, self.station_id,
+                                                self.station_tz, self._today(), key[2])
+            except Exception as exc:
+                log_failure("tides", "makeup view", exc, fallback="view left empty")
+                self._long_retry_at = _t.monotonic() + 30
+            return
+        if (self._loading is not None
+                or _t.monotonic() < self._long_retry_at
+                or (self._long_worker and self._long_worker.is_alive())):
+            return
+        provider, station_id, tz = self.provider, self.station_id, self.station_tz
+        today = self._today()
+
+        def worker():
+            kind, _station, when = key
+            try:
+                if kind == "month":
+                    last = month_after(when) - timedelta(days=1)
+                    data = (provider.tides_range(station_id, when, last, tz),
+                            provider.hilo_range(station_id, when - timedelta(days=1),
+                                                last + timedelta(days=1), tz))
+                elif kind == "makeup":
+                    data = self._make_up(provider, station_id, tz, today, when)
+                else:
+                    from linecast.tides.year import daily_ranges
+                    hilo = provider.hilo_range(station_id, date(when, 1, 1),
+                                               date(when, 12, 31), tz)
+                    data = (daily_ranges(hilo),
+                            provider.observed_extremes(station_id, when, today),
+                            provider.flood_stage(station_id))
+            except Exception as exc:
+                log_failure("tides", f"{kind} view", exc, fallback="view left empty")
+                data = None
+            if data is None:
+                self._long_retry_at = _t.monotonic() + 30
+            else:
+                self._long[key] = data
+            _live.nudge()
+
+        self._long_worker = threading.Thread(target=worker, daemon=True)
+        self._long_worker.start()
+
+    def _make_up(self, provider, station_id, tz, today, first):
+        """What the makeup view draws for the month from *first*.  The
+        fit is to this year's high and low waters, the request the year
+        view makes, and is kept: another month costs only its own sums."""
+        from linecast.tides.makeup import Makeup, sky_marks
+        fit_key = ("makeup fit", station_id)
+        made = self._long.get(fit_key)
+        if made is None:
+            turns = provider.hilo_range(station_id, date(today.year, 1, 1),
+                                        date(today.year, 12, 31), tz)
+            try:
+                lat = float((self.station_meta or {}).get("lat"))
+            except (TypeError, ValueError):
+                lat = None
+            made = self._long[fit_key] = Makeup(turns, lat)
+        return (made, made.month(first, tz), made.year(first.year), made.long(today.year),
+                sky_marks(first, tz), today.year)
+
+    def _step(self, n):
+        if self.view in ("month", "makeup"):
+            self.months += n
+        else:
+            self.years += n
+        return True
+
+    def _render_long(self, mouse_pos):
+        from linecast.terminal import help as _help
+        from linecast._i18n import lang_of
+        self._start_long()
+        cols, _rows = get_terminal_size()
+        lang = lang_of(self.runtime)
+        now_local = _station_now(self.station_meta, self.predictions)
+        key = self._long_key()
+        data = self._long.get(key)
+        text, dim = fg(*_palette.TEXT_RGB), fg(*_palette.DIM_RGB)
+        source = f"{dim}{self.provider.footer_label(self.runtime)}{RESET}"
+        if self.view == "month":
+            from linecast.moon.calendar import _month_title
+            from linecast.tides.month import render_month
+            first = key[2]
+            header = _render_header_line(
+                cols, self.station_name, self.runtime, offset_minutes=self.months,
+                location_menu=True,
+                right=f"{text}{_month_title(first.year, first.month, lang)}{RESET}")
+            # The key to the braille over the field: the Sun's two lines
+            from linecast.sunshine.i18n import _ss
+            from linecast.tides import month as _month
+            legend = (f"{source}   {fg(*_month.SUN_RGB)}⡇{RESET} {dim}"
+                      f"{_ss('sunrise', self.runtime)} / {_ss('sunset', self.runtime)}{RESET}")
+            footer = _help.footer(legend, cols, lang)
+            return render_month(first, data[0] if data else None, data[1] if data else None,
+                                self.runtime, header=header, footer=footer,
+                                station_meta=self.station_meta, station_tz=self.station_tz,
+                                now_local=now_local, mouse_pos=mouse_pos)
+        if self.view == "makeup":
+            from linecast.tides.makeup import render_makeup
+            header = _render_header_line(cols, self.station_name, self.runtime,
+                                         offset_minutes=self.months, location_menu=True,
+                                         right="")
+            return render_makeup(key[2], data, self.runtime, header=header,
+                                 footer=_help.footer(source, cols, lang),
+                                 station_tz=self.station_tz, now_local=now_local,
+                                 mouse_pos=mouse_pos)
+        from linecast.tides import year as _year
+        year = key[2]
+        predicted, observed, flood = data or ({}, {}, None)
+        summary = _year.summary(year, predicted, observed, self.runtime, now_local.date())
+        right = f"{text}{year}{RESET}" + (f"  {dim}{summary}{RESET}" if summary else "")
+        header = _render_header_line(cols, self.station_name, self.runtime,
+                                     offset_minutes=self.years, location_menu=True, right=right)
+        legend = source
+        pen_name = self.provider.observed_label
+        if observed:
+            pen, band = fg(*_year.PEN_RGB), fg(*_year.BAND_RGB)
+            legend += (f"   {pen}⠤⠒⠉{RESET} {dim}{_ts(pen_name, self.runtime)}{RESET}"
+                       f"   {band}██{RESET} {dim}{_ts('predicted', self.runtime)}{RESET}")
+        footer = _help.footer(legend, cols, lang)
+        return _year.render_year(year, predicted, observed, flood, self.runtime,
+                                 header=header, footer=footer, today=now_local.date(),
+                                 tzinfo=self.station_tz, mouse_pos=mouse_pos,
+                                 observed_name=pen_name)
+
+    # --- keys and the wheel -----------------------------------------------
+    def intercept(self, action):
+        if super().intercept(action):
+            return True
+        if self.view == "day":
+            return False
+        # The month and year views move by months and years; the day's
+        # time scrub stays where it was left.
+        if action in ("fwd", "back"):
+            return self._step(1 if action == "fwd" else -1)
+        if action == "reset":
+            self.months = self.years = 0
+            return True
+        return False
+
+    def on_wheel(self, direction, col, row):
+        answer = super().on_wheel(direction, col, row)
+        if answer is not NotImplemented or self.view == "day":
+            return answer
+        return self._step(direction)
+
+    def on_action(self, key):
+        if super().on_action(key):
+            return True
+        if key == "v":
+            views = self.views
+            self.view = views[(views.index(self.view) + 1) % len(views)]
+            return True
+        return False
+
     def render(self, offset_minutes=0, mouse_pos=None, active_alert=None,
                modal_scroll=0):
         with self._state_lock:
             self._finish_location()
         panel = self.locations.active
+        if self.view != "day":
+            output = self._render_long(None if panel else mouse_pos)
+            cols, rows = get_terminal_size()
+            return _live.overlay(output, self.menu_overlay(cols, rows)), {}
         self.expand_for(offset_minutes)
         output = render(
             self.station_id,

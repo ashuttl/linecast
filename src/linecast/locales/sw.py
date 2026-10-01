@@ -47,6 +47,10 @@ HELP = {
     "hide_text": "ficha / onyesha maandishi",
     "calendar": "mwonekano wa mwezi / kalenda",
     "months": "sogeza kwa mwezi mmoja",
+    "years": "sogeza kwa mwaka mmoja",
+    "tide_views": "mwonekano wa siku / mwezi / mwaka / muundo",
+    "tide_views_no_year": "mwonekano wa siku / mwezi",
+    "tide_times": "kimo cha maji saa hiyo",
     "moon_times": "awamu na nyakati za kuchomoza / kutua",
     "day": "fungua siku katika mwonekano wa mwezi",
     "look": "angalia pande zote",
@@ -411,6 +415,30 @@ TIDES = {
     "high": "Maji kujaa",
     "low": "Maji kupwa",
     "no_data": "Hakuna taarifa za kujaa na kupwa",
+    "flood_stage": "kiwango cha mafuriko",
+    "highest_on": "juu zaidi {h} {date}",
+    "predicted": "utabiri",
+    "measured": "kipimo",
+    "modeled": "modeli",
+    "makeup_headline": "Kinachosababisha kujaa na kupwa hapa",
+    "makeup_twice": "Mara mbili kwa siku",
+    "makeup_once": "Mara moja kwa siku",
+    "makeup_moon": "Mwezi",
+    "makeup_sun": "Jua",
+    "makeup_distance": "Umbali wa mwezi",
+    # "Tilt" is standing north or south of the equator; mwinamo would be a tilted axis.
+    "makeup_moon_tilt": "Mwezi mbali na ikweta",
+    "makeup_sun_tilt": "Jua mbali na ikweta",
+    "makeup_key_size": "Kila kimo ni nusu ya tofauti kati ya kupwa na kujaa kutokana na chanzo hicho.",
+    # Bahari kuu is also the open sea, so the ideal ocean is bahari ya kinadharia.
+    "makeup_key_gain": "× hukilinganisha na kimo cha chanzo kilekile katika bahari ya kinadharia.",
+    "makeup_key_sea": "Umbo na kina cha bahari ya hapa hubadilisha ukubwa wa kimo hicho.",
+    "makeup_key_phases": "mwezi mpya, mwezi mpevu",
+    # k for karibu.
+    "makeup_mark_near": "k",
+    "makeup_key_near": "mwezi karibu zaidi",
+    "makeup_key_far": "mbali zaidi kaskazini, kusini",
+    "makeup_key_equator": "juu ya ikweta",
 }
 
 

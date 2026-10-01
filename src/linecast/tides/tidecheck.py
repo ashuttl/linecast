@@ -6,9 +6,11 @@ gives a key, in the LINECAST_TIDECHECK_KEY environment variable or under
 `tidecheck_key` in config.json.  Without the key this module is
 completely inert — no network calls, no errors, no noise.
 
-The API publishes high/low extremes only (heights in meters, times in
-UTC alongside a localTime with offset); the smooth curve is synthesized
-with the same cosine model subordinate NOAA stations use.  Discovery
+The API publishes the high and low waters and the height every fifteen
+minutes (heights in meters, times in UTC alongside a localTime with
+offset), both in the one response.  The curve is the fifteen-minute
+series; a response without one has its curve synthesized from the highs
+and lows, with the cosine model subordinate NOAA stations use.  Discovery
 endpoints (/stations/nearest, /stations/search) return bare JSON arrays
 sorted by relevance/distance.
 
@@ -301,18 +303,56 @@ def _fetch_tides_raw(station_id, days=7):
 def fetch_tides_range_tidecheck(
     station_id: str, start_date: date, end_date: date, station_tz: tzinfo | None,
 ) -> list[tuple[datetime, float]]:
-    """Fetch TideCheck predictions across a date range as a smooth curve.
+    """Fetch TideCheck predictions across a date range as a curve.
 
-    The API publishes high/low extremes only — no minute series — so the
-    curve is synthesized with the same cosine half-cycle model subordinate
-    NOAA stations use.  Synthesis is cheap; only the raw response is
-    cached (24h, inside fetch_hilo_range_tidecheck's fetch).  Returns
+    The curve is the API's fifteen-minute series, which comes in the
+    response the highs and lows are read from, so it costs no request
+    of its own.  The series is whole where the list of highs and lows
+    is not: on a sea with hardly a tide the API names few of either,
+    days apart, and a curve drawn between them has holes.  A response
+    with no series falls back to that curve, synthesized with the
+    cosine half-cycle model subordinate NOAA stations use.  Returns
     sorted (datetime, height_ft) tuples.
     """
+    if not is_available():
+        return []
+    data = _fetch_tides_raw(station_id, days=_fetch_days(start_date, end_date))
+    series = _series_points(data, station_tz)
+    if series:
+        return series
     from linecast.tides.noaa import synthesize_tides_from_hilo
     labeled = fetch_hilo_range_tidecheck(station_id, start_date, end_date,
                                          station_tz)
     return synthesize_tides_from_hilo(labeled)
+
+
+def _fetch_days(start_date, end_date):
+    """The days to ask for to cover the range: two to spare, and no more
+    than the 30 the API serves."""
+    return min(30, max(1, (end_date - start_date).days + 1) + 2)
+
+
+def _series_points(data, station_tz):
+    """The response's fifteen-minute heights as sorted (datetime,
+    height_ft), aware in a fixed offset as the cached highs and lows
+    are; [] when the response has no series."""
+    rows = data.get("timeSeries") if isinstance(data, dict) else None
+    if not isinstance(rows, list) or not rows:
+        return []
+    points = []
+    bad = None
+    for row in rows:
+        try:
+            dt_local = parse_utc_iso(row["time"], station_tz)
+            height_ft = _maybe_convert_height(float(row["height"]), data)
+        except (KeyError, ValueError, TypeError, AttributeError) as exc:
+            # AttributeError: a time that is null or not a string
+            bad = exc
+            continue
+        points.append((parse_cached_dt(dt_local.isoformat(), station_tz), height_ft))
+    log_skipped("tides/tidecheck", "series", len(rows) - len(points), len(rows), bad)
+    points.sort(key=lambda p: p[0])
+    return points
 
 
 def _maybe_convert_height(height, api_response):
@@ -347,10 +387,8 @@ def fetch_hilo_range_tidecheck(
     if cached is not None:
         return [(parse_cached_dt(r["dt"], station_tz), r["v"], r["t"]) for r in cached]
 
-    days_needed = max(1, (end_date - start_date).days + 1)
-    fetch_days = min(30, days_needed + 2)
-    data = _fetch_tides_raw(station_id, days=fetch_days)
-    if not data:
+    data = _fetch_tides_raw(station_id, days=_fetch_days(start_date, end_date))
+    if not data or not isinstance(data, dict):
         return []
 
     extremes = data.get("extremes") or []
@@ -373,7 +411,7 @@ def fetch_hilo_range_tidecheck(
             else:
                 typ = "H"  # default; will be corrected below
             labeled.append((dt_local, height_ft, typ))
-        except (KeyError, ValueError, TypeError) as exc:
+        except (KeyError, ValueError, TypeError, AttributeError) as exc:
             bad = exc
             continue
     log_skipped("tides/tidecheck", "extremes",
