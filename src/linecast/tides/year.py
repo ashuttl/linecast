@@ -29,7 +29,7 @@ from linecast.terminal import theme as _theme
 from linecast.terminal.braille import DOT_BITS, line_dots
 from linecast.terminal.color import RESET, bg, fg
 from linecast.terminal.framebuffer import Framebuffer, get_terminal_size
-from linecast.terminal.textwidth import visible_len
+from linecast.terminal.textwidth import cells as text_cells, visible_len
 from linecast.terminal.theme import ensure_contrast, lerp_rgb, surface_bg
 from linecast.tides import palette as _palette
 from linecast.tides.i18n import _ts
@@ -236,8 +236,9 @@ def render_year(year, predicted, observed, flood, runtime, *, header, footer, to
         row, x0 = flood_y // 4, width - visible_len(label) - 1
         cells = range(x0 - 1, width)
         if x0 > 0 and not any((c, row) in data for c in cells):
-            for j, ch in enumerate(label):
-                over[(x0 + j, row)] = (ch, lerp_rgb(FLOOD_RGB, _theme.theme_bg, 0.15), False)
+            ink = lerp_rgb(FLOOD_RGB, _theme.theme_bg, 0.15)
+            for col, glyph in text_cells(label)[0]:
+                over[(x0 + col, row)] = (glyph, ink, False)
 
     # --- assemble ---
     dim = fg(*_palette.DIM_RGB)

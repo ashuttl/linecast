@@ -37,7 +37,7 @@ from linecast._i18n import DAY_NAMES, fmt_decimal, lang_of, table_for
 from linecast.terminal import live as _live
 from linecast.terminal.color import RESET, bg, fg
 from linecast.terminal.framebuffer import get_terminal_size
-from linecast.terminal.textwidth import visible_len, wrap_display_width
+from linecast.terminal.textwidth import cells as text_cells, visible_len, wrap_display_width
 from linecast.tides import harmonic
 from linecast.tides import palette as _palette
 from linecast.tides.i18n import _ts
@@ -257,6 +257,14 @@ def _line(values, cells, rows, now_frac, ink):
     return canvas.lines(ink, None if now_frac is None else int(now_frac * n))
 
 
+def _set(line, at, text):
+    """*text* into *line* from column *at*, a column to each element: a
+    wide glyph's second column is left empty and a combining mark rides
+    with its base, so the columns after it stay where they were."""
+    for col, glyph in text_cells(text)[0]:
+        line[at + col] = glyph
+
+
 def _placed(width, marks, beside=()):
     """A line *width* wide with each (fraction, text) centred at its
     place; a mark that would touch one already set is left out.  The
@@ -268,14 +276,14 @@ def _placed(width, marks, beside=()):
         w = visible_len(text)
         at = max(0, min(width - w, round(frac * width - w / 2)))
         if all(ch == " " for ch in line[max(0, at - 1):at + w + 1]):
-            line[at:at + w] = list(text) + [""] * (w - len(text))
+            _set(line, at, text)
     for frac, text in beside:
         w = visible_len(text)
         at = max(0, min(width - w, round(frac * width - w / 2)))
         for shift in (0, 1, -1, 2, -2):
             to = at + shift
             if 0 <= to <= width - w and all(ch == " " for ch in line[to:to + w]):
-                line[to:to + w] = list(text) + [""] * (w - len(text))
+                _set(line, to, text)
                 break
     return "".join(line)
 
