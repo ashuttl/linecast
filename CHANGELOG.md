@@ -25,6 +25,7 @@ New this version:
   - Japan's tides come from the Japan Meteorological Agency, and those of Norway, Svalbard, and Jan Mayen from Kartverket.
   - About 1,200 tide gauges in 103 countries, such as Brest, Cape Town, and Auckland, give the tides where no national service reaches, for any date.
   - The global tide model's tides reach any date, where they stopped about a week ahead.
+  - TideCheck stations draw the curve TideCheck predicts, not one estimated from the highs and lows. On a sea with hardly a tide, such as the Black Sea, the chart no longer has gaps.
 - Help: The help pages list a flag's choices first and then say what it does, in a sentence or two.
 
 Fixes:
