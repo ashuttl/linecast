@@ -510,16 +510,18 @@ TIDES = {
     "modeled": "modeled",
     # The makeup view (v): the tide's two parts and what raises each. The
     # rows of the table at the left are causes: the Moon's pull and the
-    # Sun's, the Moon's changing distance, and how far north or south of
-    # the equator each of them stands ("tilt"). Where a language's word
-    # for tilt would be read as the body's own axis, say declination: it
-    # is exact, and it is the word a reader can look up. The key under
-    # the strips explains the heights, the × figures, and the marks on
-    # the axes. Its three sentences are set one to a line, in this order.
-    # The ideal ocean is the tide the pull alone would raise on an Earth
-    # all ocean, with no shores to shape it; × is the height here over
-    # the height there, and may be less than one. makeup_mark_near is the
-    # one-letter mark for the Moon's nearest approach (p for perigee).
+    # Sun's, the Moon's changing distance, and each one's declination,
+    # which is how far north or south of the equator it stands. The word
+    # is exact, and it is one a reader can look up. A language may say
+    # it plainly instead ("the Moon off the equator"), but not with its
+    # word for tilt where that would be read as the body's own axis. The
+    # key under the strips explains the heights, the × figures, and the
+    # marks on the axes. Its three sentences are set one to a line, in
+    # this order. The ideal ocean is the tide the pull alone would raise
+    # on an Earth all ocean, with no shores to shape it; × is the height
+    # here over the height there, and may be less than one.
+    # makeup_mark_near is the one-letter mark for the Moon's nearest
+    # approach (p for perigee).
     # makeup_headline is the view's title, set above it over a rule.
     "makeup_headline": "What moves the tide here",
     "makeup_twice": "Twice a day",
@@ -527,8 +529,8 @@ TIDES = {
     "makeup_moon": "The Moon",
     "makeup_sun": "The Sun",
     "makeup_distance": "The Moon's distance",
-    "makeup_moon_tilt": "The Moon's tilt",
-    "makeup_sun_tilt": "The Sun's tilt",
+    "makeup_moon_tilt": "The Moon's declination",
+    "makeup_sun_tilt": "The Sun's declination",
     "makeup_key_size": "Each height is half the low-to-high swing from that cause.",
     "makeup_key_gain": "× compares it with the same contribution in an ideal ocean.",
     "makeup_key_sea": "The sea's shape and depth change how large it becomes here.",

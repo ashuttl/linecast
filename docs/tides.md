@@ -26,11 +26,11 @@ The Moon's pull is a little stronger on the side of the Earth nearest to it than
 
 The Earth turns under both bulges, so a place has two high waters in the time the Moon takes to come back overhead. That time is 24 hours and 50 minutes, a little more than a day, because the Moon moves along its orbit while the Earth turns. High waters are therefore 12 hours and 25 minutes apart, and each day's are about 50 minutes later than the day before. This is the twice-a-day tide. Oceanographers call it semidiurnal.
 
-The Moon is usually not over the equator. In the course of a month it swings north of the equator and then south of it, and the two bulges swing with it, so that one is centred north of the equator and the other south. A place in the northern hemisphere then passes close to one bulge and far from the other, and one of its two high waters is higher than the other. An uneven pair of tides is the same thing as an even pair with a once-a-day tide added to it. This once-a-day tide, the diurnal tide, comes from the Moon's tilt away from the equator. When the Moon is over the equator there is none.
+The Moon is usually not over the equator. In the course of a month it swings north of the equator and then south of it, and the two bulges swing with it, so that one is centred north of the equator and the other south. A place in the northern hemisphere then passes close to one bulge and far from the other, and one of its two high waters is higher than the other. An uneven pair of tides is the same thing as an even pair with a once-a-day tide added to it. This once-a-day tide, the diurnal tide, comes from the Moon standing away from the equator. How far north or south of the equator it stands is called its declination. When the Moon is over the equator there is none.
 
 The Sun raises both kinds of tide in the same way. Its pull on the tides is a little under half the Moon's, and its tides keep the Sun's time: one comes exactly twice a day and the other exactly once.
 
-Every tide is a sum of these parts, in proportions that differ from place to place. A place's tide is usually described as a list of constituents, each one a steady wave with its own period. The largest have names. M2 is the Moon's twice-a-day tide and S2 is the Sun's. N2 is the change in the Moon's tide as the Moon comes nearer and goes farther on its oval orbit. K1, O1 and P1 between them are the once-a-day tides of the Moon's tilt and the Sun's. Grouped by cause, the three places look like this. Each figure is an amplitude in metres, which is half the swing between high and low water.
+Every tide is a sum of these parts, in proportions that differ from place to place. A place's tide is usually described as a list of constituents, each one a steady wave with its own period. The largest have names. M2 is the Moon's twice-a-day tide and S2 is the Sun's. N2 is the change in the Moon's tide as the Moon comes nearer and goes farther on its oval orbit. K1, O1 and P1 between them are the once-a-day tides of the Moon's declination and the Sun's. Grouped by cause, the three places look like this. Each figure is an amplitude in metres, which is half the swing between high and low water.
 
 | | Portland | Tokyo | Quarry Bay |
 |---|---|---|---|
@@ -39,8 +39,8 @@ Every tide is a sum of these parts, in proportions that differ from place to pla
 | The Sun (S2) | 0.21 | 0.24 | 0.15 |
 | The Moon's distance (N2) | 0.30 | 0.07 | 0.08 |
 | **Once a day** | | | |
-| The Moon's tilt (O1 and part of K1) | 0.21 | 0.37 | 0.53 |
-| The Sun's tilt (P1 and part of K1) | 0.10 | 0.16 | 0.23 |
+| The Moon's declination (O1 and part of K1) | 0.21 | 0.37 | 0.53 |
+| The Sun's declination (P1 and part of K1) | 0.10 | 0.16 | 0.23 |
 | **Form ratio** | 0.16 | 0.63 | 1.22 |
 
 The last row is the usual measure of a tide's character. The form ratio is the two main once-a-day constituents divided by the two main twice-a-day ones, (K1 + O1) / (M2 + S2). Below 0.25 a tide is called semidiurnal. From 0.25 to 1.5 it is mixed and mainly semidiurnal, from 1.5 to 3 it is mixed and mainly diurnal, and above 3 it is diurnal. Portland's tide is almost purely twice a day. In Hong Kong the once-a-day part is the larger of the two.
@@ -73,7 +73,7 @@ Portland's once-a-day tide does the same thing on the same days. But its amplitu
 
 Two things made October 2026 an especially clear example.
 
-The first is that the Sun's once-a-day tide was nearly absent. It comes from the Sun's tilt away from the equator, so it is largest at the solstices and gone at the equinoxes, and October begins a week after one. In December 2026 the Sun's part is at full strength. The once-a-day tide at Quarry Bay never falls below 0.16 m that month, its high water stays between five in the afternoon and the small hours, and the bands bend where October's break.
+The first is that the Sun's once-a-day tide was nearly absent. It comes from the Sun's declination, so it is largest at the solstices and gone at the equinoxes, and October begins a week after one. In December 2026 the Sun's part is at full strength. The once-a-day tide at Quarry Bay never falls below 0.16 m that month, its high water stays between five in the afternoon and the small hours, and the bands bend where October's break.
 
 The second is that the spring tides and the Moon's crossings of the equator came together. Near an equinox the Sun is over the equator, so a new moon, which is in line with the Sun, and a full moon, which is opposite it, are near the equator too. The once-a-day tide therefore vanished just as the spring tides arrived, which left two clean tides a day around the 10th and the 25th. It was largest near the quarter moons, when the twice-a-day tide was at neaps, which left close to one tide a day around the 3rd and the 17th. At a solstice it is the other way round. New and full moons come when the Moon is far north or south, and the spring tides and the largest once-a-day tides arrive together. On December 25, 2026, the day after a full moon, the twice-a-day part at Quarry Bay is 0.58 m and the once-a-day part is 0.91 m. Both are the largest of the month, on the same day.
 
