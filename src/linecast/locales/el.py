@@ -417,9 +417,10 @@ TIDES = {
     "makeup_moon": "Σελήνη",
     "makeup_sun": "Ήλιος",
     "makeup_distance": "Απόσταση Σελήνης",
-    # κλίση, the plain word, as en.py's "tilt"; the astronomer's term is απόκλιση
-    "makeup_moon_tilt": "Κλίση Σελήνης",
-    "makeup_sun_tilt": "Κλίση Ήλιου",
+    # απόκλιση is declination, and in everyday use a deviation, here from the
+    # equator; κλίση would be read as the axis (κλίση του άξονα)
+    "makeup_moon_tilt": "Απόκλιση Σελήνης",
+    "makeup_sun_tilt": "Απόκλιση Ήλιου",
     "makeup_key_size": "Κάθε ύψος είναι η μισή διαφορά άμπωτης–πλημμυρίδας από την αιτία αυτή.",
     "makeup_key_gain": "Το × το συγκρίνει με το ύψος από την ίδια αιτία σε έναν ιδανικό ωκεανό.",
     "makeup_key_sea": "Το σχήμα και το βάθος της θάλασσας αλλάζουν το πόσο μεγάλο γίνεται εδώ.",

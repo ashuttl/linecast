@@ -511,12 +511,14 @@ TIDES = {
     # The makeup view (v): the tide's two parts and what raises each. The
     # rows of the table at the left are causes: the Moon's pull and the
     # Sun's, the Moon's changing distance, and how far north or south of
-    # the equator each of them stands ("tilt"). The key under the strips
-    # explains the heights, the × figures, and the marks on the axes. Its
-    # three sentences are set one to a line, in this order. The ideal
-    # ocean is the tide the pull alone would raise on an Earth all ocean,
-    # with no shores to shape it; × is the height here over the height
-    # there, and may be less than one. makeup_mark_near is the
+    # the equator each of them stands ("tilt"). Where a language's word
+    # for tilt would be read as the body's own axis, say declination: it
+    # is exact, and it is the word a reader can look up. The key under
+    # the strips explains the heights, the × figures, and the marks on
+    # the axes. Its three sentences are set one to a line, in this order.
+    # The ideal ocean is the tide the pull alone would raise on an Earth
+    # all ocean, with no shores to shape it; × is the height here over
+    # the height there, and may be less than one. makeup_mark_near is the
     # one-letter mark for the Moon's nearest approach (p for perigee).
     # makeup_headline is the view's title, set above it over a rule.
     "makeup_headline": "What moves the tide here",
