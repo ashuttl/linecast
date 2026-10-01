@@ -71,6 +71,7 @@ def providers():
     from linecast.radar.tiles import LIBREWXR_DEFAULT_URL
     from linecast.tides.chs import CHS_BASE
     from linecast.tides.hko import HKO_BASE
+    from linecast.tides.kartverket import KV_BASE
     from linecast.tides.qld import QLD_BASE
     from linecast.tides.tidecheck import TIDECHECK_BASE, is_available
     from linecast.maps.vtiles import DEFAULT_TILEJSON_URL, FALLBACK_TILEJSON_URL
@@ -95,6 +96,7 @@ def providers():
         ("CHS tides", _root(CHS_BASE)),
         ("Queensland tides", _root(QLD_BASE)),
         ("HKO tides and warnings", _root(HKO_BASE)),
+        ("Kartverket tides", _root(KV_BASE)),
         ("TideCheck tides", _root(TIDECHECK_BASE) if is_available() else None),
         ("IEM radar and warnings", "https://mesonet.agron.iastate.edu/"),
         ("RainViewer radar", "https://api.rainviewer.com/"),

@@ -11,6 +11,7 @@ from typing import Any
 
 from linecast.tides import chs
 from linecast.tides import hko
+from linecast.tides import kartverket
 from linecast.tides import noaa
 from linecast.tides import openmeteo
 from linecast.tides import qld
@@ -45,12 +46,34 @@ def _matches(haystack, tokens):
     return all(t in haystack for t in tokens)
 
 
+def _place_name(lat, lng, label, tag, fallback):
+    """The name a stationless provider gives the point it serves: the
+    caller's own when it has one, else the reverse geocoder's."""
+    if label:
+        # The caller geocoded a place name to get here and still has
+        # what it was called; reverse-geocoding the coordinates back
+        # into a worse version of it helps nobody.
+        return label
+    try:
+        from linecast.sunshine.json import _location_label
+        return _location_label(lat, lng)
+    except Exception as exc:
+        log_failure(tag, "location label", exc, fallback=f'"{fallback}"')
+        return fallback
+
+
+# Norwegian letters as a keyboard without them spells them, so a search
+# for "tromso" finds Tromsø
+_ASCII_NORWEGIAN = str.maketrans({"æ": "ae", "ø": "o", "å": "a"})
+
+
 class TideProvider:
     """What the tides command asks of a source.
 
     Station IDs are strings the provider recognises: NOAA's digits, CHS's
     24-hex ObjectIds, QLD's station names, HKO's three-letter codes,
-    TideCheck's slugs, Open-Meteo's "om:lat,lng". Every method takes and returns the shapes the NOAA
+    TideCheck's slugs, Open-Meteo's "om:lat,lng", Kartverket's
+    "kv:lat,lng". Every method takes and returns the shapes the NOAA
     pipeline was built on: (datetime, height_ft) points, (datetime,
     height_ft, "H"/"L") extremes, and NOAA-shaped metadata dicts.
     """
@@ -111,8 +134,9 @@ class TideProvider:
     def observed_extremes(self, station_id: str, year: int,
                           today: date) -> dict[date, tuple[float, float]]:
         """{day: (lowest, highest)} the station's gauge measured in *year*
-        before *today*, in feet above MLLW: the year view's pen.  Only
-        NOAA's stations report what they measured; the rest predict."""
+        before *today*, in feet above its datum: the year view's pen.
+        Only NOAA's stations and Kartverket's permanent gauges report
+        what they measured; the rest predict."""
         return {}
 
     def flood_stage(self, station_id: str) -> float | None:
@@ -370,18 +394,7 @@ class _OpenMeteo(TideProvider):
         station_id, _ = openmeteo.find_nearest_openmeteo(lat, lng)
         if station_id is None:
             return None, None
-        if label:
-            # The caller geocoded a place name to get here and still has
-            # what it was called; reverse-geocoding the coordinates back
-            # into a worse version of it helps nobody.
-            return station_id, label
-        try:
-            from linecast.sunshine.json import _location_label
-            return station_id, _location_label(lat, lng)
-        except Exception as exc:
-            log_failure("tides/open-meteo", "location label", exc,
-                        fallback='"Tide model"')
-            return station_id, "Tide model"
+        return station_id, _place_name(lat, lng, label, "tides/open-meteo", "Tide model")
 
     def station_metadata(self, station_id):
         return openmeteo.fetch_station_metadata_openmeteo(station_id)
@@ -398,26 +411,90 @@ class _OpenMeteo(TideProvider):
         return openmeteo.fetch_y_range_openmeteo(station_id, center_date, station_tz)
 
 
+class _Kartverket(TideProvider):
+    """Kartverket, for Norway: a prediction for any point on the coast,
+    so the point is the station, as with Open-Meteo's model. The search
+    lists the permanent gauges, as points where they stand, since those
+    are the places whose water is measured as well as predicted."""
+
+    name = "kartverket"
+    tag = " (Norway)"
+    label = "Kartverket"
+    stationless = True
+
+    def id_matches(self, text):
+        return kartverket.is_kartverket_station_id(text)
+
+    def name_for_id(self, station_id):
+        gauge = kartverket.gauge_at(station_id)
+        if gauge is not None:
+            return gauge["name"]
+        coords = kartverket.parse_station_id(station_id)
+        if coords is None:
+            return f"Station {station_id}"
+        lat, lng = coords
+        return _place_name(lat, lng, "", "tides/kartverket", f"{lat:.4f}, {lng:.4f}")
+
+    def nearest(self, lat, lng, label=""):
+        station_id = kartverket.find_point_kartverket(lat, lng)
+        if station_id is None:
+            return None, None
+        return station_id, _place_name(lat, lng, label, "tides/kartverket",
+                                       f"{lat:.4f}, {lng:.4f}")
+
+    def search(self, query, tokens):
+        found = []
+        for g in kartverket.GAUGES:
+            name = g["name"].lower()
+            where = "norway norge" + (" svalbard" if g["lat"] >= 74 else "")
+            if _matches(f"{name} {name.translate(_ASCII_NORWEGIAN)} {where}", tokens):
+                found.append({
+                    "source": self.name,
+                    "id": kartverket.make_station_id(g["lat"], g["lng"]),
+                    "name": g["name"], "lat": g["lat"], "lng": g["lng"],
+                })
+        return found
+
+    def station_metadata(self, station_id):
+        return kartverket.fetch_station_metadata_kartverket(station_id)
+
+    def tides_range(self, station_id, start_date, end_date, station_tz):
+        return kartverket.fetch_tides_range_kartverket(
+            station_id, start_date, end_date, station_tz)
+
+    def hilo_range(self, station_id, start_date, end_date, station_tz):
+        return kartverket.fetch_hilo_range_kartverket(
+            station_id, start_date, end_date, station_tz)
+
+    def y_range(self, station_id, center_date, station_tz):
+        return kartverket.fetch_y_range_kartverket(station_id, center_date, station_tz)
+
+    def observed_extremes(self, station_id, year, today):
+        return kartverket.fetch_observed_extremes_kartverket(station_id, year, today)
+
+
 NOAA = _NOAA()
 CHS = _CHS()
 QLD = _QLD()
 HKO = _HKO()
+KARTVERKET = _Kartverket()
 TIDECHECK = _TideCheck()
 OPENMETEO = _OpenMeteo()
 
 # In search order: among stations at equal distance the listing keeps it.
-PROVIDERS = {p.name: p for p in (NOAA, CHS, QLD, HKO, TIDECHECK, OPENMETEO)}
+PROVIDERS = {p.name: p for p in (NOAA, CHS, QLD, HKO, KARTVERKET, TIDECHECK, OPENMETEO)}
 
 
 def provider_for_id(text: str) -> TideProvider | None:
     """The provider whose station IDs look like *text*, or None.
 
-    Most specific first: the "om:" prefix, then CHS's 24-character hex
-    ObjectId (which can happen to be all digits), then HKO's codes
-    (letters, one with a digit; never all digits), then NOAA's digits,
-    then TideCheck's hyphenated slugs (only once a key is set).
+    Most specific first: the "om:" and "kv:" prefixes, then CHS's
+    24-character hex ObjectId (which can happen to be all digits), then
+    HKO's codes (letters, one with a digit; never all digits), then
+    NOAA's digits, then TideCheck's hyphenated slugs (only once a key
+    is set).
     """
-    for provider in (OPENMETEO, CHS, HKO, NOAA, TIDECHECK):
+    for provider in (OPENMETEO, KARTVERKET, CHS, HKO, NOAA, TIDECHECK):
         if provider.id_matches(text):
             return provider
     return None

@@ -139,7 +139,7 @@ Press `-` a few times and the view lies back until the horizon closes into a cir
 
 ### Tides
 
-National tide services in the US, Canada, Queensland, and Hong Kong, and a global model elsewhere. `--nearby` lists stations.
+National tide services in the US, Canada, Queensland, Hong Kong, and Norway, and a global model elsewhere. `--nearby` lists stations.
 
 ![tide chart](screenshots/tides.png)
 
