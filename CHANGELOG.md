@@ -17,7 +17,6 @@ New this version:
   - The global tide model's tides reach any date, where they stopped about a week ahead.
   - TideCheck stations draw the curve TideCheck predicts, not one estimated from the highs and lows. On a sea with hardly a tide, such as the Black Sea, the chart no longer has gaps.
   - A station search finds a name typed without its accents: `tromso` finds Tromsø.
-  - A TideCheck key can be kept in `config.json`, under `tidecheck_key`, as well as in the `LINECAST_TIDECHECK_KEY` environment variable.
 - Language:
   - linecast speaks Hungarian and Slovak. `linecast language hu` or `sk`, or a terminal locale in either, puts every view in that language, and the sky names its constellations, and some of the brightest stars, in each.
   - Names set in capitals follow Greek and Turkish spelling: "ΑΘΗΝΑ", not "ΑΘΉΝΑ", and "İZMİR", not "İZMIR".
@@ -85,6 +84,10 @@ Fixes:
   - Fixed a setting command, such as `linecast units imperial`, replacing a config.json that could not be read, and every setting in it, with the one setting. A config.json that is a symbolic link, as from a dotfiles repository, is no longer replaced with a plain file.
   - Fixed `linecast link` ending in a Python traceback where linecast is installed in a directory the user cannot write in; it says so and suggests `--dir`.
 - Cache: Fixed the cache growing for as long as linecast is used. Once a day, the views clear out what they will not read again.
+
+## 2.9.3 — 2026-09-30
+
+- Tides: A TideCheck key can be kept in `config.json`, under `tidecheck_key`, as well as in the `LINECAST_TIDECHECK_KEY` environment variable.
 
 ## 2.9.2 — 2026-09-27
 
