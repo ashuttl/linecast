@@ -33,7 +33,8 @@ import calendar
 import math
 from datetime import date, datetime, timedelta, timezone
 
-from linecast._i18n import DAY_NAMES, fmt_decimal, lang_of, table_for
+from linecast._i18n import DAY_NAMES, MONTHS, fmt_decimal, lang_of, table_for
+from linecast.astro.calendars.civil import SOLAR_HIJRI, civil_calendar
 from linecast.terminal import live as _live
 from linecast.terminal.color import RESET, bg, fg
 from linecast.terminal.framebuffer import get_terminal_size
@@ -442,6 +443,23 @@ def render_makeup(first, made, runtime, *, header, footer, station_tz, now_local
     # --- the axes, the same under both parts --------------------------------
     month_labels = axis_month_labels(runtime, narrow=True)
     every = 1 if cell_w >= 24 else 2
+    if civil_calendar(lang) == SOLAR_HIJRI:
+        # A month's number would read as a Solar Hijri month, 7 as Mehr,
+        # so the Gregorian months are named (weather.year._month_axis):
+        # every month, or every second, third, fourth or sixth, the
+        # first of those whose names stand clear of one another
+        month_labels = table_for(MONTHS, lang)
+
+        def clear(step):
+            end = -1
+            for m in range(0, 12, step):
+                w = visible_len(month_labels[m])
+                at = max(0, min(cell_w - w, round((m + 0.5) / 12 * cell_w - w / 2)))
+                if at <= end:
+                    return False
+                end = at + w
+            return True
+        every = next((step for step in (1, 2, 3, 4, 6) if clear(step)), 12)
     axes = {
         "month": _placed(cell_w, [((d - 0.5) / ndays, str(d)) for d in range(1, ndays + 1, 7)]),
         "year": _placed(cell_w, [((m + 0.5) / 12, month_labels[m]) for m in range(0, 12, every)]),
