@@ -127,6 +127,8 @@ _SWEEP = (
     ("tides", "hilo_*.json", 90),
     ("tides", "chs_pred_*.json", 90),
     ("tides", "chs_hilo_*.json", 90),
+    ("tides", "chs_obs_*.json", 90),
+    ("tides", "chs_holdings_*.json", 30),
     ("tides", "qld_pred_*.json", 90),
     ("tides", "tc_hilo_*.json", 90),
     ("tides", "hko_hhot_*.json", _YEAR),

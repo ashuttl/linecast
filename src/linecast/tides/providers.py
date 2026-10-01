@@ -119,9 +119,9 @@ class TideProvider:
                           today: date) -> dict[date, tuple[float, float]]:
         """{day: (lowest, highest)} the station's gauge measured in *year*
         before *today*, in feet above the datum the predictions are on:
-        the year view's pen.  NOAA's stations and JMA's own gauges report
-        what they measured, and Open-Meteo gives its model's own heights
-        (see observed_label); the rest predict."""
+        the year view's pen.  NOAA's and CHS's stations and JMA's own
+        gauges report what they measured, and Open-Meteo gives its
+        model's own heights (see observed_label); the rest predict."""
         return {}
 
     def flood_stage(self, station_id: str) -> float | None:
@@ -223,6 +223,9 @@ class _CHS(TideProvider):
 
     def y_range(self, station_id, center_date, station_tz):
         return chs.fetch_y_range_chs(station_id, center_date, station_tz)
+
+    def observed_extremes(self, station_id, year, today):
+        return chs.fetch_observed_extremes_chs(station_id, year, today)
 
 
 class _QLD(TideProvider):

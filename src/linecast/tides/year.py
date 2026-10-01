@@ -14,9 +14,11 @@ The field swells and shrinks twice a month, springs and neaps, and the
 largest swells come where the full or new Moon falls near perigee; the
 Moon's new and full phases are marked above the chart.  NOAA stations
 also have a flood stage, drawn as a dotted line, and any water, predicted
-or measured, above it is in the alert ink.  JMA's own gauges measure as
-well; the other providers predict without measuring, so their year is
-the field alone.
+or measured, above it is in the alert ink.  CHS stations and JMA's own
+gauges measure too, with no flood stage, which neither publishes, and
+Open-Meteo's places draw the model's own water, marked as modeled.  The
+other providers predict without measuring, so their year is the field
+alone.
 """
 
 from datetime import date, timedelta
