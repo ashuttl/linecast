@@ -307,7 +307,13 @@ class Tide:
         match theirs one for one.
         """
         start, end = _utc(start), _utc(end)
-        points = self.series(start - timedelta(minutes=20), end + timedelta(minutes=20), 20)
+        # The scan runs six hours past the window at both ends.  A turn
+        # by the window's edge needs the scan's point on either side of
+        # it, and a stand of the water has to be seen whole: with half
+        # of one beyond the window the other half would be kept, and a
+        # day's turns would not be the month's.
+        pad = timedelta(hours=6)
+        points = self.series(start - pad, end + pad, 20)
         out = []
         for (_t0, a), (t1, b), (_t2, c) in zip(points, points[1:], points[2:]):
             if b > a and b >= c:
@@ -332,28 +338,23 @@ class Tide:
                     break
             if abs((t - t1).total_seconds()) > 1200:
                 t = t1
-            if start <= t <= end:
-                out.append((t, self.height(t), kind))
-        return _without_stands(out, stand)
+            out.append((t, self.height(t), kind))
+        return [turn for turn in _without_stands(out, stand) if start <= turn[0] <= end]
 
 
 def _without_stands(turns, stand):
     """*turns* less each neighbouring high and low closer than *stand*,
-    the closest pair first, so the highs and lows still alternate."""
+    the closest pair first and each pair whole, so the highs and lows
+    still alternate.  The caller's scan runs well past the window it
+    was asked for, so a pair at either end of *turns* is seen whole too,
+    and is outside what the caller keeps."""
     turns = list(turns)
     while len(turns) > 1:
         gaps = [(abs(a[1] - b[1]), i) for i, (a, b) in enumerate(zip(turns, turns[1:]))]
         gap, i = min(gaps)
         if gap >= stand:
             break
-        # A pair in the middle goes whole; at either end only the pair's
-        # outer turn, since its partner beyond the window is unseen.
-        if 0 < i < len(turns) - 2:
-            del turns[i:i + 2]
-        elif i == 0:
-            del turns[0]
-        else:
-            del turns[-1]
+        del turns[i:i + 2]
     return turns
 
 
