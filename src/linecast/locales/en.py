@@ -512,12 +512,13 @@ TIDES = {
     # rows of the table at the left are causes: the Moon's pull and the
     # Sun's, the Moon's changing distance, and how far north or south of
     # the equator each of them stands ("tilt"). The key under the strips
-    # explains the sizes, the × figures, and the marks on the axes. The
-    # two sentences are set as one paragraph, the second after the first,
-    # and what the pull alone would raise is the tide on an Earth all
-    # ocean, with no shores to shape it. makeup_mark_near is the
+    # explains the heights, the × figures, and the marks on the axes. Its
+    # three sentences are set one to a line, in this order. The ideal
+    # ocean is the tide the pull alone would raise on an Earth all ocean,
+    # with no shores to shape it; × is the height here over the height
+    # there, and may be less than one. makeup_mark_near is the
     # one-letter mark for the Moon's nearest approach (p for perigee).
-    # makeup_headline is the view's title, set quietly above it.
+    # makeup_headline is the view's title, set above it over a rule.
     "makeup_headline": "What moves the tide here",
     "makeup_twice": "Twice a day",
     "makeup_once": "Once a day",
@@ -526,8 +527,9 @@ TIDES = {
     "makeup_distance": "The Moon's distance",
     "makeup_moon_tilt": "The Moon's tilt",
     "makeup_sun_tilt": "The Sun's tilt",
-    "makeup_key_size": "Each size is half the swing from low water to high due to that cause.",
-    "makeup_key_gain": "× is how many times the shape of the sea here amplifies what the pull alone would raise.",
+    "makeup_key_size": "Each height is half the low-to-high swing from that cause.",
+    "makeup_key_gain": "× compares it with the same contribution in an ideal ocean.",
+    "makeup_key_sea": "The sea's shape and depth change how large it becomes here.",
     "makeup_key_phases": "new, full moon",
     "makeup_mark_near": "p",
     "makeup_key_near": "Moon nearest",

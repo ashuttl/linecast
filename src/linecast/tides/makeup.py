@@ -18,10 +18,11 @@ one part against the other.  Over the nineteen years the change is a
 few percent, less than a dot on that scale, so those two are lines on a
 scale of their own with the change written under them.
 
-At the left, in the Moon view's manner, are the causes and the size of
-each: half the swing from low water to high, and how many times the sea
-here amplifies what the Moon or the Sun alone would raise at this
-latitude.
+At the left, in the Moon view's manner, are the causes and the height
+of each: half the swing from low water to high, and that height against
+what the Moon or the Sun alone would raise at this latitude on an Earth
+all ocean.  The sea builds some tides up and holds others down, so the
+figure may be eleven or it may be less than one.
 
 The constants are fitted to a year of the station's own high and low
 waters (harmonic.fit_turns), the same year the year view draws, so the
@@ -295,26 +296,33 @@ def _flowed(items, width, between="   "):
 
 def _fitted(room, key_rows):
     """What *room* rows hold: (the strips' height, the blank rows under
-    the headline or None for no headline, how many of the key's lines).
+    the headline or None for no headline, how many of the key's lines,
+    whether the key has its open line).
 
     The strips come first, at three rows; then as much of the key as
     still fits, since the marks cannot be read without it; then the
-    strips grow, to six rows.  The headline is for a window with room to
-    spare: it is set only where the strips keep five rows and a blank
-    row is left above the view and below it."""
-    def needs(strip_rows, air, key):
+    strips grow, to six rows; then the key takes an open line between
+    what it says of the figures and what it says of the marks.  The
+    headline is for a window with room to spare: it is set only where
+    the strips keep five rows and a blank row is left above the view
+    and below it."""
+    def needs(strip_rows, air, key, open_line=False):
         # the spans' titles, two parts of strips over an axis and its
-        # marks with a blank between, the key under a blank, the headline
-        return (1 + 2 * (strip_rows + 2) + 1 + (key + 1 if key else 0)
-                + (0 if air is None else 1 + air))
+        # marks with a blank between, the key under a blank, the
+        # headline and its rule
+        return (1 + 2 * (strip_rows + 2) + 1 + (key + 1 + open_line if key else 0)
+                + (0 if air is None else 2 + air))
     key = next((k for k in range(key_rows, 0, -1) if needs(3, None, k) <= room), 0)
+    whole = key > 0 and key == key_rows
     for strip_rows, air in ((6, 2), (6, 1), (5, 2), (5, 1)):
-        if needs(strip_rows, air, key) + 2 <= room:
-            return strip_rows, air, key
+        if needs(strip_rows, air, key, whole) + 2 <= room:
+            return strip_rows, air, key, whole
+    if whole and needs(6, None, key, True) <= room:
+        return 6, None, key, True
     for strip_rows in (6, 5, 4, 3):
         if needs(strip_rows, None, key) <= room:
-            return strip_rows, None, key
-    return 2, None, 0
+            return strip_rows, None, key, False
+    return 2, None, 0, False
 
 
 def _fortnightly(daily):
@@ -379,7 +387,7 @@ def render_makeup(first, made, runtime, *, header, footer, station_tz, now_local
         spans.pop()
     cell_w = max(8, min(60, (cols - 2 - left_w - gap * (len(spans) - 1)) // len(spans)))
 
-    key_lines = []
+    says, marks = [], []
     north = south = ""
     if made:
         compass = rs("compass", lang).split()
@@ -388,22 +396,28 @@ def render_makeup(first, made, runtime, *, header, footer, station_tz, now_local
         full_moon = moon_phase(datetime(2000, 1, 21, 4, 40, tzinfo=UTC), runtime)[2]
         # What the table's figures are, then what the axes' marks are;
         # a short window keeps the marks' lines and lets the others go.
-        # The two sentences are one paragraph: on one line where they
-        # fit, and wrapped together where they do not, so that neither
-        # is left with a word on a line of its own.
-        key_lines = wrap_display_width(f"{_ts('makeup_key_size', runtime)} "
-                                       f"{_ts('makeup_key_gain', runtime)}", cols - 2)
-        key_lines += _flowed([
+        # Each sentence has a line to itself where the longest fits;
+        # where it does not they are wrapped together as one paragraph,
+        # so that none is left with a word on a line of its own.
+        says = [_ts(k, runtime) for k in ("makeup_key_size", "makeup_key_gain", "makeup_key_sea")]
+        if max(visible_len(line) for line in says) > cols - 2:
+            says = wrap_display_width(" ".join(says), cols - 2)
+        marks = _flowed([
             f"{new_moon} {full_moon} {_ts('makeup_key_phases', runtime)}",
             f"{_ts('makeup_mark_near', runtime)} {_ts('makeup_key_near', runtime)}",
             f"{north} {south} {_ts('makeup_key_far', runtime)}",
             f"0 {_ts('makeup_key_equator', runtime)}"], cols - 2)
-        key_lines = [f" {dim}{line}{RESET}" for line in key_lines]
-    headline = f" {muted}{_ts('makeup_headline', runtime)}{RESET}"
+    key_lines = [f" {dim}{line}{RESET}" for line in says + marks]
+    # The headline is the one line set in full ink over a rule, which
+    # is what puts it above the parts' own titles
+    title = _ts("makeup_headline", runtime)
+    headline = [f" {text}{title}{RESET}", f" {dim}{'─' * visible_len(title)}{RESET}"]
     n_footer = footer.count("\n") + 1
     room = rows - 1 - n_footer   # between the header and the footer
-    strip_rows, air, kept = _fitted(room, len(key_lines))
+    strip_rows, air, kept, open_line = _fitted(room, len(key_lines))
     key_lines = key_lines[len(key_lines) - kept:]
+    if open_line and says and marks:
+        key_lines.insert(len(says), "")
     for lines in groups:
         del lines[strip_rows + 2:]
 
@@ -436,7 +450,7 @@ def render_makeup(first, made, runtime, *, header, footer, station_tz, now_local
     spacer = " " * gap
     out = []
     if air is not None:
-        out += [headline] + [""] * air
+        out += headline + [""] * air
     out.append(" " * (left_w + 1) + spacer.join(f"{dim}{padded(titles[s], cell_w)}{RESET}"
                                                 for s in spans))
     tops = []     # each part's first strip line, counted from the body's top
