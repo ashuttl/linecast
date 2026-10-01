@@ -183,6 +183,11 @@ def render_month(first, predictions, hilo, runtime, *, header, footer, station_m
     n_rows = min(avail, -(-ndays // per_row))
     shown = days[:n_rows * per_row]
     row_days = [shown[r * per_row:(r + 1) * per_row] for r in range(n_rows)]
+    # A day cannot be stretched, so a taller terminal has rows to spare:
+    # the header and footer keep the top and bottom of the window, and
+    # the field sits midway between them.
+    spare = avail - n_rows
+    above = spare // 2
 
     # --- the columns: the day labels, the field, the daylight lows ---
     sun = {d: _sun_times(d, lat, lng, tz) if lat is not None else (None, None)
@@ -257,7 +262,7 @@ def render_month(first, predictions, hilo, runtime, *, header, footer, station_m
     hover = None
     if mouse_pos:
         mcol, mrow = mouse_pos
-        r, x = mrow - 2, mcol - 1 - gutter
+        r, x = mrow - 2 - above, mcol - 1 - gutter
         if 0 <= r < n_rows and 0 <= x < width:
             hover = (r, x)
             for rr in range(n_rows):
@@ -271,7 +276,7 @@ def render_month(first, predictions, hilo, runtime, *, header, footer, station_m
     phases = _phase_marks(first, tz, runtime)
 
     # --- assemble ---
-    lines = [header]
+    lines = [header] + [""] * above
     for r, body in enumerate(field.render(overlays)):
         group = row_days[r]
         is_today = today in group
@@ -290,6 +295,7 @@ def render_month(first, predictions, hilo, runtime, *, header, footer, station_m
     ticks = render_tide_ticks(datetime(first.year, first.month, first.day, tzinfo=tz),
                               24, width, runtime)
     lines.append(" " * gutter + ticks)
+    lines.extend([""] * (spare - above))
     lines.append(footer)
     output = "\n".join(lines)
 
