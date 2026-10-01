@@ -4,10 +4,20 @@ Notable changes, by release. Notes for the next release collect under **Unreleas
 
 ## Unreleased
 
-linecast speaks Hungarian and Slovak, and the moon view is redrawn with the Moon in the middle and its tables in the four corners. Otherwise this release is mostly fixes, many of them to times near a change of clock, to places far from the equator, and to text in languages other than English.
+The tides have three new views: a month, a year, and what moves the tide at a place. They also come from more of the world, with Japan's and Norway's own tables and about 1,200 gauges elsewhere. linecast speaks Hungarian and Slovak, and the moon view is redrawn with the Moon in the middle and its tables in the four corners. Otherwise this release is mostly fixes, many of them to times near a change of clock, to places far from the equator, and to text in languages other than English.
 
 New this version:
 
+- Tides:
+  - `v` steps the live view from the day to a month: a day to a row and the hours across, with sunrise and sunset and each day's lowest low water in daylight.
+  - `v` again reaches the year: each day's predicted range, the new and full moons, and what the gauge measured, where the station has one. NOAA stations show their flood stage.
+  - A last `v` shows what moves the tide at a place: its twice-a-day and once-a-day parts through the month, the year, and nineteen years of the Moon's long cycle, with the height of each cause and how it compares with the same cause in an ideal ocean.
+  - Japan's tides come from the Japan Meteorological Agency, and those of Norway, Svalbard, and Jan Mayen from Kartverket.
+  - About 1,200 tide gauges in 103 countries, such as Brest, Cape Town, and Auckland, give the tides where no national service reaches, for any date.
+  - The global tide model's tides reach any date, where they stopped about a week ahead.
+  - TideCheck stations draw the curve TideCheck predicts, not one estimated from the highs and lows. On a sea with hardly a tide, such as the Black Sea, the chart no longer has gaps.
+  - A station search finds a name typed without its accents: `tromso` finds Tromsø.
+  - A TideCheck key can be kept in `config.json`, under `tidecheck_key`, as well as in the `LINECAST_TIDECHECK_KEY` environment variable.
 - Language:
   - linecast speaks Hungarian and Slovak. `linecast language hu` or `sk`, or a terminal locale in either, puts every view in that language, and the sky names its constellations, and some of the brightest stars, in each.
   - Names set in capitals follow Greek and Turkish spelling: "ΑΘΗΝΑ", not "ΑΘΉΝΑ", and "İZMİR", not "İZMIR".
@@ -21,15 +31,6 @@ New this version:
 - Weather:
   - More colors at the ends of the temperature scale: a deeper blue down to -40°F (-40°C), and a crimson up to 115°F (46°C).
   - In the daily forecast, the conditions for calm days are dimmed, so the days with rain, snow, or wind stand out.
-- Tides:
-  - Japan's tides come from the Japan Meteorological Agency, and those of Norway, Svalbard, and Jan Mayen from Kartverket.
-  - About 1,200 tide gauges in 103 countries, such as Brest, Cape Town, and Auckland, give the tides where no national service reaches, for any date.
-  - The global tide model's tides reach any date, where they stopped about a week ahead.
-  - TideCheck stations draw the curve TideCheck predicts, not one estimated from the highs and lows. On a sea with hardly a tide, such as the Black Sea, the chart no longer has gaps.
-  - `v` steps the live view from the day to a month: a day to a row and the hours across, with sunrise and sunset and each day's lowest low water in daylight.
-  - `v` again reaches the year: each day's predicted range, the new and full moons, and what the gauge measured, where the station has one. NOAA stations show their flood stage.
-  - A last `v` shows what moves the tide at a place: its twice-a-day and once-a-day parts through the month, the year, and nineteen years of the Moon's long cycle, with the height of each cause and how it compares with the same cause in an ideal ocean.
-  - A TideCheck key can be kept in `config.json`, under `tidecheck_key`, as well as in the `LINECAST_TIDECHECK_KEY` environment variable.
 - Help: The help pages list a flag's choices first and then say what it does, in a sentence or two.
 
 Fixes:
