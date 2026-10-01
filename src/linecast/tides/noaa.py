@@ -13,8 +13,8 @@ from linecast._cache import location_cache_key
 from linecast._http import fetch_json, fetch_json_cached
 from linecast._log import log_failure, log_skipped
 from linecast.tides.common import (
-    cache_dir, cached_y_range, month_after, month_start, nearest_station,
-    station_coords, y_range_window,
+    cache_dir, cached_y_range, measured_turns, month_after, month_start,
+    nearest_station, station_coords, y_range_window,
 )
 
 PREDICTION_CACHE_MAX_AGE = 86400
@@ -329,6 +329,13 @@ def fetch_hilo_range(station_id: str, start_date: date, end_date: date,
 # ---------------------------------------------------------------------------
 # What the gauge measured, and where the water floods
 # ---------------------------------------------------------------------------
+# The gauge reads every six minutes.  A turn of the tide may have six
+# readings running gone from around it, some twenty minutes either side
+# of the middle one, and still be measured to an inch or two.
+_STEP = 6 * 60
+_GAP = 6
+
+
 def _observed_url(station_id, product, begin, end):
     return (
         "https://api.tidesandcurrents.noaa.gov/api/prod/datagetter"
@@ -355,6 +362,22 @@ def _observed_rows(data):
     return rows
 
 
+def _on_grid(rows, start, slots):
+    """The readings in *rows* on the six-minute grid from *start*, None
+    where there is none.  NOAA's times are the station's wall clock, as
+    the predictions' are, so the two line up without a zone; the hour
+    the clocks repeat in autumn keeps its second reading."""
+    level = [None] * slots
+    for time_str, value in rows:
+        moment = _row_dt(time_str, None)
+        if moment is None:
+            continue
+        slot = round((moment - start).total_seconds() / _STEP)
+        if 0 <= slot < slots:
+            level[slot] = value
+    return level
+
+
 def fetch_observed_extremes(station_id: str, year: int,
                             today: date) -> dict[date, tuple[float, float]]:
     """{day: (lowest, highest)} of the water the gauge measured in *year*
@@ -364,18 +387,17 @@ def fetch_observed_extremes(station_id: str, year: int,
     to about a month ago. The weeks after that come from the preliminary
     six-minute series, 31 days to a request: two or three requests in
     all, and the past years' are kept for a month.
+
+    Both are read at the turns the tables predict (measured_turns), so a
+    day's range is measured as its prediction is. The verified month
+    ends at midnight in Greenwich, in the middle of the station's
+    evening, so its last day is short a turn or two; the six-minute
+    series is asked from that day and gives it whole.
     """
     first = date(year, 1, 1)
     last = min(date(year, 12, 31), today - timedelta(days=1))
     if last < first:
         return {}
-    days = {}
-
-    def take(rows):
-        for time_str, value in rows or []:
-            day = date.fromisoformat(time_str[:10])
-            lo, hi = days.get(day, (value, value))
-            days[day] = (min(lo, value), max(hi, value))
 
     past = year < today.year
     # A past year's files are good for a month, but only the copies made
@@ -389,22 +411,40 @@ def fetch_observed_extremes(station_id: str, year: int,
             made_after = True   # no copy: the age decides nothing
         return 30 * 86400 if past and made_after else running
 
-    hl_file = cache_dir() / f"obs_hl_{station_id}_{year}.json"
-    take(fetch_json_cached(
-        hl_file, keep(hl_file, 86400),
-        _observed_url(station_id, "high_low", first, last), timeout=15,
-        fallback=None, provider="tides/noaa", transform=_observed_rows))
-    # Without verified days the gauge may be new or absent: look only at
-    # the last few weeks, not the whole year a month at a time.
-    start = max(days) + timedelta(days=1) if days else max(first, last - timedelta(days=45))
+    def rows(cache_file, running, product, begin, end):
+        found = fetch_json_cached(
+            cache_file, keep(cache_file, running),
+            _observed_url(station_id, product, begin, end), timeout=15,
+            fallback=None, provider="tides/noaa", transform=_observed_rows)
+        return found if isinstance(found, list) else []
+
+    def measured(readings, begin, gap):
+        start = datetime(begin.year, begin.month, begin.day)
+        slots = ((last - begin).days + 1) * 86400 // _STEP
+        return measured_turns(turns, _on_grid(readings, start, slots), start, last, _STEP, gap)
+
+    verified = rows(cache_dir() / f"obs_hl_{station_id}_{year}.json", 86400,
+                    "high_low", first, last)
+    # The year view has just asked for the same year, so this is its cache
+    turns = fetch_hilo_range(station_id, first, date(year, 12, 31), None)
+    if not turns:
+        return {}
+    days = measured(verified, first, None)
+    if verified:
+        latest = date.fromisoformat(max(row[0] for row in verified)[:10])
+        start = latest if latest not in days else latest + timedelta(days=1)
+    else:
+        # Without verified days the gauge may be new or absent: look only
+        # at the last few weeks, not the whole year a month at a time.
+        start = max(first, last - timedelta(days=45))
+    begin, recent = start, []
     while start <= last:
         end = min(start + timedelta(days=30), last)
-        wl_file = cache_dir() / f"obs_wl_{station_id}_{start:%Y%m%d}.json"
-        take(fetch_json_cached(
-            wl_file, keep(wl_file, 3 * 3600),
-            _observed_url(station_id, "water_level", start, end), timeout=15,
-            fallback=None, provider="tides/noaa", transform=_observed_rows))
+        recent += rows(cache_dir() / f"obs_wl_{station_id}_{start:%Y%m%d}.json", 3 * 3600,
+                       "water_level", start, end)
         start = end + timedelta(days=1)
+    if recent:
+        days = {**measured(recent, begin, _GAP), **days}
     return days
 
 

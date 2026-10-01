@@ -1,9 +1,10 @@
 import json
+import math
 import os
 import tempfile
 import time
 import unittest
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 from unittest.mock import patch
 
 from linecast import _http
@@ -451,15 +452,72 @@ class MetadataTests(unittest.TestCase):
         self.assertEqual(_station_tzinfo(belize).utcoffset(None).total_seconds(), -6 * 3600)
 
 
+# A tide for the gauge tests: a turn every 6 h 12 min from half past
+# midnight on New Year's Day, the lows and highs each of two heights, as
+# a tide with a daily inequality has.  The gauge runs LATE behind the
+# tables and OVER feet above them all year.
+TURN_EVERY = timedelta(minutes=372)
+TURNS = (("L", 0.2), ("H", 9.0), ("L", 2.5), ("H", 11.0))
+LATE = timedelta(minutes=12)
+OVER = 0.4
+
+
+def _predicted(year):
+    """[(datetime, feet, "H"/"L")]: the year's predicted turns."""
+    moment, k, turns = datetime(year, 1, 1, 0, 30), 0, []
+    while moment.year == year:
+        kind, feet = TURNS[k % 4]
+        turns.append((moment, feet, kind))
+        moment, k = moment + TURN_EVERY, k + 1
+    return turns
+
+
+def _predicted_range(year):
+    """{day: (lowest, highest)} of the predicted turns."""
+    days = {}
+    for moment, feet, _kind in _predicted(year):
+        lo, hi = days.get(moment.date(), (feet, feet))
+        days[moment.date()] = (min(lo, feet), max(hi, feet))
+    return days
+
+
+def _stamp(moment):
+    return moment.strftime("%Y-%m-%d %H:%M")
+
+
+def _verified(year, through):
+    """The gauge's highs and lows up to *through*, as NOAA verifies them."""
+    return [(_stamp(moment + LATE), f"{feet + OVER:.3f}")
+            for moment, feet, _kind in _predicted(year) if moment + LATE <= through]
+
+
+def _levels(year, begin, end):
+    """The gauge's six-minute levels from *begin* up to *end*: half a
+    cosine from each turn to the next."""
+    turns = [(moment + LATE, feet + OVER) for moment, feet, _kind in _predicted(year)]
+    rows, k, moment = [], 0, begin
+    while moment < end:
+        while k + 2 < len(turns) and turns[k + 1][0] <= moment:
+            k += 1
+        (t1, h1), (t2, h2) = turns[k], turns[k + 1]
+        frac = min(1.0, max(0.0, (moment - t1) / (t2 - t1)))
+        rows.append((_stamp(moment), f"{h1 + (h2 - h1) * (1 - math.cos(math.pi * frac)) / 2:.3f}"))
+        moment += timedelta(minutes=6)
+    return rows
+
+
 class _Datagetter:
     """NOAA's datagetter for one gauge: it answers each product with the
     rows it holds inside the dates asked, or with the error it gives
-    when it holds none, and keeps what it was asked.
+    when it holds none, and keeps what it was asked of the gauge.  The
+    tide tables it is also asked for are kept apart, in `tables`: the
+    year view has them before it asks what the gauge measured.
 
     Rows are as NOAA writes them: a verified high or low is
     {"t": "2026-08-30 04:00", "v": "9.871", "ty": "HH", "f": "0,0,0,0"},
     a preliminary six-minute level {"t": …, "v": "5.108", "s": "0.023",
-    "f": "1,0,0,0", "q": "p"}.
+    "f": "1,0,0,0", "q": "p"}, a predicted turn {"t": …, "v": "9.000",
+    "type": "H"}.
     """
 
     NOTHING = {"error": {"message": "No data was found. This product may not be offered "
@@ -471,11 +529,18 @@ class _Datagetter:
                      "water_level": [{"t": t, "v": v, "s": "0.023", "f": "1,0,0,0", "q": "p"}
                                      for t, v in water_level]}
         self.urls = []
+        self.tables = []
 
     def __call__(self, url, headers=None, timeout=10):
-        self.urls.append(url)
         product, begin, end = self._asked(url)
         lo, hi = (f"{d[:4]}-{d[4:6]}-{d[6:]}" for d in (begin, end))
+        if product == "predictions":
+            self.tables.append(url)
+            return {"predictions": [
+                {"t": _stamp(moment), "v": f"{feet:.3f}", "type": kind}
+                for moment, feet, kind in _predicted(int(begin[:4]))
+                if lo <= _stamp(moment)[:10] <= hi]}
+        self.urls.append(url)
         data = [row for row in self.rows[product] if lo <= row["t"][:10] <= hi]
         if not data:
             return self.NOTHING
@@ -490,24 +555,21 @@ class _Datagetter:
 
     @property
     def asked(self):
-        """(product, first day, last day) of each request, in order."""
+        """(product, first day, last day) of each request of the gauge, in order."""
         return [self._asked(url) for url in self.urls]
 
 
 class ObservedExtremesTests(_PrivateCache):
     """A year of what the gauge measured: NOAA's verified highs and lows
-    as far as they reach, then the preliminary levels up to yesterday."""
+    as far as they reach, then the preliminary levels up to yesterday,
+    both read at the turns the tables predict."""
 
     TODAY = date(2026, 10, 1)
-    # Verified through 30 August. The preliminary series holds the
-    # verified days too, the 29th with a reading the verification threw out.
-    VERIFIED = [("2026-08-29 03:12", "9.412"), ("2026-08-29 09:24", "0.688"),
-                ("2026-08-29 15:30", "9.940"), ("2026-08-29 21:48", "0.305"),
-                ("2026-08-30 04:00", "9.871"), ("2026-08-30 10:06", "1.102")]
-    PRELIMINARY = [("2026-08-29 12:00", "14.200"),
-                   ("2026-08-31 00:00", "5.108"), ("2026-08-31 04:48", "10.311"),
-                   ("2026-08-31 11:00", "0.402"),
-                   ("2026-09-30 23:54", "6.214")]
+    # Verified through August, which NOAA ends at midnight in Greenwich:
+    # eight in the evening on the 31st, with that day's last low still
+    # to come.  The preliminary series holds the verified days too.
+    VERIFIED = _verified(2026, datetime(2026, 8, 31, 20))
+    PRELIMINARY = _levels(2026, datetime(2026, 8, 1), datetime(2027, 1, 1))
 
     def _observed(self, gauge, year=2026, today=None):
         with patch.object(_http, "fetch_json", side_effect=gauge):
@@ -520,21 +582,71 @@ class ObservedExtremesTests(_PrivateCache):
             then = time.time() - seconds
             os.utime(path, (then, then))
 
+    @staticmethod
+    def _files():
+        return sorted(p.name for p in common.cache_dir().glob("obs_*"))
+
+    def assert_over_the_tables(self, days, first, last):
+        """Every day from *first* through *last* reads OVER feet above
+        its predicted range, low water and high."""
+        predicted = _predicted_range(first.year)
+        for n in range((last - first).days + 1):
+            day = first + timedelta(days=n)
+            self.assertIn(day, days)
+            for measured, table in zip(days[day], predicted[day]):
+                self.assertAlmostEqual(measured, table + OVER, places=3, msg=str(day))
+        self.assertEqual(len(days), (last - first).days + 1)
+
     def test_the_verified_turns_and_the_preliminary_levels_make_one_year(self):
         gauge = _Datagetter(self.VERIFIED, self.PRELIMINARY)
         days = self._observed(gauge)
-        self.assertEqual(days, {
-            # the verified turns alone: the preliminary 14.2 for a day
-            # already verified is not counted with them
-            date(2026, 8, 29): (0.305, 9.94),
-            date(2026, 8, 30): (1.102, 9.871),
-            date(2026, 8, 31): (0.402, 10.311),
-            date(2026, 9, 30): (6.214, 6.214),
-        })
-        # the year in one request, and the weeks after the last verified
-        # day in another, which begins the day after it
+        self.assert_over_the_tables(days, date(2026, 1, 1), date(2026, 9, 30))
+        # the year in one request, and the weeks after in another, which
+        # begins on the last verified day: its evening is not verified yet
         self.assertEqual(gauge.asked, [("high_low", "20260101", "20260930"),
                                        ("water_level", "20260831", "20260930")])
+
+    def test_a_turn_measured_past_midnight_counts_for_the_day_it_was_predicted_on(self):
+        # The tables put the higher high water at 23:54 on 7 January and
+        # the gauge saw it at 00:06 on the 8th, a day whose own high is
+        # the lower one.  Read by the gauge's dates the 7th would fall
+        # two feet short of its prediction and the 8th pass it by two.
+        late = [(m, feet) for m, feet, _kind in _predicted(2026)
+                if (m + LATE).date() != m.date()]
+        self.assertEqual(late[0], (datetime(2026, 1, 7, 23, 54), 11.0))
+        self.assertEqual(_predicted_range(2026)[date(2026, 1, 8)][1], 9.0)
+        days = self._observed(_Datagetter(self.VERIFIED, self.PRELIMINARY))
+        self.assertAlmostEqual(days[date(2026, 1, 7)][1], 11.0 + OVER, places=3)
+        self.assertAlmostEqual(days[date(2026, 1, 8)][1], 9.0 + OVER, places=3)
+
+    def test_the_water_at_midnight_is_not_a_days_high_or_low(self):
+        # 13 September has one high water, the lower of the two, at
+        # 12:18.  At midnight the higher one of the evening before has
+        # only begun to ebb, two feet above it, and the next is nearly
+        # in as the day ends.  The 5th is the same the other way up:
+        # one low water, and midnight below it.
+        samples = dict(self.PRELIMINARY)
+        self.assertGreater(float(samples["2026-09-13 00:00"]), 9.0 + OVER + 1.9)
+        self.assertLess(float(samples["2026-09-05 00:00"]), 2.5 + OVER - 1.9)
+        days = self._observed(_Datagetter(self.VERIFIED, self.PRELIMINARY))
+        self.assertAlmostEqual(days[date(2026, 9, 13)][1], 9.0 + OVER, places=3)
+        self.assertAlmostEqual(days[date(2026, 9, 5)][0], 2.5 + OVER, places=3)
+
+    def test_a_hole_around_a_turn_leaves_the_day_out(self):
+        # 10 September 03:06 to 03:42: seven readings, and a turn may be
+        # in the hole.  Six gone are read across.
+        def without(first, last):
+            return [row for row in self.PRELIMINARY
+                    if not f"2026-09-10 {first}" <= row[0] <= f"2026-09-10 {last}"]
+
+        days = self._observed(_Datagetter(self.VERIFIED, without("03:06", "03:42")))
+        self.assertNotIn(date(2026, 9, 10), days)
+        self.assertIn(date(2026, 9, 9), days)
+        self.assertIn(date(2026, 9, 11), days)
+        with tempfile.TemporaryDirectory() as tmp, \
+             patch.dict(os.environ, {"LINECAST_CACHE_DIR": tmp}):
+            days = self._observed(_Datagetter(self.VERIFIED, without("03:06", "03:36")))
+        self.assertIn(date(2026, 9, 10), days)
 
     def test_the_levels_are_asked_for_in_feet_above_mllw_on_the_stations_clock(self):
         gauge = _Datagetter(self.VERIFIED, self.PRELIMINARY)
@@ -546,41 +658,35 @@ class ObservedExtremesTests(_PrivateCache):
             self.assertIn("time_zone=lst_ldt", url)
 
     def test_a_long_wait_for_verification_is_filled_31_days_at_a_time(self):
-        gauge = _Datagetter([("2026-07-15 04:00", "9.1"), ("2026-07-15 10:06", "0.9")],
-                            [("2026-07-16 00:00", "5.0"), ("2026-08-15 23:54", "5.1"),
-                             ("2026-08-16 00:00", "5.2"), ("2026-09-30 12:00", "5.3")])
+        gauge = _Datagetter(_verified(2026, datetime(2026, 7, 15, 20)),
+                            _levels(2026, datetime(2026, 7, 1), datetime(2026, 10, 1)))
         days = self._observed(gauge)
-        self.assertEqual(gauge.asked[1:], [("water_level", "20260716", "20260815"),
-                                           ("water_level", "20260816", "20260915"),
-                                           ("water_level", "20260916", "20260930")])
-        self.assertEqual(sorted(days), [date(2026, 7, 15), date(2026, 7, 16),
-                                        date(2026, 8, 15), date(2026, 8, 16),
-                                        date(2026, 9, 30)])
-        self.assertEqual(days[date(2026, 8, 15)], (5.1, 5.1))
+        self.assertEqual(gauge.asked[1:], [("water_level", "20260715", "20260814"),
+                                           ("water_level", "20260815", "20260914"),
+                                           ("water_level", "20260915", "20260930")])
+        self.assert_over_the_tables(days, date(2026, 1, 1), date(2026, 9, 30))
 
     def test_a_finished_year_is_asked_for_whole_and_needs_no_preliminary_levels(self):
-        gauge = _Datagetter([("2025-01-01 02:00", "0.891"), ("2025-01-01 08:30", "11.774"),
-                             ("2025-12-31 21:18", "0.52")])
+        gauge = _Datagetter(_verified(2025, datetime(2026, 1, 1)))
         days = self._observed(gauge, year=2025)
         self.assertEqual(gauge.asked, [("high_low", "20250101", "20251231")])
-        self.assertEqual(days, {date(2025, 1, 1): (0.891, 11.774),
-                                date(2025, 12, 31): (0.52, 0.52)})
+        self.assert_over_the_tables(days, date(2025, 1, 1), date(2025, 12, 31))
 
     def test_the_year_stops_at_yesterday(self):
         # 2 January: the year so far is one day
-        gauge = _Datagetter(water_level=[("2026-01-01 00:00", "4.0"),
-                                         ("2026-01-01 06:12", "10.5")])
+        gauge = _Datagetter(water_level=_levels(2026, datetime(2026, 1, 1),
+                                                datetime(2026, 1, 3)))
         days = self._observed(gauge, today=date(2026, 1, 2))
         self.assertEqual(gauge.asked, [("high_low", "20260101", "20260101"),
                                        ("water_level", "20260101", "20260101")])
-        self.assertEqual(days, {date(2026, 1, 1): (4.0, 10.5)})
+        self.assert_over_the_tables(days, date(2026, 1, 1), date(2026, 1, 1))
 
     def test_a_year_with_no_day_behind_it_asks_nothing(self):
         gauge = _Datagetter(self.VERIFIED, self.PRELIMINARY)
         # New Year's Day, and a year not yet begun
         self.assertEqual(self._observed(gauge, year=2026, today=date(2026, 1, 1)), {})
         self.assertEqual(self._observed(gauge, year=2027), {})
-        self.assertEqual(gauge.urls, [])
+        self.assertEqual(gauge.urls + gauge.tables, [])
 
     def test_a_station_without_a_gauge_answers_with_nothing(self):
         gauge = _Datagetter()
@@ -603,18 +709,27 @@ class ObservedExtremesTests(_PrivateCache):
             self.assertEqual(noaa.fetch_observed_extremes("8418150", 2026, self.TODAY), {})
         # and nothing was kept of the failure: the next run asks again
         gauge = _Datagetter(self.VERIFIED, self.PRELIMINARY)
-        self.assertEqual(len(self._observed(gauge)), 4)
+        self.assertEqual(len(self._observed(gauge)), 273)
+
+    def test_measurements_without_the_tables_are_not_drawn(self):
+        gauge = _Datagetter(self.VERIFIED, self.PRELIMINARY)
+
+        def no_tables(url, headers=None, timeout=10):
+            if "product=predictions" in url:
+                raise OSError("network down")
+            return gauge(url, headers, timeout)
+
+        with patch.object(_http, "fetch_json", side_effect=no_tables):
+            self.assertEqual(noaa.fetch_observed_extremes("8418150", 2026, self.TODAY), {})
 
     def test_a_reading_that_cannot_be_read_is_left_out(self):
-        gauge = _Datagetter(self.VERIFIED, [
-            ("2026-08-31 00:00", "5.108"),
-            ("2026-08-31 00:06", ""),          # a sample the gauge missed
-            ("2026-08-31 00:12", "n/a"),
-            ("not a time", "30.0"),
-            ("2026-08-31 00:18", "5.3"),
-        ])
-        gauge.rows["water_level"].append({"t": "2026-08-31 00:24"})
-        self.assertEqual(self._observed(gauge)[date(2026, 8, 31)], (5.108, 5.3))
+        bad = {"2026-09-10 05:00": "",          # a sample the gauge missed
+               "2026-09-10 05:06": "n/a"}
+        levels = [(t, bad.get(t, v)) for t, v in self.PRELIMINARY] + [("not a time", "30.0")]
+        gauge = _Datagetter(self.VERIFIED, levels)
+        gauge.rows["water_level"].append({"t": "2026-09-10 05:12"})
+        days = self._observed(gauge)
+        self.assert_over_the_tables(days, date(2026, 1, 1), date(2026, 9, 30))
 
     def test_an_answer_of_another_shape_is_no_measurements(self):
         for answer in ({"data": None}, {"metadata": None, "data": []}, {}):
@@ -628,7 +743,7 @@ class ObservedExtremesTests(_PrivateCache):
         first = self._observed(gauge)
         self.assertEqual(len(gauge.urls), 2)
         names = ("obs_hl_8418150_2026.json", "obs_wl_8418150_20260831.json")
-        self.assertEqual(sorted(p.name for p in common.cache_dir().iterdir()), sorted(names))
+        self.assertEqual(self._files(), sorted(names))
 
         self._aged(2 * 3600, *names)
         self.assertEqual(self._observed(gauge), first)
@@ -644,7 +759,7 @@ class ObservedExtremesTests(_PrivateCache):
                          ["high_low", "water_level"])
 
     def test_a_past_year_is_kept_a_month(self):
-        gauge = _Datagetter([("2025-01-01 02:00", "0.891"), ("2025-12-31 21:18", "0.52")])
+        gauge = _Datagetter(_verified(2025, datetime(2026, 1, 1)))
         first = self._observed(gauge, year=2025)
         self._aged(20 * 86400, "obs_hl_8418150_2025.json")
         self.assertEqual(self._observed(gauge, year=2025), first)
@@ -652,7 +767,6 @@ class ObservedExtremesTests(_PrivateCache):
         self._aged(31 * 86400, "obs_hl_8418150_2025.json")
         self._observed(gauge, year=2025)
         self.assertEqual(len(gauge.urls), 2)
-
 
     def test_a_copy_made_while_the_year_ran_does_not_stand_for_the_finished_year(self):
         """On 31 December the year's files stop at the 30th. Two days

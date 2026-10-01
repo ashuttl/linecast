@@ -5,7 +5,6 @@ All CHS data is in UTC and metres; this module converts to local time and
 feet for compatibility with the NOAA-based rendering pipeline.
 """
 
-import math
 import threading
 import time
 from collections import deque
@@ -17,7 +16,7 @@ from linecast._http import fetch_json, fetch_json_cached
 from linecast._log import debug_log, log_failure, log_skipped
 from linecast.tides.common import (
     M_TO_FT, cache_dir, cached_y_range, dedup_sorted, iana_to_abbr,
-    label_hilo, local_day_bounds, month_after, nearest_station,
+    label_hilo, local_day_bounds, measured_turns, month_after, nearest_station,
     parse_cached_dt, parse_utc_iso, station_coords, tz_offset_hours,
     y_range_window,
 )
@@ -380,42 +379,6 @@ def _observed_month(station_id, first, last, station_tz, settled, fetch):
                                 "m": _samples(data, start, slots)})
 
 
-def _measured_turns(turns, level, start, last):
-    """{day: (lowest, highest)} in feet of the water the gauge measured at
-    each day's predicted turns of the tide, through *last*.
-
-    Each turn takes the samples nearer to it than to the turns either
-    side, and reads their highest for a high water and their lowest for
-    a low; a day's range is then taken from its turns as the predicted
-    one is.  A day's plain highest sample will not do: where the higher
-    high water falls near midnight, as it does in Vancouver in summer,
-    the water at midnight is the evening's high still ebbing, and the
-    day after would read five feet over a prediction it matched.
-    A sample or two gone missing costs a few inches at most, even at
-    Fundy's range, but three or more running are a gap the turn itself
-    may be in, and the day is left out.
-    """
-    at = [(moment - start).total_seconds() / _STEP for moment, _h, _k in turns]
-    found, missed = {}, set()
-    for i, (moment, _height, kind) in enumerate(turns):
-        day = moment.date()
-        if day > last:
-            break
-        lo = (at[i - 1] + at[i]) / 2 if i else at[i] - 12
-        hi = (at[i] + at[i + 1]) / 2 if i + 1 < len(turns) else at[i] + 12
-        window = level[max(0, math.ceil(lo)):max(0, math.ceil(hi))]
-        seen = [v for v in window if v is not None]
-        gap = run = 0
-        for v in window:
-            run = run + 1 if v is None else 0
-            gap = max(gap, run)
-        if not seen or gap > 2:
-            missed.add(day)
-            continue
-        found.setdefault(day, []).append((max(seen) if kind == "H" else min(seen)) * M_TO_FT)
-    return {day: (min(v), max(v)) for day, v in found.items() if day not in missed}
-
-
 def fetch_observed_extremes_chs(station_id: str, year: int,
                                 today: date) -> dict[date, tuple[float, float]]:
     """{day: (lowest, highest)} of the water the gauge measured in *year*
@@ -481,4 +444,5 @@ def fetch_observed_extremes_chs(station_id: str, year: int,
                     if value is not None and 0 <= offset + k < len(level):
                         level[offset + k] = value
         month = month_after(month)
-    return _measured_turns(turns, level, start, last)
+    measured = measured_turns(turns, level, start, last, _STEP)
+    return {day: (lo * M_TO_FT, hi * M_TO_FT) for day, (lo, hi) in measured.items()}

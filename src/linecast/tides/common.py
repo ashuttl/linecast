@@ -6,6 +6,7 @@ this module holds those pieces once. The provider modules keep what is
 genuinely theirs: URLs, payload shapes, and unit or timezone quirks.
 """
 
+import math
 import re
 from collections.abc import Callable
 from datetime import date, datetime, timedelta, timezone, tzinfo
@@ -378,3 +379,50 @@ def label_hilo(values: list[tuple[datetime, float]]) -> list[tuple[datetime, flo
             is_high = height > values[i - 1][1] and height > values[i + 1][1]
         labeled.append((dt, height, "H" if is_high else "L"))
     return labeled
+
+
+# ---------------------------------------------------------------------------
+# What a gauge measured, against the turns predicted for it
+# ---------------------------------------------------------------------------
+def measured_turns(turns: list[tuple[datetime, float, str]], level: list[float | None],
+                   start: datetime, last: date, step: int,
+                   gap: int | None = 2) -> dict[date, tuple[float, float]]:
+    """{day: (lowest, highest)} of the water the gauge measured at each
+    day's predicted turns of the tide, through *last*, in the gauge's
+    own unit.  *level* is what it read every *step* seconds from *start*,
+    None where it sent nothing.
+
+    Each turn takes the readings nearer to it than to the turns either
+    side, and reads their highest for a high water and their lowest for
+    a low; a day's range is then taken from its turns as the predicted
+    one is.  A day's plain highest reading will not do: where the higher
+    high water falls near midnight, as it does in Vancouver in summer,
+    the water at midnight is the evening's high still ebbing, and the
+    day after would read five feet over a prediction it matched.
+    A reading or two gone missing costs a few inches at most, even at
+    Fundy's range, but more than *gap* running are a hole the turn
+    itself may be in, and the day is left out.  *gap* is None where the
+    readings are the gauge's own highs and lows with nothing between
+    them, as NOAA's verified ones are: a turn then wants only a reading.
+    """
+    at = [(moment - start).total_seconds() / step for moment, _h, _k in turns]
+    reach = 3 * 3600 / step
+    found, missed = {}, set()
+    for i, (moment, _height, kind) in enumerate(turns):
+        day = moment.date()
+        if day > last:
+            break
+        lo = (at[i - 1] + at[i]) / 2 if i else at[i] - reach
+        hi = (at[i] + at[i + 1]) / 2 if i + 1 < len(turns) else at[i] + reach
+        window = level[max(0, math.ceil(lo)):max(0, math.ceil(hi))]
+        seen = [v for v in window if v is not None]
+        longest = run = 0
+        if gap is not None:
+            for v in window:
+                run = run + 1 if v is None else 0
+                longest = max(longest, run)
+        if not seen or (gap is not None and longest > gap):
+            missed.add(day)
+            continue
+        found.setdefault(day, []).append(max(seen) if kind == "H" else min(seen))
+    return {day: (min(v), max(v)) for day, v in found.items() if day not in missed}

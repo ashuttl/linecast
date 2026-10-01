@@ -391,3 +391,58 @@ class ComputedTideTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class MeasuredTurnsTests(unittest.TestCase):
+    """What a gauge read, taken at the turns the tables predict."""
+
+    START = datetime(2026, 3, 1)
+    TURNS = [(datetime(2026, 3, 1, 3), 9.0, "H"), (datetime(2026, 3, 1, 9), 1.0, "L"),
+             (datetime(2026, 3, 1, 15), 8.0, "H"), (datetime(2026, 3, 1, 21), 0.5, "L"),
+             (datetime(2026, 3, 2, 3), 9.0, "H")]
+
+    def _level(self, step, readings):
+        """A day and a half of nothing, with *readings* {(day, hour, minute): value}."""
+        level = [None] * (36 * 3600 // step)
+        for (day, hour, minute), value in readings.items():
+            level[((day - 1) * 86400 + hour * 3600 + minute * 60) // step] = value
+        return level
+
+    def test_each_turn_reads_the_highest_or_lowest_of_the_readings_nearest_it(self):
+        level = self._level(900, {(1, 3, 15): 9.4, (1, 5, 45): 6.0,     # the high, and its ebb
+                                  (1, 6, 15): 5.0, (1, 9, 0): 1.3,      # the low's flood side
+                                  (1, 14, 45): 8.2, (1, 21, 15): 0.9})
+        # the gaps between are far past any allowance, so none is asked
+        days = common.measured_turns(self.TURNS, level, self.START, date(2026, 3, 1), 900, None)
+        self.assertEqual(days, {date(2026, 3, 1): (0.9, 9.4)})
+
+    def test_a_reading_is_in_the_gauges_own_unit_at_any_spacing(self):
+        for step in (360, 900, 3600):
+            with self.subTest(step=step):
+                level = self._level(step, {(1, 3, 0): 2.74, (1, 9, 0): 0.31,
+                                           (1, 15, 0): 2.44, (1, 21, 0): 0.15})
+                days = common.measured_turns(self.TURNS, level, self.START,
+                                             date(2026, 3, 1), step, None)
+                self.assertEqual(days, {date(2026, 3, 1): (0.15, 2.74)})
+
+    def test_a_turn_with_no_reading_leaves_its_day_out(self):
+        level = self._level(360, {(1, 3, 0): 9.4, (1, 9, 0): 1.3, (1, 15, 0): 8.2})
+        self.assertEqual(
+            common.measured_turns(self.TURNS, level, self.START, date(2026, 3, 1), 360, None), {})
+
+    def test_a_run_of_missing_readings_longer_than_the_gap_leaves_the_day_out(self):
+        whole = [5.0] * (36 * 10)
+        self.assertIn(date(2026, 3, 1), common.measured_turns(
+            self.TURNS, whole, self.START, date(2026, 3, 1), 360, 6))
+        for missing, kept in ((6, True), (7, False)):
+            with self.subTest(missing=missing):
+                level = list(whole)
+                level[100:100 + missing] = [None] * missing
+                days = common.measured_turns(self.TURNS, level, self.START,
+                                             date(2026, 3, 1), 360, 6)
+                self.assertEqual(date(2026, 3, 1) in days, kept)
+
+    def test_days_after_the_last_are_not_measured(self):
+        level = [5.0] * (36 * 10)
+        days = common.measured_turns(self.TURNS, level, self.START, date(2026, 3, 1), 360, 6)
+        self.assertEqual(list(days), [date(2026, 3, 1)])
