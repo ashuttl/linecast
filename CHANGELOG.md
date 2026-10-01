@@ -23,6 +23,10 @@ New this version:
   - More colors at the ends of the temperature scale: a deeper blue that pales toward ice down to -40°F (-40°C), and a crimson that deepens toward maroon up to 115°F (46°C).
   - In the daily forecast, the conditions for calm days are dimmed, so the days with rain, snow, or wind stand out.
   - With `--classic-colors`, and in terminals that do not report their colors, the year view's background fills the whole window.
+- Tides:
+  - Japan's tides come from the Japan Meteorological Agency, and those of Norway, Svalbard, and Jan Mayen from Kartverket.
+  - About 1,200 tide gauges in 103 countries, such as Brest, Cape Town, and Auckland, give the tides where no national service reaches, for any date.
+  - The global tide model's tides reach any date, where they stopped about a week ahead.
 - Help: The help pages list a flag's choices first and then say what it does, in a sentence or two.
 
 Fixes:
