@@ -4,6 +4,8 @@ Notable changes, by release. Notes for the next release collect under **Unreleas
 
 ## Unreleased
 
+## 2.9.3 — 2026-09-30
+
 - Tides: A TideCheck key can be kept in `config.json`, under `tidecheck_key`, as well as in the `LINECAST_TIDECHECK_KEY` environment variable.
 
 ## 2.9.2 — 2026-09-27
