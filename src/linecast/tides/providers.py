@@ -6,6 +6,7 @@ function (as the tests do) reaches the provider. Where a provider cannot
 do something, its record says so in the method rather than by a flag.
 """
 
+import unicodedata
 from datetime import date, datetime, tzinfo
 from typing import Any
 
@@ -43,9 +44,18 @@ US_STATE_NAMES = {
 }
 
 
+def _plain(text):
+    """*text* as a keyboard without its accents spells it: Tōkyō as
+    tokyo, Ueckermünde as ueckermunde, Tromsø as tromso."""
+    decomposed = unicodedata.normalize("NFKD", text.translate(_ASCII_NORWEGIAN))
+    return "".join(ch for ch in decomposed if not unicodedata.combining(ch))
+
+
 def _matches(haystack, tokens):
-    """True when every query token appears in a station's searchable text."""
-    return all(t in haystack for t in tokens)
+    """True when every query token appears in a station's searchable
+    text, as written or with the accents left off either."""
+    plain = _plain(haystack)
+    return all(t in haystack or _plain(t) in plain for t in tokens)
 
 
 def _place_name(lat, lng, label, tag, fallback):

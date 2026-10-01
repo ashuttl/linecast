@@ -283,6 +283,20 @@ class StationSearchTests(unittest.TestCase):
                 self.assertEqual([m["name"] for m in found], ["Tromsø"])
                 self.assertTrue(found[0]["id"].startswith("kv:"))
 
+    def test_a_name_is_found_as_a_keyboard_without_its_accents_spells_it(self):
+        for query, wanted in (("ueckermunde", "ticon:ueckermnde-9690088-deu-wsv"),
+                              ("ueckermünde", "ticon:ueckermnde-9690088-deu-wsv"),
+                              ("ny-alesund", "ticon:nylesund-823-nor-uhslc_fd"),
+                              ("tōkyō", "jma:TK")):
+            with self.subTest(query=query):
+                self.assertIn(wanted, [m["id"] for m in self._matches(query, bundled=True)])
+
+    def test_a_japanese_name_is_found_with_either_width_of_bracket(self):
+        full = [m["id"] for m in self._matches("三宅島（坪田）", bundled=True)]
+        half = [m["id"] for m in self._matches("三宅島(坪田)", bundled=True)]
+        self.assertEqual(len(full), 1)
+        self.assertEqual(half, full)
+
     def test_a_provider_that_raises_leaves_the_others_listed(self):
         with _no_bundled_stations(), \
              patch.object(_tides_chs, "fetch_all_stations_chs",
