@@ -8,7 +8,11 @@ later than the day before's, and the month's tides lie across the rows
 as slanting stripes.  They are deepest at the new and full Moon, the
 springs, and faint at the quarters, the neaps.
 
-The field is the water: dark when it is low, full ink when it is high.
+The field is the water: dark when it is low, bright when it is high.
+How bright says how great the tide is.  A month whose water moves twelve
+feet reaches the curve's own ink; a smaller tide stops short of it, down
+to a sea with hardly a tide at all, which is drawn faintly but drawn;
+and a greater one goes past it, to near white at the Bay of Fundy.
 Sunrise and sunset are braille lines down the month, so the low
 waters in daylight are the dark stripes between them, which is what a
 month of tides is usually wanted for: a morning for the tide pools, a
@@ -21,6 +25,7 @@ each half-block; the right column then names the row's better low.
 """
 
 import calendar
+import math
 from bisect import bisect_left
 from datetime import date, datetime, timedelta, timezone
 
@@ -33,18 +38,34 @@ from linecast.terminal.braille import DOT_BITS
 from linecast.terminal.color import RESET, bg, fg
 from linecast.terminal.framebuffer import Framebuffer, get_terminal_size
 from linecast.terminal.textwidth import visible_len
-from linecast.terminal.theme import best_contrast, ensure_contrast, lerp_rgb, surface_bg
+from linecast.terminal.theme import (
+    best_contrast,
+    contrast_ratio,
+    ensure_contrast,
+    is_light_theme,
+    lerp_rgb,
+    shift_to_pole,
+    surface_bg,
+)
 from linecast.tides import palette as _palette
 from linecast.tides.chart import render_tide_ticks
 
-# The field's two ends, and the sunrise and sunset lines' ink
-LOW_RGB = HIGH_RGB = SUN_RGB = None
+# The field's inks: low water, high water where the tide is an ordinary
+# one, and high water where it is the greatest there is; then the sunrise
+# and sunset lines' ink
+LOW_RGB = HIGH_RGB = PEAK_RGB = SUN_RGB = None
+
+# The month's range, in feet, that reaches HIGH_RGB, and the least of
+# the way there any water is drawn, so the faintest tide still shows
+ORDINARY_RANGE_FT = 12.0
+FAINTEST = 0.10
 
 
 def _rebuild():
-    global LOW_RGB, HIGH_RGB, SUN_RGB
+    global LOW_RGB, HIGH_RGB, PEAK_RGB, SUN_RGB
     LOW_RGB = surface_bg(0.02)
     HIGH_RGB = lerp_rgb(_theme.theme_bg, _palette.CURVE_COLOR, 0.62)
+    PEAK_RGB = shift_to_pole(_palette.CURVE_COLOR, 0.80, lighter=not is_light_theme())
     SUN_RGB = ensure_contrast(
         best_contrast((_theme.theme_ansi[3], _theme.theme_ansi[11]), minimum=2.0),
         _theme.theme_bg, minimum=2.5)
@@ -91,6 +112,34 @@ class _Heights:
             return None   # a gap in the series
         frac = (moment - t0).total_seconds() / span
         return self.values[i - 1] + (self.values[i] - self.values[i - 1]) * frac
+
+
+def reach(range_ft):
+    """How far up the inks a month's highest water goes: 1 is HIGH_RGB,
+    2 is PEAK_RGB.  It goes as the square root of the range, so a tide
+    a quarter the size is half as bright: the Mediterranean's foot of
+    water is still plainly there, and four times the ordinary range,
+    the Bay of Fundy's, is the brightest there is."""
+    return max(FAINTEST, min(2.0, math.sqrt(max(0.0, range_ft) / ORDINARY_RANGE_FT)))
+
+
+def _water_ink(level):
+    """The ink at *level* of the way from low water: LOW_RGB at 0,
+    HIGH_RGB at 1, PEAK_RGB at 2."""
+    if level <= 1.0:
+        return lerp_rgb(LOW_RGB, HIGH_RGB, level)
+    return lerp_rgb(HIGH_RGB, PEAK_RGB, level - 1.0)
+
+
+def _clear_of(ink, water):
+    """*ink* for a line's dots over *water*.  The brightest water would
+    swallow the line, so there the ink goes toward the background until
+    it stands clear."""
+    for step in range(11):
+        shade = lerp_rgb(ink, _theme.theme_bg, step / 10)
+        if contrast_ratio(shade, water) >= 2.0:
+            return shade
+    return ink
 
 
 def _daylight_lows(hilo, day, sun):
@@ -167,6 +216,7 @@ def render_month(first, predictions, hilo, runtime, *, header, footer, station_m
     heights = _Heights(predictions)
     values = [h for _, h in predictions] or [0.0, 1.0]
     lo, hi = min(values), max(values)
+    top = reach(hi - lo) if predictions else 1.0
     field = Framebuffer(width, n_rows)
     sub = 2 // per_row   # sub-pixel rows to a day
     for k, day in enumerate(shown):
@@ -176,7 +226,7 @@ def render_month(first, predictions, hilo, runtime, *, header, footer, station_m
             if h is None:
                 continue
             t = max(0.0, min(1.0, (h - lo) / max(1e-9, hi - lo)))
-            ink = lerp_rgb(LOW_RGB, HIGH_RGB, t ** 1.2)
+            ink = _water_ink(t ** 1.2 * top)
             for s in range(sub):
                 field.set_pixel(x, k * sub + s, ink)
 
@@ -216,7 +266,8 @@ def render_month(first, predictions, hilo, runtime, *, header, footer, station_m
                     bits[cell] = DOT_BITS[0][1] | DOT_BITS[0][3]
                     inks[cell] = _palette.HOVER_COLOR
 
-    overlays = {cell: (chr(0x2800 + b), inks[cell], False) for cell, b in bits.items()}
+    overlays = {cell: (chr(0x2800 + b), _clear_of(inks[cell], field.cell_bg(*cell)), False)
+                for cell, b in bits.items()}
     phases = _phase_marks(first, tz, runtime)
 
     # --- assemble ---
