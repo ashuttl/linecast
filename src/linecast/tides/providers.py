@@ -11,6 +11,7 @@ from typing import Any
 
 from linecast.tides import chs
 from linecast.tides import hko
+from linecast.tides import jma
 from linecast.tides import noaa
 from linecast.tides import openmeteo
 from linecast.tides import qld
@@ -51,7 +52,8 @@ class TideProvider:
 
     Station IDs are strings the provider recognises: NOAA's digits, CHS's
     24-hex ObjectIds, QLD's station names, HKO's three-letter codes,
-    TICON-4's "ticon:" gauge names, TideCheck's slugs, Open-Meteo's
+    JMA's "jma:" and a two-character code, TICON-4's "ticon:" gauge
+    names, TideCheck's slugs, Open-Meteo's
     "om:lat,lng". Every method takes and returns the shapes the NOAA
     pipeline was built on: (datetime, height_ft) points, (datetime,
     height_ft, "H"/"L") extremes, and NOAA-shaped metadata dicts.
@@ -116,8 +118,10 @@ class TideProvider:
     def observed_extremes(self, station_id: str, year: int,
                           today: date) -> dict[date, tuple[float, float]]:
         """{day: (lowest, highest)} the station's gauge measured in *year*
-        before *today*, in feet above MLLW: the year view's pen.  Only
-        NOAA's stations report what they measured; the rest predict."""
+        before *today*, in feet above the datum the predictions are on:
+        the year view's pen.  NOAA's stations and JMA's own gauges report
+        what they measured, and Open-Meteo gives its model's own heights
+        (see observed_label); the rest predict."""
         return {}
 
     def flood_stage(self, station_id: str) -> float | None:
@@ -307,6 +311,51 @@ class _HKO(TideProvider):
         return hko.fetch_y_range_hko(station_id, center_date, station_tz)
 
 
+class _JMA(TideProvider):
+    """Japan Meteorological Agency: a fixed list of its tide-table
+    stations, so the search and the nearest lookup need no network.
+    Each has a Japanese name and a romanized one, and the search reads
+    both."""
+
+    name = "jma"
+    tag = " (Japan)"
+    label = "Japan Meteorological Agency"
+
+    def id_matches(self, text):
+        return jma.is_jma_station_id(text)
+
+    def name_for_id(self, station_id):
+        return jma.display_name(jma.STATION_BY_CODE[jma.station_code(station_id)])
+
+    def nearest(self, lat, lng):
+        return jma.find_nearest_station_jma(lat, lng)
+
+    def search(self, query, tokens):
+        found = []
+        for s in jma.STATIONS:
+            if _matches(f"{s['name']} {s['name_ja']} japan jp 日本".lower(), tokens):
+                found.append({
+                    "source": self.name, "id": f"{jma.ID_PREFIX}{s['id']}",
+                    "name": jma.display_name(s), "lat": s["lat"], "lng": s["lng"],
+                })
+        return found
+
+    def station_metadata(self, station_id):
+        return jma.fetch_station_metadata_jma(station_id)
+
+    def tides_range(self, station_id, start_date, end_date, station_tz):
+        return jma.fetch_tides_range_jma(station_id, start_date, end_date, station_tz)
+
+    def hilo_range(self, station_id, start_date, end_date, station_tz):
+        return jma.fetch_hilo_range_jma(station_id, start_date, end_date, station_tz)
+
+    def y_range(self, station_id, center_date, station_tz):
+        return jma.fetch_y_range_jma(station_id, center_date, station_tz)
+
+    def observed_extremes(self, station_id, year, today):
+        return jma.fetch_observed_extremes_jma(station_id, year, today)
+
+
 class _TICON(TideProvider):
     """Gauges around the world from TICON-4's harmonic constants. The list
     is bundled, so the search and the nearest lookup need no network, and
@@ -454,24 +503,25 @@ NOAA = _NOAA()
 CHS = _CHS()
 QLD = _QLD()
 HKO = _HKO()
+JMA = _JMA()
 TICON = _TICON()
 TIDECHECK = _TideCheck()
 OPENMETEO = _OpenMeteo()
 
 # In search order: among stations at equal distance the listing keeps it.
-PROVIDERS = {p.name: p for p in (NOAA, CHS, QLD, HKO, TICON, TIDECHECK, OPENMETEO)}
+PROVIDERS = {p.name: p for p in (NOAA, CHS, QLD, HKO, JMA, TICON, TIDECHECK, OPENMETEO)}
 
 
 def provider_for_id(text: str) -> TideProvider | None:
     """The provider whose station IDs look like *text*, or None.
 
-    Most specific first: the "om:" and "ticon:" prefixes, then CHS's
+    Most specific first: the "om:", "jma:" and "ticon:" prefixes, then CHS's
     24-character hex ObjectId (which can happen to be all digits), then
     HKO's codes (letters, one with a digit; never all digits), then
     NOAA's digits, then TideCheck's hyphenated slugs (only once a key is
     set).
     """
-    for provider in (OPENMETEO, TICON, CHS, HKO, NOAA, TIDECHECK):
+    for provider in (OPENMETEO, JMA, TICON, CHS, HKO, NOAA, TIDECHECK):
         if provider.id_matches(text):
             return provider
     return None
