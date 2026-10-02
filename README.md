@@ -56,6 +56,8 @@ linecast maps --from "portland, maine" --to "portland head light" --profile bike
 linecast maps --view now
 ```
 
+Open the alternate views directly with `linecast weather --year`, `linecast sunshine --year`, `linecast moon --month`, or `linecast tides --month`, `--year`, or `--makeup`. These flags also work with `--print`; `--json` and `--oneline` describe the current conditions and cannot be combined with an alternate view.
+
 linecast takes its colors from your terminal's color scheme. If you change the scheme while an app is open, the app redraws itself in the new colors. This is the same desktop through ten Omarchy themes:
 
 ![the same desktop through ten Omarchy themes, light and dark, each app taking up the new colors as the theme changes](screenshots/themes.gif)
@@ -145,14 +147,14 @@ National tide services in the US, Canada, Queensland, Hong Kong, Japan, and Norw
 
 ![tide chart](screenshots/tides.png)
 
-Press `v` for the month, with a row for each day and the hours across, and again for the year, where what the gauge measured is drawn over what was predicted:
+Press `v` for the month, with a row for each day and the hours across, and again for the year, where what the gauge measured is drawn over what was predicted. Open directly with `linecast tides --month` or `linecast tides --year`:
 
 <p align="center">
   <img src="screenshots/tides-month.png" width="49%" alt="October 2026 at Portland, Maine: the high water as two slanting bands a day, sunrise and sunset as dotted lines down the month, and each day's lowest low water in daylight at the right">
   <img src="screenshots/tides-year.png" width="49%" alt="2026 at Portland, Maine: each day's predicted range as a band, the gauge's highest and lowest water traced over it, and the pointer on the middle of June, where the water measured 12.4 feet and passed the flood stage">
 </p>
 
-Press `v` once more to see what moves the tide at that place: how much of it comes twice a day and how much once a day, what causes each part, and how each changes through the month, the year, and nineteen years of the Moon's long cycle. [About the tides](docs/tides.md) explains what it shows.
+Press `v` once more, or start with `linecast tides --makeup`, to see what moves the tide at that place: how much of it comes twice a day and how much once a day, what causes each part, and how each changes through the month, the year, and nineteen years of the Moon's long cycle. The year and makeup views require a source with year-round predictions. [About the tides](docs/tides.md) explains what it shows.
 
 ![what moves the tide at Portland, Maine: a table of five causes and the height of each, beside strips for the twice-a-day and once-a-day parts through October 2026, the year 2026, and 2016 to 2034](screenshots/tides-makeup.png)
 

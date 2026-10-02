@@ -22,7 +22,7 @@ from linecast.terminal import live as _live
 from linecast._location import country_for_defaults, resolve_location
 from linecast._plaintext import plain_text
 from linecast._runtime import TidesRuntime, set_current
-from linecast._parsers import tides_parser
+from linecast._parsers import refuse_view_flag, tides_parser
 from linecast._log import log_failure
 from linecast.terminal.spinner import Spinner
 from linecast.tides.common import month_after, sweep_legacy_cache
@@ -482,9 +482,12 @@ class TidesApp(LocationMenu, _live.LiveApp):
 # Main
 # ---------------------------------------------------------------------------
 def main():
-    args = tides_parser().parse_args()
+    parser = tides_parser()
+    args = parser.parse_args()
     runtime = TidesRuntime.from_sources(args)
     set_current(runtime)
+    if args.view != "day":
+        refuse_view_flag(parser, f"--{args.view}", runtime)
     # The tide curve is time, so in a right-to-left language the whole
     # view reads from the right, the next tide at the right edge
     from linecast.terminal import bidi as _bidi
@@ -595,6 +598,11 @@ def main():
                 print(hint, file=sys.stderr)
                 sys.exit(1)
 
+        if args.view in ("year", "makeup") and not provider.year_view:
+            spin.stop()
+            parser.error(f"--{args.view} is unavailable for {station_name}: "
+                         "this source has no year-round predictions; try --month")
+
         station_meta, station_name, station_tz = _station_details(
             provider, station_id, station_name)
         now_local = _station_now(station_meta)
@@ -639,13 +647,23 @@ def main():
             print(f"Could not fetch tide data for station {station_id}.", file=sys.stderr)
             sys.exit(1)
 
-        if runtime.live:
-            spin.stop()
-            TidesApp(
+        if runtime.live or args.view != "day":
+            app = TidesApp(
                 provider, station_id, station_name, station_meta,
                 station_tz, runtime, preds, hilo_data, fetch_start, fetch_end,
                 y_range=y_range, marine_data=marine_data, place=place, country=country,
-            ).run()
+            )
+            app.view = args.view
+            if runtime.live:
+                spin.stop()
+                app.run()
+            else:
+                # A single frame must wait for the month, year, or fit;
+                # the live renderer normally loads it in the background.
+                app._start_long()
+                app._long_worker.join()
+                spin.stop()
+                _live.print_frame(app._render_long(None))
         elif provider is NOAA:
             # NOAA's static view is the calendar day, which render fetches
             # itself from the month already cached above; every other

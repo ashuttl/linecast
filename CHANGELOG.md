@@ -9,6 +9,7 @@ The tides have three new views: a month, a year, and what moves the tide at a pl
 New this version:
 
 - Tides:
+  - `--month`, `--year`, and `--makeup` open directly on the alternate views, including with `--print`.
   - `v` steps the live view from the day to a month: a day to a row and the hours across, with sunrise and sunset and each day's lowest low water in daylight.
   - `v` again reaches the year: each day's predicted range, the new and full moons, and what the gauge measured, where the station has one. NOAA stations show their flood stage.
   - A last `v` shows what moves the tide at a place: its twice-a-day and once-a-day parts through the month, the year, and nineteen years of the Moon's long cycle, with the height of each cause and how it compares with the same cause in an ideal ocean.

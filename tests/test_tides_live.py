@@ -268,6 +268,79 @@ def _lines(frame):
     return frame.partition("\x00")[0].split("\n")
 
 
+@pytest.fixture
+def cli_station(monkeypatch, window):
+    app, provider = _tidal_app()
+    monkeypatch.setattr(_tides_live, "provider_for_id", lambda station: provider)
+    monkeypatch.setattr(provider, "name_for_id", lambda station: app.station_name, raising=False)
+    monkeypatch.setattr(_tides_live, "resolve_location", lambda *a, **k: (43.66, -70.25, "US"))
+    monkeypatch.setattr(_tides_live, "country_for_defaults", lambda *a: "US")
+    monkeypatch.setattr(_tides_live, "_station_details", lambda *a: (
+        app.station_meta, app.station_name, app.station_tz))
+    monkeypatch.setattr(_tides_live, "_fetch_station", lambda *a: (
+        app.fetched_start, app.fetched_end, app.y_range, None, [(NOON, 1.0)], []))
+    return provider
+
+
+class TestViewFlags:
+    @pytest.mark.parametrize("view", ["month", "year", "makeup"])
+    def test_live_opens_on_the_requested_view(self, monkeypatch, cli_station, view):
+        monkeypatch.setattr("sys.argv", ["tides", "--station", "8418150", f"--{view}",
+                                         "--live"])
+        seen = []
+        monkeypatch.setattr(TidesApp, "run", lambda app: seen.append(app.view))
+        _tides_live.main()
+        assert seen == [view]
+
+    @pytest.mark.parametrize("view", ["month", "year", "makeup"])
+    @pytest.mark.parametrize("mode", [[], ["--print"]])
+    def test_static_waits_for_the_requested_data(self, monkeypatch, cli_station, view, mode):
+        monkeypatch.setattr("sys.argv", ["tides", "--station", "8418150", f"--{view}", *mode])
+        frames = []
+        monkeypatch.setattr(_tides_live._live, "print_frame", frames.append)
+        render = TidesApp._render_long
+
+        def loaded_frame(app, mouse_pos):
+            assert app.view == view
+            assert app._long_key() in app._long
+            assert not app._long_worker.is_alive()
+            return render(app, mouse_pos)
+
+        monkeypatch.setattr(TidesApp, "_render_long", loaded_frame)
+        _tides_live.main()
+        assert len(frames) == 1 and isinstance(frames[0], str)
+        assert "Portland" in frames[0] and "2026" in frames[0]
+
+    @pytest.mark.parametrize("view", ["month", "year", "makeup"])
+    @pytest.mark.parametrize("mode", ["--json", "--oneline"])
+    def test_alternate_views_refuse_current_conditions_output(self, monkeypatch, capsys,
+                                                             view, mode):
+        monkeypatch.setattr("sys.argv", ["tides", f"--{view}", mode])
+        with pytest.raises(SystemExit) as exc:
+            _tides_live.main()
+        assert exc.value.code == 2
+        assert f"--{view} has no {mode} output" in capsys.readouterr().err
+
+    @pytest.mark.parametrize("view", ["year", "makeup"])
+    def test_short_range_source_refuses_year_views(self, monkeypatch, capsys, cli_station, view):
+        cli_station.year_view = False
+        monkeypatch.setattr("sys.argv", ["tides", "--station", "8418150", f"--{view}"])
+        with pytest.raises(SystemExit) as exc:
+            _tides_live.main()
+        assert exc.value.code == 2
+        assert f"--{view} is unavailable" in capsys.readouterr().err
+        assert not cli_station.calls
+
+    @pytest.mark.parametrize("flags", [("--month", "--year"), ("--month", "--makeup"),
+                                       ("--year", "--makeup")])
+    def test_view_flags_are_mutually_exclusive(self, flags, capsys):
+        from linecast._parsers import tides_parser
+        with pytest.raises(SystemExit) as exc:
+            tides_parser().parse_args(flags)
+        assert exc.value.code == 2
+        assert "not allowed with argument" in capsys.readouterr().err
+
+
 class TestViews:
     def test_v_goes_round_the_four_views(self):
         app, _provider = _tidal_app()

@@ -189,6 +189,19 @@ def tides_parser():
                          "(no query: list nearest stations)")
     p.add_argument("--nearby", action="store_true",
                     help="list the nearest tide stations and exit")
+    views = p.add_mutually_exclusive_group()
+    views.add_argument("--month", dest="view", action="store_const", const="month",
+                       default="day",
+                       help="open on the month view: a row for each day's tides "
+                            "(v cycles through the views)")
+    views.add_argument("--year", dest="view", action="store_const", const="year",
+                       help="open on the year view: predicted daily ranges and "
+                            "measured extremes, where available; requires a "
+                            "source with year-round predictions")
+    views.add_argument("--makeup", dest="view", action="store_const", const="makeup",
+                       help="open on what moves the tide: its causes through "
+                            "the month, year, and Moon's long cycle; requires a "
+                            "source with year-round predictions")
     return p
 
 
