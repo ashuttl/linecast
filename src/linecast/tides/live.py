@@ -37,7 +37,7 @@ from linecast.tides.stations import (
     _station_for_location, _station_now,
 )
 from linecast.tides.view import (
-    LIVE_WINDOW_HOURS, _live_window_start, _pill_label, _render_header_line, render,
+    LIVE_WINDOW_HOURS, _live_window_start, _render_header_line, pill_width, render,
 )
 
 
@@ -173,8 +173,7 @@ class TidesApp(LocationMenu, _live.LiveApp):
             self.view = "month"   # the new station's source has no year
 
     def _on_place(self, col, row):
-        name = _pill_label(self.station_name, location_menu=True)
-        return row == 1 and bool(name) and col <= visible_len(name) + 4
+        return row == 1 and bool(self.station_name) and col <= pill_width()
 
     def expand_for(self, offset_minutes):
         """Widen the fetched range when the user scrolls near an edge.
@@ -319,7 +318,7 @@ class TidesApp(LocationMenu, _live.LiveApp):
         if kind == "month":
             from linecast._i18n import lang_of
             from linecast.moon.calendar import _month_title
-            name = _month_title(when.year, when.month, lang_of(self.runtime))
+            name = _month_title(when.year, when.month, lang_of(self.runtime), full=True)
         else:
             name = str(when) if kind == "year" else self.station_name
         return self.busy_toast(ls('loading', self.runtime.lang, name=name), cols, rows,
@@ -362,18 +361,25 @@ class TidesApp(LocationMenu, _live.LiveApp):
         text, dim = fg(*_palette.TEXT_RGB), fg(*_palette.DIM_RGB)
         source = f"{dim}{self.provider.footer_label(self.runtime)}{RESET}"
         if self.view == "month":
-            from linecast.moon.calendar import _month_title
+            from linecast.moon.calendar import month_title_forms
             from linecast.tides.month import render_month
             first = key[2]
             header = _render_header_line(
                 cols, self.station_name, self.runtime, offset_minutes=self.months,
                 location_menu=True,
-                right=f"{text}{_month_title(first.year, first.month, lang)}{RESET}")
+                right=[(f"{text}{title}{RESET}", keep)
+                       for title, keep in month_title_forms(first.year, first.month, lang)])
             # The key to the braille over the field: the Sun's two lines
             from linecast.sunshine.i18n import _ss
             from linecast.tides import month as _month
-            legend = (f"{source}   {fg(*_month.SUN_RGB)}⡇{RESET} {dim}"
+            legend = (f"{source}   {fg(*_month.SUN_RGB)}{_month.SUN_KEY}{RESET} {dim}"
                       f"{_ss('sunrise', self.runtime)} / {_ss('sunset', self.runtime)}{RESET}")
+            if _month.month_of(now_local.date(), 0) == first:
+                from linecast.radar.i18n import rs
+                now_key = (f"   {fg(*_month.NOW_RGB)}{_month.NOW_MARK}{RESET} "
+                           f"{dim}{rs('now', lang)}{RESET}")
+                if visible_len(legend + now_key) <= cols - 3:
+                    legend += now_key
             footer = _help.footer(legend, cols, lang)
             return render_month(first, data[0] if data else None, data[1] if data else None,
                                 self.runtime, header=header, footer=footer,

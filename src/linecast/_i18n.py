@@ -212,6 +212,16 @@ def table_for(table, lang):
     return table["en"]
 
 
+def full_months(lang):
+    """The months' names in full where `lang` has them, else as it
+    abbreviates them: Persian's are whole already."""
+    chain = fallbacks(lang)
+    for code in chain if chain[0] == "en" else chain[:-1]:
+        if code in FULL_MONTHS:
+            return FULL_MONTHS[code]
+    return table_for(MONTHS, lang)
+
+
 def has_text(table, key, lang):
     """Whether `lang` has its own text for `key`: in its table, or its
     base's for a regional variant.  English's counts only for a language
@@ -282,12 +292,13 @@ def sentence_24h(runtime):
 
 def fmt_decimal(value, places, runtime):
     """`value` to `places` decimals with the display language's decimal
-    mark: "11.3", "11,3"."""
+    mark, and a true minus where it is below zero: "11.3", "11,3",
+    "−0.5"."""
     text = f"{value:.{places}f}"
     # The format keeps the sign of anything that rounds to zero from
     # below: a low tide of -0.01 ft would read "-0.0".
-    if text.startswith("-") and not text.strip("-0."):
-        text = text[1:]
+    if text.startswith("-"):
+        text = text[1:] if not text.strip("-0.") else "−" + text[1:]
     mark = setting(lang_of(runtime), "decimal")
     return text if mark == "." else text.replace(".", mark)
 
@@ -453,6 +464,8 @@ FULL_DAY_NAMES = LocaleTable("FULL_DAY_NAMES")
 # Abbreviated, January to December; CJK and Finnish dates are written
 # in numbers (the moon's DATE_MD), so theirs go unused there.
 MONTHS = LocaleTable("MONTHS")
+# In full, for a title: a language that numbers its months has none
+FULL_MONTHS = LocaleTable("FULL_MONTHS")
 MOON_PHASES = LocaleTable("MOON_PHASES")
 
 

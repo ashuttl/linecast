@@ -18,6 +18,8 @@ FULL_DAY_NAMES = ["maandag", "dinsdag", "woensdag", "donderdag", "vrijdag", "zat
 
 MONTHS = ["jan", "feb", "mrt", "apr", "mei", "jun",
           "jul", "aug", "sep", "okt", "nov", "dec"]
+FULL_MONTHS = ["januari", "februari", "maart", "april", "mei", "juni",
+               "juli", "augustus", "september", "oktober", "november", "december"]
 
 
 MOON_PHASES = ["Nieuwe maan", "Wassende sikkel", "Eerste kwartier", "Wassende maan",

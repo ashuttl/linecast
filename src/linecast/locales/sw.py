@@ -20,6 +20,8 @@ FULL_DAY_NAMES = ["Jumatatu", "Jumanne", "Jumatano", "Alhamisi", "Ijumaa", "Juma
 
 
 MONTHS = ["Jan", "Feb", "Mac", "Apr", "Mei", "Jun", "Jul", "Ago", "Sep", "Okt", "Nov", "Des"]
+FULL_MONTHS = ["Januari", "Februari", "Machi", "Aprili", "Mei", "Juni",
+               "Julai", "Agosti", "Septemba", "Oktoba", "Novemba", "Desemba"]
 
 
 MOON_PHASES = ["Mwezi mpya", "Hilali inayoongezeka", "Robo ya kwanza", "Mwezi unaoongezeka", "Mwezi mpevu", "Mwezi unaopungua", "Robo ya mwisho", "Hilali inayopungua"]

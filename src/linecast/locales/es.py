@@ -13,6 +13,8 @@ FULL_DAY_NAMES = ["lunes", "martes", "miércoles", "jueves", "viernes", "sábado
 
 MONTHS = ["ene", "feb", "mar", "abr", "may", "jun",
           "jul", "ago", "sep", "oct", "nov", "dic"]
+FULL_MONTHS = ["enero", "febrero", "marzo", "abril", "mayo", "junio",
+               "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"]
 
 
 MOON_PHASES = ["Luna nueva", "Creciente", "Cuarto creciente", "Gibosa creciente",

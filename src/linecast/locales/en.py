@@ -96,6 +96,9 @@ FULL_DAY_NAMES = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Satur
 
 MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun",
           "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+# In full, for a title with room for it: "October 2026"
+FULL_MONTHS = ["January", "February", "March", "April", "May", "June",
+               "July", "August", "September", "October", "November", "December"]
 
 
 MONTH_DAY = "{month} {day}"

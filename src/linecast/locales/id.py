@@ -18,6 +18,8 @@ FULL_DAY_NAMES = ["Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu", "Minggu"
 
 MONTHS = ["Jan", "Feb", "Mar", "Apr", "Mei", "Jun",
           "Jul", "Agu", "Sep", "Okt", "Nov", "Des"]
+FULL_MONTHS = ["Januari", "Februari", "Maret", "April", "Mei", "Juni",
+               "Juli", "Agustus", "September", "Oktober", "November", "Desember"]
 
 
 MOON_PHASES = ["Bulan baru", "Sabit awal", "Kuarter pertama", "Cembung awal",

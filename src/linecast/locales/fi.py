@@ -17,6 +17,10 @@ DAY_NAMES = ["ma", "ti", "ke", "to", "pe", "la", "su"]
 FULL_DAY_NAMES = ["maanantai", "tiistai", "keskiviikko", "torstai", "perjantai", "lauantai", "sunnuntai"]
 
 
+FULL_MONTHS = ["tammikuu", "helmikuu", "maaliskuu", "huhtikuu", "toukokuu", "kesäkuu",
+               "heinäkuu", "elokuu", "syyskuu", "lokakuu", "marraskuu", "joulukuu"]
+
+
 MONTH_DAY = "{day}.{mnum}."
 
 

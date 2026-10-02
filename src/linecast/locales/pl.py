@@ -19,6 +19,8 @@ FULL_DAY_NAMES = ["poniedziałek", "wtorek", "środa", "czwartek", "piątek", "s
 
 MONTHS = ["sty", "lut", "mar", "kwi", "maj", "cze",
           "lip", "sie", "wrz", "paź", "lis", "gru"]
+FULL_MONTHS = ["styczeń", "luty", "marzec", "kwiecień", "maj", "czerwiec",
+               "lipiec", "sierpień", "wrzesień", "październik", "listopad", "grudzień"]
 
 
 MOON_PHASES = ["Nów", "Sierp rosnący", "Pierwsza kwadra", "Garb rosnący",

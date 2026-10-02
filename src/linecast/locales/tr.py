@@ -19,6 +19,8 @@ FULL_DAY_NAMES = ["Pazartesi", "Salı", "Çarşamba", "Perşembe", "Cuma", "Cuma
 
 MONTHS = ["Oca", "Şub", "Mar", "Nis", "May", "Haz",
           "Tem", "Ağu", "Eyl", "Eki", "Kas", "Ara"]
+FULL_MONTHS = ["Ocak", "Şubat", "Mart", "Nisan", "Mayıs", "Haziran",
+               "Temmuz", "Ağustos", "Eylül", "Ekim", "Kasım", "Aralık"]
 
 
 MOON_PHASES = ["Yeni Ay", "Büyüyen hilal", "İlk dördün", "Büyüyen şişkin Ay",

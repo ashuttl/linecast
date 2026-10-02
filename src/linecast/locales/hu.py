@@ -29,6 +29,8 @@ FULL_DAY_NAMES = ["hétfő", "kedd", "szerda", "csütörtök", "péntek", "szomb
 # The Academy's abbreviations, with their full stops
 MONTHS = ["jan.", "febr.", "márc.", "ápr.", "máj.", "jún.",
           "júl.", "aug.", "szept.", "okt.", "nov.", "dec."]
+FULL_MONTHS = ["január", "február", "március", "április", "május", "június",
+               "július", "augusztus", "szeptember", "október", "november", "december"]
 
 
 # The chart's axis takes three letters, without the stops

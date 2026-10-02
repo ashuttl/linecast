@@ -18,6 +18,8 @@ FULL_DAY_NAMES = ["lunedì", "martedì", "mercoledì", "giovedì", "venerdì", "
 
 MONTHS = ["gen", "feb", "mar", "apr", "mag", "giu",
           "lug", "ago", "set", "ott", "nov", "dic"]
+FULL_MONTHS = ["gennaio", "febbraio", "marzo", "aprile", "maggio", "giugno",
+               "luglio", "agosto", "settembre", "ottobre", "novembre", "dicembre"]
 
 
 MOON_PHASES = ["Luna nuova", "Falce crescente", "Primo quarto", "Gibbosa crescente",

@@ -22,6 +22,8 @@ FULL_DAY_NAMES = ["pondělí", "úterý", "středa", "čtvrtek", "pátek", "sobo
 
 MONTHS = ["led", "úno", "bře", "dub", "kvě", "čvn",
           "čvc", "srp", "zář", "říj", "lis", "pro"]
+FULL_MONTHS = ["leden", "únor", "březen", "duben", "květen", "červen",
+               "červenec", "srpen", "září", "říjen", "listopad", "prosinec"]
 
 
 MONTH_DAY = "{day}. {month}"

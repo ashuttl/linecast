@@ -18,6 +18,8 @@ FULL_DAY_NAMES = ["lundo", "mardo", "merkredo", "ĵaŭdo", "vendredo", "sabato",
 
 MONTHS = ["jan", "feb", "mar", "apr", "maj", "jun",
           "jul", "aŭg", "sep", "okt", "nov", "dec"]
+FULL_MONTHS = ["januaro", "februaro", "marto", "aprilo", "majo", "junio",
+               "julio", "aŭgusto", "septembro", "oktobro", "novembro", "decembro"]
 
 
 MOON_PHASES = ["Novluno", "Kreskanta lunarko", "Unua kvarono", "Kreskanta ĝiba luno",

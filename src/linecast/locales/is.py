@@ -20,6 +20,8 @@ FULL_DAY_NAMES = ["mánudagur", "þriðjudagur", "miðvikudagur", "fimmtudagur",
 
 MONTHS = ["jan", "feb", "mar", "apr", "maí", "jún",
           "júl", "ágú", "sep", "okt", "nóv", "des"]
+FULL_MONTHS = ["janúar", "febrúar", "mars", "apríl", "maí", "júní",
+               "júlí", "ágúst", "september", "október", "nóvember", "desember"]
 
 
 MOON_PHASES = ["Nýtt tungl", "Vaxandi hálfmáni", "Fyrsti fjórðungur", "Vaxandi tungl",

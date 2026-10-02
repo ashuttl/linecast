@@ -33,7 +33,7 @@ from linecast.terminal.color import bg, fg
 from linecast.terminal.textwidth import cells, visible_len
 from linecast.terminal.framebuffer import Framebuffer, cell_aspect, get_terminal_size
 from linecast.terminal.live import overlay
-from linecast._i18n import base_language, table_for
+from linecast._i18n import base_language, full_months, table_for
 from linecast.astro.calendars import solar_hijri
 from linecast.astro.calendars.civil import (
     SOLAR_HIJRI, civil_calendar, shift_month, solar_hijri_month_title,
@@ -69,24 +69,40 @@ def _week_start(runtime):
     return WEEK_START_WEEKDAY.get(getattr(runtime, "week_start", None), 0)
 
 
-def _month_title(year, month, lang):
-    """`Sep 2026`, `2026年9月` — the grid's headline, in the UI language."""
+def _month_title(year, month, lang, full=False):
+    """`Sep 2026`, `2026年9月` — the grid's headline, in the UI language;
+    `September 2026` with the month in *full*."""
     if base_language(lang) in ("ja", "zh", "zh-Hant"):
         return f"{year}年{month}月"
     if lang == "ko":
         return f"{year}년 {month}월"
-    if lang == "fi":
-        return f"{month}/{year}"
-    if lang == "hu":
-        # Hungarian dates run from the year: "2026. szept."
-        return f"{year}. {table_for(MONTHS, lang)[month - 1]}"
     if lang == "vi":
         return f"Tháng {month} năm {year}"
-    months = table_for(MONTHS, lang)
+    months = full_months(lang) if full else table_for(MONTHS, lang)
+    if lang == "fi":
+        # Finnish has no abbreviations to speak of: a number, or the name
+        return f"{months[month - 1]} {year}" if full else f"{month}/{year}"
+    if lang == "hu":
+        # Hungarian dates run from the year: "2026. szept."
+        return f"{year}. {months[month - 1]}"
     if lang == "th":
         # Thai calendars year themselves in the Buddhist Era.
         return f"{months[month - 1]} {year + 543}"
     return f"{months[month - 1]} {year}"
+
+
+def month_title_forms(year, month, lang):
+    """The month's title spelled out and then abbreviated, each with the
+    width of the year's widest in that form.  A view that fits its title
+    by that width keeps one form from month to month, and does not
+    spell out May and then abbreviate September."""
+    forms = []
+    for full in (True, False):
+        widest = max(visible_len(_month_title(year, m, lang, full)) for m in range(1, 13))
+        form = (_month_title(year, month, lang, full), widest)
+        if form not in forms:
+            forms.append(form)
+    return forms
 
 
 def _gregorian_span(first, last, lang):
@@ -178,14 +194,16 @@ def render_calendar(now_local, lat, lng, runtime, month_offset=0,
         year, month = shift_month(sh_year, sh_month, month_offset)
         first = solar_hijri.month_start(year, month)
         days_in = solar_hijri.days_in_month(year, month)
-        title = solar_hijri_month_title(year, month, lang)
+        spelled = title = solar_hijri_month_title(year, month, lang)
+        widest = visible_len(title)
     else:
         month0 = now_local.year * 12 + (now_local.month - 1) + month_offset
         year, month = divmod(month0, 12)
         month += 1
         first = date(year, month, 1)
         days_in = calendar.monthrange(year, month)[1]
-        title = _month_title(year, month, lang)
+        forms = month_title_forms(year, month, lang)
+        (spelled, widest), title = forms[0], forms[-1][0]
     last = first + timedelta(days=days_in - 1)
     start = _week_start(runtime)
     lead = (first.weekday() - start) % 7
@@ -236,8 +254,12 @@ def render_calendar(now_local, lat, lng, runtime, month_offset=0,
     spans.append(found.span(first, last, ctx) if found else None)
     spans = [sp for sp in spans if sp]
     aside = f" · {_ts('space_to_now', runtime)}" if month_offset else ""
-    t_w = visible_len(title)
     a_w = visible_len(aside)
+    # The month is spelled out where the row holds the longest of them
+    # with everything else on it
+    if widest + visible_len("".join(f" · {sp}" for sp in spans)) + a_w <= grid_w - 1:
+        title = spelled
+    t_w = visible_len(title)
     while spans and t_w + visible_len(" · ".join(spans)) + 3 + a_w > grid_w - 1:
         spans.pop()
     span = "".join(f" · {sp}" for sp in spans)

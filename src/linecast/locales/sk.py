@@ -31,6 +31,8 @@ FULL_DAY_NAMES = ["pondelok", "utorok", "streda", "štvrtok", "piatok", "sobota"
 # The nominative abbreviations, as CLDR's stand-alone forms have them
 MONTHS = ["jan", "feb", "mar", "apr", "máj", "jún",
           "júl", "aug", "sep", "okt", "nov", "dec"]
+FULL_MONTHS = ["január", "február", "marec", "apríl", "máj", "jún",
+               "júl", "august", "september", "október", "november", "december"]
 
 
 MONTH_DAY = "{day}. {month}"

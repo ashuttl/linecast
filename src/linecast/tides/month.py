@@ -16,12 +16,16 @@ and a greater one goes past it, to near white at the Bay of Fundy.
 Sunrise and sunset are braille lines down the month, so the low
 waters in daylight are the dark stripes between them, which is what a
 month of tides is usually wanted for: a morning for the tide pools, a
-low enough tide to walk out to the island.  The column at the right
+low enough tide to walk out to the island.  A diamond on today's row
+marks the hour it is now.  The column at the right
 gives each day's lowest daylight low water, brighter when it falls
 below the datum, a minus tide.
 
 A terminal too short for a row a day gives each row two days, one to
-each half-block; the right column then names the row's better low.
+each half-block; the right column then names the row's better low,
+and the left its first day, or today on the row today is in.  A
+month of odd length ends on a day with a row to itself, and it fills
+the row.
 """
 
 import calendar
@@ -52,23 +56,29 @@ from linecast.tides.chart import render_tide_ticks
 
 # The field's inks: low water, high water where the tide is an ordinary
 # one, and high water where it is the greatest there is; then the sunrise
-# and sunset lines' ink
-LOW_RGB = HIGH_RGB = PEAK_RGB = SUN_RGB = None
+# and sunset lines' ink, and the now mark's
+LOW_RGB = HIGH_RGB = PEAK_RGB = SUN_RGB = NOW_RGB = None
 
 # The month's range, in feet, that reaches HIGH_RGB, and the least of
 # the way there any water is drawn, so the faintest tide still shows
 ORDINARY_RANGE_FT = 12.0
 FAINTEST = 0.10
 
+# The footer's key to the Sun's lines, which step a dot aside as the days
+# lengthen or shorten, and the mark for now, on the field and in the key
+SUN_KEY = "⢣"
+NOW_MARK = "◆"
+
 
 def _rebuild():
-    global LOW_RGB, HIGH_RGB, PEAK_RGB, SUN_RGB
+    global LOW_RGB, HIGH_RGB, PEAK_RGB, SUN_RGB, NOW_RGB
     LOW_RGB = surface_bg(0.02)
     HIGH_RGB = lerp_rgb(_theme.theme_bg, _palette.CURVE_COLOR, 0.62)
     PEAK_RGB = shift_to_pole(_palette.CURVE_COLOR, 0.80, lighter=not is_light_theme())
     SUN_RGB = ensure_contrast(
         best_contrast((_theme.theme_ansi[3], _theme.theme_ansi[11]), minimum=2.0),
         _theme.theme_bg, minimum=2.5)
+    NOW_RGB = shift_to_pole(_palette.TEXT_RGB, 0.85, lighter=not is_light_theme())
 
 
 _rebuild()
@@ -142,6 +152,12 @@ def _clear_of(ink, water):
     return ink
 
 
+def _now_ink(water):
+    """The now mark's ink over *water*: the brightest there is, or the
+    background's where the water is nearly as bright."""
+    return NOW_RGB if contrast_ratio(NOW_RGB, water) >= 2.0 else _theme.theme_bg
+
+
 def _daylight_lows(hilo, day, sun):
     """The day's low waters between sunrise and sunset, as (time, height)."""
     rise, set_ = sun
@@ -195,24 +211,37 @@ def render_month(first, predictions, hilo, runtime, *, header, footer, station_m
     lows = {d: _daylight_lows(hilo, d, sun[d]) for d in shown}
     unit = runtime.height_unit
 
-    def low_text(t, h):
-        return (f"{fmt_time_dt(t, use_24h=runtime.use_24h)} "
-                f"{fmt_decimal(runtime.convert_height(h), 1, runtime)}{unit}")
-
-    right = []
+    found = []
     for group in row_days:
-        found = [(d, *min(lows[d], key=lambda p: p[1])) for d in group if lows[d]]
-        if not found:
+        best = [(d, *min(lows[d], key=lambda p: p[1])) for d in group if lows[d]]
+        if not best:
+            found.append(None)
+            continue
+        d, t, h = min(best, key=lambda p: p[2])
+        found.append((d, fmt_time_dt(t, use_24h=runtime.use_24h),
+                      f"{fmt_decimal(runtime.convert_height(h), 1, runtime)}{unit}"))
+    # The times and the heights are each set flush right, so a minus or
+    # a second figure stands out to the left and the rest keep their
+    # columns
+    time_w = max([visible_len(f[1]) for f in found if f] + [0])
+    height_w = max([visible_len(f[2]) for f in found if f] + [0])
+    right = []
+    for f in found:
+        if f is None:
             right.append(None)
             continue
-        d, t, h = min(found, key=lambda p: p[2])
-        text = low_text(t, h)
+        d, when, height = f
+        text = (" " * (time_w - visible_len(when)) + when + " "
+                + " " * (height_w - visible_len(height)) + height)
         if per_row > 1:
             text = f"{d.day:>2}  {text}"
-        right.append((text, h))
-    labels = [_day_label(group[0], runtime) for group in row_days]
+        right.append((text, height.startswith("−")))
+    # A row is named for its first day, but today's row for today: the
+    # bright label is the one read as the date
+    labels = [_day_label(today if today in group else group[0], runtime)
+              for group in row_days]
     gutter = max(visible_len(s) for s in labels) + 4
-    right_w = max([visible_len(r[0]) for r in right if r] + [0]) + 3
+    right_w = max([visible_len(r[0]) for r in right if r] + [0]) + 2
     if cols - gutter - right_w < 24:
         right_w = 0
     width = max(8, cols - gutter - right_w)
@@ -224,6 +253,10 @@ def render_month(first, predictions, hilo, runtime, *, header, footer, station_m
     top = reach(hi - lo) if predictions else 1.0
     field = Framebuffer(width, n_rows)
     sub = 2 // per_row   # sub-pixel rows to a day
+    # The last day of an odd month has its row to itself and takes all
+    # of it: a mark over a cell half water and half empty would stand on
+    # a box of the two blended
+    alone = len(shown) - 1 if len(shown) % per_row else None
     for k, day in enumerate(shown):
         midnight = datetime(day.year, day.month, day.day, tzinfo=tz)
         for x in range(width):
@@ -232,12 +265,13 @@ def render_month(first, predictions, hilo, runtime, *, header, footer, station_m
                 continue
             t = max(0.0, min(1.0, (h - lo) / max(1e-9, hi - lo)))
             ink = _water_ink(t ** 1.2 * top)
-            for s in range(sub):
+            for s in range(2 if k == alone else sub):
                 field.set_pixel(x, k * sub + s, ink)
 
-    # --- braille over it: sunrise and sunset, now, and the hovered hour ---
+    # --- braille over it: sunrise and sunset, and the hovered hour ---
     bits, inks = {}, {}
     dots_per_day = 4 // per_row
+    now_cell = None
 
     def mark(k, moment, ink, rows_of_day=None):
         """Dot the day k's own dot rows at *moment*'s place across."""
@@ -252,12 +286,14 @@ def render_month(first, predictions, hilo, runtime, *, header, footer, station_m
 
     for k, day in enumerate(shown):
         rise, set_ = sun[day]
+        whole = range(4) if k == alone else None
         if rise is not None and rise.date() == day:
-            mark(k, rise, SUN_RGB)
+            mark(k, rise, SUN_RGB, whole)
         if set_ is not None and set_.date() == day:
-            mark(k, set_, SUN_RGB)
+            mark(k, set_, SUN_RGB, whole)
         if day == today:
-            mark(k, now_local, _palette.NOW_LINE_COLOR)
+            minutes = now_local.hour * 60 + now_local.minute
+            now_cell = (min(width - 1, minutes * width // 1440), k // per_row)
 
     hover = None
     if mouse_pos:
@@ -273,6 +309,9 @@ def render_month(first, predictions, hilo, runtime, *, header, footer, station_m
 
     overlays = {cell: (chr(0x2800 + b), _clear_of(inks[cell], field.cell_bg(*cell)), False)
                 for cell, b in bits.items()}
+    # Now is a diamond, not dots: it is one place, and has to be found
+    if now_cell is not None:
+        overlays[now_cell] = (NOW_MARK, _now_ink(field.cell_bg(*now_cell)), False)
     phases = _phase_marks(first, tz, runtime)
 
     # --- assemble ---
@@ -288,8 +327,8 @@ def render_month(first, predictions, hilo, runtime, *, header, footer, station_m
         left += " " * max(0, gutter - 2 - visible_len(label) - visible_len(phase))
         line = left + body
         if right_w and right[r]:
-            text, h = right[r]
-            rink = _palette.TEXT_RGB if h < 0 else _palette.MUTED_RGB
+            text, minus = right[r]
+            rink = _palette.TEXT_RGB if minus else _palette.MUTED_RGB
             line += f"  {fg(*rink)}{text}{RESET}"
         lines.append(line)
     ticks = render_tide_ticks(datetime(first.year, first.month, first.day, tzinfo=tz),

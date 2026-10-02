@@ -19,6 +19,8 @@ FULL_DAY_NAMES = ["luni", "marți", "miercuri", "joi", "vineri", "sâmbătă", "
 
 MONTHS = ["ian", "feb", "mar", "apr", "mai", "iun",
           "iul", "aug", "sep", "oct", "noi", "dec"]
+FULL_MONTHS = ["ianuarie", "februarie", "martie", "aprilie", "mai", "iunie",
+               "iulie", "august", "septembrie", "octombrie", "noiembrie", "decembrie"]
 
 
 MOON_PHASES = ["Lună nouă", "Semilună crescătoare", "Primul pătrar", "Lună gibboasă crescătoare",

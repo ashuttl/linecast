@@ -18,6 +18,8 @@ FULL_DAY_NAMES = ["Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag", "Sa
 
 MONTHS = ["Jan", "Feb", "Mär", "Apr", "Mai", "Jun",
           "Jul", "Aug", "Sep", "Okt", "Nov", "Dez"]
+FULL_MONTHS = ["Januar", "Februar", "März", "April", "Mai", "Juni",
+               "Juli", "August", "September", "Oktober", "November", "Dezember"]
 
 
 MONTH_DAY = "{day}. {month}"

@@ -26,7 +26,7 @@ from datetime import datetime, timezone, timedelta
 
 from linecast.terminal.braille import BLANK, build_braille_curve
 from linecast.terminal.color import bg, fg, RESET
-from linecast.terminal.textwidth import visible_len
+from linecast.terminal.textwidth import fit, visible_len
 from linecast.terminal.framebuffer import get_terminal_size
 from linecast._timefmt import fmt_time_dt
 from linecast.terminal import live as _live
@@ -297,35 +297,82 @@ def _pill_label(station_name, location_menu=False):
     return f"{name} \u25bc" if name and location_menu else name
 
 
+# The fewest cells of a station's name a pill is worth drawing for
+LEAST_PILL_NAME = 4
+
+# How wide the pill on screen is: the cells a click opens the menu from
+_pill_width = 0
+
+
+def pill_width():
+    return _pill_width
+
+
+def _pill(name):
+    """(pill, width): *name* in the station pill's colours."""
+    pbg = bg(*PILL_BG_RGB)
+    if name and not pbg:
+        # no color: the half blocks alone would read as stray marks
+        return name, visible_len(name)
+    if name:
+        pfg = fg(*PILL_FG_RGB)
+        pedge = fg(*PILL_BG_RGB)
+        # ▐ + space + name + space + ▌
+        return (f"{pedge}\u2590{pbg}{pfg} {name} {RESET}{pedge}\u258c{RESET}",
+                visible_len(name) + 4)
+    return "", 0
+
+
+def _fit_title(cols, station_name, location_menu, titles):
+    """(pill name, title) for a header *cols* wide, where the title has
+    the say.  *titles* are its forms, longest first, each (text, the
+    cells to keep for it).  The station's name gives way before the
+    title does: it drops its state or country, "Portland, ME" to
+    "Portland", for the longest title that then fits; under the shortest
+    it is cut short, and then left out."""
+    whole = _pill_label(station_name)
+    if not whole:
+        return "", titles[0][0]
+    mark = " \u25bc" if location_menu else ""
+    edges = _pill("x")[1] - 1
+    names = dict.fromkeys((whole, whole.split(",")[0].strip()))
+
+    def room(keep):
+        return cols - keep - 2 - edges - visible_len(mark)
+
+    for text, keep in titles:
+        for name in names:
+            if visible_len(name) <= room(keep):
+                return name + mark, text
+    text, keep = titles[-1]
+    if room(keep) < LEAST_PILL_NAME:
+        return "", text
+    return fit(list(names)[-1], room(keep)) + mark, text
+
+
 def _render_header_line(cols, station_name, runtime, offset_minutes=0, location_menu=False,
                         right=None):
     """Render the top line with pill-styled station name.
 
     *right* replaces the Moon's phase at the right end: the month and
-    year views' titles, already inked."""
-    name = _pill_label(station_name, location_menu)
-
-    # Station name pill (left)
-    pbg = bg(*PILL_BG_RGB)
-    if name and not pbg:
-        # no color: the half blocks alone would read as stray marks
-        pill, pill_w = name, visible_len(name)
-    elif name:
-        pfg = fg(*PILL_FG_RGB)
-        pedge = fg(*PILL_BG_RGB)
-        pill = f"{pedge}\u2590{pbg}{pfg} {name} {RESET}{pedge}\u258c{RESET}"
-        pill_w = visible_len(name) + 4  # ▐ + space + name + space + ▌
-    else:
-        pill = ""
-        pill_w = 0
-
+    year views' titles, already inked.  A list of (title, cells to keep
+    for it) gives a title's forms, longest first; see _fit_title."""
+    global _pill_width
     if right is not None:
+        titles = [(right, visible_len(right))] if isinstance(right, str) else right
+        name, right = _fit_title(cols, station_name, location_menu, titles)
+        keep = dict(titles)[right]
+        pill, pill_w = _pill(name)
+        _pill_width = pill_w
         if offset_minutes:
             hint = f"{DIM}{_ts('space_to_now', runtime)}{RESET}   "
-            if pill_w + visible_len(hint + right) + 2 <= cols:
+            if pill_w + visible_len(hint) + keep + 2 <= cols:
                 right = hint + right
         padding = max(1, cols - pill_w - visible_len(right))
         return f"{pill}{' ' * padding}{right}"
+
+    pill, pill_w = _pill(_pill_label(station_name, location_menu))
+    _pill_width = pill_w
 
     # Moon phase (right-aligned)
     idx, _, moon_icon = moon_phase(datetime.now(timezone.utc), runtime)

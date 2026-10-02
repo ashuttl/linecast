@@ -19,6 +19,8 @@ FULL_DAY_NAMES = ["måndag", "tisdag", "onsdag", "torsdag", "fredag", "lördag",
 
 MONTHS = ["jan", "feb", "mar", "apr", "maj", "jun",
           "jul", "aug", "sep", "okt", "nov", "dec"]
+FULL_MONTHS = ["januari", "februari", "mars", "april", "maj", "juni",
+               "juli", "augusti", "september", "oktober", "november", "december"]
 
 
 MOON_PHASES = ["Nymåne", "Tilltagande skära", "Första kvarteret", "Tilltagande måne",
