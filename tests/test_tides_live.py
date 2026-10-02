@@ -171,11 +171,28 @@ class TestLocations:
             app._worker.join(1.0)
         assert app.predictions is old
 
-    def test_the_station_pill_opens_the_menu(self):
+    @pytest.mark.parametrize("color_mode, cols, width", [
+        ("none", 110, 14),
+        ("truecolor", 110, 18),
+        ("truecolor", 32, 14),  # the title leaves room for Portland alone
+        ("truecolor", 20, 0),   # no station pill fits beside the title
+    ])
+    def test_the_station_pill_opens_the_menu(self, monkeypatch, color_mode, cols, width):
+        from linecast.terminal import color
+
+        monkeypatch.setattr(color, "_COLOR_MODE", color_mode)
+        monkeypatch.setattr(tides, "_pill_width", 0)
         app, _provider = _app()
-        width = len("Portland, ME \u25bc") + 4
+        # Clicks follow the pill that was drawn, including its shortened
+        # or hidden form when the month title needs the room.
+        tides._render_header_line(cols, app.station_name, app.runtime,
+                                  location_menu=True, right="September 2026")
         assert not app.on_click(width + 1, 1)
-        assert app.on_click(width, 1) and app.locations.active
+        if width:
+            assert not app.on_click(width, 2)
+            assert app.on_click(width, 1) and app.locations.active
+        else:
+            assert not app.locations.active
 
 
 class TestTuning:
@@ -468,7 +485,7 @@ class TestLoadingToast:
         return frame.partition("\x00")[2]
 
     @pytest.mark.parametrize("view, awaited", [
-        ("month", "Loading Mar 2026…"),
+        ("month", "Loading March 2026…"),
         ("year", "Loading 2026…"),
         ("makeup", "Loading Portland, ME…"),
     ])
@@ -504,7 +521,7 @@ class TestLoadingToast:
         self._floating(app)
         app._long_started -= app.LONG_GRACE
         app.intercept("fwd")              # March's fetch is still out
-        assert "Loading Apr 2026…" in self._floating(app)
+        assert "Loading April 2026…" in self._floating(app)
 
     def test_a_note_already_up_is_not_covered(self, waiting):
         app = waiting("month")

@@ -387,9 +387,12 @@ class TidesApp(LocationMenu, _live.LiveApp):
                                 now_local=now_local, mouse_pos=mouse_pos)
         if self.view == "makeup":
             from linecast.tides.makeup import render_makeup
-            header = _render_header_line(cols, self.station_name, self.runtime,
-                                         offset_minutes=self.months, location_menu=True,
-                                         right="")
+
+            def header(right):
+                return _render_header_line(cols, self.station_name, self.runtime,
+                                           offset_minutes=self.months, location_menu=True,
+                                           right=right)
+
             return render_makeup(key[2], data, self.runtime, header=header,
                                  footer=_help.footer(source, cols, lang),
                                  station_tz=self.station_tz, now_local=now_local,

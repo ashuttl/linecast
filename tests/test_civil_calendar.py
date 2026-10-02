@@ -176,7 +176,7 @@ class TestMoonGrid:
     def test_other_languages_keep_the_gregorian_month(self):
         from linecast.moon import calendar as moon_calendar
         body, _chip = _grid(self.NOW, lang="en", week_start="monday")
-        assert body[0].strip().startswith("Sep 2026")
+        assert body[0].strip().startswith("September 2026")
         assert moon_calendar._last_grid[7] == date(2026, 9, 1)
 
     def test_gregorian_setting_in_persian(self, monkeypatch):

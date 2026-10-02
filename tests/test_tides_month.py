@@ -213,8 +213,8 @@ class TestTheLowsAtTheRight:
 
     def test_each_day_shows_its_lowest_low_water_in_daylight(self):
         rows = self._rows()
-        assert rows[5].rstrip().endswith("2:00p 0.5′")       # not the lower one at 2 a.m.
-        assert rows[6].rstrip().endswith("12:00p -0.4′")
+        assert rows[5].rstrip().endswith("2:00p  0.5′")       # not the lower one at 2 a.m.
+        assert rows[6].rstrip().endswith("12:00p −0.4′")
 
     def test_a_day_whose_lows_fall_in_the_dark_shows_none(self):
         rows = self._rows()
@@ -222,12 +222,12 @@ class TestTheLowsAtTheRight:
 
     def test_a_minus_tide_is_in_the_brighter_ink(self, truecolor):
         rows = self._rows(raw=True)
-        assert f"{fg(*_palette.TEXT_RGB)}12:00p -0.4′" in rows[6]
-        assert f"{fg(*_palette.MUTED_RGB)}2:00p 0.5′" in rows[5]
+        assert f"{fg(*_palette.TEXT_RGB)}12:00p −0.4′" in rows[6]
+        assert f"{fg(*_palette.MUTED_RGB)} 2:00p  0.5′" in rows[5]
 
     def test_two_days_to_a_row_names_the_day_of_the_better_low(self):
         rows = self._rows(rows=24)
-        assert rows[5].rstrip().endswith(" 6  12:00p -0.4′")  # the 5th and 6th share a row
+        assert rows[5].rstrip().endswith(" 6  12:00p −0.4′")  # the 5th and 6th share a row
 
     def test_a_narrow_window_gives_the_column_up(self):
         rows = self._rows(cols=40)

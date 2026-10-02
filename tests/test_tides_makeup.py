@@ -14,8 +14,9 @@ import pytest
 
 from linecast._runtime import TidesRuntime
 from linecast.terminal.textwidth import visible_len
-from linecast.tides import harmonic, makeup
+from linecast.tides import harmonic, makeup, view
 from linecast.tides.common import computed_hilo
+from linecast.tides.view import _render_header_line
 from linecast.tides.makeup import (
     Makeup, _fitted, _flowed, _placed, _spread, _turns, render_makeup, sky_marks,
 )
@@ -52,8 +53,14 @@ def _runtime(lang="en", metric=False):
 
 def _frame(made, cols=110, rows=41, lang="en", metric=False, first=OCT, mouse=None):
     """The view's lines without their inks, and what floats over them."""
-    with patch.object(makeup, "get_terminal_size", return_value=(cols, rows)):
-        out = render_makeup(first, made, _runtime(lang, metric), header=" Portland, ME",
+    runtime = _runtime(lang, metric)
+
+    def header(right):
+        return _render_header_line(cols, "Portland, ME", runtime, location_menu=True, right=right)
+
+    with (patch.object(makeup, "get_terminal_size", return_value=(cols, rows)),
+          patch.object(view, "_pill_width")):
+        out = render_makeup(first, made, runtime, header=header,
                             footer=" NOAA", station_tz=TZ, now_local=NOW, mouse_pos=mouse)
     body, _, floating = out.partition("\x00")
     return [ANSI.sub("", line) for line in body.split("\n")], ANSI.sub("", floating)
@@ -332,7 +339,8 @@ class TestThePage:
         assert [t for t in ("Oct 2026", "2026", "2016–2034") if t in titles] == [
             "Oct 2026", "2026", "2016–2034"]
         # the header keeps the top of the window and the footer the bottom
-        assert lines[0] == " Portland, ME" and lines[-1] == " NOAA"
+        assert "Portland, ME" in lines[0] and lines[-1] == " NOAA"
+        assert "What moves the tide here" not in lines[0]
 
     def test_a_smaller_window_closes_the_headline_up_and_keeps_three_strips(self, harbour):
         lines, _ = _frame(_made(harbour), 94, 28)
@@ -343,10 +351,11 @@ class TestThePage:
             _row(lines, "Twice a day")) - 3
         assert strip_rows == 5
 
-    def test_a_standard_terminal_keeps_two_strips_and_no_headline(self, harbour):
+    def test_a_standard_terminal_keeps_two_strips_and_the_headline_in_the_header(self, harbour):
         lines, _ = _frame(_made(harbour), 80, 24)
         text = "\n".join(lines)
-        assert "What moves the tide here" not in text
+        assert "Portland, ME" in lines[0] and "What moves the tide here" in lines[0]
+        assert text.count("What moves the tide here") == 1
         assert "Oct 2026" in text and "2016–2034" not in text
         assert "Each height is half" in text and "over the equator" in text
 

@@ -382,8 +382,9 @@ def render_makeup(first, made, runtime, *, header, footer, station_tz, now_local
     built for it: (Makeup, month, year, long, marks, the year the
     nineteen are counted from), or None while the tide is fetched and
     fitted, when the view draws the same frame without its figures.
-    *header* and *footer* are the lines the live view puts above and
-    below it.
+    *header* builds the top line from a right-hand title: the headline
+    when it cannot fit above the body, otherwise an empty string.
+    *footer* is the line the live view puts below it.
     """
     from linecast.moon.calendar import _month_title
     from linecast.moon.phase import moon_phase
@@ -466,6 +467,7 @@ def render_makeup(first, made, runtime, *, header, footer, station_tz, now_local
     n_footer = footer.count("\n") + 1
     room = rows - 1 - n_footer   # between the header and the footer
     strip_rows, air, kept, open_line = _fitted(room, len(key_lines))
+    header = header(f"{text}{title}{RESET}" if air is None else "")
     key_lines = key_lines[len(key_lines) - kept:]
     if open_line and says and marks:
         key_lines.insert(len(says), "")

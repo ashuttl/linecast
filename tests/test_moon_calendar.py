@@ -67,7 +67,7 @@ class TestGrid:
 
     def test_title_and_weekdays(self):
         body, _chip = _render(100, 32)
-        assert "Sep 2026" in body[0]
+        assert "September 2026" in body[0]
         assert "Mon" in body[1] and "Sun" in body[1]
         # The week opens on Monday by default: Sep 1 2026 is a Tuesday,
         # so day 1 sits under the second column, one empty cell in.
@@ -120,7 +120,7 @@ class TestGrid:
 
     def test_paged_month_names_itself_and_the_way_back(self):
         body, _chip = _render(100, 32, month_offset=1)
-        assert "Oct 2026" in body[0]
+        assert "October 2026" in body[0]
         assert "space" in body[0]
 
 
@@ -226,14 +226,14 @@ class TestCalendars:
         now = datetime(2026, 10, 2, 14, 30, tzinfo=ET)
         body, _chip = _render(120, 34, calendar="icelandic", now=now)
         text = "\n".join(body)
-        assert "Oct 2026 · Haustmánuður – Gormánuður" in body[0]
+        assert "October 2026 · Haustmánuður – Gormánuður" in body[0]
         assert "10 Vetrartungl" in text
         assert "22 Veturnætur" in text and "23 Veturnætur" in text
         assert "24 Fyrsti vetra" in text
         now = datetime(2023, 7, 2, 14, 30, tzinfo=ET)
         body, _chip = _render(160, 34, calendar="icelandic", now=now)
         text = "\n".join(body)
-        assert "Jul 2023 · Sólmánuður – Heyannir" in body[0]
+        assert "July 2023 · Sólmánuður – Heyannir" in body[0]
         assert "19 Aukanætur" in text and "23 Sumarauki" in text
         assert "30 Miðsumar" in text
 
@@ -252,13 +252,13 @@ class TestCalendars:
         # October stays in 5787; February 2025 sat inside Shevat.
         now = datetime(2026, 9, 2, 14, 30, tzinfo=ET)
         body, _chip = _render(120, 34, calendar="hebrew", now=now)
-        assert "Sep 2026 · Elul 5786 – Tishrei 5787" in body[0]
+        assert "September 2026 · Elul 5786 – Tishrei 5787" in body[0]
         body, _chip = _render(120, 34, calendar="hebrew", now=now,
                               month_offset=1)
-        assert "Oct 2026 · Tishrei – Cheshvan 5787" in body[0]
+        assert "October 2026 · Tishrei – Cheshvan 5787" in body[0]
         now = datetime(2025, 2, 10, 14, 30, tzinfo=ET)
         body, _chip = _render(120, 34, calendar="hebrew", now=now)
-        assert "Feb 2025 · Shevat 5785" in body[0]
+        assert "February 2025 · Shevat 5785" in body[0]
 
     def test_hebrew_day_in_the_corner(self):
         # Each cell's bottom-right corner carries the Hebrew day, faint:
@@ -295,7 +295,7 @@ class TestCalendars:
     def test_hijri_months_in_the_title(self):
         now = datetime(2026, 9, 2, 14, 30, tzinfo=ET)
         body, _chip = _render(120, 34, calendar="islamic", now=now)
-        assert ("Sep 2026 · Rabiʻ al-Awwal – Rabiʻ al-Thani 1448 AH"
+        assert ("September 2026 · Rabiʻ al-Awwal – Rabiʻ al-Thani 1448 AH"
                 in body[0])
         body, _chip = _render(120, 34, calendar="islamic", now=now,
                               lang="id")
