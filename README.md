@@ -214,7 +214,7 @@ The same apps in other languages and traditions: the weather in Montréal in Can
 
 Without a saved location, linecast guesses from your IP address, which can be far off on a VPN or over SSH.
 
-Persian support is experimental. It works in Ghostty, Alacritty, and foot, but not well in the Mac's Terminal or iTerm2. See [docs/languages.md](docs/languages.md#persian-and-right-to-left-text).
+Persian, Hebrew (`he`), and Arabic (`ar`) are experimental. The Persian RTL rendering has been tested in Ghostty, Alacritty, and foot, but does not work well in the Mac's Terminal or iTerm2. Hebrew and Arabic use the same rendering and still need native-speaker review. See [docs/languages.md](docs/languages.md#persian-and-right-to-left-text).
 
 Environment variables, and the optional TideCheck key for more tide stations, are in [docs/configuration.md](docs/configuration.md), and data sources and credits in [docs/sources.md](docs/sources.md).
 

@@ -3,8 +3,8 @@
 The Hebrew day begins at the same sunset as the Hijri day, and turns
 with the reader's own (readings.evening). The holidays follow the
 place shown: in Israel one day of Yom Tov, elsewhere two (ctx.israel).
-The panel keeps to transliteration, since terminals lay Hebrew out
-unreliably; the --json block carries the date in Hebrew letters too.
+The panel uses Hebrew names in Hebrew and transliteration elsewhere;
+the --json block carries the date in Hebrew letters too.
 """
 
 from linecast.astro.calendars.hebrew import (
@@ -22,7 +22,7 @@ from linecast.moon.readings import Day, Panel, Reading, begun_at_sunset, evening
 class Hebrew(Reading):
     def headline(self, ctx):
         _turned, h_day = evening(ctx)
-        return None, hebrew_date_label(*hebrew_date(h_day))
+        return None, hebrew_date_label(*hebrew_date(h_day), lang=ctx.lang)
 
     def panel(self, ctx):
         # As the Hijri calendar's: the coming month in the month's table,
@@ -31,8 +31,9 @@ class Hebrew(Reading):
         nxt_day, (nxt_year, nxt_month) = next_hebrew_month(h_day)
         fest_day, fest_key = next_holiday(h_day, ctx.israel)
         return Panel(
-            month=(Day(hebrew_month_name(nxt_year, nxt_month), nxt_day),),
-            year=(begun_at_sunset(hebrew_holiday_name(fest_key), fest_day, h_day, ctx),))
+            month=(Day(hebrew_month_name(nxt_year, nxt_month, lang=ctx.lang), nxt_day),),
+            year=(begun_at_sunset(hebrew_holiday_name(fest_key, lang=ctx.lang),
+                                  fest_day, h_day, ctx),))
 
     def json_block(self, ctx):
         # The Hebrew date, turned with the reader's sunset as the panel
@@ -69,12 +70,12 @@ class Hebrew(Reading):
         }
 
     def hover(self, day, ctx):
-        line = hebrew_date_label(*hebrew_date(day))
+        line = hebrew_date_label(*hebrew_date(day), lang=ctx.lang)
         key = holiday_key(day, ctx.israel)
         if key:
-            line = f"{hebrew_holiday_name(key)} · {line}"
+            line = f"{hebrew_holiday_name(key, lang=ctx.lang)} · {line}"
         elif rosh_chodesh(day):
-            line = f"{rosh_chodesh_label(*rosh_chodesh(day))} · {line}"
+            line = f"{rosh_chodesh_label(*rosh_chodesh(day), lang=ctx.lang)} · {line}"
         return line
 
     def cell_label(self, day, ctx, new_moon=None):
@@ -82,13 +83,13 @@ class Hebrew(Reading):
         # Hanukkah's eight included, the way a printed calendar does.
         # The month starts ride in the corner with the Hebrew day.
         key = holiday_key(day, ctx.israel)
-        return (hebrew_holiday_name(key), True) if key else None
+        return (hebrew_holiday_name(key, lang=ctx.lang), True) if key else None
 
     def corner(self, day, ctx):
         year, month, dom = hebrew_date(day)
-        return dom, hebrew_month_name(year, month)
+        return dom, hebrew_month_name(year, month, lang=ctx.lang)
 
     def span(self, first, last, ctx):
         (y1, m1, _), (y2, m2, _) = hebrew_date(first), hebrew_date(last)
-        return month_span((y1, m1, hebrew_month_name(y1, m1)),
-                          (y2, m2, hebrew_month_name(y2, m2)))
+        return month_span((y1, m1, hebrew_month_name(y1, m1, lang=ctx.lang)),
+                          (y2, m2, hebrew_month_name(y2, m2, lang=ctx.lang)))

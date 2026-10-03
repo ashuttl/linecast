@@ -145,7 +145,7 @@ export LINECAST_LANG=ja         # 環境変数で。保存した設定より優�
 
 場所を保存しないと、linecastはIPアドレスから場所を推定します。VPNやSSH越しでは大きくずれることがあります。
 
-ペルシア語のサポートは試験的です。Ghostty、Alacritty、footでは動きますが、macOSのターミナルとiTerm2ではうまく表示されません。詳しくは[docs/languages.md](docs/languages.md#persian-and-right-to-left-text)をご覧ください。
+ペルシア語、ヘブライ語（`he`）、アラビア語（`ar`）のサポートは試験的です。ペルシア語の右から左への描画はGhostty、Alacritty、footで確認済みですが、macOSのターミナルとiTerm2ではうまく表示されません。ヘブライ語とアラビア語も同じ描画を使い、翻訳は母語話者による確認を待っています。詳しくは[docs/languages.md](docs/languages.md#persian-and-right-to-left-text)をご覧ください。
 
 暦は[docs/calendars.md](docs/calendars.md)、時刻法は[docs/hours.md](docs/hours.md)、星空の伝統は[docs/cultures.md](docs/cultures.md)、環境変数は[docs/configuration.md](docs/configuration.md)、データの出典とクレジットは[docs/sources.md](docs/sources.md)にあります（いずれも英語）。
 

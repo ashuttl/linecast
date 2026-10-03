@@ -80,21 +80,20 @@ def polar_name(state, runtime):
 def relative_day(diff, runtime):
     """'today', 'in 3 days', '2 days ago' for a day offset from today.
 
-    A language whose counts take three forms carries `in_days_few` and
-    `days_ago_few` beside the plain keys, and the count picks among the
-    three by the language's rule; every other language has a singular
-    and a plural.
+    A language may carry category suffixes beside the plain keys, such
+    as _two for Hebrew and Arabic or _few for Slavic languages. The
+    count picks the form by the language's plural rule.
     """
     if diff == 0:
         return _ss("today", runtime)
     n = abs(diff)
     lang = lang_of(runtime)
     one, many = ("in_day", "in_days") if diff > 0 else ("day_ago", "days_ago")
-    if has_text(_SUNSHINE_STRINGS, many + "_few", lang):
-        form = plural_category(lang, n)
-        key = one if form == "one" else many + "_few" if form == "few" else many
-        return _ss(key, runtime, n=n)
-    return _ss(one if n == 1 else many, runtime, n=n)
+    form = plural_category(lang, n)
+    variant = many + "_" + form
+    if has_text(_SUNSHINE_STRINGS, variant, lang):
+        return _ss(variant, runtime, n=n)
+    return _ss(one if form == "one" else many, runtime, n=n)
 
 
 def axis_month_labels(runtime, narrow=False):

@@ -877,7 +877,7 @@ def _load_register(loader, win, block, source, what):
 
 def _render_terrain(win, block, pan_offset, mouse_pos, marks, lang,
                     route_layer, show_labels=True, sun=False, clouds=False,
-                    source=None, moving=False):
+                    source=None, moving=False, show_crosshairs=True):
     """(map lines, readout, hover, loading, err) for the hillshaded view.
 
     The terrain register at every zoom.  There is one geometry now —
@@ -1008,7 +1008,7 @@ def _render_terrain(win, block, pan_offset, mouse_pos, marks, lang,
         borders = _shift_layer(borders, dx, dy)
         route_layer = _shift_layer(route_layer, dx, dy)
     overlays = _place_marks(overlays, marks, dx, dy, graph_w, height_cells,
-                            False)
+                            False, show_crosshairs)
     readout = _elev_readout(elev, mouse_pos, dx, dy, graph_w, height_cells,
                             lang, centre=not (sun or win.wide))
 
@@ -1114,7 +1114,7 @@ def _hover_at(layer, mouse_pos, pan_offset, lang):
 
 def _render_street(win, block, pan_offset, mouse_pos, marks, lang,
                    route_layer, show_labels=True, sun=False, clouds=False,
-                   source=None, reserved=None, moving=False):
+                   source=None, reserved=None, moving=False, show_crosshairs=True):
     """(map lines, readout, hover, loading, err) for the vector view.
 
     The street register at every zoom.  There is one geometry now — the
@@ -1135,6 +1135,8 @@ def _render_street(win, block, pan_offset, mouse_pos, marks, lang,
         # where the window's marks are not where the built view's are
         centre = (ogw // 2, ohc // 2)
         reserved = (marks.marker, centre) if marks.marker else (centre,)
+        if not show_crosshairs:
+            reserved = ()
     loader = functools.partial(_get_street, lang=lang, reserved=reserved)
     view, loading, err = _load_register(loader, win, block, source,
                                         _STREET_LOAD)
@@ -1231,7 +1233,7 @@ def _render_street(win, block, pan_offset, mouse_pos, marks, lang,
             dusk = shift_grid(dusk, dx, dy, None)
         route_layer = _shift_layer(route_layer, dx, dy)
     overlays = _place_marks(overlays, marks, dx, dy, graph_w, height_cells,
-                            True)
+                            True, show_crosshairs)
 
     strokes = [route_layer] if route_layer is not None else None
     lines = compose_map(fills, layer, overlays, graph_w, height_cells,
@@ -1322,11 +1324,12 @@ def _crosshair(overlays, cell, dx, dy, graph_w, height_cells, street):
     return overlays
 
 
-def _place_marks(overlays, marks, dx, dy, graph_w, height_cells, street):
+def _place_marks(overlays, marks, dx, dy, graph_w, height_cells, street,
+                 show_crosshairs=True):
     """The user's marks over a view's own overlays: home, the route's
     origin and destination, all carried along with the drag preview,
     and the centre crosshair on top of everything."""
-    if marks.marker is not None:
+    if show_crosshairs and marks.marker is not None:
         overlays[marks.marker] = _mark("+", MARKER, street)
     if marks.origin is not None:
         overlays[marks.origin] = _mark("○", MARKER, street)
@@ -1335,8 +1338,10 @@ def _place_marks(overlays, marks, dx, dy, graph_w, height_cells, street):
     if dx or dy:
         overlays = {(c + dx, r + dy): v for (c, r), v in overlays.items()
                     if 0 <= c + dx < graph_w and 0 <= r + dy < height_cells}
-    return _crosshair(overlays, marks.marker, dx, dy, graph_w, height_cells,
-                      street)
+    if show_crosshairs:
+        overlays = _crosshair(overlays, marks.marker, dx, dy, graph_w, height_cells,
+                              street)
+    return overlays
 
 
 def _elev_readout(elev, mouse_pos, dx, dy, graph_w, height_cells, lang,
@@ -1507,12 +1512,12 @@ def render_map(lat, lon, location_name, zoom, marker=None, runtime=None,
         if route_layer is not None and win.cropping:
             route_layer = _overscan.crop_layer(
                 route_layer, at[0], at[1], graph_w, height_cells)
-        extra = ({"reserved": _street_reserved(frame, m_lat, m_lon)}
+        extra = ({"reserved": _street_reserved(frame, m_lat, m_lon) if show_text else ()}
                  if view == "street" else {})
     map_lines, readout, hover, loading, err = paint(
         win, block, pan_offset, mouse_pos, marks, lang, route_layer,
         show_labels=show_labels, sun=sun, clouds=clouds, source=source,
-        moving=moving, **extra)
+        moving=moving, show_crosshairs=show_text, **extra)
 
     # A note is a reply to something you asked for and outranks
     # everything; hover is what you are pointing at *now*, so it beats

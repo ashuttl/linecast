@@ -4,7 +4,7 @@
 
 ## Choosing one
 
-In Chinese, Japanese, Korean, Vietnamese, Thai, Persian, and Icelandic the calendar follows the language; Persian's is the Islamic. You can choose any calendar in any language: `linecast moon --calendar hebrew` for one run, or `linecast calendar hebrew` to save it for every run. `linecast calendar none` turns it off, and `linecast calendar auto` goes back to following the language. The names are `chinese`, `japanese`, `korean`, `vietnamese`, `thai`, `hawaiian`, `samoan`, `chamorro`, `refaluwasch`, `islamic`, `hebrew`, `icelandic`, and `almanac`.
+In Chinese, Japanese, Korean, Vietnamese, Thai, Persian, Arabic, Hebrew, and Icelandic the calendar follows the language; Persian and Arabic use the Islamic calendar, and Hebrew uses the Hebrew calendar. You can choose any calendar in any language: `linecast moon --calendar hebrew` for one run, or `linecast calendar hebrew` to save it for every run. `linecast calendar none` turns it off, and `linecast calendar auto` goes back to following the language. The names are `chinese`, `japanese`, `korean`, `vietnamese`, `thai`, `hawaiian`, `samoan`, `chamorro`, `refaluwasch`, `islamic`, `hebrew`, `icelandic`, and `almanac`.
 
 Whichever calendar is active, the month grid (press `v`, or open on it with `linecast moon --month`) uses it too: the calendar's months in the title, each day's date in the corner of its cell, the month starts and observances marked, and the full date in the hover chip. Click a day and the disc view opens on it.
 

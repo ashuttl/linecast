@@ -182,7 +182,7 @@ class TestRows:
                   "بِ", "لا", "ـ"]
         for _ in range(500):
             row = "".join(rnd.choice(pieces) for _ in range(rnd.randint(1, 14)))
-            for lang in ("en", "fa"):
+            for lang in ("en", "fa", "he", "ar"):
                 _bidi.configure(lang, {})
                 assert visible_len(display(row)) == visible_len(row), (lang, row)
         _bidi.configure("en", {})

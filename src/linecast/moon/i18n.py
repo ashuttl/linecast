@@ -22,7 +22,7 @@ def _ms(key, runtime, **kwargs):
     lang = lang_of(runtime)
     if key == "in_days" and "days" in kwargs:
         # The count arrives written with the language's decimal mark
-        count = float(str(kwargs["days"]).replace(",", "."))
+        count = float(str(kwargs["days"]).replace(",", ".").replace("٫", "."))
         variant = f"in_days_{plural_category(lang, count)}"
         if has_text(_MOON_STRINGS, variant, lang):
             key = variant
@@ -442,14 +442,14 @@ _HIJRI_ERA = LocaleTable("HIJRI_ERA")
 
 # Observance names by the keys hijri's next_observance returns.
 _HIJRI_OBSERVANCES = {
-    "new_year": {"en": "Islamic New Year", "id": "Tahun Baru Islam", "fa": "آغاز سال قمری"},
-    "ashura": {"en": "Ashura", "id": "Asyura", "fa": "عاشورا"},
-    "mawlid": {"en": "Mawlid", "id": "Maulid Nabi", "fa": "میلاد پیامبر"},
-    "ramadan": {"en": "Ramadan begins", "id": "Awal Ramadan", "fa": "آغاز ماه رمضان"},
-    "qadr": {"en": "Laylat al-Qadr", "id": "Lailatulqadar", "fa": "شب قدر"},
-    "eid_fitr": {"en": "Eid al-Fitr", "id": "Idulfitri", "fa": "عید فطر"},
-    "arafah": {"en": "Day of Arafah", "id": "Hari Arafah", "fa": "روز عرفه"},
-    "eid_adha": {"en": "Eid al-Adha", "id": "Iduladha", "fa": "عید قربان"},
+    "new_year": {"ar": "رأس السنة الهجرية", "en": "Islamic New Year", "id": "Tahun Baru Islam", "fa": "آغاز سال قمری"},
+    "ashura": {"ar": "عاشوراء", "en": "Ashura", "id": "Asyura", "fa": "عاشورا"},
+    "mawlid": {"ar": "المولد النبوي", "en": "Mawlid", "id": "Maulid Nabi", "fa": "میلاد پیامبر"},
+    "ramadan": {"ar": "بداية رمضان", "en": "Ramadan begins", "id": "Awal Ramadan", "fa": "آغاز ماه رمضان"},
+    "qadr": {"ar": "ليلة القدر", "en": "Laylat al-Qadr", "id": "Lailatulqadar", "fa": "شب قدر"},
+    "eid_fitr": {"ar": "عيد الفطر", "en": "Eid al-Fitr", "id": "Idulfitri", "fa": "عید فطر"},
+    "arafah": {"ar": "يوم عرفة", "en": "Day of Arafah", "id": "Hari Arafah", "fa": "روز عرفه"},
+    "eid_adha": {"ar": "عيد الأضحى", "en": "Eid al-Adha", "id": "Iduladha", "fa": "عید قربان"},
 }
 
 
@@ -523,9 +523,7 @@ def year_turn_label(year, lang):
 
 # ---------------------------------------------------------------------------
 # The Hebrew calendar's names (see astro/calendars/hebrew.py for the calendar itself).
-# Hebrew is not a UI language and terminals lay its script out
-# unreliably, so the months and holidays are transliterated, one
-# spelling for every reader: Tishrei, Cheshvan, Pesach.
+# Hebrew readers get Hebrew names; other languages keep the transliteration.
 # ---------------------------------------------------------------------------
 
 _HEBREW_MONTHS = ("Nisan", "Iyar", "Sivan", "Tammuz", "Av", "Elul",
@@ -545,39 +543,25 @@ _GEMATRIA = ((400, "ת"), (300, "ש"), (200, "ר"), (100, "ק"), (90, "צ"),
              (2, "ב"), (1, "א"))
 _GERESH, _GERSHAYIM = "׳", "״"
 
-# Holiday names by the keys hebrew's next_holiday returns.
-_HEBREW_HOLIDAYS = {
-    "rosh_hashanah": "Rosh Hashanah",
-    "yom_kippur": "Yom Kippur",
-    "sukkot": "Sukkot",
-    "shemini_atzeret": "Shemini Atzeret",
-    "simchat_torah": "Simchat Torah",
-    # One day in Israel, so a printed calendar names it with both.
-    "shemini_atzeret_simchat_torah": "Shemini Atzeret / Simchat Torah",
-    "hanukkah": "Hanukkah",
-    "tu_bishvat": "Tu BiShvat",
-    "purim": "Purim",
-    "pesach": "Pesach",
-    "shavuot": "Shavuot",
-    "tisha_bav": "Tisha B'Av",
-}
 
 
-def hebrew_month_name(year, month):
+def hebrew_month_name(year, month, lang="en"):
     """The month's name; the twelfth is Adar I in a year with two Adars."""
     from linecast.astro.calendars.hebrew import is_leap_year
     if month == 12 and is_leap_year(year):
-        return "Adar I"
-    return _HEBREW_MONTHS[month - 1]
+        return "אדר א׳" if lang == "he" else "Adar I"
+    return (_HEBREW_MONTHS_HE if lang == "he" else _HEBREW_MONTHS)[month - 1]
 
 
-def hebrew_date_label(year, month, day):
+def hebrew_date_label(year, month, day, lang="en"):
     """23 Tishrei 5787 — the Hebrew date as it is customarily written."""
+    if lang == "he":
+        return hebrew_date_hebrew(year, month, day)
     return f"{day} {hebrew_month_name(year, month)} {year}"
 
 
-def hebrew_holiday_name(key):
-    return _HEBREW_HOLIDAYS[key]
+def hebrew_holiday_name(key, lang="en"):
+    return lookup(LocaleTable("HEBREW_HOLIDAYS"), key, lang)
 
 
 def hebrew_numeral(n):
@@ -614,7 +598,9 @@ def hebrew_date_hebrew(year, month, day):
     return f"{hebrew_numeral(day)} {name} {hebrew_year_numeral(year)}"
 
 
-def rosh_chodesh_label(year, month):
+def rosh_chodesh_label(year, month, lang="en"):
+    if lang == "he":
+        return f"ראש חודש {hebrew_month_name(year, month, lang)}"
     return f"Rosh Chodesh {hebrew_month_name(year, month)}"
 
 

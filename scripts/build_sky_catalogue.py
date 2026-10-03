@@ -103,7 +103,7 @@ WIKIDATA_LANG = {
     "pl": "pl", "no": "nb", "sv": "sv", "is": "is", "da": "da", "fi": "fi",
     "ja": "ja", "ko": "ko", "zh": "zh-hans", "th": "th", "id": "id", "uk": "uk",
     "vi": "vi", "eo": "eo", "tr": "tr", "ru": "ru", "ro": "ro", "cs": "cs", "el": "el",
-    "fa": "fa", "hu": "hu", "sk": "sk",
+    "fa": "fa", "hu": "hu", "sk": "sk", "he": "he", "ar": "ar",
 }
 
 # The traditional form of each simplified character the Chinese names use,
@@ -274,6 +274,14 @@ GREEK_WORDS = (
     "کاپا", "لاندا", "لامبدا", "مو", "نو", "کسی", "امیکرون", "اومیکرون", "پی", "رو",
     "سیگما", "تاو", "اوپسیلون", "فی", "خی", "پسی", "سای", "امگا",
     "آر", "جی", "کا", "دبلیو",
+    # Hebrew and Arabic Bayer designations are not proper star names.
+    "אלפא", "בטא", "גמא", "גמה", "דלתא", "אפסילון", "זטא", "אטא", "תטא",
+    "יוטא", "קפא", "למדא", "מו", "נו", "קסי", "אומיקרון", "פאי", "רו",
+    "סיגמא", "טאו", "אופסילון", "פי", "כי", "פסי", "אומגה",
+    "ألفا", "الفا", "بيتا", "غاما", "جاما", "دلتا", "إبسيلون", "إبسلون", "أبسيلون",
+    "أُبسلون", "زيتا", "إيتا", "إتا", "ثيتا", "يوتا", "كابا", "لامدا", "لامبدا",
+    "ميو", "نيو", "كسي", "أوميكرون", "باي", "رو", "سيغما", "سيجما", "تاو",
+    "أوبسلون", "فاي", "خي", "بساي", "أوميغا",
 )
 GREEK_LETTERS = "αβγδεζηθικλμνξοπρστυφχψωΑΒΓΔΕΖΗΘΙΚΛΜΝΞΟΠΡΣΤΥΦΧΨΩ"
 # A variable star's designation: one or two capitals before the genitive.
@@ -377,6 +385,12 @@ def bake_names(stars, genitives, src):
 # the Latin name. Each language was reviewed against its Wikipedia.
 OVERRIDES = {
     "stars": {
+        # Wikidata Q3409 and Q3427 carry these on the system's item,
+        # rather than consistently on the component with the HD number.
+        # Wasat's Hebrew label names Gemini; Aljanah's Arabic one names
+        # a star in Corvus. Retain the IAU names for those mismatches.
+        "he": {"Sirius": "סיריוס", "Wasat": ""},
+        "ar": {"Sirius": "الشعرى اليمانية", "Vega": "النسر الواقع", "Aljanah": ""},
         "da": {
             "Diphda": "", "Marfak": "", "Pearce's Star": "",
         },

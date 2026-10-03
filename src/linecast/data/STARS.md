@@ -30,3 +30,7 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
 # Swahili names
 
 The Swahili interface retains the IAU star names and Latin constellation names except for two names documented by Tanzanian astronomer Noorali T. Jiwaji in [Namna Ya Kuelewa Nyota Za Mbinguni](https://sites.google.com/site/astronomyintanzania/astronomiakwakiswahili): **Msalaba wa Kusini** (Crux) and **Ng’e** (Scorpius). These are names for the existing IAU figures, not a separate sky culture. The catalogue builder keeps the two names as sourced overrides; further names need an astronomical identification and a source before inclusion.
+
+# Hebrew and Arabic names
+
+The experimental Hebrew and Arabic interfaces use Wikidata labels (CC0) for the IAU constellations and named stars, matched by English constellation names and Henry Draper identifiers. The catalogue builder filters translated Bayer designations and retains the IAU name where a usable local name is missing. Its overrides supply Sirius from [Q3409](https://www.wikidata.org/wiki/Q3409) and Arabic Vega from [Q3427](https://www.wikidata.org/wiki/Q3427), and exclude two mismatched star labels. These names still need native-speaker review. When rebuilding from a cached source directory, refresh `wikidata_stars.csv` and `wikidata_constellations.csv` to include the new languages.

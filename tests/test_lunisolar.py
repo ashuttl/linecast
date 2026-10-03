@@ -204,7 +204,7 @@ class TestLabels:
         # see test_icelandic), so none carries a meridian or solar terms.
         for lang in LOCALE_CODES:
             cal = setting(lang, "calendar")
-            if cal in (None, "thai", "islamic", "icelandic"):
+            if cal in (None, "thai", "islamic", "hebrew", "icelandic"):
                 continue
             assert cal in CALENDAR_MERIDIAN_HOURS
             assert calendar_is_native(cal, lang)

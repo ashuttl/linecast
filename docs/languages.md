@@ -23,20 +23,27 @@ linecast speaks your terminal's language if it knows it, and English otherwise. 
 | `is` | Icelandic | `vi` | Vietnamese |
 | `fi` | Finnish | `id` | Indonesian |
 | `cs` | Czech | `eo` | Esperanto |
-| `sk` | Slovak | | |
+| `sk` | Slovak | `he` | Hebrew (experimental) |
+| `ar` | Arabic (experimental) | | |
 
 A regional variant changes only the words that differ in its country, and Hong Kong Chinese also uses the Hong Kong Observatory's words for the weather. The terminal's locale chooses the variant, so `fr_CA` reads Canadian French and `pt_BR` reads Portuguese. Macau's `zh_MO` reads Hong Kong Chinese, Singapore's `zh_SG` reads simplified Chinese, and Norway's `nb_NO` and `nn_NO` both read Norwegian.
 
 ## What follows the language
 
 - **Units.** With metric units, wind speeds are in metres per second in Japanese, Korean, Danish, Norwegian, Swedish, Icelandic, Finnish, Russian, Ukrainian, Czech, and Slovak, as those countries' forecasts give them, and in km/h elsewhere.
-- **The moon's calendar.** In Chinese, Japanese, Korean, Vietnamese, and Thai, `moon` shows that language's traditional calendar; in Persian, the Islamic. See [calendars.md](calendars.md).
+- **The moon's calendar.** In Chinese, Japanese, Korean, Vietnamese, and Thai, `moon` shows that language's traditional calendar; in Persian and Arabic, the Islamic; in Hebrew, the Hebrew calendar. See [calendars.md](calendars.md).
 - **The sky.** In Chinese, `sky` draws the Chinese sky; in every other language, the IAU constellations. Star and constellation names come from Wikidata where the language has them. Swahili names Crux and Scorpius; other stars and constellations keep their catalogue names.
 - **The hours.** In Swahili, `sunshine` reads the day in Swahili time. See [hours.md](hours.md).
 
 In India, many weather alerts are published in the state language. `weather --lang hi`, `--lang te`, `--lang mr`, or another Indian language code shows them in that language where it exists; the rest of the app stays in English.
 
 ## Persian and right-to-left text
+
+Hebrew (`he`) and Modern Standard Arabic (`ar`) are experimental too, using the same RTL layout and output pass. Try `linecast weather --lang he` or `linecast weather --lang ar`. Neither translation has had native-speaker review. The terminal results below are from the Persian experiment; Hebrew and Arabic still need hands-on testing across terminals.
+
+Arabic uses shared formal written Arabic, with January as يناير and Arabic-Indic digits (٠١٢٣٤٥٦٧٨٩). Regional month names and digit preferences differ; this first pass does not provide regional Arabic variants. `linecast digits latin` selects 0–9. Hebrew uses 0–9 by default, and the older locale code `iw` also selects Hebrew. Both keep Gregorian civil dates; the Moon adds the Islamic calendar in Arabic and the Hebrew calendar in Hebrew.
+
+Review is particularly welcome for forecast sentences assembled from several phrases, astronomical and tidal terminology, and narrow labels. The Arabic translation follows the written variety described by [W3C’s Arabic layout requirements](https://www.w3.org/TR/alreq/), which also discuss regional digit conventions.
 
 Persian support is experimental. A native reader has not yet checked the translation, and right-to-left text does not work in every terminal. If something reads oddly, please open an [issue](https://github.com/ashuttl/linecast/issues).
 

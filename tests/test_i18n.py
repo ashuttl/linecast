@@ -678,8 +678,9 @@ class TestTablesComplete:
     # Keys a language needs that English does not: the Slavic few-form,
     # Romanian's one and its "de" form for a count of days, and a dawn
     # and a dusk word where one twilight word will not do.
-    EXTRAS = {"linecast.sunshine.i18n": {"in_days_few", "days_ago_few"},
-              "linecast.moon.i18n": {"in_days_one", "in_days_many"}}
+    EXTRAS = {"linecast.sunshine.i18n": {"in_days_few", "days_ago_few", "in_days_two",
+                                       "days_ago_two", "in_days_many", "days_ago_many"},
+              "linecast.moon.i18n": {"in_days_one", "in_days_many", "in_days_two", "in_days_few"}}
     # Variants of an English key: Greek's one o'clock, the precipitation
     # noun classes (Swahili ma- and ki-vi, the Romance, Finnish, Czech and
     # Polish plurals),

@@ -41,7 +41,8 @@ SETTINGS = {
     "duration": {"d": "{v}d", "h": "{v}h", "m": "{v}m", "s": "{v}s", "join": " ", "pad": True},
     # Which counts take which plural form, as CLDR draws the lines, for
     # the keys with _one, _few, and _many forms: "east_slavic" (Russian,
-    # Ukrainian), "polish", "czech", "romanian".  A language that needs
+    # Ukrainian), "polish", "czech", "romanian", "hebrew", "arabic". Arabic also uses
+    # zero, two, and other; Hebrew uses two and other. A language that needs
     # a rule of its own can ask for one.  Default "one_many": 1 is one,
     # everything else many.
     "plural": "one_many",
@@ -666,4 +667,22 @@ SKY_CULTURES = {
     "tukano": "Tukano",
     "snt": "Western (Sky & Telescope)",
     "rey": "Western (H.A.Rey)",
+}
+
+
+# Holiday names by the keys hebrew's next_holiday returns.
+HEBREW_HOLIDAYS = {
+    "rosh_hashanah": "Rosh Hashanah",
+    "yom_kippur": "Yom Kippur",
+    "sukkot": "Sukkot",
+    "shemini_atzeret": "Shemini Atzeret",
+    "simchat_torah": "Simchat Torah",
+    # One day in Israel, so a printed calendar names it with both.
+    "shemini_atzeret_simchat_torah": "Shemini Atzeret / Simchat Torah",
+    "hanukkah": "Hanukkah",
+    "tu_bishvat": "Tu BiShvat",
+    "purim": "Purim",
+    "pesach": "Pesach",
+    "shavuot": "Shavuot",
+    "tisha_bav": "Tisha B'Av",
 }

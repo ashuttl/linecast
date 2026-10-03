@@ -31,7 +31,8 @@ class TestResolve:
     def test_auto_is_native_where_the_language_has_its_own(self):
         assert resolve_digits("fa", {}) == ("native", "auto")
         assert resolve_digits("en", {}) == ("latin", "auto")
-        assert resolve_digits("ar", {}) == ("latin", "auto")
+        assert resolve_digits("ar", {}) == ("native", "auto")
+        assert resolve_digits("he", {}) == ("latin", "auto")
 
     def test_env_beats_config_beats_the_language(self):
         _config.write_config({"digits": "latin"})

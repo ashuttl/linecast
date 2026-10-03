@@ -14,7 +14,7 @@ from collections.abc import MutableMapping
 # The display order shared by help, `linecast language`, and completions;
 # keep both READMEs in step. English first, then loose regional clusters:
 # Romance, German/Dutch, Nordic, Central European, East Slavic, Greek,
-# Turkish, Persian, Swahili, East Asian, Southeast Asian, and Esperanto
+# Turkish, Persian, Hebrew, Arabic, Swahili, East Asian, Southeast Asian, and Esperanto
 # last. Keep both Chinese scripts together.
 LANGUAGES = (
     ("en", "English"),
@@ -25,7 +25,8 @@ LANGUAGES = (
     ("is", "Icelandic"), ("fi", "Finnish"),
     ("cs", "Czech"), ("sk", "Slovak"), ("pl", "Polish"), ("hu", "Hungarian"),
     ("ru", "Russian"), ("uk", "Ukrainian"),
-    ("el", "Greek"), ("tr", "Turkish"), ("fa", "Persian"), ("sw", "Swahili"),
+    ("el", "Greek"), ("tr", "Turkish"), ("fa", "Persian"),
+    ("he", "Hebrew"), ("ar", "Arabic"), ("sw", "Swahili"),
     ("zh", "Simplified Chinese"), ("zh-Hant", "Traditional Chinese"),
     ("ja", "Japanese"), ("ko", "Korean"),
     ("th", "Thai"), ("vi", "Vietnamese"), ("id", "Indonesian"),
@@ -65,6 +66,7 @@ VARIANT_NAMES = {
 # (Spain's Spanish is Spain's alone, Canada's French is Canada's alone),
 # the base is what the rest of the world gets.
 LANGUAGE_ALIASES = {
+    "iw": "he",
     "nb": "no", "nn": "no",
     "zh-hant": "zh-Hant", "zh-tw": "zh-Hant",
     "zh-hk": "zh-HK", "zh-mo": "zh-HK", "zh-hant-hk": "zh-HK", "zh-hant-mo": "zh-HK",
@@ -331,18 +333,37 @@ def fmt_duration_parts(lang, *parts, sign=""):
 
 
 def plural_category(lang, n):
-    """Which form a count takes in `lang`: "one", "few", or "many", as
+    """Which form a count takes in `lang`, as
     CLDR draws the lines. Russian and Ukrainian count 1, 21, 31 as one,
     2–4 and 22–24 as few, the rest (11–14 among them) as many; Polish
     the same but with only 1 as one; Czech 1, 2–4, and the rest;
     Romanian 1, then few to 19 and again from 101 to 119, with "de"
     before the noun beyond ("21 de zile", "101 zile"). A fraction is many in the
     Slavic languages and few in Romanian. Every other language has one
-    and many. A language names its rule in its "plural" setting:
+    and many, except Hebrew (one, two, other) and Arabic (zero, one,
+    two, few, many, other). A language names its rule in its "plural" setting:
     east_slavic, polish, czech, romanian, or the default one_many."""
     whole = float(n) == int(n)
     n = abs(int(n)) if whole else n
     rule = setting(lang, "plural")
+    if rule == "arabic":
+        n = abs(n)
+        if n == 0:
+            return "zero"
+        if n == 1:
+            return "one"
+        if n == 2:
+            return "two"
+        if whole and 3 <= n % 100 <= 10:
+            return "few"
+        if whole and 11 <= n % 100 <= 99:
+            return "many"
+        return "other"
+    if rule == "hebrew":
+        n = abs(n)
+        if (whole and n == 1) or (not whole and 0 < n < 1):
+            return "one"
+        return "two" if n == 2 else "other"
     if rule == "east_slavic":
         if not whole:
             return "many"

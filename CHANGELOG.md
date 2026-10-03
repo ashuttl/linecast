@@ -8,6 +8,10 @@ Tides gain month and year views, a look at what moves the tide, and coverage fro
 
 New this version:
 
+- Maps: `t` now hides the center and location crosshairs along with the header and footer.
+
+- Languages: Added experimental Hebrew and Modern Standard Arabic translations, using the right-to-left layout introduced for Persian. All three remain experimental.
+
 - Fixed footer flickering during mouse hover in tmux.
 
 - `maps --view now` starts with text and labels hidden and the globe slowly rotating. `t`, `l`, and `r` toggle them independently.
