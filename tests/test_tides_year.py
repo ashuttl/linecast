@@ -190,6 +190,19 @@ class TestTheFloodStage:
 
 
 class TestThePointer:
+    def test_hover_reuses_lunar_dates_without_changing_the_frame(self, predicted):
+        from linecast.moon import calendar
+
+        year_view._moon_phases.cache_clear()
+        with patch.object(calendar, "principal_phase_days",
+                          wraps=calendar.principal_phase_days) as phases:
+            _frame(predicted, mouse=(30, 10))
+            assert phases.call_count == 12
+            cached = _frame(predicted, mouse=(40, 12), raw=True)
+            assert phases.call_count == 12
+            year_view._moon_phases.cache_clear()
+            assert _frame(predicted, mouse=(40, 12), raw=True) == cached
+
     def _column(self, lines, day_of_year, cols=110):
         # January's name starts where the chart does
         gutter = len(lines[-2]) - len(lines[-2].lstrip())
@@ -228,6 +241,18 @@ class TestThePointer:
 
 
 class TestAnotherYear:
+    def test_lunar_dates_follow_the_year_and_station_time_zone(self):
+        from linecast.moon import calendar
+
+        year_view._moon_phases.cache_clear()
+        with patch.object(calendar, "principal_phase_days",
+                          wraps=calendar.principal_phase_days) as phases:
+            for year, zone in ((2026, TZ), (2027, TZ),
+                               (2026, ZoneInfo("Pacific/Auckland"))):
+                cached = year_view._moon_phases(year, zone)
+                assert cached == year_view._moon_phases.__wrapped__(year, zone)
+            assert phases.call_count == 72
+
     def test_a_year_that_is_not_this_one_has_no_line_for_today(self, predicted):
         shifted = {day.replace(year=2027) if (day.month, day.day) != (2, 29) else day: v
                    for day, v in predicted.items()}

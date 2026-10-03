@@ -22,6 +22,7 @@ alone.
 """
 
 from datetime import date, timedelta
+from functools import lru_cache
 
 from linecast._i18n import fmt_decimal
 from linecast.terminal import live as _live
@@ -279,19 +280,30 @@ def summary(year, predicted, observed, runtime, today):
                date=_fmt_month_day(day, runtime))
 
 
+@lru_cache(maxsize=8)
+def _moon_phases(year, tzinfo):
+    """Keep the year's astronomy out of pointer redraws; cache data, not ink."""
+    from linecast.moon.calendar import principal_phase_days
+
+    return tuple((day, moment)
+                 for month in range(1, 13)
+                 for day, (idx, moment) in principal_phase_days(year, month, tzinfo).items()
+                 if idx in (0, 4))
+
+
 def _moon_row(year, width, n, tzinfo, runtime):
     """The new and full Moons above the chart, at their days' columns."""
-    from linecast.moon.calendar import principal_phase_days
     from linecast.moon.phase import moon_phase
     cells = [" "] * width
     jan1 = date(year, 1, 1)
     ink = fg(*_palette.MUTED_RGB)
-    for month in range(1, 13):
-        for day, (idx, moment) in principal_phase_days(year, month, tzinfo).items():
-            if idx not in (0, 4):
-                continue
-            x = min(width - 1, int((day - jan1).days * width / n))
-            cells[x] = f"{ink}{moon_phase(moment, runtime)[2]}{RESET}"
+    # None means the process's local zone, which can change independently
+    # of this key. Station views supply an explicit zone and use the cache.
+    phases = (_moon_phases(year, tzinfo) if tzinfo is not None
+              else _moon_phases.__wrapped__(year, tzinfo))
+    for day, moment in phases:
+        x = min(width - 1, int((day - jan1).days * width / n))
+        cells[x] = f"{ink}{moon_phase(moment, runtime)[2]}{RESET}"
     return "".join(cells)
 
 
