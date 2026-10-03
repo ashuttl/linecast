@@ -503,6 +503,59 @@ class TestProbe:
             assert _theme.ingest_osc(body.encode()) is False
         assert _theme.generation == gen
 
+    @pytest.mark.parametrize("before,after", ((DARK, LIGHT), (LIGHT, DARK)))
+    def test_tmux_waits_for_the_default_colours_to_catch_up(
+            self, pipe, restore_theme, monkeypatch, before, after):
+        monkeypatch.setenv("TMUX", "/tmp/tmux-test/default,1,0")
+        _theme._apply(*before)
+        gen = _theme.generation
+        # tmux forwards fresh ANSI slots but can keep the default colours
+        # it read when the client attached. Repeated polls must leave the
+        # whole old palette in place until those defaults catch up.
+        for _ in range(2):
+            assert _theme.request_probe(pipe[1])
+            for body in _replies(before[0], before[1], after[2]):
+                assert _theme.ingest_osc(body.encode()) is False
+            assert not _theme.probe_pending()
+            assert _theme.generation == gen
+            assert (_theme.theme_fg, _theme.theme_bg, _theme.theme_ansi) == before
+
+        assert _theme.request_probe(pipe[1])
+        replies = _replies(*after)
+        for body in replies[:-1]:
+            assert _theme.ingest_osc(body.encode()) is False
+        assert _theme.ingest_osc(replies[-1].encode()) is True
+        assert (_theme.theme_fg, _theme.theme_bg, _theme.theme_ansi) == after
+        assert _theme.generation == gen + 1
+        assert not _theme.probe_pending()
+
+    @pytest.mark.parametrize("changed", (0, 1))
+    def test_tmux_accepts_a_change_to_either_default_colour(
+            self, pipe, restore_theme, monkeypatch, changed):
+        monkeypatch.setenv("TMUX", "/tmp/tmux-test/default,1,0")
+        _theme._apply(*DARK)
+        after = list(DARK)
+        after[changed] = LIGHT[changed]
+        assert _theme.request_probe(pipe[1])
+        results = [_theme.ingest_osc(body.encode()) for body in _replies(*after)]
+        assert results == [False] * 17 + [True]
+        assert (_theme.theme_fg, _theme.theme_bg, _theme.theme_ansi) == tuple(after)
+
+    @pytest.mark.parametrize("tmux", (None, ""))
+    def test_ansi_only_changes_still_apply_outside_tmux(
+            self, pipe, restore_theme, monkeypatch, tmux):
+        if tmux is None:
+            monkeypatch.delenv("TMUX", raising=False)
+        else:
+            monkeypatch.setenv("TMUX", tmux)
+        _theme._apply(*DARK)
+        assert _theme.request_probe(pipe[1])
+        results = [_theme.ingest_osc(body.encode())
+                   for body in _replies(DARK[0], DARK[1], LIGHT[2])]
+        assert results == [False] * 17 + [True]
+        assert (_theme.theme_fg, _theme.theme_bg, _theme.theme_ansi) == (
+            DARK[0], DARK[1], LIGHT[2])
+
     def test_replies_without_a_probe_are_ignored(self, restore_theme):
         _theme._probe = None
         assert _theme.ingest_osc(b"11;rgb:ffff/ffff/ffff") is False

@@ -338,10 +338,12 @@ def _collect_paths():
 def _collect_terminal():
     import shutil
     from linecast.terminal import color as _color
+    from linecast.terminal import term as _term
     from linecast.terminal import theme as _theme
     from linecast._runtime import RuntimeConfig, resolve_icons
     env = os.environ
     _theme.ensure_theme_loaded()  # no OSC probe unless stdout is a tty
+    glyph_widths = _collect_glyph_widths()  # also asks XTVERSION for the terminal's name
     theme_env = env.get("LINECAST_THEME", "").strip()
     tty = _is_tty(sys.stdout)
     if theme_env:
@@ -354,6 +356,12 @@ def _collect_terminal():
         theme = "fixed palette (not probed: stdout is not a tty)"
     else:
         theme = "fixed palette (the terminal did not answer the probe)"
+    if env.get("TMUX") and tty and not _theme.theme_available and not _theme.theme_legacy_mode:
+        name = _term.terminal_name or "tmux"
+        if not name.startswith("tmux "):
+            name = "tmux"
+        theme += (f"; inside {name}; terminal palette forwarding requires "
+                  "tmux 3.6 or newer")
     size = shutil.get_terminal_size(fallback=(0, 0))
     runtime = RuntimeConfig.defaults()
     icon_set, icon_source = resolve_icons(None, env)
@@ -379,7 +387,7 @@ def _collect_terminal():
         "icons": icons,
         "theme": theme,
         "lang": runtime.lang,
-        "glyph_widths": _collect_glyph_widths(),
+        "glyph_widths": glyph_widths,
         "bidi": _collect_bidi(env),
     }
 

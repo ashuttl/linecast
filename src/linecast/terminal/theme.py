@@ -574,6 +574,12 @@ def ingest_osc(body):
     _probe = None
     if _is_current(*answer):
         return False
+    # tmux can forward fresh OSC 4 replies while answering OSC 10/11
+    # with colours cached when its client attached (issue #131). Keep
+    # the whole old palette until either default colour changes too.
+    # This also defers deliberate ANSI-only changes inside tmux.
+    if os.environ.get("TMUX") and answer[:2] == (theme_fg, theme_bg):
+        return False
     _apply(*answer)
     return True
 

@@ -125,6 +125,52 @@ class TestOffline:
             assert "WEATHER_LOCATION" in report
 
 
+class TestTerminalTheme:
+    @pytest.mark.parametrize("name", ("tmux 3.5a", "tmux 3.7c", None, "foot(1.28.0)"))
+    def test_incomplete_tmux_probe_explains_palette_support(self, monkeypatch, name):
+        from linecast.terminal import term, theme
+
+        doctor = _doctor()
+        monkeypatch.setenv("TMUX", "/tmp/tmux-test/default,1,0")
+        monkeypatch.setattr(doctor, "_is_tty", lambda stream: True)
+        monkeypatch.setattr(theme, "theme_available", False)
+        monkeypatch.setattr(theme, "theme_legacy_mode", False)
+        monkeypatch.setattr(term, "terminal_name", None)
+
+        def glyph_widths():
+            # XTVERSION is answered during the width probe, after the
+            # colour probe. The report must use this newly learned name.
+            monkeypatch.setattr(term, "terminal_name", name)
+            return "measured"
+
+        monkeypatch.setattr(doctor, "_collect_glyph_widths", glyph_widths)
+        report = doctor.collect(offline=True)
+        value = report["terminal"]["theme"]
+        assert "did not answer the probe" in value
+        assert "terminal palette forwarding requires tmux 3.6 or newer" in value
+        expected = name if name and name.startswith("tmux ") else "tmux"
+        assert f"inside {expected};" in value
+        assert value in doctor.render(report)
+
+    @pytest.mark.parametrize("tty,available,legacy,tmux", (
+        (False, False, False, True),
+        (True, True, False, True),
+        (True, False, True, True),
+        (True, False, False, False),
+    ))
+    def test_tmux_hint_is_only_for_an_unanswered_probe(
+            self, monkeypatch, tty, available, legacy, tmux):
+        from linecast.terminal import theme
+
+        doctor = _doctor()
+        if tmux:
+            monkeypatch.setenv("TMUX", "/tmp/tmux-test/default,1,0")
+        monkeypatch.setattr(doctor, "_is_tty", lambda stream: tty)
+        monkeypatch.setattr(theme, "theme_available", available)
+        monkeypatch.setattr(theme, "theme_legacy_mode", legacy)
+        assert "palette forwarding" not in doctor._collect_terminal()["theme"]
+
+
 class TestSecrets:
     def test_a_key_is_shown_as_set(self, monkeypatch):
         monkeypatch.setenv("LINECAST_TIDECHECK_KEY", "abc123secret")
