@@ -226,6 +226,12 @@ def render_calendar(now_local, lat, lng, runtime, month_offset=0,
     row0 = 2 + max(0, (graph_h - 2 - cell_h * weeks) // 2)
     aspect = cell_aspect() / 2.0   # a sub-pixel's height in cell widths
     radius = min((cell_h - 1.0) * aspect, (cell_w - 2) / 2)
+    show_reading = cell_h >= 3 and cell_w >= 6
+    text_rows = show_reading and (found is not None or civil == SOLAR_HIJRI)
+    if text_rows:
+        # Keep the number/observance row and the name/date row clear of
+        # the disc, including its one-pixel antialiasing edge.
+        radius = min(radius, (cell_h - 2) * aspect - 1.0)
 
     # The frame on screen is the one clicks and hovers land on, so its
     # geometry is kept for clicked_day() rather than recomputed.
@@ -290,10 +296,13 @@ def render_calendar(now_local, lat, lng, runtime, month_offset=0,
         # Today's whole cell sits on a faintly moonlit field — the way a
         # printed calendar rings the day — since a glow behind a disc
         # this small has no room to show.
+        cell_bg = moon_palette.SKY_RGB
         if d == today:
+            cell_bg = _theme.lerp_rgb(cell_bg, moon_palette.MOON_GLOW_RGB, 0.16)
             for spy in range(y0 * 2, (y0 + cell_h) * 2):
                 for x in range(x0, x0 + cell_w):
-                    fb.set_pixel(x, spy, moon_palette.MOON_GLOW_RGB, 0.16)
+                    fb.set_pixel(x, spy, cell_bg)
+        reading_ink = _theme.ensure_contrast(T, cell_bg, minimum=4.5)
 
         # The disc: an icon of the day's phase, waxing lit on the right
         # (mirrored south of the equator).
@@ -337,12 +346,13 @@ def render_calendar(now_local, lat, lng, runtime, month_offset=0,
         # edge, where the every-cell rhythm says whose row it is; sparse
         # labels (month starts, festivals) ride just after the day
         # number instead, so they cannot read as another cell's.
-        if found and cell_h >= 3 and cell_w >= 6:
+        if found and show_reading:
             label = found.cell_label(
                 d, ctx, principal[1] if principal and principal[0] == 0 else None)
             if label:
                 text, is_fest = label
-                ink = P if is_fest else F
+                ink = (_theme.ensure_contrast(P, cell_bg, minimum=4.5)
+                       if is_fest else reading_ink)
                 if dense:
                     _put(overlays, x0 + 1, y0 + cell_h - 1,
                          _clip(text, cell_w - 2), ink, max_x=graph_w)
@@ -353,30 +363,31 @@ def render_calendar(now_local, lat, lng, runtime, month_offset=0,
                          max_x=graph_w)
 
         # A calendar that counts its own days sets the day's number in
-        # the far corner, faint, the way the dual wall calendars print
+        # the far corner, the way the dual wall calendars print
         # the other calendar's date small beside the civil one. A
         # month's opening day carries the month's name in front of its
         # 1, so the count and the name change together; the title says
         # which months the numbers belong to.
         right_w = 0
-        corner = found.corner(d, ctx) if found and cell_h >= 3 and cell_w >= 6 else None
+        corner = found.corner(d, ctx) if found and show_reading else None
         if corner:
             text = _corner_text(*corner, cell_w - 2)
             right_w = visible_len(text)
             _put(overlays, x0 + cell_w - 1 - right_w,
-                 y0 + cell_h - 1, text, F, max_x=graph_w)
+                 y0 + cell_h - 1, text, reading_ink, max_x=graph_w)
 
         # A Solar Hijri month sets the Gregorian day in the other
         # corner, the way Iran's wall calendars print it small beside
         # the solar one, the month's name with its 1. A calendar that
         # labels every day along the bottom edge keeps that edge, and
         # the Gregorian date waits in the hover.
-        if civil == SOLAR_HIJRI and cell_h >= 3 and cell_w >= 6 and not dense:
+        if civil == SOLAR_HIJRI and show_reading and not dense:
             room = cell_w - 2 - (right_w + 1 if right_w else 0)
             text = _corner_text(d.day, table_for(MONTHS, lang)[d.month - 1],
                                 room)
             if visible_len(text) <= room:
-                _put(overlays, x0 + 1, y0 + cell_h - 1, text, F, max_x=graph_w)
+                _put(overlays, x0 + 1, y0 + cell_h - 1, text, reading_ink,
+                     max_x=graph_w)
 
     if fullscreen:
         from linecast.terminal.help import paint_hint

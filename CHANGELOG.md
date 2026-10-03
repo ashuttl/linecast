@@ -71,6 +71,7 @@ Fixes:
   - Temperatures just below zero no longer read "-0°"; tide heights just below the datum no longer read "-0.0′".
   - Missing past data no longer makes the year view show dry months.
 - Moon:
+  - Calendar night names, dates, and observances are easier to read, with stronger contrast and space clear of the Moon images.
   - Blue Moons are identified correctly when two full moons fall close to 29½ days apart. The Moon's age no longer runs past the month's length, as in "Day 29.8 of 29.5".
   - Countdowns use hours and minutes in the last day, avoiding "in 0.0d" in the last hour.
   - `sunshine --oneline` shows the correct phase near a new or full moon outside UTC.
