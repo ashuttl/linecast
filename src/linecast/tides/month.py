@@ -43,6 +43,7 @@ from linecast.terminal.braille import DOT_BITS
 from linecast.terminal.color import RESET, bg, fg
 from linecast.terminal.framebuffer import Framebuffer, get_terminal_size
 from linecast.terminal.heading import render_heading
+from linecast.terminal.month_layout import month_layout
 from linecast.terminal.textwidth import visible_len
 from linecast.terminal.theme import (
     best_contrast,
@@ -212,23 +213,10 @@ def render_month(first, predictions, hilo, runtime, *, header, footer, station_m
     hilo = hilo or []
 
     # --- the rows: a day to a row, or two when the month will not fit ---
-    # The axis and its legend belong to the field. Leave a blank row
-    # between them, while the source and help keep the window's footer.
-    n_footer = footer.count("\n") + 1
-    ruled = rows >= 6 + n_footer + (ndays + 1) // 2
-    avail = max(4, rows - 5 - int(ruled) - n_footer)
-    per_row = 1 if avail >= ndays else 2
-    n_rows = min(avail, -(-ndays // per_row))
+    layout = month_layout(rows, ndays, footer_rows=footer.count("\n") + 1)
+    per_row, n_rows = layout.days_per_row, layout.field_rows
     shown = days[:n_rows * per_row]
     row_days = [shown[r * per_row:(r + 1) * per_row] for r in range(n_rows)]
-    # A day cannot be stretched, so a taller terminal has rows to spare:
-    # the header and footer keep the top and bottom of the window, and
-    # the field sits midway between them.
-    spare = avail - n_rows
-    title_gap = int(spare > 0)
-    spare -= title_gap
-    above = spare // 2
-    field_top = 2 + int(ruled) + above + title_gap
 
     # --- the columns: the day labels, the field, the daylight lows ---
     sun = {d: _sun_times(d, lat, lng, tz) if lat is not None else (None, None)
@@ -323,7 +311,7 @@ def render_month(first, predictions, hilo, runtime, *, header, footer, station_m
     hover = None
     if mouse_pos:
         mcol, mrow = mouse_pos
-        r, x = mrow - 1 - field_top, mcol - 1 - gutter
+        r, x = mrow - 1 - layout.field_top, mcol - 1 - gutter
         if 0 <= r < n_rows and 0 <= x < width:
             hover = (r, x)
             for rr in range(n_rows):
@@ -340,11 +328,12 @@ def render_month(first, predictions, hilo, runtime, *, header, footer, station_m
     phases = _phase_marks(first, tz, runtime)
 
     # --- assemble ---
-    lines = [header] + [""] * above
+    lines = [header] + [""] * layout.header_gap
     title = _month_title(first.year, first.month, lang_of(runtime), full=True)
     lines += [" " * gutter + line for line in render_heading(
-        title, width, text_rgb=_palette.TEXT_RGB, dim_rgb=_palette.DIM_RGB, ruled=ruled)]
-    lines += [""] * title_gap
+        title, width, text_rgb=_palette.TEXT_RGB, dim_rgb=_palette.DIM_RGB,
+        ruled=layout.ruled)]
+    lines += [""] * layout.heading_gap
     for r, body in enumerate(field.render(overlays)):
         group = row_days[r]
         is_today = today in group
@@ -363,9 +352,9 @@ def render_month(first, predictions, hilo, runtime, *, header, footer, station_m
     ticks = render_tide_ticks(datetime(first.year, first.month, first.day, tzinfo=tz),
                               24, width, runtime)
     lines.append(" " * gutter + ticks)
-    lines.append("")
+    lines += [""] * layout.legend_gap
     lines.append(" " * gutter + sun_legend(runtime, cols - gutter, now=today in shown))
-    lines.extend([""] * (spare - above))
+    lines.extend([""] * layout.footer_gap)
     lines.append(footer)
     output = "\n".join(lines)
 

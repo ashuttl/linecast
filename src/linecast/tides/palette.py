@@ -34,7 +34,7 @@ def _rebuild():
     MUTED_RGB = ensure_contrast(neutral_tone(0.48), _theme.theme_bg, minimum=2.5)
     TEXT_RGB = ensure_contrast(_theme.theme_fg, _theme.theme_bg, minimum=4.5)
     PILL_BG_RGB = surface_bg(0.08)
-    PILL_FG_RGB = ensure_contrast(neutral_tone(0.72), PILL_BG_RGB, minimum=3.0)
+    PILL_FG_RGB = ensure_contrast(TEXT_RGB, PILL_BG_RGB, minimum=4.5)
     NOW_PILL_RGB = ensure_contrast(
         best_contrast((_theme.theme_ansi[6], _theme.theme_ansi[14]), minimum=2.0),
         _theme.theme_bg, minimum=2.0)

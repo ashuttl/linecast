@@ -16,6 +16,7 @@ from linecast.terminal.color import RESET, bg, fg
 from linecast.terminal.framebuffer import Framebuffer, get_terminal_size
 from linecast.terminal.heading import render_heading
 from linecast.terminal.help import footer, wrap
+from linecast.terminal.month_layout import month_layout
 from linecast.terminal.textwidth import clip_styled, fit, pad, visible_len
 from linecast.tides.chart import render_tide_ticks
 from linecast.tides.month import _sun_times, sun_legend
@@ -180,21 +181,9 @@ def render_month(series, first, runtime, lat, lng, label, *, difference=False,
                      text_rgb=style.DIM_RGB)
     legends = ([chips + "   " + sun] if visible_len(chips) + 3 + visible_len(sun) <= legend_width
                else [chips, sun])
-    # In the shortest window, give the rule's row to the date so a
-    # 31-day month and both legends still fit.
-    ruled = rows >= 6 + len(legends) + (ndays + 1) // 2
-    available = rows - 5 - int(ruled) - len(legends)
-    per_row = 1 if available >= len(days) else 2
+    layout = month_layout(rows, ndays, heading_rows=2, legend_rows=len(legends))
+    per_row = layout.days_per_row
     groups = [days[i:i + per_row] for i in range(0, len(days), per_row)]
-    spare = available - len(groups)
-    header_gap = int(spare > 0)
-    spare -= header_gap
-    rule_gap = int(spare > 0)
-    spare -= rule_gap
-    legend_gap = int(spare > 0)
-    spare -= legend_gap
-    above = spare // 2
-    field_top = 3 + int(ruled) + header_gap + above + rule_gap
     names = [day_label(now.date() if now.date() in group else group[0], runtime)
              for group in groups]
     extremes = []
@@ -246,7 +235,7 @@ def render_month(series, first, runtime, lat, lng, label, *, difference=False,
                 for cell, mask in bits.items()}
     hover = None
     if mouse_pos:
-        x, r = mouse_pos[0] - 1 - gutter, mouse_pos[1] - 1 - field_top
+        x, r = mouse_pos[0] - 1 - gutter, mouse_pos[1] - 1 - layout.field_top
         if 0 <= x < width and 0 <= r < len(groups):
             hover = r, x
             for rr in range(len(groups)):
@@ -262,11 +251,11 @@ def render_month(series, first, runtime, lat, lng, label, *, difference=False,
     baseline = f"{series.span[0]}–{series.span[1]}"
     caption = (_s("month_departure", runtime, span=baseline) if difference
                else _s("month_temperature", runtime))
-    lines = [place] + [""] * (header_gap + above)
+    lines = [place] + [""] * layout.header_gap
     lines += [" " * gutter + line for line in render_heading(
         caption, width, text_rgb=style.TEXT_RGB, dim_rgb=style.DIM_RGB,
-        overline=title, unit=runtime.temp_unit, ruled=ruled)]
-    lines += [""] * rule_gap
+        overline=title, unit=runtime.temp_unit, ruled=layout.ruled)]
+    lines += [""] * layout.heading_gap
     for r, body in enumerate(field.render(overlays)):
         group = groups[r]
         ink = style.TEXT_RGB if now.date() in group else style.MUTED_RGB
@@ -279,9 +268,9 @@ def render_month(series, first, runtime, lat, lng, label, *, difference=False,
         lines.append(line)
     midnight = datetime(first.year, first.month, first.day, tzinfo=series.tz)
     lines.append(" " * gutter + render_tide_ticks(midnight, 24, width, runtime))
-    lines += [""] * legend_gap
+    lines += [""] * layout.legend_gap
     lines += [" " * gutter + legend for legend in legends]
-    lines += [""] * (spare - above)
+    lines += [""] * layout.footer_gap
     credit = fit(notice, cols - 10) if notice else "Open-Meteo"
     lines.append(footer(f"{fg(*style.DIM_RGB)}{credit}{RESET}", cols, runtime.lang,
                         controls=(("c", "hint_colors"), ("←→", "months"))))

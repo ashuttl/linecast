@@ -55,6 +55,8 @@ New this version:
 
 Fixes:
 
+- Weather and tides: Month views keep consistent spacing around headings and legends in short windows. The tides location name is easier to read.
+
 - Icons: Nerd Font moon phases show the correct light and dark portions on light backgrounds.
 
 - Maps: City names stay more stable while the globe rotates, with fewer brief appearances and swaps between nearby cities.
