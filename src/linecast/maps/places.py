@@ -37,11 +37,12 @@ rule to the number, which is where every hand-off sits.
 import math
 import threading
 
+from linecast._geo import angle_delta
 from linecast.maps import globe as _globe
 from linecast.maps import style
 from linecast.radar.basemap import city_name, load_data
 from linecast.terminal.scenes import Memo
-from linecast.terminal.textwidth import cells as text_cells, glyphs
+from linecast.terminal.textwidth import cells as text_cells, glyphs, visible_len
 
 # The window a name is written into is this many columns wide and this
 # many rows tall: the planet's crowding rule, unchanged, and the reason
@@ -190,38 +191,11 @@ def _layout(cities, cam, band, lang, upper_pop, window=None):
 def _walk(cities, cam, band, lang, upper_pop, taken, placed, out, skip,
           inside):
     """The biggest-first walk, continued from what is already placed."""
-    gw, hc, zoom = cam.gw, cam.hc, cam.zoom
-    most = budget(gw, hc, band)
-    r = _globe._radius(zoom, hc * 2)
-    rx = r * cam.aspect
-    phi0, lam0 = math.radians(cam.lat), math.radians(cam.lon)
-    sin0, cos0 = math.sin(phi0), math.cos(phi0)
-    vx, vy, vz = cos0 * math.cos(lam0), cos0 * math.sin(lam0), sin0
-    # The farthest from the view centre a placed city can lie: the
-    # screen's own corner, or the visibility gate below, whichever
-    # binds first.  A cell over-generous on purpose — the cap only has
-    # to pass a city on, never to decide about one.
-    rho2 = ((gw / 2.0 + 1.0) / rx) ** 2 + ((hc + 2.0) / r) ** 2
-    cap = (math.sqrt(1.0 - rho2) if rho2 < 0.96 else 0.2) - 1e-9
-    sin, cos = math.sin, math.cos
-    half_w, half_h = gw / 2.0, hc * 2 / 2.0
-
-    for entry, sin_phi, cos_phi, lam, px, py in _city_trig(cities):
+    most = budget(cam.gw, cam.hc, band)
+    for entry, col, row in _candidates(cities, cam):
         if len(placed) >= most:
             break
         if id(entry) in skip:
-            continue
-        if px * vx + py * vy + sin_phi * vz < cap:
-            continue  # nowhere the screen reaches
-        d = lam - lam0
-        cos_d = cos(d)
-        if sin0 * sin_phi + cos0 * cos_phi * cos_d < 0.2:
-            continue  # globe.forward()'s cos_c, with the trig hoisted
-        ux = cos_phi * sin(d)
-        uy = cos0 * sin_phi - sin0 * cos_phi * cos_d
-        col = int(half_w + ux * rx)
-        row = int((half_h - uy * r) / 2.0)
-        if not (0 <= col < gw and 0 <= row < hc):
             continue
         if inside is not None and (inside[0] <= col < inside[2]
                                    and inside[1] <= row < inside[3]):
@@ -240,7 +214,156 @@ def _walk(cities, cam, band, lang, upper_pop, taken, placed, out, skip,
             # register draws, so they are what the cells are measured
             # against
             name = style.upper(name, lang)
-        out.append((col, row, _write(taken, col, row, name, gw), entry))
+        out.append((col, row, _write(taken, col, row, name, cam.gw), entry))
+
+
+def _candidates(cities, cam):
+    """Visible (entry, column, row), biggest first."""
+    gw, hc = cam.gw, cam.hc
+    r = _globe._radius(cam.zoom, hc * 2)
+    rx = r * cam.aspect
+    phi0, lam0 = math.radians(cam.lat), math.radians(cam.lon)
+    sin0, cos0 = math.sin(phi0), math.cos(phi0)
+    vx, vy, vz = cos0 * math.cos(lam0), cos0 * math.sin(lam0), sin0
+    # The farthest from the view centre a placed city can lie: the
+    # screen's own corner, or the visibility gate below, whichever
+    # binds first.  A cell over-generous on purpose — the cap only has
+    # to pass a city on, never to decide about one.
+    rho2 = ((gw / 2.0 + 1.0) / rx) ** 2 + ((hc + 2.0) / r) ** 2
+    cap = (math.sqrt(1.0 - rho2) if rho2 < 0.96 else 0.2) - 1e-9
+    sin, cos = math.sin, math.cos
+    half_w, half_h = gw / 2.0, hc * 2 / 2.0
+
+    for entry, sin_phi, cos_phi, lam, px, py in _city_trig(cities):
+        if px * vx + py * vy + sin_phi * vz < cap:
+            continue  # nowhere the screen reaches
+        d = lam - lam0
+        cos_d = cos(d)
+        if sin0 * sin_phi + cos0 * cos_phi * cos_d < 0.2:
+            continue  # globe.forward()'s cos_c, with the trig hoisted
+        ux = cos_phi * sin(d)
+        uy = cos0 * sin_phi - sin0 * cos_phi * cos_d
+        col = int(half_w + ux * rx)
+        row = int((half_h - uy * r) / 2.0)
+        if not (0 <= col < gw and 0 <= row < hc):
+            continue
+        yield entry, col, row
+
+
+class RotationLabels:
+    """City placement with memory and a short forecast of a steady spin.
+
+    Visible names get first claim on the next frame. New names must fit
+    for the next three seconds; retired names wait that long before
+    returning. A smaller spacing threshold for incumbents keeps a cell
+    boundary from repeatedly swapping neighbours. Text never overlaps
+    and is admitted whole, so names do not flicker between cut spellings.
+
+    One instance belongs to one live map, outside the shared layout memo.
+    Time follows the camera's longitude, so dropped frames and wrapping
+    the antimeridian do not change the duration of the history.
+    """
+
+    SECONDS = 3.0
+    STEP = 0.25
+
+    def __init__(self, rate):
+        self.rate = rate  # signed degrees of longitude per second
+        self._key = self._lon = None
+        self._elapsed = 0.0
+        self._visible = []  # (entry, name, width), in admission order
+        self._retired = {}
+
+    def layout(self, cam, band, lang="en", upper_pop=None):
+        cities = load_data()["cities"]
+        key = (cam.lat, cam.zoom, cam.gw, cam.hc, cam.aspect,
+               band, lang, upper_pop, id(cities))
+        dt = (angle_delta(self._lon, cam.lon) / self.rate
+              if self._lon is not None else 0.0)
+        if key != self._key or dt < -1e-6 or dt > self.SECONDS:
+            self._visible = []
+            self._retired = {}
+            self._elapsed = 0.0
+        else:
+            self._elapsed += max(0.0, dt)
+        self._key, self._lon = key, cam.lon
+        self._retired = {k: t for k, t in self._retired.items()
+                         if self._elapsed - t < self.SECONDS}
+
+        cameras = [cam]
+        for step in range(1, round(self.SECONDS / self.STEP) + 1):
+            future = _globe.Camera(cam.lat, cam.lon + self.rate * self.STEP * step,
+                                    cam.zoom, cam.gw, cam.hc)
+            future.aspect = cam.aspect
+            cameras.append(future)
+        occupied = [[] for _ in cameras]
+        kept, out = [], []
+        most = budget(cam.gw, cam.hc, band)
+
+        def keep(entry, name, width, positions):
+            kept.append((entry, name, width))
+            col, row = positions[0]
+            out.append((col, row, name, entry))
+            for cells, pos in zip(occupied, positions):
+                if pos is not None:
+                    cells.append((*pos, width))
+
+        for entry, name, width in self._visible:
+            pos = self._cell(cam, entry, width)
+            if (pos is not None and len(kept) < most
+                    and self._fits(pos, width, occupied[0], entering=False)):
+                keep(entry, name, width, [pos] + [
+                    self._cell(c, entry, width) for c in cameras[1:]])
+            else:
+                self._retired[id(entry)] = self._elapsed
+
+        seen = {id(entry) for entry, _name, _width in kept} | self._retired.keys()
+        for entry, col, row in _candidates(cities, cam):
+            if len(kept) >= most:
+                break
+            if id(entry) in seen:
+                continue
+            name = city_name(entry, lang)
+            if upper_pop is not None and entry[2] >= upper_pop:
+                name = style.upper(name, lang)
+            width = visible_len(name)
+            if col + 1 + width > cam.gw:
+                continue
+            positions = [(col, row)]
+            if not self._fits(positions[0], width, occupied[0]):
+                continue
+            for future, cells in zip(cameras[1:], occupied[1:]):
+                pos = self._cell(future, entry, width)
+                if pos is None or not self._fits(pos, width, cells):
+                    break
+                positions.append(pos)
+            else:
+                keep(entry, name, width, positions)
+        self._visible = kept
+        return out
+
+    @staticmethod
+    def _cell(cam, entry, width):
+        lon, lat = entry[:2]
+        if _globe.forward(lat, lon, cam.lat, cam.lon)[2] < 0.2:
+            return None
+        col, row = map(int, cam.cell(lon, lat))
+        if 0 <= col and col + 1 + width <= cam.gw and 0 <= row < cam.hc:
+            return col, row
+        return None
+
+    @staticmethod
+    def _fits(pos, width, occupied, entering=True):
+        col, row = pos
+        cols, rows = (CROWD_COLS, CROWD_ROWS) if entering else (CROWD_COLS - 2,
+                                                             CROWD_ROWS - 1)
+        for pc, pr, pw in occupied:
+            if abs(col - pc) < cols and abs(row - pr) < rows:
+                return False
+            # Include the settlement dot and one blank cell between names.
+            if row == pr and col <= pc + pw + 1 and pc <= col + width + 1:
+                return False
+        return True
 
 
 def _claim(taken, col, row, text):
@@ -287,19 +410,20 @@ def _emit(entries, ink_of, wide_fill):
     return overlays
 
 
-def terrain_overlays(cam, band, lang="en"):
+def terrain_overlays(cam, band, lang="en", rotation=None):
     """{(col, row): (char, None, False)} — the terrain register's names.
 
     Ink None is the composer's per-cell contrast pick, which is what
     terrain has always done with a city name: the ground under it is a
     hypsometric ramp and no fixed ink reads on all of it.
     """
-    return _emit(layout(cam, band, lang),
+    place = rotation.layout if rotation is not None else layout
+    return _emit(place(cam, band, lang),
                  lambda _entry: (None, None, False),
                  lambda ink, bold: ("", ink, False))
 
 
-def street_overlays(cam, band, palette, lang="en", window=None):
+def street_overlays(cam, band, palette, lang="en", window=None, rotation=None):
     """{(col, row): (char, ink, bold)} — the street register's names.
 
     The street map has a ladder of emphasis where terrain has none, and
@@ -315,9 +439,11 @@ def street_overlays(cam, band, palette, lang="en", window=None):
     """
     major = _style(palette, "city_major")
     minor = _style(palette, "city")
+    entries = (rotation.layout(cam, band, lang, upper_pop=style.CITY_CAPS_POP)
+               if rotation is not None else
+               layout(cam, band, lang, upper_pop=style.CITY_CAPS_POP, window=window))
     return _emit(
-        layout(cam, band, lang, upper_pop=style.CITY_CAPS_POP,
-               window=window),
+        entries,
         lambda entry: major if entry[2] >= style.CITY_CAPS_POP else minor,
         lambda ink, bold: ("", ink, False))
 

@@ -758,6 +758,39 @@ class TestClick:
 
 
 class TestRender:
+    def test_rotation_label_history_lasts_for_one_spin(self, frames):
+        app = make(zoom=120)
+        app.render()
+        assert frames[-1]["rotation_labels"] is None
+        app.camera.spin(True)
+        app.render()
+        history = frames[-1]["rotation_labels"]
+        assert history is not None
+        app.camera.clock.advance(1)
+        app.render()
+        assert frames[-1]["rotation_labels"] is history
+        app.camera.spin(False)
+        app.render()
+        assert frames[-1]["rotation_labels"] is None
+        app.camera.spin(True)
+        app.render()
+        assert frames[-1]["rotation_labels"] is not history
+
+    def test_dragging_or_hiding_names_clears_rotation_history(self, frames):
+        app = make(zoom=120)
+        app.camera.spin(True)
+        app.render()
+        assert frames[-1]["rotation_labels"] is not None
+        app.on_action("l")
+        app.render()
+        assert frames[-1]["rotation_labels"] is None
+        app.on_action("l")
+        app.render()
+        assert frames[-1]["rotation_labels"] is not None
+        app.on_drag(0, 0, False)
+        app.render()
+        assert frames[-1]["rotation_labels"] is None
+
     def test_the_state_reaches_render_map(self, frames):
         app = make(zoom=2.0, view="street", sky=True)
         app.pan_preview = (3, 1)

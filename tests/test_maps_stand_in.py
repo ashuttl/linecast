@@ -178,8 +178,8 @@ class TestTerrainStandInFrame:
         real = maps._places.terrain_overlays
         monkeypatch.setattr(
             maps._places, "terrain_overlays",
-            lambda cam, band, lang="en": named.append(cam) or real(
-                cam, band, lang))
+            lambda cam, band, lang="en", **kw: named.append(cam) or real(
+                cam, band, lang, **kw))
         window = maps._Window.of((1.0, 0.0, 9.0, 8.0), GW, HC)
         lines, _r, _h, loading, err = maps._render_terrain(
             window, False, (0, 0), None, maps._Marks(), "en", None)

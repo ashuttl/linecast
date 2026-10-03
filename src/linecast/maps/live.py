@@ -18,6 +18,7 @@ import time
 
 from linecast.maps import globe as _globe
 from linecast.maps import globe_now
+from linecast.maps import places
 from linecast.maps import route as _route
 from linecast.maps import style
 from linecast.maps import ui
@@ -455,6 +456,7 @@ class MapApp(LiveApp):
         self.text = show_text
         self.show_labels = show_labels
         self._spin_pending = spin  # start once the globe texture is ready
+        self._rotation_labels = None
         self.sun = sky          # S: daylight shading + night city lights
         self.clouds = sky       # c: this hour's cloud cover
         self.search = ui.SearchState()
@@ -908,6 +910,11 @@ class MapApp(LiveApp):
         # would put the network in front of a frame.
         sync = (wide_source(lat, zoom, gw, hc)
                 and globe_warm(zoom, hc, self.view == "street"))
+        if self.camera.spinning and not self.camera.dragging() and self.show_labels:
+            if self._rotation_labels is None:
+                self._rotation_labels = places.RotationLabels(-SPIN_RATE)
+        else:
+            self._rotation_labels = None
         return render_map(
             lat, lon, self.location_name, zoom,
             marker=self.home, runtime=self.runtime, block=sync,
@@ -919,7 +926,8 @@ class MapApp(LiveApp):
             note=ui.route_note(routes, self.runtime.lang),
             show_labels=self.show_labels, show_text=self.text,
             sun=self.sun, clouds=self.clouds,
-            motion=self.camera.heading(), moving=moving)
+            motion=self.camera.heading(), moving=moving,
+            rotation_labels=self._rotation_labels)
 
     def run(self):
         if self.routes.dest is not None:

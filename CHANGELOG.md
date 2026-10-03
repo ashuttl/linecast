@@ -48,6 +48,8 @@ New this version:
 
 Fixes:
 
+- Maps: City names stay more stable while the globe rotates, with fewer brief appearances and swaps between nearby cities.
+
 - Clock changes:
   - Corrected moonrise and moonset countdowns across a clock change, and tomorrow's sunrise and sunset in `sunshine --json` on the evening before one.
   - Corrected tide times near clock changes for the global model, Canadian stations, and TideCheck. NOAA stations chosen with `--station`, including Back Cove in Portland, Maine, and stations in the western Aleutians, now use the right summer time and night shading.

@@ -877,7 +877,8 @@ def _load_register(loader, win, block, source, what):
 
 def _render_terrain(win, block, pan_offset, mouse_pos, marks, lang,
                     route_layer, show_labels=True, sun=False, clouds=False,
-                    source=None, moving=False, show_crosshairs=True):
+                    source=None, moving=False, show_crosshairs=True,
+                    rotation_labels=None):
     """(map lines, readout, hover, loading, err) for the hillshaded view.
 
     The terrain register at every zoom.  There is one geometry now —
@@ -967,7 +968,8 @@ def _render_terrain(win, block, pan_offset, mouse_pos, marks, lang,
     if show_labels:
         cities = _places.terrain_overlays(
             _globe.Camera.for_bbox(bbox, graph_w, height_cells),
-            style.band_for(style.z_eff(bbox, height_cells)), lang)
+            style.band_for(style.z_eff(bbox, height_cells)), lang,
+            rotation=rotation_labels)
     if terrain is None:
         terrain = [[BG_PRIMARY] * graph_w for _ in range(height_cells * 2)]
     if sun or clouds:
@@ -1114,7 +1116,8 @@ def _hover_at(layer, mouse_pos, pan_offset, lang):
 
 def _render_street(win, block, pan_offset, mouse_pos, marks, lang,
                    route_layer, show_labels=True, sun=False, clouds=False,
-                   source=None, reserved=None, moving=False, show_crosshairs=True):
+                   source=None, reserved=None, moving=False, show_crosshairs=True,
+                   rotation_labels=None):
     """(map lines, readout, hover, loading, err) for the vector view.
 
     The street register at every zoom.  There is one geometry now — the
@@ -1221,6 +1224,11 @@ def _render_street(win, block, pan_offset, mouse_pos, marks, lang,
 
     hover, hot, hot_glyphs = _hover_at(layer, mouse_pos, pan_offset, lang)
 
+    if show_labels and rotation_labels is not None and win.wide:
+        labels = _places.street_overlays(
+            _globe.Camera.for_bbox(bbox, graph_w, height_cells),
+            style.band_for(style.z_eff(bbox, height_cells)), palette, lang,
+            rotation=rotation_labels)
     overlays = dict(labels) if show_labels else {}
     dx, dy = pan_offset
     if dx or dy:
@@ -1435,7 +1443,7 @@ def render_map(lat, lon, location_name, zoom, marker=None, runtime=None,
                view="terrain", search=None, route=None, dest=None,
                origin=None, directions=None,
                note="", show_labels=True, show_text=True, sun=False,
-               clouds=False, motion=(0, 0), moving=False, **_):
+               clouds=False, motion=(0, 0), moving=False, rotation_labels=None, **_):
     lang = runtime.lang if runtime else "en"
     if not show_text and mouse_pos is not None:
         # The painters use coordinates with one header row above the map.
@@ -1517,7 +1525,8 @@ def render_map(lat, lon, location_name, zoom, marker=None, runtime=None,
     map_lines, readout, hover, loading, err = paint(
         win, block, pan_offset, mouse_pos, marks, lang, route_layer,
         show_labels=show_labels, sun=sun, clouds=clouds, source=source,
-        moving=moving, show_crosshairs=show_text, **extra)
+        moving=moving, show_crosshairs=show_text,
+        rotation_labels=rotation_labels if globe else None, **extra)
 
     # A note is a reply to something you asked for and outranks
     # everything; hover is what you are pointing at *now*, so it beats
