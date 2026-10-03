@@ -240,7 +240,7 @@ def _sky_field(lat, lng, graph_w, graph_h, days, tz_offs, palette):
 
 def render_year(lat, lng, now, runtime, tz=None, fullscreen=False,
                 dst=False, location_label="", mouse_pos=None,
-                palette=None):
+                palette=None, show_text=True):
     """Build the year-scale sky field display."""
     from linecast.sunshine import view as sun
 
@@ -288,7 +288,7 @@ def render_year(lat, lng, now, runtime, tz=None, fullscreen=False,
 
     # --- hover: which day is the mouse over? ---
     hover_x = None
-    if mouse_pos:
+    if mouse_pos and show_text:
         mcol, mrow = mouse_pos
         gx, gy = mcol - 1, mrow - 1  # 1-based terminal → 0-based chart cell
         if 0 <= gx < graph_w and 0 <= gy < graph_h:
@@ -321,9 +321,10 @@ def render_year(lat, lng, now, runtime, tz=None, fullscreen=False,
 
     # Month labels, dim, along the bottom row — midnight at every
     # latitude, so the ink darkens only against a polar-summer sky.
-    for x, ch in _month_axis_cells(year, days, graph_w, runtime):
-        overlays[(x, graph_h - 1)] = (
-            ch, sun.corner_label_ink(fb.cell_bg(x, graph_h - 1)), False)
+    if show_text:
+        for x, ch in _month_axis_cells(year, days, graph_w, runtime):
+            overlays[(x, graph_h - 1)] = (
+                ch, sun.corner_label_ink(fb.cell_bg(x, graph_h - 1)), False)
 
     sun_row = spy_now // 2
     # Near midnight the sun is on a row of labels.  Over half of a wide
@@ -336,7 +337,7 @@ def render_year(lat, lng, now, runtime, tz=None, fullscreen=False,
     elif under is not None and char_width(under[0][0]) == 2:
         overlays.pop((x_today + 1, sun_row), None)
     overlays[(x_today, sun_row)] = (icons["sun_char"], inks.SUN_DOT_RGB)
-    if fullscreen:
+    if fullscreen and show_text:
         from linecast.terminal.help import paint_hint
         paint_hint(fb, overlays, runtime.lang, rows=(0,))
 

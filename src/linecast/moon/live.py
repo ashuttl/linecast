@@ -26,7 +26,7 @@ class MoonApp(LiveApp):
     been turned."""
 
     def __init__(self, now_fn, lat, lng, runtime, calendar_name=None, israel=False,
-                 month=False, place=""):
+                 month=False, place="", show_text=True):
         self.now_fn = now_fn
         self.lat, self.lng = lat, lng
         self.runtime = runtime
@@ -35,7 +35,7 @@ class MoonApp(LiveApp):
         self.month = month                   # the calendar view is up
         self.minutes = 0                     # the disc view's scrub
         self.months = 0                      # the calendar's
-        self.text = True                     # the disc view's corners are showing
+        self.text = show_text                # the disc view's corners are showing
         self.turn = Turn()
         self.place = place                   # the place's name, for help
         self.solar_hijri = civil_calendar(lang_of(runtime)) == SOLAR_HIJRI

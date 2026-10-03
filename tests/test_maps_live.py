@@ -102,10 +102,10 @@ def frames(monkeypatch):
 
 
 def make(zoom=1.0, view="terrain", sky=False, lat=43.68, lon=-70.37,
-         origin=None, dest=None, fit=False):
+         origin=None, dest=None, fit=False, spin=False):
     runtime = types.SimpleNamespace(lang="en", live=True)
     app = MapApp(runtime, lat, lon, "Westbrook", zoom, view, sky, "car",
-                 origin=origin, dest=dest, fit=fit)
+                 origin=origin, dest=dest, fit=fit, spin=spin)
     app.camera.clock = Clock()
     return app
 
@@ -1278,3 +1278,128 @@ class TestPrintedRoute:
         out = capsys.readouterr().out
         assert out.startswith("MAP\n\n")
         assert "۰٫۹" in out and "0.9" not in out   # 1.5 km in miles
+
+
+def test_text_toggle_preserves_the_label_preference(frames):
+    app = make()
+    assert app.on_action("t") is True
+    app.render()
+    assert frames[-1]["show_text"] is False
+    assert app.show_labels is True
+    app.on_action("l")
+    assert app.on_action("t") is True
+    app.render()
+    assert frames[-1]["show_text"] is True
+    assert frames[-1]["show_labels"] is False
+
+
+@pytest.mark.parametrize("row", [1, ROWS])
+def test_hidden_text_zoom_anchors_the_new_edge_rows(row):
+    app = make()
+    app.on_action("t")
+    assert app.camera.hc == ROWS
+    col = 25
+    fx, fy = (col - 0.5) / COLS, (row - 0.5) / ROWS
+
+    def ground():
+        return (app.lat + app.zoom * (0.5 - fy),
+                app.lon + lon_span(app.lat, app.zoom, COLS, ROWS) * (fx - 0.5))
+
+    before = ground()
+    app.on_wheel(-1, col, row)
+    settle(app)
+    assert ground() == pytest.approx(before)
+    app.on_action("t")
+    assert app.camera.hc == HC
+
+
+@pytest.mark.parametrize("view", ["terrain", "street"])
+@pytest.mark.parametrize("show_text", [False, True])
+def test_map_frame_uses_vacated_rows_and_preserves_labels(monkeypatch, view, show_text):
+    seen = {}
+    monkeypatch.setattr(maps, "wide_source", lambda *a: True)
+
+    def paint(win, block, pan, mouse, marks, lang, route_layer, **kw):
+        seen.update(mouse=mouse, labels=kw["show_labels"], marks=marks)
+        height = ROWS - (2 if show_text else 0)
+        assert win.height_cells == height
+        return ["map label" for _ in range(height)], "", "", False, ""
+
+    monkeypatch.setattr(maps, "_render_" + view, paint)
+    frame = maps.render_map(43.68, -70.37, "Westbrook", 120,
+                            view=view, show_text=show_text, mouse_pos=(25, 1))
+    lines = frame.splitlines()
+    assert len(lines) == ROWS
+    assert seen["labels"] is True
+    assert seen["marks"].marker is not None
+    assert seen["mouse"] == (25, 1 if show_text else 2)
+    if show_text:
+        assert "Westbrook" in lines[0]
+    else:
+        assert all(line == "map label" for line in lines)
+
+
+class TestLaunchSpin:
+    def test_waits_for_texture_then_starts_once(self, monkeypatch, frames):
+        app = make(zoom=120, spin=True)
+        app.render()
+        assert app._spin_pending and not app.camera.spinning
+        monkeypatch.setattr(_maps_live, "globe_warm", lambda *a: True)
+        app.render()
+        assert app.camera.spinning and not app._spin_pending
+        before = app.lon
+        app.camera.clock.advance(1)
+        app.render()
+        assert app.lon == pytest.approx(before - _maps_live.SPIN_RATE)
+        app.on_action("r")
+        app.render()
+        assert not app.camera.spinning
+
+    def test_r_cancels_before_texture_arrives(self, monkeypatch, frames):
+        app = make(zoom=120, spin=True)
+        assert app.on_action("r") is True
+        monkeypatch.setattr(_maps_live, "globe_warm", lambda *a: True)
+        app.render()
+        assert not app.camera.spinning and not app._spin_pending
+
+    def test_explicit_local_zoom_does_not_spin(self, frames):
+        app = make(zoom=1, spin=True)
+        app.render()
+        assert not app.camera.spinning and not app._spin_pending
+
+
+@pytest.mark.parametrize("live", [False, True])
+@pytest.mark.parametrize("flags, text, labels, sky", [
+    ([], True, True, False),
+    (["--no-text"], False, True, False),
+    (["--view", "now"], False, False, True),
+])
+def test_launch_text_and_now_defaults(monkeypatch, live, flags, text, labels, sky):
+    from linecast.maps import tile_cache
+    monkeypatch.setattr(sys, "argv", ["maps", "--live" if live else "--print", *flags])
+    monkeypatch.setattr(tile_cache, "prune_maps_cache", lambda: None)
+    monkeypatch.setattr(_location, "resolve_location",
+                        lambda *a, **k: (43.68, -70.37, "US", "Westbrook"))
+    monkeypatch.setattr("linecast._geocode.place_label", lambda *a: "Westbrook")
+    seen = {}
+    if live:
+        def run(app):
+            seen.update(show_text=app.text, show_labels=app.show_labels,
+                        sky=app.sun and app.clouds, spin=app._spin_pending,
+                        zoom=app.zoom, height=app.camera.hc)
+        monkeypatch.setattr(MapApp, "run", run)
+    else:
+        def render(lat, lon, name, zoom, **kw):
+            seen.update(kw, sky=kw["sun"] and kw["clouds"], zoom=zoom)
+            return "frame"
+        monkeypatch.setattr(_maps_live, "render_map", render)
+        monkeypatch.setattr(_maps_live, "print_frame", lambda *a: None)
+    _maps_live.main()
+    assert seen["show_text"] is text
+    assert seen["show_labels"] is labels
+    assert seen["sky"] is sky
+    if live:
+        assert seen["spin"] is sky
+        assert seen["height"] == (HC if text else ROWS)
+    if sky:
+        assert seen["zoom"] == maps.max_zoom(COLS, ROWS)

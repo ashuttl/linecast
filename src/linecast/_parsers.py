@@ -207,6 +207,8 @@ def tides_parser():
 
 def sunshine_parser():
     p = _base_parser("linecast sunshine", BLURB["sunshine"], clock=True, json=True)
+    p.add_argument("--no-text", action="store_true",
+                    help="hide supporting text, keeping the location and clock (t toggles)")
     p.add_argument("--year", action="store_true",
                     help="open on the year view: each day of the year as "
                          "a column of day and night sky (v flips between "
@@ -228,6 +230,8 @@ def sunshine_parser():
 
 def moon_parser():
     p = _base_parser("linecast moon", BLURB["moon"], clock=True, json=True)
+    p.add_argument("--no-text", action="store_true",
+                    help="hide the disc view's text (t toggles; calendar unchanged)")
     p.add_argument("--month", action="store_true",
                     help="open on the month view: a calendar of the "
                          "month's phases (v flips between the views)")
@@ -303,6 +307,8 @@ def maps_parser():
                       units=("metric units: kilometres and metres",
                              "imperial units: miles and feet"),
                       oneline=False)
+    p.add_argument("--no-text", action="store_true",
+                    help="hide the header and footer (t toggles; l controls labels)")
     p.add_argument("--search", metavar="QUERY", default=None,
                     help="search for a location and exit")
     # the default is per view and resolved in maps.main(): a street map
@@ -313,7 +319,8 @@ def maps_parser():
     p.add_argument("--view", choices=("street", "terrain", "now"),
                     default="street",
                     help="a street map, terrain relief, or now: the terrain "
-                         "globe with daylight and clouds. Default: street")
+                         "globe with daylight and clouds, slowly rotating with text "
+                         "and labels hidden (t, l, r toggle). Default: street")
     p.add_argument("--to", metavar="PLACE", default=None,
                     help="route to a place or 'lat,lng' from the origin")
     p.add_argument("--from", dest="from_", metavar="PLACE", default=None,

@@ -96,7 +96,7 @@ def _solstice_range(lat, lng, tz_offset_h):
 
 
 def render(lat, lng, doy, now_hour, fullscreen=False, offset_minutes=0, runtime=None,
-           tz_offset_h=None, location_label="", now=None, hours=None):
+           tz_offset_h=None, location_label="", now=None, hours=None, show_text=True):
     """Build the complete multi-line solar arc display.
 
     `now` is the shown moment as a datetime, scrubbing included; when
@@ -104,17 +104,19 @@ def render(lat, lng, doy, now_hour, fullscreen=False, offset_minutes=0, runtime=
     when that is not the user's own. `hours` is the day read in a
     tradition's hours (an astro.hours.DayHours) for the top-left corner and
     the marks line under the chart, which costs the chart a row.
+    With `show_text` off, only the location and clock remain.
     """
     if runtime is None:
         runtime = current_runtime(RuntimeConfig)
     icons = _icon_set(runtime)
     cols, rows = get_terminal_size()
-    if now is None:
+    if now is None or not show_text:
         hours = None
 
     # --- dimensions: fill the terminal ---
     graph_w = max(30, cols)
-    graph_h = max(6, rows - ((2 if hours else 1) if fullscreen else 6))
+    reserve = ((2 if hours else 1) if fullscreen else 6) if show_text else (0 if fullscreen else 5)
+    graph_h = max(6, rows - reserve)
     total_spy = graph_h * 2
 
     # --- elevation curve for today ---
@@ -289,34 +291,35 @@ def render(lat, lng, doy, now_hour, fullscreen=False, offset_minutes=0, runtime=
     from linecast.terminal import help as _help
     from linecast._i18n import lang_of
     lang = lang_of(runtime)
-    painted = fullscreen and _help.paint_hint(fb, overlays, lang, rows=(0,))
+    painted = fullscreen and show_text and _help.paint_hint(fb, overlays, lang, rows=(0,))
     lines = fb.render(overlays)
 
-    # --- info line ---
-    # With a marks line under the info line, the last line is the marks
-    # line.
-    hint_w = visible_len(_help.hint(lang, cols)) + 2 if fullscreen and not painted else 0
-    info_width = cols if hours else cols - hint_w
-    lines.append(
-        _info_line(
-            lat,
-            lng,
-            doy,
-            sunrise,
-            sunset,
-            info_width,
-            runtime,
-            now_hour,
-            offset_minutes,
-            tz_offset_h,
-            day=now.date() if now is not None else None,
+    if show_text:
+        # --- info line ---
+        # With a marks line under the info line, the last line is the marks
+        # line.
+        hint_w = visible_len(_help.hint(lang, cols)) + 2 if fullscreen and not painted else 0
+        info_width = cols if hours else cols - hint_w
+        lines.append(
+            _info_line(
+                lat,
+                lng,
+                doy,
+                sunrise,
+                sunset,
+                info_width,
+                runtime,
+                now_hour,
+                offset_minutes,
+                tz_offset_h,
+                day=now.date() if now is not None else None,
+            )
         )
-    )
-    if hours is not None:
-        from linecast.sunshine.hours import hours_line
-        lines.append(hours_line(hours, now, cols - hint_w, runtime))
-    if fullscreen and not painted:
-        lines[-1] = _help.footer(lines[-1], cols, lang)
+        if hours is not None:
+            from linecast.sunshine.hours import hours_line
+            lines.append(hours_line(hours, now, cols - hint_w, runtime))
+        if fullscreen and not painted:
+            lines[-1] = _help.footer(lines[-1], cols, lang)
 
     hint = install_banner()
     if hint:
@@ -515,7 +518,7 @@ def main():
     from linecast.sunshine.live import SunshineApp
     app = SunshineApp(_now, lat, lng, runtime, tz=tz, hours_at=_hours,
                       year=getattr(args, "year", False), dst=getattr(args, "dst", False),
-                      location_label=location_label)
+                      location_label=location_label, show_text=not args.no_text)
     if not runtime.live:
         from linecast.terminal.live import print_view
         print_view(app.render)

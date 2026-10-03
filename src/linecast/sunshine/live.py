@@ -5,7 +5,8 @@ A wheel notch or arrow key scrubs the day view a quarter of an hour;
 the year view takes them without moving, since the mouse hovers it
 instead. v flips between the two, and y still does, since the year
 view is --year's. The two keep their own place, so flipping returns to
-where each was left, and space brings the day back to now.
+where each was left, and space brings the day back to now. In either
+view, t hides the supporting text but keeps the location and clock.
 """
 
 from datetime import timedelta
@@ -19,7 +20,7 @@ class SunshineApp(LiveApp):
     scrubbed."""
 
     def __init__(self, now_fn, lat, lng, runtime, tz=None, hours_at=None, year=False,
-                 dst=False, location_label=""):
+                 dst=False, location_label="", show_text=True):
         self.now_fn = now_fn
         self.lat, self.lng = lat, lng
         self.runtime = runtime
@@ -28,6 +29,7 @@ class SunshineApp(LiveApp):
         self.dst = dst
         self.location_label = location_label
         self.year = year          # the year view is up
+        self.text = show_text     # the supporting text is showing
         self.minutes = 0          # the day view's scrub
 
     @property
@@ -45,6 +47,7 @@ class SunshineApp(LiveApp):
                 self.lat, self.lng, self.now_fn(), self.runtime, tz=self.tz,
                 fullscreen=fullscreen, dst=self.dst,
                 location_label=self.location_label, mouse_pos=mouse_pos,
+                show_text=self.text,
             )
         now = self.now_fn()
         if self.minutes:
@@ -63,6 +66,7 @@ class SunshineApp(LiveApp):
             location_label=self.location_label,
             now=now,
             hours=self.hours_at(now) if self.hours_at else None,
+            show_text=self.text,
         )
 
     def step(self, n):
@@ -85,6 +89,9 @@ class SunshineApp(LiveApp):
         return self.step(direction)
 
     def on_action(self, key):
+        if key == "t":
+            self.text = not self.text
+            return True
         if key in ("v", "y"):
             self.year = not self.year
             return True

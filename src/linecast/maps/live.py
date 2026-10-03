@@ -439,7 +439,8 @@ class MapApp(LiveApp):
     help_view = 'maps'
 
     def __init__(self, runtime, lat, lon, location_name, zoom, view, sky,
-                 profile, origin=None, dest=None, fit=False):
+                 profile, origin=None, dest=None, fit=False, show_text=True,
+                 show_labels=True, spin=False):
         self.runtime = runtime
         self.home = (lat, lon)      # the marker
         self.start = (lat, lon, zoom)   # where n and space go back to
@@ -451,7 +452,9 @@ class MapApp(LiveApp):
         self._drag_shift = False
         self._dragged = False      # whether this gesture has moved at all
         self.view = view
-        self.show_labels = True
+        self.text = show_text
+        self.show_labels = show_labels
+        self._spin_pending = spin  # start once the globe texture is ready
         self.sun = sky          # S: daylight shading + night city lights
         self.clouds = sky       # c: this hour's cloud cover
         self.search = ui.SearchState()
@@ -472,7 +475,7 @@ class MapApp(LiveApp):
         self.fit_view = None
         if fit and origin is not None and dest is not None:
             self.camera.jump_to(*fit_view(
-                [(origin.lat, origin.lon), (dest.lat, dest.lon)], *map_cells()))
+                [(origin.lat, origin.lon), (dest.lat, dest.lon)], *map_cells(show_text=self.text)))
             self.fit_view = (self.lat, self.lon, self.zoom)
 
     # -- the view centre and zoom, on the camera -------------------------
@@ -502,7 +505,7 @@ class MapApp(LiveApp):
 
     def _fit(self):
         """Tell the camera the map's size and the zoom ceiling it sets."""
-        gw, hc = map_cells()
+        gw, hc = map_cells(show_text=self.text)
         cam = self.camera
         cam.gw, cam.hc = gw, hc
         cam.zoom_max = max_zoom(gw, hc)
@@ -522,7 +525,7 @@ class MapApp(LiveApp):
             if not (self.sun or self.clouds):
                 continue
             if self.clouds:
-                gw, hc = map_cells()
+                gw, hc = map_cells(show_text=self.text)
                 try:
                     globe_now.refresh(self.zoom, hc * 4)
                 except Exception as exc:
@@ -542,7 +545,7 @@ class MapApp(LiveApp):
         gw, hc = self._fit()
         frac = None
         if at is not None:
-            pcol, prow = at[0] - 1, at[1] - 2
+            pcol, prow = at[0] - 1, at[1] - (2 if self.text else 1)
             if 0 <= pcol < gw and 0 <= prow < hc:
                 frac = ((pcol + 0.5) / gw, (prow + 0.5) / hc)
         if not self.camera.zoom_to(new_zoom, frac):
@@ -572,6 +575,10 @@ class MapApp(LiveApp):
             nxt = style.MODES.index(self.view) + 1
             self.view = style.MODES[nxt % len(style.MODES)]
             return True
+        if key == 't':
+            self.text = not self.text
+            self._fit()
+            return True
         if key == 'l':
             self.show_labels = not self.show_labels
             return True
@@ -582,6 +589,9 @@ class MapApp(LiveApp):
             self.clouds = not self.clouds
             return True
         if key == 'r':
+            if self._spin_pending:
+                self._spin_pending = False
+                return True
             # The screensaver: the planet turns while you watch, about
             # a degree a second, six minutes to the revolution, riding
             # the same clock every other motion does.  Only a warm
@@ -657,7 +667,7 @@ class MapApp(LiveApp):
             return
         lat, lon, zoom = self._destination
         self._destination = None
-        gw, hc = map_cells()
+        gw, hc = map_cells(show_text=self.text)
         prefetch_view(lat, lon, zoom, self.view, gw, hc, self.runtime.lang,
                       marker=self.home)
 
@@ -673,7 +683,7 @@ class MapApp(LiveApp):
         cache, where the next view of that window will find it.
         """
         dest = self.camera.coast_destination()
-        gw, hc = map_cells()
+        gw, hc = map_cells(show_text=self.text)
         if dest is None or wide_source(dest[0], self.zoom, gw, hc):
             return   # the planet paints every frame from a warm texture
         prefetch_view(dest[0], dest[1], self.zoom, self.view, gw, hc,
@@ -692,7 +702,7 @@ class MapApp(LiveApp):
         nothing else here consumes one."""
         search, routes = self.search, self.routes
         if search.open:
-            gw, hc = map_cells()
+            gw, hc = map_cells(show_text=self.text)
             bbox = bbox_for(self.lat, self.lon, self.zoom, gw, hc)
             z = int(style.z_eff(bbox, hc))
             return search.handle(action, self.lat, self.lon, z,
@@ -835,6 +845,16 @@ class MapApp(LiveApp):
         # left it.
         gw, hc = self._fit()
         self.camera.view()
+        if self._spin_pending:
+            if not _globe.is_globe(self.zoom, self.lat):
+                self._spin_pending = False
+            elif (not search.open and not routes.panel
+                  and not (self._help is not None and self._help.open)
+                  and not self.camera.dragging()
+                  and globe_warm(self.zoom, hc, self.view == "street")):
+                self._spin_pending = False
+                self.camera.spin(True)
+                self._ticker.start()
         # A search committed from a background reply lands here: the
         # worker cannot move the view itself, so it parks the result
         # and the next repaint applies it.
@@ -855,7 +875,7 @@ class MapApp(LiveApp):
             if (self.lat, self.lon, self.zoom) == self.fit_view:
                 self.camera.jump_to(*fit_view(
                     [(la, lo) for lo, la in routes.route.coords],
-                    *map_cells()))
+                    *map_cells(show_text=self.text)))
             self.fit_view = None
         lat, lon, zoom = self.camera.lat, self.camera.lon, self.camera.zoom
         self._prefetch_if_descending()
@@ -897,7 +917,7 @@ class MapApp(LiveApp):
             route=routes.route, dest=routes.dest,
             origin=routes.origin, directions=routes,
             note=ui.route_note(routes, self.runtime.lang),
-            show_labels=self.show_labels,
+            show_labels=self.show_labels, show_text=self.text,
             sun=self.sun, clouds=self.clouds,
             motion=self.camera.heading(), moving=moving)
 
@@ -921,13 +941,14 @@ def main():
     runtime = RuntimeConfig.from_sources(args)
     set_current(runtime)
     # --view now is launch sugar, not a register: the terrain planet
-    # with the sky switched on — daylight (s) and clouds (c), both
-    # toggleable once inside
+    # with daylight and clouds, no text or labels, and a slow spin.
+    # Each remains toggleable once inside.
     sky = args.view == "now"
+    show_text = not (args.no_text or sky)
     if sky:
         args.view = "terrain"
         if args.zoom is None:
-            args.zoom = max_zoom(*map_cells())
+            args.zoom = max_zoom(*map_cells(show_text=show_text))
     # a route given by both ends and no --location opens on the whole
     # route, unless a --zoom (or the planet of --view now) pins the scale
     fit = (args.location is None and args.zoom is None
@@ -981,7 +1002,8 @@ def main():
 
     if runtime.live:
         MapApp(runtime, lat, lon, location_name, args.zoom, args.view, sky,
-               args.profile, origin=origin, dest=dest, fit=fit).run()
+               args.profile, origin=origin, dest=dest, fit=fit,
+               show_text=show_text, show_labels=not sky, spin=sky).run()
     else:
         found = note = None
         home = (lat, lon)   # the marker stays home when the route is framed
@@ -997,14 +1019,15 @@ def main():
         if fit:
             points = ([(la, lo) for lo, la in found.coords] if found is not None
                       else [start, (dest.lat, dest.lon)])
-            lat, lon, args.zoom = fit_view(points, *map_cells())
+            lat, lon, args.zoom = fit_view(points, *map_cells(show_text=show_text))
         print_frame(render_map(lat, lon, location_name, args.zoom,
                                marker=home, runtime=runtime,
                                view=args.view, route=found,
                                dest=(dest.lat, dest.lon) if dest else None,
                                origin=((origin.lat, origin.lon, origin.name)
                                        if origin else None),
-                               note=note or "", sun=sky, clouds=sky))
+                               note=note or "", sun=sky, clouds=sky,
+                               show_text=show_text, show_labels=not sky))
         if found is not None:
             # the turn-by-turn list rides below the map, after a blank
             # line: --print asked for directions, so it gets the

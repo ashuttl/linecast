@@ -73,8 +73,20 @@ class TestKeys:
         assert app.on_action("v") is True and not app.year
         assert app.on_action("y") is True and app.year
 
+    def test_t_hides_text_in_both_views_and_restores_it(self, app, frames):
+        assert app.on_action("t") is True
+        app.render()
+        assert frames[-1][2]["show_text"] is False
+        app.on_action("v")
+        app.render()
+        assert frames[-1][0] == "year"
+        assert frames[-1][2]["show_text"] is False
+        assert app.on_action("t") is True
+        app.render()
+        assert frames[-1][2]["show_text"] is True
+
     def test_other_keys_pass_through(self, app):
-        assert app.on_action("t") is False
+        assert app.on_action("x") is False
         assert app.intercept("key:t") is False
         assert app.intercept("quit") is False
         assert not app.year and app.minutes == 0
@@ -125,3 +137,24 @@ class TestRun:
         # No drag hook, so the loop tracks no press and there are no clicks
         assert {"intercept", "on_wheel", "on_action"} <= set(seen)
         assert "on_drag" not in seen and "on_click" not in seen
+
+
+@pytest.mark.parametrize("year", [False, True])
+def test_hidden_text_keeps_only_the_place_and_clock(app, monkeypatch, year):
+    import re
+    from linecast.sunshine import view as day_view, year as year_view
+    from linecast.sunshine.i18n import clock_label
+
+    monkeypatch.setattr(day_view, "get_terminal_size", lambda: (100, 32))
+    monkeypatch.setattr(year_view, "get_terminal_size", lambda: (100, 32))
+    monkeypatch.setattr(day_view, "install_banner", lambda: "")
+    app.year = year
+    app.on_action("t")
+    frame = app.render(mouse_pos=(50, 20))
+    plain = re.sub(r"\x1b\[[0-9;]*[A-Za-z]", "", frame)
+    assert "Westbrook" in plain
+    assert clock_label(NOW, app.runtime) in plain
+    assert "?" not in plain
+    assert len(plain.splitlines()) == 32
+    # All remaining letters belong to the location and clock in the top row.
+    assert not any(ch.isalpha() for ch in "\n".join(plain.splitlines()[1:]))

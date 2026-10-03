@@ -574,6 +574,7 @@ HELP_KEYS = (
     None,
     ("v", 'help_view'),
     ("l", 'help_labels'),
+    ("t", 'hide_text'),
     ("S c", 'help_sky'),
     ("r", 'help_spin'),
     ("/", 'help_search'),

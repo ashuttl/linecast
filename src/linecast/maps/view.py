@@ -89,12 +89,12 @@ ZOOM_STEP = style.ZOOM_STEP
 _route_layer_cache = Memo(keep=1)   # one slot: (route id, view key) -> DotLayer
 
 
-def map_cells(size=None):
+def map_cells(size=None, show_text=True):
     """The map's size in cells: the terminal's columns, at least 20, by
-    its rows less the header and the footer, at least 8.  `size` is a
+    its rows less the visible header and footer, at least 8. `size` is a
     (cols, rows) already read; None reads the terminal."""
     cols, rows = size if size is not None else get_terminal_size()
-    return max(20, cols), max(8, rows - 2)
+    return max(20, cols), max(8, rows - (2 if show_text else 0))
 
 
 def max_zoom(gw, hc):
@@ -1429,11 +1429,14 @@ def render_map(lat, lon, location_name, zoom, marker=None, runtime=None,
                block=True, pan_offset=(0, 0), mouse_pos=None,
                view="terrain", search=None, route=None, dest=None,
                origin=None, directions=None,
-               note="", show_labels=True, sun=False,
+               note="", show_labels=True, show_text=True, sun=False,
                clouds=False, motion=(0, 0), moving=False, **_):
     lang = runtime.lang if runtime else "en"
+    if not show_text and mouse_pos is not None:
+        # The painters use coordinates with one header row above the map.
+        mouse_pos = (mouse_pos[0], mouse_pos[1] + 1)
     cols, rows = get_terminal_size()
-    graph_w, height_cells = map_cells((cols, rows))
+    graph_w, height_cells = map_cells((cols, rows), show_text=show_text)
 
     bbox = bbox_for(lat, lon, zoom, graph_w, height_cells)
     m_lat, m_lon = marker if marker else (lat, lon)
@@ -1564,7 +1567,7 @@ def render_map(lat, lon, location_name, zoom, marker=None, runtime=None,
         foot = _help.footer(foot, cols, lang)
     foot = pad(foot, cols)
 
-    out = "\n".join([header, *map_lines, foot])
+    out = "\n".join([header, *map_lines, foot] if show_text else map_lines)
     # A cell's two halves each carry a colour, and neighbouring cells
     # are often the same colour: compact_colors drops the escapes that
     # ask for the colour already in effect.  It runs here, before the

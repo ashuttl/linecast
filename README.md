@@ -87,7 +87,7 @@ The year view for Westbrook, Maine, with the pointer on a week in May:
 
 ### Sunshine
 
-The sun on its arc through dawn, day, and dusk. Press `v` for the whole year. `--hours` reads the day in [traditional hours](docs/hours.md): halachic, Roman, Edo, Islamic, or Swahili.
+The sun on its arc through dawn, day, and dusk. Press `v` for the whole year. In either view, `t` hides the text except the location and current time; `--no-text` starts that way. `--hours` reads the day in [traditional hours](docs/hours.md): halachic, Roman, Edo, Islamic, or Swahili.
 
 Dawn and dusk on the June solstice:
 
@@ -120,7 +120,7 @@ Okinawa after the mid-autumn full moon, in Japanese, and the month around it:
   <img src="screenshots/moon-calendar.png" width="49%" alt="the month calendar for September 2026 in Japanese, with 十五夜 on the 25th and the pointer on it">
 </p>
 
-Press `t` to hide the text and show only the Moon. You can drag the Moon to turn it, and when you let go, it turns back to how it looks from where you are:
+Press `t` to hide the text and show only the Moon, or launch with `--no-text`. You can drag the Moon to turn it, and when you let go, it turns back to how it looks from where you are:
 
 ![the Moon alone among the stars, dragged round by the pointer until it is nearly dark, then let go, rolling back to a waxing gibbous](screenshots/moon-spin.gif)
 
@@ -166,7 +166,9 @@ The last hour and the next, with US warnings on top. `S` switches to satellite, 
 
 ### Maps
 
-Streets or terrain; press `v` to switch, `/` to search, `D` for directions. Zoom out to the globe, and press `S` for daylight and `c` for clouds.
+Streets or terrain; press `v` to switch, `/` to search, `D` for directions. Zoom out to the globe, and press `S` for daylight and `c` for clouds. Press `t` to hide the header and footer and fill the terminal with the map; `--no-text` starts that way. `l` toggles map labels independently.
+
+`linecast maps --view now` opens a full-terminal globe with daylight and clouds, text and labels hidden, slowly rotating. Press `t` to restore the header and footer, `l` for labels, or `r` to stop or resume rotation.
 
 <p align="center">
   <img src="screenshots/maps-street.png" width="49%" alt="street map of Portland, Maine">

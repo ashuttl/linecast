@@ -808,7 +808,7 @@ def main():
 
     from linecast.moon.live import MoonApp
     app = MoonApp(_now, lat, lng, runtime, calendar_name=cal, israel=israel,
-                  month=args.month)
+                  month=args.month, show_text=not args.no_text)
     if not runtime.live:
         from linecast.terminal.live import print_view
         print_view(app.render)
