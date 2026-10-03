@@ -322,7 +322,7 @@ def build_now_tooltip(now_col, now_info, chart_start, cols):
     # At the top of the chart (a 0-based line, so +1 for the terminal's
     # row), just right of the now column (+1 for 1-based columns, +1 to
     # sit beside it).
-    return _live.chip_at(tip_lines, chart_start + 1, now_col + 2, cols)
+    return _live.chip_at(tip_lines, chart_start + 1, now_col + 2, cols, shadow=False)
 
 
 def build_tide_hover_tooltip(window, graph_col, mouse_row, chart_start, chart_end,

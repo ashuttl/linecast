@@ -222,8 +222,9 @@ def pointer_chip(lines, col, mouse_row, cols, rows, pad_bg="", flip_at=None):
                    shadow_direction=(dx, dy))
 
 
-def chip_at(lines, row, col, cols, pad_bg="", *, rows=None, shadow_direction=(1, 1)):
-    """A padded chip with a shadow offset one column and half a row.
+def chip_at(lines, row, col, cols, pad_bg="", *, rows=None, shadow=True,
+            shadow_direction=(1, 1)):
+    """A padded chip with an optional shadow offset one column and half a row.
 
     Exposed halves are resolved against the displayed frame by frame_paint.
     Reserve the shadow's footprint; on a screen too small for it, keep the
@@ -236,7 +237,7 @@ def chip_at(lines, row, col, cols, pad_bg="", *, rows=None, shadow_direction=(1,
     from linecast.terminal.textwidth import clip_styled, visible_len
     if not lines or cols < 1 or (rows is not None and rows < 1):
         return ""
-    shadow = cols > 1 and (rows is None or len(lines) < rows)
+    shadow = shadow and cols > 1 and (rows is None or len(lines) < rows)
     dx, dy = shadow_direction
     left, up = int(shadow and dx < 0), int(shadow and dy < 0)
     right, down = int(shadow and dx > 0), int(shadow and dy > 0)
