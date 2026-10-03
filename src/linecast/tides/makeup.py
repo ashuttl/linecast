@@ -38,6 +38,7 @@ from linecast.terminal import live as _live
 from linecast.terminal import theme as _theme
 from linecast.terminal.color import RESET, bg, fg
 from linecast.terminal.framebuffer import get_terminal_size
+from linecast.terminal.heading import render_heading
 from linecast.terminal.textwidth import cells as text_cells, visible_len, wrap_display_width
 from linecast.tides import harmonic
 from linecast.tides import palette as _palette
@@ -466,7 +467,8 @@ def render_makeup(first, made, runtime, *, header, footer, station_tz, now_local
     # The headline is the one line set in full ink over a rule, which
     # is what puts it above the parts' own titles
     title = _ts("makeup_headline", runtime)
-    headline = [f" {text}{title}{RESET}", f" {dim}{'─' * visible_len(title)}{RESET}"]
+    headline = [" " + line for line in render_heading(
+        title, cols - 2, text_rgb=_palette.TEXT_RGB, dim_rgb=_palette.DIM_RGB)]
     n_footer = footer.count("\n") + 1
     room = rows - 1 - n_footer   # between the header and the footer
     strip_rows, air, kept, open_line = _fitted(room, len(key_lines))

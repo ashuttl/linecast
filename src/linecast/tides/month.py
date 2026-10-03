@@ -36,11 +36,13 @@ from datetime import date, datetime, timedelta, timezone
 from linecast._i18n import DAY_NAMES, fmt_decimal, lang_of, table_for
 from linecast._timefmt import fmt_time_dt
 from linecast.astro.ephemeris import sun_alt_az_deg, sun_depression_utc
+from linecast.moon.calendar import _month_title
 from linecast.terminal import live as _live
 from linecast.terminal import theme as _theme
 from linecast.terminal.braille import DOT_BITS
 from linecast.terminal.color import RESET, bg, fg
 from linecast.terminal.framebuffer import Framebuffer, get_terminal_size
+from linecast.terminal.heading import render_heading
 from linecast.terminal.textwidth import visible_len
 from linecast.terminal.theme import (
     best_contrast,
@@ -212,7 +214,9 @@ def render_month(first, predictions, hilo, runtime, *, header, footer, station_m
     # --- the rows: a day to a row, or two when the month will not fit ---
     # The axis and its legend belong to the field. Leave a blank row
     # between them, while the source and help keep the window's footer.
-    avail = max(4, rows - 4 - (footer.count("\n") + 1))
+    n_footer = footer.count("\n") + 1
+    ruled = rows >= 6 + n_footer + (ndays + 1) // 2
+    avail = max(4, rows - 5 - int(ruled) - n_footer)
     per_row = 1 if avail >= ndays else 2
     n_rows = min(avail, -(-ndays // per_row))
     shown = days[:n_rows * per_row]
@@ -221,7 +225,10 @@ def render_month(first, predictions, hilo, runtime, *, header, footer, station_m
     # the header and footer keep the top and bottom of the window, and
     # the field sits midway between them.
     spare = avail - n_rows
+    title_gap = int(spare > 0)
+    spare -= title_gap
     above = spare // 2
+    field_top = 2 + int(ruled) + above + title_gap
 
     # --- the columns: the day labels, the field, the daylight lows ---
     sun = {d: _sun_times(d, lat, lng, tz) if lat is not None else (None, None)
@@ -316,7 +323,7 @@ def render_month(first, predictions, hilo, runtime, *, header, footer, station_m
     hover = None
     if mouse_pos:
         mcol, mrow = mouse_pos
-        r, x = mrow - 2 - above, mcol - 1 - gutter
+        r, x = mrow - 1 - field_top, mcol - 1 - gutter
         if 0 <= r < n_rows and 0 <= x < width:
             hover = (r, x)
             for rr in range(n_rows):
@@ -334,6 +341,10 @@ def render_month(first, predictions, hilo, runtime, *, header, footer, station_m
 
     # --- assemble ---
     lines = [header] + [""] * above
+    title = _month_title(first.year, first.month, lang_of(runtime), full=True)
+    lines += [" " * gutter + line for line in render_heading(
+        title, width, text_rgb=_palette.TEXT_RGB, dim_rgb=_palette.DIM_RGB, ruled=ruled)]
+    lines += [""] * title_gap
     for r, body in enumerate(field.render(overlays)):
         group = row_days[r]
         is_today = today in group

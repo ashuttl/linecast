@@ -14,8 +14,9 @@ from linecast.terminal import live, theme
 from linecast.terminal.braille import DOT_BITS
 from linecast.terminal.color import RESET, bg, fg
 from linecast.terminal.framebuffer import Framebuffer, get_terminal_size
+from linecast.terminal.heading import render_heading
 from linecast.terminal.help import footer, wrap
-from linecast.terminal.textwidth import clip_styled, fit, visible_len
+from linecast.terminal.textwidth import clip_styled, fit, pad, visible_len
 from linecast.tides.chart import render_tide_ticks
 from linecast.tides.month import _sun_times, sun_legend
 from linecast.weather import style
@@ -179,7 +180,10 @@ def render_month(series, first, runtime, lat, lng, label, *, difference=False,
                      text_rgb=style.DIM_RGB)
     legends = ([chips + "   " + sun] if visible_len(chips) + 3 + visible_len(sun) <= legend_width
                else [chips, sun])
-    available = rows - 5 - len(legends)
+    # In the shortest window, give the rule's row to the date so a
+    # 31-day month and both legends still fit.
+    ruled = rows >= 6 + len(legends) + (ndays + 1) // 2
+    available = rows - 5 - int(ruled) - len(legends)
     per_row = 1 if available >= len(days) else 2
     groups = [days[i:i + per_row] for i in range(0, len(days), per_row)]
     spare = available - len(groups)
@@ -190,10 +194,25 @@ def render_month(series, first, runtime, lat, lng, label, *, difference=False,
     legend_gap = int(spare > 0)
     spare -= legend_gap
     above = spare // 2
-    field_top = 3 + header_gap + above + rule_gap
+    field_top = 3 + int(ruled) + header_gap + above + rule_gap
     names = [day_label(now.date() if now.date() in group else group[0], runtime)
              for group in groups]
-    right_w = 15 if cols >= 74 else 0
+    extremes = []
+    for group in groups:
+        values = [v for day in group for v in series.days.get(day, ()) if v is not None]
+        if not values:
+            extremes.append(("", ""))
+            continue
+        labels = []
+        for value in (min(values), max(values)):
+            shown = shown_temperature(value, runtime)
+            reading = (f"{fg(*style.MUTED_RGB)}{round(shown)}°" if difference
+                       else style._colored_temp(shown, runtime, suffix="°"))
+            labels.append(reading + RESET)
+        extremes.append(tuple(labels))
+    low_w, high_w = (max((visible_len(pair[i]) for pair in extremes if pair[i]), default=3)
+                     for i in range(2))
+    right_w = 2 + low_w + 1 + high_w if cols >= 74 else 0
     width = cols - gutter - right_w - 1
     field = Framebuffer(width, len(groups), bg_color=field_color(None, runtime))
     bits = {}
@@ -240,17 +259,13 @@ def render_month(series, first, runtime, lat, lng, label, *, difference=False,
 
     title = _month_title(first.year, first.month, runtime.lang, full=True)
     place = month_location(label, cols, runtime, location_menu)
-    title = fit(title, max(0, cols - visible_len(place) - 2))
-    head = place + " " * (cols - visible_len(place) - visible_len(title) - 1)
-    head += f"{fg(*style.TEXT_RGB)}{title}{RESET}"
     baseline = f"{series.span[0]}–{series.span[1]}"
     caption = (_s("month_departure", runtime, span=baseline) if difference
                else _s("month_temperature", runtime))
-    caption += "  " + runtime.temp_unit
-    caption = fit(caption, width)
-    lines = [head] + [""] * (header_gap + above)
-    lines += [" " * gutter + f"{fg(*style.TEXT_RGB)}{caption}{RESET}",
-              " " * gutter + f"{fg(*style.DIM_RGB)}{'─' * visible_len(caption)}{RESET}"]
+    lines = [place] + [""] * (header_gap + above)
+    lines += [" " * gutter + line for line in render_heading(
+        caption, width, text_rgb=style.TEXT_RGB, dim_rgb=style.DIM_RGB,
+        overline=title, unit=runtime.temp_unit, ruled=ruled)]
     lines += [""] * rule_gap
     for r, body in enumerate(field.render(overlays)):
         group = groups[r]
@@ -258,11 +273,9 @@ def render_month(series, first, runtime, lat, lng, label, *, difference=False,
         left = " " + names[r]
         left += " " * (gutter - visible_len(left))
         line = f"{fg(*ink)}{left}{RESET}" + body
-        if right_w:
-            values = [v for day in group for v in series.days.get(day, ()) if v is not None]
-            if values:
-                low, high = (shown_temperature(v, runtime) for v in (min(values), max(values)))
-                line += f"{fg(*style.MUTED_RGB)}  {round(low):4}°  {round(high):4}°{RESET}"
+        if right_w and extremes[r][0]:
+            low, high = extremes[r]
+            line += f"  {pad(low, low_w, '>')} {pad(high, high_w, '>')}"
         lines.append(line)
     midnight = datetime(first.year, first.month, first.day, tzinfo=series.tz)
     lines.append(" " * gutter + render_tide_ticks(midnight, 24, width, runtime))
@@ -271,7 +284,7 @@ def render_month(series, first, runtime, lat, lng, label, *, difference=False,
     lines += [""] * (spare - above)
     credit = fit(notice, cols - 10) if notice else "Open-Meteo"
     lines.append(footer(f"{fg(*style.DIM_RGB)}{credit}{RESET}", cols, runtime.lang,
-                        controls=(("c", "hint_colors"),)))
+                        controls=(("c", "hint_colors"), ("←→", "months"))))
     output = "\n".join(lines)
     if hover:
         r, x = hover

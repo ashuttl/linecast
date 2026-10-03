@@ -361,15 +361,12 @@ class TidesApp(LocationMenu, _live.LiveApp):
         text, dim = fg(*_palette.TEXT_RGB), fg(*_palette.DIM_RGB)
         source = f"{dim}{self.provider.footer_label(self.runtime)}{RESET}"
         if self.view == "month":
-            from linecast.moon.calendar import month_title_forms
             from linecast.tides.month import render_month
             first = key[2]
             header = _render_header_line(
                 cols, self.station_name, self.runtime, offset_minutes=self.months,
-                location_menu=True,
-                right=[(f"{text}{title}{RESET}", keep)
-                       for title, keep in month_title_forms(first.year, first.month, lang)])
-            footer = _help.footer(source, cols, lang)
+                location_menu=True, right="")
+            footer = _help.footer(source, cols, lang, controls=(("←→", "months"),))
             return render_month(first, data[0] if data else None, data[1] if data else None,
                                 self.runtime, header=header, footer=footer,
                                 station_meta=self.station_meta, station_tz=self.station_tz,

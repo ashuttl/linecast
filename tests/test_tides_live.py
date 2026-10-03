@@ -517,6 +517,10 @@ class TestLongViews:
         assert len(_lines(before)) == len(_lines(after)) == 40
         assert "Portland, ME" in _lines(after)[0]
         assert "Test Harbour" in _lines(after)[-1]
+        if view == "month":
+            assert "2026" not in _lines(after)[0]
+            assert "March 2026" in after
+            assert "←→ move by one month" in _lines(after)[-1]
 
     def test_the_years_header_names_its_highest_water(self, window):
         app, _provider = _tidal_app("year")

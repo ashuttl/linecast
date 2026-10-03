@@ -8,6 +8,8 @@ from zoneinfo import ZoneInfo
 import pytest
 
 from linecast._runtime import TidesRuntime
+from linecast._i18n import LANGUAGE_CODES
+from linecast.moon.calendar import _month_title
 from linecast.terminal import color as _color
 from linecast.terminal.color import fg
 from linecast.terminal.textwidth import visible_len
@@ -155,11 +157,14 @@ class TestThePage:
     def test_the_header_and_footer_keep_the_windows_edges_and_the_field_sits_midway(self, water):
         lines, _ = _frame(water, rows=44)
         assert lines[0] == " Portland, ME" and lines[-1] == " NOAA"
-        first = lines.index(_day_rows(lines)[0])
+        first = next(i for i, line in enumerate(lines) if line.strip() == "October 2026")
+        first_day = lines.index(_day_rows(lines)[0])
         last = lines.index(_day_rows(lines)[-1]) + 3      # the axis and its legend
         above, below = first - 1, len(lines) - 2 - last
         assert above > 0 and abs(above - below) <= 1
         assert all(line == "" for line in lines[1:first])
+        assert lines[first + 1].strip() == "─" * len("October 2026")
+        assert first_day == first + 3 and lines[first + 2] == ""
 
     def test_a_short_window_gives_each_row_two_days(self, water):
         lines, _ = _frame(water, rows=24)
@@ -173,10 +178,19 @@ class TestThePage:
         axis = lines[lines.index(_day_rows(lines)[-1]) + 1]
         assert re.search(r"\d", axis) and not re.match(r" \S+ +\d+ ", axis)
 
-    def test_no_line_is_wider_than_the_window(self, water):
-        for cols in (60, 80, 100, 140):
-            lines, _ = _frame(water, cols=cols)
-            assert max(visible_len(line) for line in lines) <= cols, cols
+    @pytest.mark.parametrize('lang', LANGUAGE_CODES)
+    @pytest.mark.parametrize('size', [(60, 23), (80, 24), (100, 40), (140, 44)])
+    def test_localized_title_and_field_fit_the_window(self, lang, size):
+        cols, rows = size
+        lines, _ = _frame(None, cols=cols, rows=rows, lang=lang)
+        title = _month_title(OCT.year, OCT.month, lang, full=True)
+        assert title not in lines[0]
+        assert title in (line.strip() for line in lines)
+        heading = next(i for i, line in enumerate(lines) if line.strip() == title)
+        assert lines[heading + 1].strip() == '─' * visible_len(title)
+        assert month._day_label(date(2026, 10, 31), _runtime(lang)) in '\n'.join(lines)
+        assert len(lines) == rows
+        assert max(visible_len(line) for line in lines) <= cols
 
     def test_the_frame_is_drawn_empty_while_the_month_loads(self, water):
         loaded, _ = _frame(water)

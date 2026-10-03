@@ -8,7 +8,10 @@ from unittest.mock import patch
 import pytest
 
 from linecast._runtime import WeatherRuntime
+from linecast._i18n import LANGUAGE_CODES
+from linecast.moon.calendar import _month_title
 from linecast.terminal import color
+from linecast.terminal.help_i18n import hs
 from linecast.terminal.textwidth import visible_len
 
 from linecast.weather import month
@@ -86,35 +89,73 @@ def test_month_fits_and_preserves_the_last_day_and_complete_color_escapes(size, 
     lines = rendered.splitlines()
     assert len(lines) <= size[1]
     assert max(map(visible_len, lines)) <= size[0]
+    assert "Portland" in lines[0]
     assert "Fri 31" in rendered
     assert "Open-Meteo" in lines[-1]
+    assert "←→ move by one month" in lines[-1]
     assert "\x1b" not in re.sub(r"\x1b\[[0-9;]*m", "", rendered)
 
 
-@pytest.mark.parametrize('lang', ['en', 'fr', 'de', 'ja', 'zh-Hant', 'ar', 'fa'])
+@pytest.mark.parametrize('lang', LANGUAGE_CODES)
 @pytest.mark.parametrize('size', [(100, 40), (80, 24), (54, 23)])
-def test_localized_layout_keeps_heading_with_chart_and_legend_within_window(lang, size):
+@pytest.mark.parametrize('difference', [False, True])
+def test_localized_layout_keeps_heading_with_chart_and_legend_within_window(lang, size,
+                                                                          difference):
     from linecast.weather.i18n import _s
     p = payload(datetime(2025, 10, 1, tzinfo=timezone.utc), [10.234] * (32 * 24))
     series = month.Temperatures.build([p], (2016, 2025))
     rt = runtime(lang=lang, celsius=False)
-    with patch.object(month, 'get_terminal_size', return_value=size):
+    with patch.object(month, 'get_terminal_size', return_value=size), \
+         patch.object(color, '_COLOR_MODE', 'truecolor'):
         output = month.render_month(series, date(2025, 10, 1), rt, 43, -70,
-                                    'A very long location name for this view', location_menu=True)
+                                    'A very long location name for this view', location_menu=True,
+                                    difference=difference)
+    raw = output.splitlines()
     lines = re.sub(r'\x1b\[[0-9;]*m', '', output).splitlines()
     assert len(lines) <= size[1]
     assert max(map(visible_len, lines)) <= size[0]
-    title = next(i for i, line in enumerate(lines) if _s('month_temperature', rt) in line)
-    assert '─' in lines[title + 1]
-    first_day = title + 2 + (not lines[title + 2].strip())
+    date_title = _month_title(2025, 10, lang, full=True)
+    assert date_title not in lines[0]
+    title = next(i for i, line in enumerate(lines) if line.strip() == date_title) + 1
+    caption = lines[title].strip().removesuffix('  °F')
+    expected = (_s('month_departure', rt, span='2016–2025') if difference
+                else _s('month_temperature', rt))
+    assert expected.startswith(caption.removesuffix('…'))
+    with patch.object(color, '_COLOR_MODE', 'truecolor'):
+        assert f'{color.fg(*month.style.DIM_RGB)}°F{color.RESET}' in raw[title]
+    first_day = title + 1
+    if '─' in lines[first_day]:
+        assert lines[first_day].strip() == '─' * visible_len(caption)
+        first_day += 1
+    else:
+        assert size == (54, 23)
+    first_day += not lines[first_day].strip()
     assert '1' in lines[first_day]  # at most one blank row beneath the rule
+    assert month.day_label(date(2025, 10, 31), rt) in output
+    if size[0] >= 80:
+        assert f'←→ {hs("months", lang)}' in lines[-1]
     if size == (100, 40):
         assert not lines[title + 2].strip()
-    legends = [line for line in lines if '50°F' in line]
+    legends = [line for line in lines if ('+18°F' if difference else '50°F') in line]
     assert len(legends) == 1
     assert '.4°F' not in legends[0]
     if lang == 'en' and size[0] == 100:
         assert 'sunrise / sunset' in legends[0]
+
+
+@pytest.mark.parametrize('size', [(100, 40), (80, 24), (54, 23)])
+def test_hover_stays_on_the_days_beneath_the_new_heading(size):
+    rt = runtime(celsius=False)
+    first = date(2025, 10, 1)
+    with patch.object(month, 'get_terminal_size', return_value=size):
+        frame = month.render_month(None, first, rt, 43, -70, 'Portland')
+        lines = re.sub(r'\x1b\[[0-9;]*m', '', frame).splitlines()
+        for day in (1, 31):
+            label = month.day_label(first.replace(day=day), rt)
+            row = next(i for i, line in enumerate(lines) if line.startswith(' ' + label))
+            output = month.render_month(None, first, rt, 43, -70, 'Portland',
+                                        mouse_pos=(20, row + 1))
+            assert label in output.partition('\x00')[2]
 
 
 def test_new_strings_exist_in_every_language_with_matching_placeholders():
