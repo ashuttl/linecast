@@ -30,6 +30,11 @@ MOON_PHASES = ["Neumond", "Zunehmende Sichel", "Erstes Viertel", "Zunehmender Mo
 
 
 HELP = {
+    "hint_colors": "Farben",
+    "weather_views": "Vorhersage / Monat / Jahr",
+    "month_colors": "Temperatur / Abweichung vom Mittel",
+    "month_home": "vorheriger Kalendermonat",
+    "history_refresh": "stündliche Wetterhistorie aktualisieren",
     "hint_help": "Hilfe",
     "key_wheel": "Rad",
     "key_space": "Leertaste",
@@ -84,6 +89,17 @@ HELP = {
 
 
 WEATHER = {
+    "month_temperature": "Stündliche Temperatur",
+    "month_departure": "Abweichung vom Stundenmittel {span}",
+    "month_repeat": "Doppelte Uhrzeit: Mittelwert beider Messwerte",
+    "month_small": "Diese Ansicht benötigt mindestens {cols} Spalten und {rows} Zeilen.",
+    "month_loading": "Stündliche Wetterhistorie wird geladen…",
+    "month_unavailable": "Stündliche Wetterhistorie nicht verfügbar.",
+    "month_partial": "Ein Teil der stündlichen Wetterhistorie ist nicht verfügbar.",
+    "month_average": "Mittelwert: gleiche Uhrzeit, Datum innerhalb von sieben Tagen, zehn Jahre.",
+    "month_rows": "Zwei Tage pro Zeile bei niedrigen Fenstern; beide per Maus ablesen.",
+    "month_missing": "Fehlende Stunden bleiben leer; doppelte Uhrzeiten werden gemittelt.",
+    "month_extremes": "Rechte Spalte: niedrigster und höchster Stundenwert jeder Zeile.",
     "today": "Heute",
     "today_short": "Heu",
     "forecast_stale": "Diese Vorhersage stammt von {day}; eine neuere konnte nicht abgerufen werden.",

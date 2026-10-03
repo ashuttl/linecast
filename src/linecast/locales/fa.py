@@ -46,6 +46,11 @@ MOON_PHASES = ["ماه نو", "هلال افزاینده", "تربیع اول", 
 # Persian interfaces name an action by its noun or infinitive
 # (جستجو، خروج), not by an imperative.
 HELP = {
+    "hint_colors": "رنگ‌ها",
+    "weather_views": "نمای پیش‌بینی / ماه / سال",
+    "month_colors": "دما / اختلاف با میانگین",
+    "month_home": "ماه تقویمی قبل",
+    "history_refresh": "تازه‌سازی تاریخچهٔ ساعتی",
     "hint_help": "راهنما",
     "key_wheel": "چرخ ماوس",
     "key_space": "فاصله",
@@ -104,6 +109,17 @@ HELP = {
 # in the present tense (آغاز می\u200cشود).  Numbers in the tables are
 # Persian digits; the placeholders are localised on output.
 WEATHER = {
+    "month_temperature": "دمای ساعتی",
+    "month_departure": "اختلاف با میانگین ساعتی {span}",
+    "month_repeat": "ساعت تکراری: میانگین دو مقدار",
+    "month_small": "این نما به حداقل {cols} ستون و {rows} ردیف نیاز دارد.",
+    "month_loading": "در حال بارگیری تاریخچهٔ ساعتی…",
+    "month_unavailable": "تاریخچهٔ ساعتی در دسترس نیست.",
+    "month_partial": "بخشی از تاریخچهٔ ساعتی در دسترس نیست.",
+    "month_average": "میانگین: همان ساعت، تاریخ‌ها در فاصلهٔ هفت روز، طی ده سال.",
+    "month_rows": "در پایانه‌های کوتاه هر ردیف دو روز دارد؛ با بردن نشانگر هر دو را بخوانید.",
+    "month_missing": "ساعت‌های گمشده خالی می‌مانند؛ ساعت‌های تکراری میانگین‌گیری می‌شوند.",
+    "month_extremes": "ستون چپ: کمترین و بیشترین مقدار ساعتی هر ردیف.",
     "today": "امروز",
     "today_short": "امروز",
     "forecast_stale": "این پیش\u200cبینی مربوط به {day} است؛ پیش\u200cبینی تازه\u200cتری دریافت نشد.",

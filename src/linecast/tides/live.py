@@ -16,7 +16,6 @@ import threading
 import time as _t
 from datetime import date, datetime, timedelta
 
-from linecast.terminal.textwidth import visible_len
 from linecast.terminal.framebuffer import get_terminal_size
 from linecast.terminal import live as _live
 from linecast._location import country_for_defaults, resolve_location
@@ -370,18 +369,7 @@ class TidesApp(LocationMenu, _live.LiveApp):
                 location_menu=True,
                 right=[(f"{text}{title}{RESET}", keep)
                        for title, keep in month_title_forms(first.year, first.month, lang)])
-            # The key to the braille over the field: the Sun's two lines
-            from linecast.sunshine.i18n import _ss
-            from linecast.tides import month as _month
-            legend = (f"{source}   {fg(*_month.SUN_RGB)}{_month.SUN_KEY}{RESET} {dim}"
-                      f"{_ss('sunrise', self.runtime)} / {_ss('sunset', self.runtime)}{RESET}")
-            if _month.month_of(now_local.date(), 0) == first:
-                from linecast.radar.i18n import rs
-                now_key = (f"   {fg(*_month.NOW_RGB)}{_month.NOW_MARK}{RESET} "
-                           f"{dim}{rs('now', lang)}{RESET}")
-                if visible_len(legend + now_key) <= cols - 3:
-                    legend += now_key
-            footer = _help.footer(legend, cols, lang)
+            footer = _help.footer(source, cols, lang)
             return render_month(first, data[0] if data else None, data[1] if data else None,
                                 self.runtime, header=header, footer=footer,
                                 station_meta=self.station_meta, station_tz=self.station_tz,

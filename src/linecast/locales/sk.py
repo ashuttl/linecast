@@ -44,6 +44,11 @@ MOON_PHASES = ["Nov", "Dorastajúci kosák", "Prvá štvrť", "Dorastajúci Mesi
 
 # Commands in the infinitive, as Slovak software labels them
 HELP = {
+    "hint_colors": "farby",
+    "weather_views": "predpoveď / mesiac / rok",
+    "month_colors": "teplota / odchýlka od priemeru",
+    "month_home": "predchádzajúci kalendárny mesiac",
+    "history_refresh": "obnoviť hodinovú históriu",
     "hint_help": "pomocník",
     "key_wheel": "koliesko",
     "key_space": "medzerník",
@@ -99,6 +104,17 @@ HELP = {
 
 
 WEATHER = {
+    "month_temperature": "Hodinová teplota",
+    "month_departure": "Odchýlka od hodinového priemeru {span}",
+    "month_repeat": "Opakovaná hodina: priemer oboch hodnôt",
+    "month_small": "Tento pohľad vyžaduje aspoň {cols} stĺpcov a {rows} riadkov.",
+    "month_loading": "Načítava sa hodinová história…",
+    "month_unavailable": "Hodinová história nie je dostupná.",
+    "month_partial": "Časť hodinovej histórie nie je dostupná.",
+    "month_average": "Priemer: rovnaká hodina, dátumy do siedmich dní, desať rokov.",
+    "month_rows": "Dva dni na riadok v nízkych termináloch; ukázaním zobrazíte oba.",
+    "month_missing": "Chýbajúce hodiny zostávajú prázdne; opakované sa priemerujú.",
+    "month_extremes": "Pravý stĺpec: najnižšia a najvyššia hodinová hodnota každého riadka.",
     # A day of the month alone is an ordinal, with its full stop: "po 28."
     "day_of_month": "{d}.",
     "today": "Dnes",

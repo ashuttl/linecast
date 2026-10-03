@@ -28,6 +28,11 @@ MOON_PHASES = ["Nymåne", "Tilltagande skära", "Första kvarteret", "Tilltagand
 
 
 HELP = {
+    "hint_colors": "färger",
+    "weather_views": "prognos / månad / år",
+    "month_colors": "temperatur / avvikelse från medelvärde",
+    "month_home": "föregående kalendermånad",
+    "history_refresh": "uppdatera timhistorik",
     "hint_help": "hjälp",
     "key_wheel": "hjul",
     "key_space": "mellanslag",
@@ -82,6 +87,17 @@ HELP = {
 
 
 WEATHER = {
+    "month_temperature": "Temperatur timme för timme",
+    "month_departure": "Avvikelse från timmedelvärdet {span}",
+    "month_repeat": "Upprepat klockslag: medelvärde av båda mätningarna",
+    "month_small": "Den här vyn kräver minst {cols} kolumner och {rows} rader.",
+    "month_loading": "Läser in timhistorik…",
+    "month_unavailable": "Timhistorik är inte tillgänglig.",
+    "month_partial": "En del av timhistoriken är inte tillgänglig.",
+    "month_average": "Medelvärde: samma klockslag, datum inom sju dagar, tio år.",
+    "month_rows": "Två dagar per rad i låga terminaler; peka för att läsa båda.",
+    "month_missing": "Saknade timmar lämnas tomma; upprepade timmar räknas som medelvärden.",
+    "month_extremes": "Höger kolumn: lägsta och högsta timvärde på varje rad.",
     "today": "i dag",
     "today_short": "I d",
     "forecast_stale": "Den här prognosen är från {day}; en nyare kunde inte hämtas.",

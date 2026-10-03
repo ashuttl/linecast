@@ -41,6 +41,11 @@ MOON_PHASES = ["Trăng non", "Trăng lưỡi liềm đầu tháng", "Trăng thư
 
 
 HELP = {
+    "hint_colors": "màu",
+    "weather_views": "dự báo / tháng / năm",
+    "month_colors": "nhiệt độ / độ lệch so với trung bình",
+    "month_home": "tháng dương lịch trước",
+    "history_refresh": "làm mới lịch sử theo giờ",
     "hint_help": "trợ giúp",
     "key_wheel": "con lăn",
     "key_space": "phím cách",
@@ -95,6 +100,17 @@ HELP = {
 
 
 WEATHER = {
+    "month_temperature": "Nhiệt độ theo giờ",
+    "month_departure": "Độ lệch so với trung bình theo giờ giai đoạn {span}",
+    "month_repeat": "Giờ lặp lại: trung bình của hai giá trị",
+    "month_small": "Chế độ xem này cần ít nhất {cols} cột và {rows} hàng.",
+    "month_loading": "Đang tải lịch sử theo giờ…",
+    "month_unavailable": "Không có lịch sử theo giờ.",
+    "month_partial": "Một phần lịch sử theo giờ không có sẵn.",
+    "month_average": "Trung bình: cùng giờ, các ngày trong phạm vi bảy ngày, mười năm.",
+    "month_rows": "Hai ngày mỗi hàng khi cửa sổ thấp; di chuột để đọc cả hai.",
+    "month_missing": "Giờ thiếu để trống; giờ lặp lại được lấy trung bình.",
+    "month_extremes": "Cột bên phải: giá trị theo giờ thấp nhất và cao nhất ở mỗi hàng.",
     "today": "Hôm nay",
     "today_short": "Nay",
     "forecast_stale": "Dự báo này là của {day}; không tải được bản mới hơn.",

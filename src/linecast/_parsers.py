@@ -207,10 +207,15 @@ def weather_parser():
                          "when the window is tall enough for it")
     p.add_argument("--no-shading", action="store_true",
                     help="no day and night shading behind the hourly graph")
-    p.add_argument("--year", action="store_true",
-                    help="open on the year view: this year's highs, lows, "
-                         "and precipitation against the past ten years "
-                         "(v flips between the views)")
+    views = p.add_mutually_exclusive_group()
+    views.add_argument("--year", action="store_true",
+                       help="open on the year view: highs, lows and precipitation "
+                            "against the past ten years (v cycles forecast / month / year)")
+    views.add_argument("--month", "--month-temperature", dest="month", action="store_const",
+                       const="temperature", help="open on last month's hourly temperatures "
+                       "(arrows browse months; c switches temperature / departure)")
+    views.add_argument("--month-departure", dest="month", action="store_const", const="departure",
+                       help="open on last month's departures from the ten-year hourly average")
     return p
 
 

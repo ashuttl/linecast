@@ -28,6 +28,11 @@ MOON_PHASES = ["Mwezi mpya", "Hilali inayoongezeka", "Robo ya kwanza", "Mwezi un
 
 
 HELP = {
+    "hint_colors": "rangi",
+    "weather_views": "utabiri / mwezi / mwaka",
+    "month_colors": "halijoto / tofauti na wastani",
+    "month_home": "mwezi uliopita wa kalenda",
+    "history_refresh": "sasisha historia ya kila saa",
     "hint_help": "msaada",
     "key_wheel": "gurudumu",
     "key_space": "space",
@@ -82,6 +87,17 @@ HELP = {
 
 
 WEATHER = {
+    "month_temperature": "Halijoto ya kila saa",
+    "month_departure": "Tofauti na wastani wa kila saa wa {span}",
+    "month_repeat": "Saa iliyorudiwa: wastani wa vipimo viwili",
+    "month_small": "Mwonekano huu unahitaji angalau safu wima {cols} na mistari {rows}.",
+    "month_loading": "Inapakia historia ya kila saa…",
+    "month_unavailable": "Historia ya kila saa haipatikani.",
+    "month_partial": "Sehemu ya historia ya kila saa haipatikani.",
+    "month_average": "Wastani: saa ileile, tarehe ndani ya siku saba, miaka kumi.",
+    "month_rows": "Siku mbili kwa mstari katika madirisha mafupi; elekeza kishale kusoma zote.",
+    "month_missing": "Saa zinazokosekana huachwa wazi; saa zilizorudiwa hutumia wastani.",
+    "month_extremes": "Safu ya kulia: thamani ya chini na ya juu ya kila saa katika kila mstari.",
     "today": "Leo",
     "today_short": "Leo",
     "forecast_stale": "Utabiri huu ni wa {day}; mpya haukupatikana.",

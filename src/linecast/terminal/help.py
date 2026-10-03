@@ -11,13 +11,18 @@ from linecast.terminal.textwidth import fit, glyphs, pad
 from linecast.terminal.box import at, centre, place
 
 
-def hint(lang='en', width=80):
+def hint(lang='en', width=80, *, controls=()):
     """A persistent, translated invitation; the key survives tight layouts."""
     label = f"? {hs('hint_help', lang)}"
-    return label if visible_len(label) <= width else ('?' if width > 0 else '')
+    label = label if visible_len(label) <= width else ('?' if width > 0 else '')
+    for key, word in reversed(controls):
+        trial = f"{key} {hs(word, lang)}  {label}"
+        if visible_len(trial) <= width:
+            label = trial
+    return label
 
 
-def footer(line, width, lang='en'):
+def footer(line, width, lang='en', *, controls=()):
     """Add help at the right of the row, through its last column, without truncating the readout.
 
     Callers with a dense footer budget for hint() before choosing their
@@ -25,7 +30,7 @@ def footer(line, width, lang='en'):
     """
     line = re.sub(r' +(?=(?:\033\[[0-9;]*m)*$)', '', line)
     used = visible_len(line)
-    label = hint(lang, width - used - 2)
+    label = hint(lang, width - used - 2, controls=controls)
     if not label:
         return line
     ink = _theme.ensure_contrast(_theme.surface_bg(0.55), _theme.theme_bg, 4.5)
@@ -78,8 +83,11 @@ def mark(text, lang='en'):
 CONTROLS = {
     'weather': [('wheel / ←→', 'forecast'), ('space / n', 'now'),
                 ('hover', 'help_hover'), ('click', 'alert'), ('o', 'browser'),
-                ('r', 'refresh'), ('v', 'year')],
-    'weather_year': [('hover', 'help_hover'), ('v', 'year'), ('c', 'bar_colors')],
+                ('r', 'refresh'), ('v', 'weather_views')],
+    'weather_year': [('hover', 'help_hover'), ('v', 'weather_views'), ('c', 'bar_colors')],
+    'weather_month': [('wheel / ←→', 'months'), ('space / n', 'month_home'),
+                      ('hover', 'help_hover'), ('v', 'weather_views'),
+                      ('c', 'month_colors'), ('r', 'history_refresh')],
     'tides': [('wheel / ←→', 'time30'), ('space / n', 'now'), ('hover', 'help_hover'),
               ('v', 'tide_views')],
     'tides_month': [('wheel / ←→', 'months'), ('space / n', 'now'),

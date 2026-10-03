@@ -28,6 +28,11 @@ MOON_PHASES = ["Yeni Ay", "Büyüyen hilal", "İlk dördün", "Büyüyen şişki
 
 
 HELP = {
+    "hint_colors": "renkler",
+    "weather_views": "tahmin / ay / yıl görünümü",
+    "month_colors": "sıcaklık / ortalamadan sapma",
+    "month_home": "önceki takvim ayı",
+    "history_refresh": "saatlik geçmişi yenile",
     "hint_help": "yardım",
     "key_wheel": "tekerlek",
     "key_space": "boşluk",
@@ -82,6 +87,17 @@ HELP = {
 
 
 WEATHER = {
+    "month_temperature": "Saatlik sıcaklık",
+    "month_departure": "{span} saatlik ortalamasından sapma",
+    "month_repeat": "Tekrarlanan saat: iki değerin ortalaması",
+    "month_small": "Bu görünüm en az {cols} sütun ve {rows} satır gerektirir.",
+    "month_loading": "Saatlik geçmiş yükleniyor…",
+    "month_unavailable": "Saatlik geçmiş kullanılamıyor.",
+    "month_partial": "Saatlik geçmişin bir bölümü kullanılamıyor.",
+    "month_average": "Ortalama: aynı saat, yedi gün içindeki tarihler, on yıl.",
+    "month_rows": "Kısa terminallerde satır başına iki gün; ikisini okumak için üzerine gelin.",
+    "month_missing": "Eksik saatler boş kalır; tekrarlanan saatlerin ortalaması alınır.",
+    "month_extremes": "Sağ sütun: her satırın en düşük ve en yüksek saatlik değerleri.",
     "today": "Bugün",
     "today_short": "Bugün",
     # "{day} gününe ait" takes a weekday or an ISO date alike; a bare

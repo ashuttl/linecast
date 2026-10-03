@@ -29,6 +29,11 @@ MOON_PHASES = ["Uusikuu", "Kasvava sirppi", "Ensimmäinen neljännes", "Kasvava 
 
 
 HELP = {
+    "hint_colors": "värit",
+    "weather_views": "ennuste / kuukausi / vuosi",
+    "month_colors": "lämpötila / poikkeama keskiarvosta",
+    "month_home": "edellinen kalenterikuukausi",
+    "history_refresh": "päivitä tuntihistoria",
     "hint_help": "ohje",
     "key_wheel": "rulla",
     "key_space": "välilyönti",
@@ -83,6 +88,17 @@ HELP = {
 
 
 WEATHER = {
+    "month_temperature": "Tuntilämpötila",
+    "month_departure": "Poikkeama vuosien {span} tuntikeskiarvosta",
+    "month_repeat": "Toistuva kellonaika: molempien lukemien keskiarvo",
+    "month_small": "Tämä näkymä tarvitsee vähintään {cols} saraketta ja {rows} riviä.",
+    "month_loading": "Ladataan tuntihistoriaa…",
+    "month_unavailable": "Tuntihistoria ei ole saatavilla.",
+    "month_partial": "Osa tuntihistoriasta ei ole saatavilla.",
+    "month_average": "Keskiarvo: sama kellonaika, päivämäärät seitsemän päivän sisällä, kymmenen vuotta.",
+    "month_rows": "Matalissa päätteissä kaksi päivää rivillä; osoita nähdäksesi molemmat.",
+    "month_missing": "Puuttuvat tunnit ovat tyhjiä; toistuvista tunneista lasketaan keskiarvo.",
+    "month_extremes": "Oikea sarake: kunkin rivin pienin ja suurin tuntilukema.",
     "today": "tänään",
     "today_short": "tän",
     "forecast_stale": "Tämä ennuste on vanha ({day}); uudempaa ei saatu haettua.",

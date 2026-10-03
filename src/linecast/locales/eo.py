@@ -27,6 +27,11 @@ MOON_PHASES = ["Novluno", "Kreskanta lunarko", "Unua kvarono", "Kreskanta ĝiba 
 
 
 HELP = {
+    "hint_colors": "koloroj",
+    "weather_views": "prognozo / monato / jaro",
+    "month_colors": "temperaturo / devio de la mezumo",
+    "month_home": "antaŭa kalendara monato",
+    "history_refresh": "ĝisdatigi horan historion",
     "hint_help": "helpo",
     "key_wheel": "rado",
     "key_space": "spaco",
@@ -81,6 +86,17 @@ HELP = {
 
 
 WEATHER = {
+    "month_temperature": "Hora temperaturo",
+    "month_departure": "Devio de la hora mezumo de {span}",
+    "month_repeat": "Ripetita horo: mezumo de ambaŭ valoroj",
+    "month_small": "Ĉi tiu vido bezonas almenaŭ {cols} kolumnojn kaj {rows} vicojn.",
+    "month_loading": "Ŝargante horan historion…",
+    "month_unavailable": "Hora historio ne disponeblas.",
+    "month_partial": "Parto de la hora historio ne disponeblas.",
+    "month_average": "Mezumo: sama horo, datoj ene de sep tagoj, dek jaroj.",
+    "month_rows": "Du tagoj en ĉiu vico ĉe malaltaj terminaloj; ŝvebu por legi ambaŭ.",
+    "month_missing": "Mankantaj horoj restas malplenaj; ripetitaj horoj estas mezumataj.",
+    "month_extremes": "Dekstra kolumno: plej malalta kaj plej alta hora valoro de ĉiu vico.",
     "today": "Hodiaŭ",
     "today_short": "hod.",
     "forecast_stale": "Ĉi tiu prognozo devenas de {day}; pli novan ne eblis ricevi.",

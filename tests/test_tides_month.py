@@ -156,7 +156,7 @@ class TestThePage:
         lines, _ = _frame(water, rows=44)
         assert lines[0] == " Portland, ME" and lines[-1] == " NOAA"
         first = lines.index(_day_rows(lines)[0])
-        last = lines.index(_day_rows(lines)[-1]) + 1      # the hours' axis
+        last = lines.index(_day_rows(lines)[-1]) + 3      # the axis and its legend
         above, below = first - 1, len(lines) - 2 - last
         assert above > 0 and abs(above - below) <= 1
         assert all(line == "" for line in lines[1:first])

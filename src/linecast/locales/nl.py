@@ -27,6 +27,11 @@ MOON_PHASES = ["Nieuwe maan", "Wassende sikkel", "Eerste kwartier", "Wassende ma
 
 
 HELP = {
+    "hint_colors": "kleuren",
+    "weather_views": "verwachting / maand / jaar",
+    "month_colors": "temperatuur / afwijking van gemiddelde",
+    "month_home": "vorige kalendermaand",
+    "history_refresh": "uurhistorie vernieuwen",
     "hint_help": "help",
     "key_wheel": "wiel",
     "key_space": "spatie",
@@ -81,6 +86,17 @@ HELP = {
 
 
 WEATHER = {
+    "month_temperature": "Temperatuur per uur",
+    "month_departure": "Afwijking van het uurgemiddelde over {span}",
+    "month_repeat": "Herhaald uur: gemiddelde van beide metingen",
+    "month_small": "Deze weergave vereist minstens {cols} kolommen en {rows} rijen.",
+    "month_loading": "Uurhistorie laden…",
+    "month_unavailable": "Uurhistorie niet beschikbaar.",
+    "month_partial": "Een deel van de uurhistorie is niet beschikbaar.",
+    "month_average": "Gemiddelde: hetzelfde uur, datums binnen zeven dagen, tien jaar.",
+    "month_rows": "Twee dagen per rij in lage terminals; wijs aan om beide te lezen.",
+    "month_missing": "Ontbrekende uren blijven leeg; herhaalde uren worden gemiddeld.",
+    "month_extremes": "Rechterkolom: laagste en hoogste uurwaarden per rij.",
     "today": "vandaag",
     "today_short": "van",
     "forecast_stale": "Deze verwachting is van {day}; een nieuwere kon niet worden opgehaald.",

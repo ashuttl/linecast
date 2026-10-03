@@ -39,7 +39,7 @@ The dashboard gives up rows as the window shrinks: the cloud strip first, then t
   <img src="../screenshots/weather-kyoto.png" width="49%" alt="the weather in Kyoto, in Japanese">
 </p>
 
-Press `v` for the year so far, [après Tufte](https://www.edwardtufte.com/notebook/new-york-city-weather-chart/). Each day's high and low is drawn against the last ten years' average and extremes, tinted warm or cool where it went past the average, and each month's precipitation is a running total against its average. The pointer here is on a week in May.
+Press `v` to cycle forecast, month, and year. The month shows hourly temperatures, with `c` switching to departures from the ten-year average; arrows browse months. The year so far, [après Tufte](https://www.edwardtufte.com/notebook/new-york-city-weather-chart/). Each day's high and low is drawn against the last ten years' average and extremes, tinted warm or cool where it went past the average, and each month's precipitation is a running total against its average. The pointer here is on a week in May.
 
 <img src="../screenshots/weather-year.png" alt="the weather year view for Westbrook, Maine, with the chip for a week in May">
 

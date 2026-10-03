@@ -8,6 +8,10 @@ Tides gain month and year views, a look at what moves the tide, and coverage fro
 
 New this version:
 
+- Weather: Added a month view of hourly temperatures, with sunrise and sunset and a comparison with the ten-year hourly average. Press `v` to cycle forecast, month, and year, or open the month directly with `--month` or `--month-departure`.
+
+- Tides: Moved the month view's sunrise and sunset legend below the chart.
+
 - Print: Added `--width` and `--height` to size a static view in character cells or percentages of the terminal, including for shell startup greetings.
 
 - Maps: `t` now hides the center and location crosshairs along with the header and footer.

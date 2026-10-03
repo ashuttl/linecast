@@ -28,6 +28,11 @@ MOON_PHASES = ["Nów", "Sierp rosnący", "Pierwsza kwadra", "Garb rosnący",
 
 
 HELP = {
+    "hint_colors": "kolory",
+    "weather_views": "prognoza / miesiąc / rok",
+    "month_colors": "temperatura / odchylenie od średniej",
+    "month_home": "poprzedni miesiąc kalendarzowy",
+    "history_refresh": "odśwież historię godzinową",
     "hint_help": "pomoc",
     "key_wheel": "kółko",
     "key_space": "spacja",
@@ -82,6 +87,17 @@ HELP = {
 
 
 WEATHER = {
+    "month_temperature": "Temperatura godzinowa",
+    "month_departure": "Odchylenie od średniej godzinowej z lat {span}",
+    "month_repeat": "Powtórzona godzina: średnia obu odczytów",
+    "month_small": "Ten widok wymaga co najmniej {cols} kolumn i {rows} wierszy.",
+    "month_loading": "Wczytywanie historii godzinowej…",
+    "month_unavailable": "Historia godzinowa jest niedostępna.",
+    "month_partial": "Część historii godzinowej jest niedostępna.",
+    "month_average": "Średnia: ta sama godzina, daty w obrębie siedmiu dni, dziesięć lat.",
+    "month_rows": "Dwa dni na wiersz w niskich terminalach; najedź, aby odczytać oba.",
+    "month_missing": "Brakujące godziny pozostają puste; powtórzone są uśredniane.",
+    "month_extremes": "Prawa kolumna: najniższy i najwyższy odczyt godzinowy w każdym wierszu.",
     "today": "dziś",
     "today_short": "dziś",
     "forecast_stale": "Ta prognoza jest nieaktualna ({day}); nie udało się pobrać nowszej.",

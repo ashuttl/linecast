@@ -3,11 +3,11 @@
 main() settles the arguments and the place, and gather() fetches what
 the dashboard is built from side by side: the forecast, the airport's
 report, the alerts, the air quality and the climate scale. --json,
---oneline and --prose print from that and exit, --print and --year draw one frame,
+--oneline and --prose print from that and exit, --print draws one frame,
 and otherwise a WeatherApp puts the dashboard on screen and keeps it
 fresh: a refresh every interval, the climate scale and the year's
-archive fetched in the background, and the location menu.  Everything
-drawn is in weather.view.
+archive fetched in the background, and the location menu. The month view
+loads its hourly archive on demand; v cycles forecast, month, and year.
 """
 
 import sys
@@ -76,10 +76,12 @@ class WeatherApp(LocationMenu, _live.LiveApp):
 
     @property
     def help_view(self):
+        if self.month_view:
+            return 'weather_month'
         return 'weather_year' if self.year_view else 'weather'
 
     def __init__(self, data, alerts, aqi, lat, lng, runtime,
-                 location_name="", historical=None, country="", year_view=False):
+                 location_name="", historical=None, country="", year_view=False, month_view=None):
         self.data = data
         self.alerts = alerts
         self.aqi = aqi
@@ -103,6 +105,13 @@ class WeatherApp(LocationMenu, _live.LiveApp):
         self._climate_worker = None
         self.attempted = None   # local time the last refresh finished
         self.year_view = year_view
+        self.month_view = bool(month_view)
+        self.month_difference = month_view == "departure"
+        from linecast.tides.month import month_of
+        self.month_first = month_of(local_now(data).date(), -1)
+        self._month = None
+        self._month_asked = None
+        self._month_worker = None
         self.year_colors = 0       # the year's bar coloring, an index into COLORS
         # The year view's ((lat, lng), day, climate, archive), and when
         # its fetch last started for a generation and day and whether it
@@ -112,6 +121,7 @@ class WeatherApp(LocationMenu, _live.LiveApp):
         self._year_worker = None
         self._start_climate(delay=_CLIMATE_RETRY_DELAY)
         self._start_year()
+        self._start_month()
 
     def _refresh(self, generation, lat, lng, country):
         """Refresh a snapshot of the location; discard it if the user moved."""
@@ -258,8 +268,83 @@ class WeatherApp(LocationMenu, _live.LiveApp):
             climate, year_days(archive, self.data, today), self.runtime,
             location_name=self.location_name, location_menu=True,
             mouse_pos=mouse_pos, live=True, hint=install_banner(),
-            footer=credit_row(cols, self.runtime.lang, runtime=self.runtime),
+            footer=credit_row(cols, self.runtime.lang, runtime=self.runtime,
+                              controls=(("c", "hint_colors"),)),
             colors=COLORS[self.year_colors])
+
+    def _fetch_month(self, generation, lat, lng, today):
+        from linecast.weather.hourly_history import fetch_month
+
+        def stale():
+            return (generation != self._generation
+                    or self._month_asked[:2] != (generation, today))
+
+        series, complete = None, False
+        try:
+            series, complete = fetch_month(lat, lng, today, stale=stale)
+        except Exception as exc:
+            log_failure("weather", "hourly history", exc, fallback="keep previous month")
+        with self._state_lock:
+            if stale():
+                return
+            if series is not None:
+                self._month = ((lat, lng), today, series)
+            self._month_asked = (generation, today, self._month_asked[2], complete)
+        _live.nudge()
+
+    def _start_month(self):
+        if not self.month_view or not self.data or self._loading is not None:
+            return
+        today = local_now(self.data).date()
+        asked = self._month_asked
+        if asked and asked[:2] == (self._generation, today):
+            if self._month_worker and self._month_worker.is_alive():
+                return
+            wait = _YEAR_REFRESH if asked[3] else _CLIMATE_RETRY_DELAY
+            if _t.monotonic() - asked[2] < wait:
+                return
+        self._month_asked = (self._generation, today, _t.monotonic(), False)
+        self._month_worker = threading.Thread(
+            target=self._fetch_month,
+            args=(self._generation, self.lat, self.lng, today), daemon=True)
+        self._month_worker.start()
+
+    def _month_busy(self):
+        return bool(self._month_asked
+                    and self._month_asked[:2] == (self._generation, local_now(self.data).date())
+                    and self._month_worker and self._month_worker.is_alive())
+
+    def _step_month(self, count):
+        from datetime import date
+        from linecast.tides.month import month_of
+        from linecast.weather.historical import history_span
+        today = local_now(self.data).date()
+        self.month_first = max(date(history_span(today.year)[0], 1, 1),
+                               min(today.replace(day=1), month_of(self.month_first, count)))
+        return True
+
+    def _render_month(self, mouse_pos):
+        from linecast.weather.month import render_month
+        from linecast.weather.i18n import _s
+        self._step_month(0)
+        cached = self._month
+        now = local_now(self.data)
+        series = (cached[2] if cached and cached[0] == (self.lat, self.lng)
+                  and cached[1].year == now.year else None)
+        notice = ""
+        if not self._month_busy() and self._month_asked and not self._month_asked[3]:
+            notice = _s("month_partial" if series else "month_unavailable", self.runtime)
+            notice += " " + _s("retry_key", self.runtime)
+        return render_month(series, self.month_first, self.runtime, self.lat, self.lng,
+                            self.location_name, difference=self.month_difference,
+                            mouse_pos=mouse_pos, now=now, location_menu=True, notice=notice)
+
+    def _month_toast(self, cols, rows):
+        if not self.month_view or self._flash is not None or not self._month_busy():
+            return ""
+        from linecast.weather.i18n import _s
+        return self.busy_toast(_s("month_loading", self.runtime), cols, rows,
+                               after=self._month_asked[2] + 0.2 - _t.monotonic())
 
     def _refreshing(self):
         return bool(self._worker and self._worker.is_alive())
@@ -301,6 +386,7 @@ class WeatherApp(LocationMenu, _live.LiveApp):
         self.fetched, self.attempted = _t.monotonic(), None
         self._start_climate(delay=_CLIMATE_RETRY_DELAY)
         self._start_year()
+        self._start_month()
 
     def _on_place(self, col, row):
         hit = self._location_hit
@@ -317,11 +403,20 @@ class WeatherApp(LocationMenu, _live.LiveApp):
     def intercept(self, action):
         if super().intercept(action):
             return True
+        if self.month_view:
+            if action in ("fwd", "back"):
+                return self._step_month(1 if action == "fwd" else -1)
+            if action == "reset":
+                from linecast.tides.month import month_of
+                self.month_first = month_of(local_now(self.data).date(), -1)
+                return True
         # The year view scrubs nothing; the arrows would move the
         # forecast behind it.
         return self.year_view and action in ("fwd", "back")
 
     def on_wheel(self, direction, col, row):
+        if self.month_view and not self.locations.active:
+            return self._step_month(-direction)
         if self.year_view and not self.locations.active:
             return True
         # else the menu's, or the forecast and alert modal's usual scrolling
@@ -341,13 +436,32 @@ class WeatherApp(LocationMenu, _live.LiveApp):
         if super().on_action(key):
             return True
         if key == "r":
-            self._start_refresh()
+            with self._state_lock:
+                if self.month_view:
+                    if not self._month_busy():
+                        if self._month_asked:
+                            generation, today, _, complete = self._month_asked
+                            self._month_asked = (generation, today, 0, complete)
+                        self._start_month()
+                else:
+                    self._start_refresh()
             return True
-        # v flips the view; y does too, unlisted, as sunshine's year key
+        # v cycles forecast / month / year; y retains its direct year shortcut.
         if key in ("v", "y"):
             with self._state_lock:
-                self.year_view = not self.year_view
+                if key == "y":
+                    self.year_view, self.month_view = not self.year_view, False
+                elif self.month_view:
+                    self.month_view, self.year_view = False, True
+                elif self.year_view:
+                    self.year_view = False
+                else:
+                    self.month_view = True
                 self._start_year()
+                self._start_month()
+            return True
+        if key == "c" and self.month_view:
+            self.month_difference = not self.month_difference
             return True
         # c steps the year's bars through their colorings
         if key == "c" and self.year_view:
@@ -368,7 +482,10 @@ class WeatherApp(LocationMenu, _live.LiveApp):
         notice = forecast_notice(self.data, self.runtime, live=True,
                                  fetching=self._refreshing(), failed_at=self.attempted)
         panel = self.locations.active
-        if self.year_view:
+        if self.month_view:
+            self._start_month()
+            output, alert_rows = self._render_month(None if panel else mouse_pos), {}
+        elif self.year_view:
             self._start_year()
             output, alert_rows = self._render_year(None if panel else mouse_pos), {}
         else:
@@ -388,7 +505,11 @@ class WeatherApp(LocationMenu, _live.LiveApp):
         from linecast.weather.header import location_chip, location_control
         label = location_chip(location_control(self.location_name, cols, self.runtime))
         self._location_hit = (cols - visible_len(label) + 1, cols)
-        floating = self.menu_overlay(cols, rows)
+        if self.month_view:
+            from linecast.weather.month import month_location
+            label = month_location(self.location_name, cols, self.runtime)
+            self._location_hit = (1, visible_len(label)) if cols >= 54 and rows >= 23 else None
+        floating = self.menu_overlay(cols, rows) + self._month_toast(cols, rows)
         if panel:
             alert_rows = {}  # a panel click must not open an alert beneath it
         output = _live.overlay(output, floating)
@@ -397,6 +518,10 @@ class WeatherApp(LocationMenu, _live.LiveApp):
     def help_credits(self):
         from linecast.maps.search import ATTRIBUTION
         lang = self.runtime.lang
+        if self.month_view:
+            from linecast.weather.i18n import _s
+            return ("Open-Meteo", *(_s(key, self.runtime) for key in (
+                "month_average", "month_rows", "month_missing", "month_extremes")), ATTRIBUTION)
         observed = ((self.data or {}).get("current") or {}).get("observed")
         return (forecast_attribution(lang),
                 observation_attribution(lang, observed["station"]) if observed else None,
@@ -520,6 +645,9 @@ def _main():
     set_current(runtime)
     if args.year:
         refuse_view_flag(parser, "--year", runtime)
+    if args.month:
+        flag = next((arg for arg in sys.argv[1:] if arg.startswith("--month")), "--month")
+        refuse_view_flag(parser, flag, runtime)
     # In a right-to-left language the whole dashboard reads from the
     # right, the hourly graph included: now is at the right edge
     from linecast.terminal import bidi as _bidi
@@ -576,8 +704,22 @@ def _main():
         WeatherApp(
             data, alerts, aqi_data, lat, lng, runtime,
             location_name=location_name, historical=historical,
-            country=final_country, year_view=args.year,
+            country=final_country, year_view=args.year, month_view=args.month,
         ).run()
+    elif args.month:
+        from linecast.terminal.textwidth import calibrate_from_terminal
+        from linecast.tides.month import month_of
+        from linecast.weather.hourly_history import fetch_month
+        from linecast.weather.month import render_month
+        from linecast.weather.i18n import _s
+        now = local_now(data)
+        with Spinner(_s("month_loading", runtime)):
+            series, complete = fetch_month(lat, lng, now.date())
+        calibrate_from_terminal()
+        notice = "" if complete else _s("month_partial" if series else "month_unavailable", runtime)
+        _live.print_frame(render_month(
+            series, month_of(now.date(), -1), runtime, lat, lng, location_name,
+            difference=args.month == "departure", now=now, notice=notice))
     elif args.year:
         from linecast.terminal.textwidth import calibrate_from_terminal
         from linecast.weather.year import fetch_year, render_year, year_days

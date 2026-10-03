@@ -29,6 +29,11 @@ MOON_PHASES = ["新月", "眉月", "上弦月", "盈凸月",
 
 
 HELP = {
+    "hint_colors": "配色",
+    "weather_views": "預報 / 月檢視 / 年檢視",
+    "month_colors": "氣溫 / 與平均值的偏差",
+    "month_home": "上一個曆月",
+    "history_refresh": "重新整理逐小時歷史資料",
     "hint_help": "說明",
     "key_wheel": "滾輪",
     "key_space": "空白鍵",
@@ -83,6 +88,17 @@ HELP = {
 
 
 WEATHER = {
+    "month_temperature": "逐小時氣溫",
+    "month_departure": "與 {span} 年逐小時平均值的偏差",
+    "month_repeat": "重複時刻：兩次讀數的平均值",
+    "month_small": "此檢視至少需要 {cols} 欄和 {rows} 列。",
+    "month_loading": "正在載入逐小時歷史資料…",
+    "month_unavailable": "逐小時歷史資料無法取得。",
+    "month_partial": "部分逐小時歷史資料無法取得。",
+    "month_average": "平均值：十年間前後七天內同一時刻的資料。",
+    "month_rows": "較矮的終端機每列顯示兩天；懸停可查看兩天的資料。",
+    "month_missing": "缺少的小時留空；重複的時刻取平均值。",
+    "month_extremes": "右側欄：每列最低和最高的小時讀數。",
     "today": "今天",
     "today_short": "今天",
     "forecast_stale": "此預報來自{day}，無法取得更新的預報。",

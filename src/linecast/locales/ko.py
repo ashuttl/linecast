@@ -29,6 +29,11 @@ MOON_PHASES = ["삭", "초승달", "상현달", "차오르는 달",
 
 
 HELP = {
+    "hint_colors": "색상",
+    "weather_views": "예보 / 월 / 연 보기",
+    "month_colors": "기온 / 평균과의 편차",
+    "month_home": "이전 달력 월",
+    "history_refresh": "시간별 기록 새로 고침",
     "hint_help": "도움말",
     "key_wheel": "휠",
     "key_space": "스페이스",
@@ -83,6 +88,17 @@ HELP = {
 
 
 WEATHER = {
+    "month_temperature": "시간별 기온",
+    "month_departure": "{span}년 시간별 평균과의 편차",
+    "month_repeat": "중복 시간: 두 측정값의 평균",
+    "month_small": "이 보기는 최소 {cols}열, {rows}행이 필요합니다.",
+    "month_loading": "시간별 기록 불러오는 중…",
+    "month_unavailable": "시간별 기록을 사용할 수 없습니다.",
+    "month_partial": "일부 시간별 기록을 사용할 수 없습니다.",
+    "month_average": "평균: 10년간 전후 7일 이내 같은 시각의 값.",
+    "month_rows": "높이가 낮은 터미널에서는 한 행에 이틀을 표시합니다. 마우스를 올려 두 날을 확인하세요.",
+    "month_missing": "누락된 시간은 빈칸으로, 중복 시간은 평균값으로 표시합니다.",
+    "month_extremes": "오른쪽 열: 각 행의 시간별 최저값과 최고값.",
     "day_of_month": "{d}일",
     "today": "오늘",
     "today_short": "오늘",

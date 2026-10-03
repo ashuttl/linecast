@@ -27,6 +27,11 @@ MOON_PHASES = ["Bulan baru", "Sabit awal", "Kuarter pertama", "Cembung awal",
 
 
 HELP = {
+    "hint_colors": "warna",
+    "weather_views": "prakiraan / bulan / tahun",
+    "month_colors": "suhu / selisih dari rata-rata",
+    "month_home": "bulan kalender sebelumnya",
+    "history_refresh": "perbarui riwayat per jam",
     "hint_help": "bantuan",
     "key_wheel": "roda",
     "key_space": "spasi",
@@ -81,6 +86,17 @@ HELP = {
 
 
 WEATHER = {
+    "month_temperature": "Suhu per jam",
+    "month_departure": "Selisih dari rata-rata per jam {span}",
+    "month_repeat": "Jam berulang: rata-rata kedua nilai",
+    "month_small": "Tampilan ini memerlukan setidaknya {cols} kolom dan {rows} baris.",
+    "month_loading": "Memuat riwayat per jam…",
+    "month_unavailable": "Riwayat per jam tidak tersedia.",
+    "month_partial": "Sebagian riwayat per jam tidak tersedia.",
+    "month_average": "Rata-rata: jam yang sama, tanggal dalam rentang tujuh hari, sepuluh tahun.",
+    "month_rows": "Dua hari per baris pada terminal pendek; arahkan kursor untuk membaca keduanya.",
+    "month_missing": "Jam yang hilang tetap kosong; jam berulang dirata-ratakan.",
+    "month_extremes": "Kolom kanan: nilai per jam terendah dan tertinggi pada setiap baris.",
     "today": "hari ini",
     "today_short": "Hri",
     "forecast_stale": "Prakiraan ini dari {day}; prakiraan yang lebih baru tidak dapat diambil.",

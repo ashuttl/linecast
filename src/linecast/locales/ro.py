@@ -28,6 +28,11 @@ MOON_PHASES = ["Lună nouă", "Semilună crescătoare", "Primul pătrar", "Lună
 
 
 HELP = {
+    "hint_colors": "culori",
+    "weather_views": "vedere prognoză / lună / an",
+    "month_colors": "temperatură / abatere de la medie",
+    "month_home": "luna calendaristică precedentă",
+    "history_refresh": "actualizează istoricul orar",
     "hint_help": "ajutor",
     "key_wheel": "rotiță",
     "key_space": "spațiu",
@@ -82,6 +87,17 @@ HELP = {
 
 
 WEATHER = {
+    "month_temperature": "Temperatură orară",
+    "month_departure": "Abatere de la media orară din {span}",
+    "month_repeat": "Oră repetată: media celor două valori",
+    "month_small": "Această vedere necesită cel puțin {cols} coloane și {rows} rânduri.",
+    "month_loading": "Se încarcă istoricul orar…",
+    "month_unavailable": "Istoricul orar nu este disponibil.",
+    "month_partial": "O parte din istoricul orar nu este disponibilă.",
+    "month_average": "Medie: aceeași oră, date la cel mult șapte zile distanță, zece ani.",
+    "month_rows": "Două zile pe rând în terminale scunde; treceți cursorul pentru ambele.",
+    "month_missing": "Orele lipsă rămân goale; pentru cele repetate se calculează media.",
+    "month_extremes": "Coloana din dreapta: valorile orare minimă și maximă din fiecare rând.",
     "today": "Azi",
     "today_short": "azi",
     "forecast_stale": "Această prognoză e veche ({day}); una mai nouă nu a putut fi obținută.",

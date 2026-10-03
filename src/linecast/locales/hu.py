@@ -49,6 +49,11 @@ MOON_PHASES = ["Újhold", "Növő sarló", "Első negyed", "Növő hold",
 # The keys and what they do, as noun phrases, the way Hungarian
 # software labels its commands
 HELP = {
+    "hint_colors": "színek",
+    "weather_views": "előrejelzés / hónap / év",
+    "month_colors": "hőmérséklet / eltérés az átlagtól",
+    "month_home": "előző naptári hónap",
+    "history_refresh": "óránkénti előzmények frissítése",
     "hint_help": "súgó",
     "key_wheel": "görgő",
     "key_space": "szóköz",
@@ -103,6 +108,17 @@ HELP = {
 
 
 WEATHER = {
+    "month_temperature": "Óránkénti hőmérséklet",
+    "month_departure": "Eltérés a(z) {span} óránkénti átlagától",
+    "month_repeat": "Ismétlődő óra: a két érték átlaga",
+    "month_small": "Ehhez a nézethez legalább {cols} oszlop és {rows} sor szükséges.",
+    "month_loading": "Óránkénti előzmények betöltése…",
+    "month_unavailable": "Az óránkénti előzmények nem érhetők el.",
+    "month_partial": "Az óránkénti előzmények egy része nem érhető el.",
+    "month_average": "Átlag: azonos óra, hét napon belüli dátumok, tíz év.",
+    "month_rows": "Alacsony terminálon soronként két nap; mutasson rá mindkettő leolvasásához.",
+    "month_missing": "A hiányzó órák üresek; az ismétlődő órák átlaga jelenik meg.",
+    "month_extremes": "Jobb oszlop: az egyes sorok legkisebb és legnagyobb óránkénti értéke.",
     # "V 27.": the day of the month takes its ordinal stop
     "day_of_month": "{d}.",
     "today": "Ma",

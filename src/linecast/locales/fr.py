@@ -29,6 +29,11 @@ MOON_PHASES = ["Nouvelle lune", "Premier croissant", "Premier quartier", "Gibbeu
 
 
 HELP = {
+    "hint_colors": "couleurs",
+    "weather_views": "vue prévisions / mois / année",
+    "month_colors": "température / écart à la moyenne",
+    "month_home": "mois civil précédent",
+    "history_refresh": "actualiser l’historique horaire",
     "hint_help": "aide",
     "key_wheel": "molette",
     "key_space": "espace",
@@ -83,6 +88,17 @@ HELP = {
 
 
 WEATHER = {
+    "month_temperature": "Température horaire",
+    "month_departure": "Écart à la moyenne horaire de {span}",
+    "month_repeat": "Heure répétée : moyenne des deux relevés",
+    "month_small": "Cette vue nécessite au moins {cols} colonnes et {rows} lignes.",
+    "month_loading": "Chargement de l’historique horaire…",
+    "month_unavailable": "Historique horaire indisponible.",
+    "month_partial": "Une partie de l’historique horaire est indisponible.",
+    "month_average": "Moyenne : même heure, dates à sept jours près, sur dix ans.",
+    "month_rows": "Deux jours par ligne dans les petits terminaux ; survolez pour lire les deux.",
+    "month_missing": "Les heures manquantes restent vides ; les heures répétées sont moyennées.",
+    "month_extremes": "Colonne de droite : relevés horaires minimum et maximum de chaque ligne.",
     "today": "aujourd'hui",
     "today_short": "auj",
     "forecast_stale": "Cette prévision date de {day} ; impossible d'en obtenir une plus récente.",

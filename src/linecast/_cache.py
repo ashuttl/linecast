@@ -160,7 +160,9 @@ _SWEEP_EVERY = 86400
 # may be while a view still asks for them: this year's comparison is the
 # ten years to last year, and the year view is this year so far.
 _ROLLED_OVER = ((re.compile(r"hist_[0-9a-f]+_\d{4}-(\d{4})_"), 1),
-                (re.compile(r"year_[0-9a-f]+_(\d{4})_"), 0))
+                (re.compile(r"year_[0-9a-f]+_(\d{4})_"), 0),
+                (re.compile(r"hourly_[0-9a-f]+_hist_\d{4}-(\d{4})\.json"), 1),
+                (re.compile(r"hourly_[0-9a-f]+_year_(\d{4})\.json"), 0))
 
 
 def _rolled_over(name, this_year):

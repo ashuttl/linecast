@@ -29,6 +29,11 @@ MOON_PHASES = ["Nýtt tungl", "Vaxandi hálfmáni", "Fyrsti fjórðungur", "Vaxa
 
 
 HELP = {
+    "hint_colors": "litir",
+    "weather_views": "spá / mánuður / ár",
+    "month_colors": "hitastig / frávik frá meðaltali",
+    "month_home": "fyrri almanaksmánuður",
+    "history_refresh": "uppfæra tímagögn",
     "hint_help": "hjálp",
     "key_wheel": "hjól",
     "key_space": "bilslá",
@@ -83,6 +88,17 @@ HELP = {
 
 
 WEATHER = {
+    "month_temperature": "Hitastig á klukkustund",
+    "month_departure": "Frávik frá klukkustundarmeðaltali {span}",
+    "month_repeat": "Endurtekin klukkustund: meðaltal beggja gilda",
+    "month_small": "Þessi sýn þarf að minnsta kosti {cols} dálka og {rows} raðir.",
+    "month_loading": "Hleð tímagögnum…",
+    "month_unavailable": "Tímagögn eru ekki tiltæk.",
+    "month_partial": "Hluti tímagagnanna er ekki tiltækur.",
+    "month_average": "Meðaltal: sama klukkustund, dagsetningar innan sjö daga, tíu ár.",
+    "month_rows": "Tveir dagar í röð í lágum gluggum; bendill sýnir báða.",
+    "month_missing": "Klukkustundir sem vantar eru auðar; endurteknar eru meðaltalaðar.",
+    "month_extremes": "Hægri dálkur: lægsta og hæsta klukkustundargildi hverrar raðar.",
     "today": "í dag",
     "today_short": "Í d",
     "forecast_stale": "Þessi spá er gömul ({day}); ekki tókst að sækja nýrri.",

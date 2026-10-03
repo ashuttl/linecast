@@ -537,17 +537,17 @@ def _app(**kw):
 
 
 class TestLive:
-    def test_v_flips_to_the_year_and_fetches_it(self):
+    def test_year_shortcut_fetches_it(self):
         app = _app()
         assert not app.year_view and app._year_worker is None
         with patch.object(year, "fetch_year", return_value=("climate", "archive")) as fetch:
-            assert app.on_action("v")
+            assert app.on_action("y")
             app._year_worker.join(1.0)
         assert app.year_view
         fetch.assert_called_once()
         assert app._year[2:] == ("climate", "archive")
         assert app._year_asked[3]   # came back whole: no quick retry
-        assert app.on_action("v") and not app.year_view
+        assert app.on_action("y") and not app.year_view
 
     def test_y_flips_it_too(self):
         app = _app()
@@ -565,7 +565,7 @@ class TestLive:
             return ("climate", "archive")
 
         with patch.object(year, "fetch_year", side_effect=moved_on):
-            app.on_action("v")
+            app.on_action("y")
             app._year_worker.join(1.0)
         assert app._year is None
 
@@ -620,7 +620,7 @@ class TestLive:
         gathered = threading.Event()
         gathered.set()
         with patch.object(year, "fetch_year", side_effect=fetch):
-            app.on_action("v")
+            app.on_action("y")
             westbrook = app._year_worker
             self._move(app, gathered)
             app._location_worker.join(2.0)
@@ -636,7 +636,7 @@ class TestLive:
         app = _app()
         with patch.object(year, "fetch_year", return_value=("climate", None)) as fetch, \
              patch("time.monotonic", return_value=1000.0):
-            app.on_action("v")
+            app.on_action("y")
             app._year_worker.join(1.0)
             with app._state_lock:
                 app._start_year()

@@ -27,6 +27,11 @@ MOON_PHASES = ["Luna nuova", "Falce crescente", "Primo quarto", "Gibbosa crescen
 
 
 HELP = {
+    "hint_colors": "colori",
+    "weather_views": "vista previsioni / mese / anno",
+    "month_colors": "temperatura / scarto dalla media",
+    "month_home": "mese precedente",
+    "history_refresh": "aggiorna lo storico orario",
     "hint_help": "aiuto",
     "key_wheel": "rotella",
     "key_space": "spazio",
@@ -81,6 +86,17 @@ HELP = {
 
 
 WEATHER = {
+    "month_temperature": "Temperatura oraria",
+    "month_departure": "Scarto dalla media oraria del {span}",
+    "month_repeat": "Ora ripetuta: media delle due letture",
+    "month_small": "Questa vista richiede almeno {cols} colonne e {rows} righe.",
+    "month_loading": "Caricamento dello storico orario…",
+    "month_unavailable": "Storico orario non disponibile.",
+    "month_partial": "Parte dello storico orario non è disponibile.",
+    "month_average": "Media: stessa ora, date entro sette giorni, dieci anni.",
+    "month_rows": "Due giorni per riga nei terminali bassi; passa il cursore per leggerli entrambi.",
+    "month_missing": "Le ore mancanti restano vuote; quelle ripetute vengono mediate.",
+    "month_extremes": "Colonna destra: letture orarie minima e massima di ogni riga.",
     "today": "oggi",
     "today_short": "ogg",
     "forecast_stale": "Questa previsione è di {day}; non è stato possibile ottenerne una più recente.",

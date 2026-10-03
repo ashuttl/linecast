@@ -171,6 +171,22 @@ def _day_label(day, runtime):
     return f"{table_for(DAY_NAMES, lang_of(runtime))[day.weekday()]} {day.day:>2}"
 
 
+def sun_legend(runtime, width, *, now=False, sun_rgb=None, now_rgb=None, text_rgb=None):
+    """The key to a month's Sun lines and, when shown, its now marker."""
+    from linecast.radar.i18n import rs
+    from linecast.sunshine.i18n import _ss
+    from linecast.terminal.textwidth import clip_styled
+    dim = fg(*(text_rgb or _palette.DIM_RGB))
+    legend = (f"{fg(*(sun_rgb or SUN_RGB))}{SUN_KEY}{RESET} {dim}"
+              f"{_ss('sunrise', runtime)} / {_ss('sunset', runtime)}{RESET}")
+    if now:
+        mark = (f"   {fg(*(now_rgb or NOW_RGB))}{NOW_MARK}{RESET} "
+                f"{dim}{rs('now', lang_of(runtime))}{RESET}")
+        if visible_len(legend + mark) <= width:
+            legend += mark
+    return clip_styled(legend, width) + RESET
+
+
 def render_month(first, predictions, hilo, runtime, *, header, footer, station_meta,
                  station_tz, now_local, mouse_pos=None):
     """The month view of the tides, sized to the terminal.
@@ -194,7 +210,9 @@ def render_month(first, predictions, hilo, runtime, *, header, footer, station_m
     hilo = hilo or []
 
     # --- the rows: a day to a row, or two when the month will not fit ---
-    avail = max(4, rows - 2 - (footer.count("\n") + 1))
+    # The axis and its legend belong to the field. Leave a blank row
+    # between them, while the source and help keep the window's footer.
+    avail = max(4, rows - 4 - (footer.count("\n") + 1))
     per_row = 1 if avail >= ndays else 2
     n_rows = min(avail, -(-ndays // per_row))
     shown = days[:n_rows * per_row]
@@ -334,6 +352,8 @@ def render_month(first, predictions, hilo, runtime, *, header, footer, station_m
     ticks = render_tide_ticks(datetime(first.year, first.month, first.day, tzinfo=tz),
                               24, width, runtime)
     lines.append(" " * gutter + ticks)
+    lines.append("")
+    lines.append(" " * gutter + sun_legend(runtime, cols - gutter, now=today in shown))
     lines.extend([""] * (spare - above))
     lines.append(footer)
     output = "\n".join(lines)

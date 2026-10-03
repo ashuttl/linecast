@@ -624,22 +624,21 @@ def _nu_flags(flags):
         # --help and -h are left out so Nushell does not hijack help display
         if flag.is_help:
             continue
-        # Nushell flag names must be identifiers, which --12h/--24h are
-        # not; they stay completable in the other shells only
-        if not flag.name.lstrip("-")[:1].isalpha():
-            continue
-        if flag.is_version:
-            lines.append(f"    {flag.name} # Show version")
-            continue
-        if flag.values is not None:
-            lines.append(
-                f'    {flag.name}: string@"nu-complete linecast-{flag.name[2:]}"'
-            )
-            continue
-        if flag.takes_value:
-            lines.append(f"    {flag.name}: string")
-            continue
-        lines.append(f"    {flag.name}")
+        # Offer every long spelling, including aliases of the same action.
+        # --12h/--24h are not Nushell identifiers; the other shells keep them.
+        for option in flag.options:
+            if not option.startswith("--") or not option[2:3].isalpha():
+                continue
+            if flag.is_version:
+                lines.append(f"    {option} # Show version")
+            elif flag.values is not None:
+                lines.append(
+                    f'    {option}: string@"nu-complete linecast-{flag.name[2:]}"'
+                )
+            elif flag.takes_value:
+                lines.append(f"    {option}: string")
+            else:
+                lines.append(f"    {option}")
     return lines
 
 

@@ -34,6 +34,11 @@ MOON_PHASES = ["Nov", "Dorůstající srpek", "První čtvrť", "Dorůstající 
 
 
 HELP = {
+    "hint_colors": "barvy",
+    "weather_views": "předpověď / měsíc / rok",
+    "month_colors": "teplota / odchylka od průměru",
+    "month_home": "předchozí kalendářní měsíc",
+    "history_refresh": "obnovit hodinovou historii",
     "hint_help": "nápověda",
     "key_wheel": "kolečko",
     "key_space": "mezerník",
@@ -88,6 +93,17 @@ HELP = {
 
 
 WEATHER = {
+    "month_temperature": "Hodinová teplota",
+    "month_departure": "Odchylka od hodinového průměru {span}",
+    "month_repeat": "Opakovaná hodina: průměr obou hodnot",
+    "month_small": "Tento pohled vyžaduje alespoň {cols} sloupců a {rows} řádků.",
+    "month_loading": "Načítání hodinové historie…",
+    "month_unavailable": "Hodinová historie není dostupná.",
+    "month_partial": "Část hodinové historie není dostupná.",
+    "month_average": "Průměr: stejná hodina, data do sedmi dnů, deset let.",
+    "month_rows": "Dva dny na řádek v nízkých terminálech; najetím zobrazíte oba.",
+    "month_missing": "Chybějící hodiny zůstávají prázdné; opakované se průměrují.",
+    "month_extremes": "Pravý sloupec: nejnižší a nejvyšší hodinová hodnota každého řádku.",
     "today": "Dnes",
     "today_short": "dnes",
     # "z {day}" would decline the weekday (ze středy); the day sits

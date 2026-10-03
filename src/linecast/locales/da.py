@@ -28,6 +28,11 @@ MOON_PHASES = ["Nymåne", "Tiltagende månesigd", "Første kvarter", "Tiltagende
 
 
 HELP = {
+    "hint_colors": "farver",
+    "weather_views": "udsigt / måned / år",
+    "month_colors": "temperatur / afvigelse fra gennemsnit",
+    "month_home": "forrige kalendermåned",
+    "history_refresh": "opdater timehistorik",
     "hint_help": "hjælp",
     "key_wheel": "hjul",
     "key_space": "mellemrum",
@@ -82,6 +87,17 @@ HELP = {
 
 
 WEATHER = {
+    "month_temperature": "Temperatur time for time",
+    "month_departure": "Afvigelse fra timegennemsnittet {span}",
+    "month_repeat": "Gentaget klokkeslæt: gennemsnit af begge målinger",
+    "month_small": "Denne visning kræver mindst {cols} kolonner og {rows} rækker.",
+    "month_loading": "Indlæser timehistorik…",
+    "month_unavailable": "Timehistorik er ikke tilgængelig.",
+    "month_partial": "Noget af timehistorikken er ikke tilgængelig.",
+    "month_average": "Gennemsnit: samme klokkeslæt, datoer inden for syv dage, ti år.",
+    "month_rows": "To dage pr. række i lave terminaler; peg for at læse begge.",
+    "month_missing": "Manglende timer er tomme; gentagne timer vises som gennemsnit.",
+    "month_extremes": "Højre kolonne: laveste og højeste timeværdi i hver række.",
     "today": "i dag",
     "today_short": "I d",
     "forecast_stale": "Denne prognose er fra {day}; en nyere kunne ikke hentes.",

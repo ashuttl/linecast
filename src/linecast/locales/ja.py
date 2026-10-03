@@ -31,6 +31,11 @@ MOON_PHASES = ["新月", "三日月", "上弦", "十三夜",
 
 
 HELP = {
+    "hint_colors": "配色",
+    "weather_views": "予報 / 月表示 / 年表示",
+    "month_colors": "気温 / 平均からの偏差",
+    "month_home": "前の暦月に戻る",
+    "history_refresh": "時間別の履歴を更新",
     "hint_help": "ヘルプ",
     "key_wheel": "ホイール",
     "key_space": "スペース",
@@ -85,6 +90,17 @@ HELP = {
 
 
 WEATHER = {
+    "month_temperature": "1時間ごとの気温",
+    "month_departure": "{span}年の時間別平均からの偏差",
+    "month_repeat": "重複する時刻：2つの値の平均",
+    "month_small": "この表示には最低{cols}列、{rows}行が必要です。",
+    "month_loading": "時間別の履歴を読み込み中…",
+    "month_unavailable": "時間別の履歴を取得できません。",
+    "month_partial": "時間別の履歴の一部を取得できません。",
+    "month_average": "平均：過去10年の前後7日以内における同じ時刻の値。",
+    "month_rows": "高さが足りない端末では1行に2日を表示。ホバーで両日を確認できます。",
+    "month_missing": "欠測時間は空白のまま、重複する時刻は平均値を表示します。",
+    "month_extremes": "右の列：各行の時間別データの最低値と最高値。",
     "day_of_month": "{d}日",
     "today": "今日",
     "today_short": "今日",

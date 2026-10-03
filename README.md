@@ -58,7 +58,7 @@ linecast maps --from "portland, maine" --to "portland head light" --profile bike
 linecast maps --view now
 ```
 
-Open the alternate views directly with `linecast weather --year`, `linecast sunshine --year`, `linecast moon --month`, or `linecast tides --month`, `--year`, or `--makeup`. These flags also work with `--print`; `--json`, `--oneline`, and weather's `--prose` describe the current conditions and forecast and cannot be combined with an alternate view.
+Open weather's alternate views directly with `linecast weather --month` (also `--month-temperature`), `--month-departure`, or `--year`. For the other apps, use `linecast sunshine --year`, `linecast moon --month`, or `linecast tides --month`, `--year`, or `--makeup`. These flags also work with `--print`; `--json`, `--oneline`, and weather's `--prose` describe the current conditions and forecast and cannot be combined with an alternate view.
 
 linecast takes its colors from your terminal's color scheme. If you change the scheme while an app is open, the app redraws itself in the new colors. This is the same desktop through ten Omarchy themes:
 
@@ -72,7 +72,11 @@ The [gallery](docs/gallery.md) shows each one in more of its states.
 
 ### Weather
 
-An hourly chart on the scale of a typical year where you are, so a mild day looks mild, with a forecast in words. Click an alert to read it. Press `v` for the year so far, [après Tufte](https://www.edwardtufte.com/notebook/new-york-city-weather-chart/): each day's high and low against the last ten years, and each month's precipitation against its average. Press `c` to change the chart's colors. The first highlights where the temperature went above or below the average, the second uses the temperature colors from the main weather view, and the third is plain.
+An hourly chart on the scale of a typical year where you are, so a mild day looks mild, with a forecast in words. Click an alert to read it. Press `v` to cycle through the forecast, month, and year views.
+
+The month opens on the previous calendar month, with days down the chart and hours across it. Sunrise and sunset trace the changing daylight. Press `c` to switch between temperature and departure from the ten-year average for that date and hour; hover for the numbers. Scroll or use the arrows to browse the last ten years and the current year so far; space or `n` returns to the previous calendar month. The hourly archive loads when you first open the view and is cached for later visits. Open it directly with `--month` or `--month-temperature`, or start with the comparison using `--month-departure`. See [the month view](docs/weather-month.md) for how to read it.
+
+The year so far, [après Tufte](https://www.edwardtufte.com/notebook/new-york-city-weather-chart/), shows each day's high and low against the last ten years, and each month's precipitation against its average. Press `c` to change the chart's colors. The first highlights where the temperature went above or below the average, the second uses the temperature colors from the main weather view, and the third is plain.
 
 ![weather dashboard](screenshots/weather.png)
 

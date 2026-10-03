@@ -29,6 +29,11 @@ MOON_PHASES = ["新月", "蛾眉月", "上弦月", "盈凸月",
 
 
 HELP = {
+    "hint_colors": "配色",
+    "weather_views": "预报 / 月视图 / 年视图",
+    "month_colors": "气温 / 与平均值的偏差",
+    "month_home": "上一个日历月",
+    "history_refresh": "刷新逐小时历史数据",
     "hint_help": "帮助",
     "key_wheel": "滚轮",
     "key_space": "空格",
@@ -83,6 +88,17 @@ HELP = {
 
 
 WEATHER = {
+    "month_temperature": "逐小时气温",
+    "month_departure": "与 {span} 年逐小时平均值的偏差",
+    "month_repeat": "重复时刻：两次读数的平均值",
+    "month_small": "此视图至少需要 {cols} 列和 {rows} 行。",
+    "month_loading": "正在加载逐小时历史数据…",
+    "month_unavailable": "逐小时历史数据不可用。",
+    "month_partial": "部分逐小时历史数据不可用。",
+    "month_average": "平均值：十年中前后七天内同一时刻的数据。",
+    "month_rows": "较矮的终端每行显示两天；悬停可查看两天的数据。",
+    "month_missing": "缺失的小时留空；重复的时刻取平均值。",
+    "month_extremes": "右侧列：每行最低和最高的小时读数。",
     "day_of_month": "{d}日",
     "today": "今天",
     "today_short": "今天",

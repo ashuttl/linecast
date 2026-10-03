@@ -27,6 +27,11 @@ MOON_PHASES = ["Lua nova", "Crescente côncava", "Quarto crescente", "Crescente 
 
 
 HELP = {
+    "hint_colors": "cores",
+    "weather_views": "visualização previsão / mês / ano",
+    "month_colors": "temperatura / desvio da média",
+    "month_home": "mês anterior",
+    "history_refresh": "atualizar histórico horário",
     "hint_help": "ajuda",
     "key_wheel": "roda",
     "key_space": "espaço",
@@ -81,6 +86,17 @@ HELP = {
 
 
 WEATHER = {
+    "month_temperature": "Temperatura horária",
+    "month_departure": "Desvio da média horária de {span}",
+    "month_repeat": "Hora repetida: média das duas leituras",
+    "month_small": "Esta visualização precisa de pelo menos {cols} colunas e {rows} linhas.",
+    "month_loading": "Carregando histórico horário…",
+    "month_unavailable": "Histórico horário indisponível.",
+    "month_partial": "Parte do histórico horário está indisponível.",
+    "month_average": "Média: mesma hora, datas em até sete dias, dez anos.",
+    "month_rows": "Dois dias por linha em terminais baixos; passe o cursor para ver ambos.",
+    "month_missing": "Horas ausentes ficam em branco; horas repetidas são calculadas pela média.",
+    "month_extremes": "Coluna direita: leituras horárias mínima e máxima de cada linha.",
     "today": "hoje",
     "today_short": "hoj",
     "forecast_stale": "Esta previsão é de {day}; não foi possível obter uma mais recente.",

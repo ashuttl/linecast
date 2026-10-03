@@ -110,6 +110,11 @@ MOON_PHASES = ["New Moon", "Waxing Crescent", "First Quarter", "Waxing Gibbous",
 
 
 HELP = {
+    "hint_colors": "colors",
+    "weather_views": "forecast / month / year view",
+    "month_colors": "temperature / departure from average",
+    "month_home": "previous calendar month",
+    "history_refresh": "refresh hourly history",
     "hint_help": "help",
     "key_wheel": "wheel",
     "key_space": "space",
@@ -167,6 +172,17 @@ HELP = {
 
 
 WEATHER = {
+    "month_temperature": "Hourly temperature",
+    "month_departure": "Departure from {span} hourly average",
+    "month_repeat": "Repeated clock hour: mean of both readings",
+    "month_small": "This view needs at least {cols} columns and {rows} rows.",
+    "month_loading": "Loading hourly history…",
+    "month_unavailable": "Hourly history unavailable.",
+    "month_partial": "Some hourly history is unavailable.",
+    "month_average": "Average: same clock hour, dates within seven days, ten years.",
+    "month_rows": "Two days share a row in short terminals; hover reads both.",
+    "month_missing": "Missing hours stay blank; repeated clock hours are averaged.",
+    "month_extremes": "Right column: lowest and highest hourly readings in each row.",
     # The day of the month after the day's name in the daily forecast,
     # as the language writes it alone; Japanese "日 27" would read as
     # "Sunday, day 27" twice over, so it is "27日".
