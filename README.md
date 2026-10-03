@@ -46,7 +46,7 @@ If you can't use a package manager, or would rather carry linecast around as a f
 
 ## Using it
 
-Every command opens live. Press `?` for the keys. Add `--print` for one static frame, `--json` for raw data, or `--oneline` for a status bar.
+Every command opens live. Press `?` for the keys. Add `--print` for one static frame, `--json` for raw data, or `--oneline` for a status bar. `linecast weather --prose` prints just the forecast paragraph, in your chosen language and units.
 
 For a shell startup greeting, use `linecast moon --width 80 --height 20`, or `linecast weather --width 100% --height 50%`. `--width` and `--height` set the rendering viewport in character columns and rows, or as percentages of the terminal, and imply `--print`. You can mix units or set just one dimension. Views keep their usual minimum sizes and prompt space; see [print sizing](docs/configuration.md#print-sizing) for details.
 
@@ -58,7 +58,7 @@ linecast maps --from "portland, maine" --to "portland head light" --profile bike
 linecast maps --view now
 ```
 
-Open the alternate views directly with `linecast weather --year`, `linecast sunshine --year`, `linecast moon --month`, or `linecast tides --month`, `--year`, or `--makeup`. These flags also work with `--print`; `--json` and `--oneline` describe the current conditions and cannot be combined with an alternate view.
+Open the alternate views directly with `linecast weather --year`, `linecast sunshine --year`, `linecast moon --month`, or `linecast tides --month`, `--year`, or `--makeup`. These flags also work with `--print`; `--json`, `--oneline`, and weather's `--prose` describe the current conditions and forecast and cannot be combined with an alternate view.
 
 linecast takes its colors from your terminal's color scheme. If you change the scheme while an app is open, the app redraws itself in the new colors. This is the same desktop through ten Omarchy themes:
 

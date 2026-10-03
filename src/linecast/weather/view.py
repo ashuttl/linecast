@@ -11,7 +11,8 @@ MetService (NZ), and MeteoAlarm (34 European countries).
 
 Languages: see `linecast language` for the full list.
 
-Usage: weather [--print] [--oneline] [--json] [--location LAT,LNG | PLACE] [--search CITY]
+Usage: weather [--print] [--oneline] [--prose] [--json] [--location LAT,LNG | PLACE]
+               [--search CITY]
                [--icons SET] [--emoji] [--metric] [--imperial] [--12h] [--24h]
                [--celsius] [--fahrenheit]
                [--temp-range auto|climate|forecast|world]

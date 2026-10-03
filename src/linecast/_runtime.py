@@ -299,10 +299,10 @@ def _log_startup():
 def _resolve_live(ns):
     """Live mode is on by default when stdout is a TTY.
 
-    --print, --oneline and --json force static single-shot output.
+    --print, --oneline, --prose and --json force static single-shot output.
     --live is accepted for backwards compatibility but is no longer needed.
     """
-    if ns.print_mode or ns.oneline or ns.json_mode:
+    if ns.print_mode or ns.oneline or ns.json_mode or getattr(ns, "prose", False):
         return False
     if ns.live:
         return True
@@ -456,6 +456,7 @@ class WeatherRuntime(RuntimeConfig):
     celsius: bool = True
     temp_range: str = "auto"
     shading: bool = True
+    prose: bool = False
 
     _parser = staticmethod(weather_parser)
 
@@ -483,6 +484,7 @@ class WeatherRuntime(RuntimeConfig):
             shading=(not namespace.no_shading
                      and not env_truthy(env.get("WEATHER_NO_SHADING", ""))),
             json_mode=base.json_mode,
+            prose=namespace.prose,
         )
 
     @property

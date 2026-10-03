@@ -69,7 +69,11 @@ class ViewParser(parser_class()):
 
     def parse_args(self, args=None, namespace=None):
         ns = super().parse_args(args, namespace)
+        if getattr(ns, "prose", False) and (ns.oneline or ns.json_mode):
+            self.error("--prose cannot be combined with --oneline or --json")
         if ns.width is not None or ns.height is not None:
+            if getattr(ns, "prose", False):
+                self.error("--width and --height size a view; cannot use with --prose")
             if ns.oneline or ns.json_mode:
                 self.error("--width and --height size a view; cannot use with --oneline or --json")
             ns.print_mode = True
@@ -77,7 +81,7 @@ class ViewParser(parser_class()):
 
 
 def _base_parser(prog, description, units=None, clock=False, json=False,
-                 temperature_scale=False, oneline=True,
+                 temperature_scale=False, oneline=True, prose=False,
                  location_help="location as 'lat,lng' or place name"):
     """A view command's parser, with its help page in sections.
 
@@ -88,7 +92,8 @@ def _base_parser(prog, description, units=None, clock=False, json=False,
     pair of help strings for --metric and --imperial; *temperature_scale*
     adds --celsius and --fahrenheit beside them; *clock* adds --24h and
     --12h; *json* adds --json to the output section; *oneline* offers
-    --oneline, for the views that have a line to give.
+    --oneline, for the views that have a line to give; *prose* offers
+    --prose, for weather's forecast paragraph.
     """
     p = ViewParser(prog=prog, usage="%(prog)s [options]",
                    description=description, add_help=False,
@@ -150,6 +155,9 @@ def _base_parser(prog, description, units=None, clock=False, json=False,
                             help="a single line, for a status bar or prompt")
     else:
         p.set_defaults(oneline=False)
+    if prose:
+        output.add_argument("--prose", action="store_true",
+                            help="print only the prose forecast, then exit")
     if json:
         output.add_argument("--json", dest="json_mode", action="store_true",
                             help="machine-readable JSON output (implies --print)")
@@ -169,13 +177,14 @@ def _base_parser(prog, description, units=None, clock=False, json=False,
 
 def refuse_view_flag(parser, flag, runtime, describes="today"):
     """End the run with a usage error when *flag*, which opens on another
-    view (--year, --month), comes with --json or --oneline.  Those give
+    view (--year, --month), comes with --json, --oneline or --prose. Those give
     one moment and have no form of the other view, so the pair is a
     mistake worth naming rather than a flag to drop on the floor."""
-    if runtime.json_mode or runtime.oneline:
-        mode = "--json" if runtime.json_mode else "--oneline"
-        parser.error(f"{flag} has no {mode} output "
-                     f"({flag} is a view; {mode} describes {describes})")
+    for field, mode in (("json_mode", "--json"), ("oneline", "--oneline"),
+                        ("prose", "--prose")):
+        if getattr(runtime, field, False):
+            parser.error(f"{flag} has no {mode} output "
+                         f"({flag} is a view; {mode} describes {describes})")
 
 
 # What the weather temperature graph spans; the first is the default.
@@ -187,7 +196,7 @@ def weather_parser():
                       units=("metric units: celsius, km/h (m/s in the languages "
                              "that use it), mm",
                              "imperial units: fahrenheit, mph, inches"),
-                      temperature_scale=True, clock=True, json=True)
+                      temperature_scale=True, clock=True, json=True, prose=True)
     p.add_argument("--search", metavar="QUERY", default=None,
                     help="search for a location and exit")
     p.add_argument("--temp-range", dest="temp_range",

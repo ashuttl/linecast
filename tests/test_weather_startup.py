@@ -64,7 +64,7 @@ def test_deadline_preserves_completed_results_and_exits(provider, missing):
     assert proc.stdout == proc.stderr == ""
 
 
-@pytest.mark.parametrize("mode", ["--print", "--json"])
+@pytest.mark.parametrize("mode", ["--print", "--json", "--prose"])
 def test_ctrl_c_exits_without_traceback_or_waiting_for_providers(mode):
     proc = _run(f"""
         import concurrent.futures

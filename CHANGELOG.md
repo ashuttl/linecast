@@ -41,6 +41,7 @@ New this version:
   - Moon phases use sentence case in eleven more languages, as they already do in French: "Første kvarter", not "Første Kvarter".
   - Japanese maps use kana place names, such as さいたま市, instead of their romanization.
 - Weather:
+  - `--prose` prints just the forecast paragraph, in the chosen language and units.
   - The temperature scale extends to a deeper blue at -40°F (-40°C) and a crimson at 115°F (46°C).
   - Calm days' conditions are dimmed in the daily forecast, letting rain, snow, and wind stand out.
 - Help pages list a flag's choices first, followed by a short explanation.

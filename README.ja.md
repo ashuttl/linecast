@@ -90,7 +90,7 @@ linecast maps --from "477 congress street 04101" --to "portland head light" --pr
 linecast maps --view now
 ```
 
-`--print` を付けると、更新し続ける表示の代わりに静止した1フレームを出力します。weather、sunshine、moon、sky、tidesには、生データを出す `--json` と、ステータスバー用の `--oneline` もあります。
+`--print` を付けると、更新し続ける表示の代わりに静止した1フレームを出力します。weather、sunshine、moon、sky、tidesには、生データを出す `--json` と、ステータスバー用の `--oneline` もあります。`linecast weather --prose` は、選んだ言語と単位で予報の文章だけを出力します。
 
 シェル起動時の表示には、例えば `linecast moon --width 80 --height 20` や `linecast weather --width 100% --height 50%` を使えます。`--width` と `--height` は描画に使う領域を文字の列数・行数、または端末サイズに対する割合で指定し、`--print` も有効にします。単位の混在や片方だけの指定も可能です。各ビューの最小サイズとプロンプト用の余白は維持されます。詳しくは[描画サイズの設定](docs/configuration.md#print-sizing)（英語）をご覧ください。
 

@@ -2,8 +2,8 @@
 
 main() settles the arguments and the place, and gather() fetches what
 the dashboard is built from side by side: the forecast, the airport's
-report, the alerts, the air quality and the climate scale.  --json and
---oneline print from that and exit, --print and --year draw one frame,
+report, the alerts, the air quality and the climate scale. --json,
+--oneline and --prose print from that and exit, --print and --year draw one frame,
 and otherwise a WeatherApp puts the dashboard on screen and keeps it
 fresh: a refresh every interval, the climate scale and the year's
 archive fetched in the background, and the location menu.  Everything
@@ -533,11 +533,11 @@ def _main():
     # country_code is "" for an override; the reverse geocode fills it in
     lat, lng, country_code, geo_label, runtime = place_for(args, runtime)
 
-    # JSON stdout must contain only the payload; Spinner clears its line
-    # on cancellation. gather bounds all providers with one deadline.
+    # JSON and prose stdout contain only the requested text; Spinner clears
+    # its line on cancellation. gather bounds all providers with one deadline.
     from contextlib import nullcontext
     from linecast.terminal.spinner import Spinner
-    with nullcontext() if runtime.json_mode else Spinner():
+    with nullcontext() if runtime.json_mode or runtime.prose else Spinner():
         result = gather(lat, lng, country_code, runtime, geo_label)
 
     location_name = result.get("name", "")
@@ -566,6 +566,12 @@ def _main():
         from linecast.terminal.oneline import emit
         from linecast.weather.oneline import weather_oneline
         emit(weather_oneline(data, location_name, runtime))
+        return
+
+    if runtime.prose:
+        from linecast.terminal.oneline import emit
+        from linecast.weather.narrative import narrative_text
+        emit(narrative_text(data, local_now(data), runtime))
         return
 
     if runtime.live:

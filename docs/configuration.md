@@ -8,7 +8,7 @@ Cached data lives in `~/Library/Caches/linecast` on macOS and `~/.cache/linecast
 
 ## Print sizing
 
-Every view accepts `--width` and `--height` for a static rendering at a chosen terminal viewport size. Either flag implies `--print`, including when `--live` is present. They work with alternate views such as `moon --month` and `weather --year`, but cannot be combined with `--json` or `--oneline`.
+Every view accepts `--width` and `--height` for a static rendering at a chosen terminal viewport size. Either flag implies `--print`, including when `--live` is present. They work with alternate views such as `moon --month` and `weather --year`, but cannot be combined with `--json`, `--oneline`, or weather's `--prose`.
 
 ```sh
 linecast moon --width 80 --height 20
