@@ -69,8 +69,8 @@ class ViewParser(parser_class()):
 
     def parse_args(self, args=None, namespace=None):
         ns = super().parse_args(args, namespace)
-        if getattr(ns, "prose", False) and (ns.oneline or ns.json_mode):
-            self.error("--prose cannot be combined with --oneline or --json")
+        if getattr(ns, "prose", False) and ns.json_mode:
+            self.error("--prose cannot be combined with --json")
         if ns.width is not None or ns.height is not None:
             if getattr(ns, "prose", False):
                 self.error("--width and --height size a view; cannot use with --prose")
@@ -157,7 +157,7 @@ def _base_parser(prog, description, units=None, clock=False, json=False,
         p.set_defaults(oneline=False)
     if prose:
         output.add_argument("--prose", action="store_true",
-                            help="print only the prose forecast, then exit")
+                            help="print the prose forecast; follows --oneline when combined")
     if json:
         output.add_argument("--json", dest="json_mode", action="store_true",
                             help="machine-readable JSON output (implies --print)")

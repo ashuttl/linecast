@@ -1,4 +1,4 @@
-"""weather --prose prints the dashboard's paragraph and exits."""
+"""weather --prose prints the dashboard's paragraph, optionally after --oneline."""
 
 import json
 import re
@@ -14,6 +14,7 @@ from linecast._runtime import WeatherRuntime
 from linecast.terminal import bidi
 from linecast.weather import live
 from linecast.weather.narrative import narrative_lines
+from linecast.weather.oneline import weather_oneline
 
 
 NOW = datetime(2026, 3, 5, 14, 30)
@@ -41,18 +42,20 @@ def forecast(monkeypatch):
 
 
 @pytest.mark.parametrize("tty", [False, True])
+@pytest.mark.parametrize("flags", [
+    ["--prose"], ["--oneline", "--prose"], ["--prose", "--oneline"],
+])
 @pytest.mark.parametrize("lang,units,clock", [
     ("en", "imperial", "12h"),
     ("fr", "metric", "24h"),
     ("ja", "metric", "12h"),
     ("fa", "metric", "24h"),
 ])
-def test_prints_only_the_dashboard_paragraph(monkeypatch, capsys, forecast,
-                                            tty, lang, units, clock):
+def test_prints_requested_text(monkeypatch, capsys, forecast, tty, flags, lang, units, clock):
     data, runtimes = forecast
     monkeypatch.setattr(sys.stdout, "isatty", lambda: tty)
     monkeypatch.setattr(sys.stdin, "isatty", lambda: tty)
-    monkeypatch.setattr(sys, "argv", ["weather", "--prose", "--live", "--location", "Toronto",
+    monkeypatch.setattr(sys, "argv", ["weather", *flags, "--live", "--location", "Toronto",
                                      "--lang", lang, f"--{units}", f"--{clock}"])
     # A narrow, short terminal must still receive the complete paragraph.
     monkeypatch.setenv("COLUMNS", "20")
@@ -62,12 +65,16 @@ def test_prints_only_the_dashboard_paragraph(monkeypatch, capsys, forecast,
     assert runtime.lang == lang
     assert runtime.metric == runtime.celsius == (units == "metric")
     assert runtime.use_24h == (clock == "24h")
+    assert runtime.oneline == ("--oneline" in flags)
     paragraph, = narrative_lines(data, NOW, 10_000, runtime)
     paragraph = re.sub(r"\x1b\[[0-9;]*m", "", paragraph)
-    expected = bidi.for_stream(paragraph, sys.stdout)
+    expected = bidi.for_stream(paragraph, sys.stdout) + "\n"
+    if "--oneline" in flags:
+        summary = weather_oneline(data, "Toronto", runtime)
+        expected = bidi.for_stream(summary, sys.stdout) + "\n" + expected
     output = capsys.readouterr()
-    assert output.out == expected + "\n"
-    assert output.out.count("\n") == 1
+    assert output.out == expected
+    assert output.out.count("\n") == (2 if "--oneline" in flags else 1)
     assert "\x1b" not in output.out
     assert output.err == ""
 
@@ -82,8 +89,11 @@ def test_nothing_to_say_prints_an_empty_line(monkeypatch, capsys, forecast):
     assert output.err == ""
 
 
-def test_fetch_failure_uses_stderr(monkeypatch, capsys, forecast):
-    monkeypatch.setattr(sys, "argv", ["weather", "--prose"])
+@pytest.mark.parametrize("flags", [
+    ["--prose"], ["--oneline", "--prose"], ["--prose", "--oneline"],
+])
+def test_fetch_failure_uses_stderr(monkeypatch, capsys, forecast, flags):
+    monkeypatch.setattr(sys, "argv", ["weather", *flags])
     monkeypatch.setattr(sys.stdout, "isatty", lambda: True)
     monkeypatch.setattr(live, "gather", lambda *a: {"data": None})
     with pytest.raises(SystemExit) as error:
@@ -94,7 +104,7 @@ def test_fetch_failure_uses_stderr(monkeypatch, capsys, forecast):
     assert output.err == "Could not fetch weather data.\n"
 
 
-@pytest.mark.parametrize("flags", [["--json"], ["--oneline"], ["--year"],
+@pytest.mark.parametrize("flags", [["--json"], ["--json", "--oneline"], ["--year"],
                                     ["--width", "80"], ["--height", "50%"]])
 @pytest.mark.parametrize("prose_first", [False, True])
 def test_conflicting_flags_fail_before_fetch(monkeypatch, capsys, flags, prose_first):

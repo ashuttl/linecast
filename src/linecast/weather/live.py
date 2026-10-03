@@ -562,16 +562,14 @@ def _main():
         print(json.dumps(payload, ensure_ascii=False))
         return
 
-    if runtime.oneline:
+    if runtime.oneline or runtime.prose:
         from linecast.terminal.oneline import emit
-        from linecast.weather.oneline import weather_oneline
-        emit(weather_oneline(data, location_name, runtime))
-        return
-
-    if runtime.prose:
-        from linecast.terminal.oneline import emit
-        from linecast.weather.narrative import narrative_text
-        emit(narrative_text(data, local_now(data), runtime))
+        if runtime.oneline:
+            from linecast.weather.oneline import weather_oneline
+            emit(weather_oneline(data, location_name, runtime))
+        if runtime.prose:
+            from linecast.weather.narrative import narrative_text
+            emit(narrative_text(data, local_now(data), runtime))
         return
 
     if runtime.live:
