@@ -89,6 +89,7 @@ HELP = {
 WEATHER = {
     "month_temperature": "Temperatur time for time",
     "month_departure": "Avvik fra timegjennomsnittet {span}",
+    "month_estimate": "Nylig modellestimat",
     "month_repeat": "Gjentatt klokkeslett: gjennomsnitt av begge målinger",
     "month_small": "Denne visningen krever minst {cols} kolonner og {rows} rader.",
     "month_loading": "Laster timehistorikk…",

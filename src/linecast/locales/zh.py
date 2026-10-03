@@ -90,6 +90,7 @@ HELP = {
 WEATHER = {
     "month_temperature": "逐小时气温",
     "month_departure": "与 {span} 年逐小时平均值的偏差",
+    "month_estimate": "近期模型估算",
     "month_repeat": "重复时刻：两次读数的平均值",
     "month_small": "此视图至少需要 {cols} 列和 {rows} 行。",
     "month_loading": "正在加载逐小时历史数据…",

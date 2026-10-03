@@ -89,6 +89,7 @@ HELP = {
 WEATHER = {
     "month_temperature": "Halijoto ya kila saa",
     "month_departure": "Tofauti na wastani wa kila saa wa {span}",
+    "month_estimate": "Makadirio ya hivi karibuni ya modeli",
     "month_repeat": "Saa iliyorudiwa: wastani wa vipimo viwili",
     "month_small": "Mwonekano huu unahitaji angalau safu wima {cols} na mistari {rows}.",
     "month_loading": "Inapakia historia ya kila saa…",

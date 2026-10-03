@@ -89,6 +89,7 @@ HELP = {
 WEATHER = {
     "month_temperature": "Temperatură orară",
     "month_departure": "Abatere de la media orară din {span}",
+    "month_estimate": "Estimare recentă a modelului",
     "month_repeat": "Oră repetată: media celor două valori",
     "month_small": "Această vedere necesită cel puțin {cols} coloane și {rows} rânduri.",
     "month_loading": "Se încarcă istoricul orar…",

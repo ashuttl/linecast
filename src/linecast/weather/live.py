@@ -293,6 +293,8 @@ class WeatherApp(LocationMenu, _live.LiveApp):
         _live.nudge()
 
     def _start_month(self):
+        from linecast.weather.hourly_history import RECENT_AGE
+
         if not self.month_view or not self.data or self._loading is not None:
             return
         today = local_now(self.data).date()
@@ -300,7 +302,7 @@ class WeatherApp(LocationMenu, _live.LiveApp):
         if asked and asked[:2] == (self._generation, today):
             if self._month_worker and self._month_worker.is_alive():
                 return
-            wait = _YEAR_REFRESH if asked[3] else _CLIMATE_RETRY_DELAY
+            wait = RECENT_AGE if asked[3] else _CLIMATE_RETRY_DELAY
             if _t.monotonic() - asked[2] < wait:
                 return
         self._month_asked = (self._generation, today, _t.monotonic(), False)

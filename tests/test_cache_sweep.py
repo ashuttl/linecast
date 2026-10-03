@@ -22,11 +22,13 @@ def test_old_short_lived_files_go_and_fresh_ones_stay(tmp_path, monkeypatch):
     monkeypatch.setenv("LINECAST_CACHE_DIR", str(tmp_path))
     old = _file(tmp_path, "weather/forecast_ab12cd34_Fi.json", 20)
     fresh = _file(tmp_path, "weather/forecast_ab12cd34_Cm.json", 2)
+    recent = _file(tmp_path, "weather/hourly_ab12cd34_recent.json", 2)
+    old_recent = _file(tmp_path, "weather/hourly_ffff0000_recent.json", 20)
     alert = _file(tmp_path, "weather/alerts_ab12cd34.json", 8)
     tide = _file(tmp_path, "tides/pred_8418150_202605.json", 120)
-    assert _cache.sweep(now=NOW) == 3
+    assert _cache.sweep(now=NOW) == 4
     assert not old.exists() and not alert.exists() and not tide.exists()
-    assert fresh.exists()
+    assert fresh.exists() and recent.exists() and not old_recent.exists()
 
 
 def test_what_does_not_change_stays_a_year(tmp_path, monkeypatch):

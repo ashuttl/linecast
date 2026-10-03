@@ -92,6 +92,7 @@ HELP = {
 WEATHER = {
     "month_temperature": "1時間ごとの気温",
     "month_departure": "{span}年の時間別平均からの偏差",
+    "month_estimate": "直近のモデル推定値",
     "month_repeat": "重複する時刻：2つの値の平均",
     "month_small": "この表示には最低{cols}列、{rows}行が必要です。",
     "month_loading": "時間別の履歴を読み込み中…",

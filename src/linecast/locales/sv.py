@@ -89,6 +89,7 @@ HELP = {
 WEATHER = {
     "month_temperature": "Temperatur timme för timme",
     "month_departure": "Avvikelse från timmedelvärdet {span}",
+    "month_estimate": "Nylig modelluppskattning",
     "month_repeat": "Upprepat klockslag: medelvärde av båda mätningarna",
     "month_small": "Den här vyn kräver minst {cols} kolumner och {rows} rader.",
     "month_loading": "Läser in timhistorik…",

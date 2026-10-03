@@ -110,6 +110,7 @@ HELP = {
 WEATHER = {
     "month_temperature": "Óránkénti hőmérséklet",
     "month_departure": "Eltérés a(z) {span} óránkénti átlagától",
+    "month_estimate": "Friss modellbecslés",
     "month_repeat": "Ismétlődő óra: a két érték átlaga",
     "month_small": "Ehhez a nézethez legalább {cols} oszlop és {rows} sor szükséges.",
     "month_loading": "Óránkénti előzmények betöltése…",

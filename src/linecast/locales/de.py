@@ -91,6 +91,7 @@ HELP = {
 WEATHER = {
     "month_temperature": "Stündliche Temperatur",
     "month_departure": "Abweichung vom Stundenmittel {span}",
+    "month_estimate": "Aktuelle Modellschätzung",
     "month_repeat": "Doppelte Uhrzeit: Mittelwert beider Messwerte",
     "month_small": "Diese Ansicht benötigt mindestens {cols} Spalten und {rows} Zeilen.",
     "month_loading": "Stündliche Wetterhistorie wird geladen…",

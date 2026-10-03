@@ -88,6 +88,7 @@ HELP = {
 WEATHER = {
     "month_temperature": "Hora temperaturo",
     "month_departure": "Devio de la hora mezumo de {span}",
+    "month_estimate": "Lastatempa modela takso",
     "month_repeat": "Ripetita horo: mezumo de ambaŭ valoroj",
     "month_small": "Ĉi tiu vido bezonas almenaŭ {cols} kolumnojn kaj {rows} vicojn.",
     "month_loading": "Ŝargante horan historion…",

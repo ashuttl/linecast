@@ -111,6 +111,7 @@ HELP = {
 WEATHER = {
     "month_temperature": "دمای ساعتی",
     "month_departure": "اختلاف با میانگین ساعتی {span}",
+    "month_estimate": "برآورد اخیر مدل",
     "month_repeat": "ساعت تکراری: میانگین دو مقدار",
     "month_small": "این نما به حداقل {cols} ستون و {rows} ردیف نیاز دارد.",
     "month_loading": "در حال بارگیری تاریخچهٔ ساعتی…",

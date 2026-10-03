@@ -89,6 +89,7 @@ HELP = {
 WEATHER = {
     "month_temperature": "Temperatura godzinowa",
     "month_departure": "Odchylenie od średniej godzinowej z lat {span}",
+    "month_estimate": "Najnowsze oszacowanie modelu",
     "month_repeat": "Powtórzona godzina: średnia obu odczytów",
     "month_small": "Ten widok wymaga co najmniej {cols} kolumn i {rows} wierszy.",
     "month_loading": "Wczytywanie historii godzinowej…",

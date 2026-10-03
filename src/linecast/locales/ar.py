@@ -128,6 +128,7 @@ HELP = {
 WEATHER = {
     "month_temperature": "درجة الحرارة كل ساعة",
     "month_departure": "الانحراف عن المتوسط الساعي للفترة {span}",
+    "month_estimate": "تقدير حديث للنموذج",
     "month_repeat": "ساعة مكررة: متوسط القراءتين",
     "month_small": "يتطلب هذا العرض {cols} عمودًا و{rows} صفًا على الأقل.",
     "month_loading": "جارٍ تحميل السجل الساعي…",

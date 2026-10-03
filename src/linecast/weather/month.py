@@ -2,7 +2,7 @@
 
 import calendar
 import math
-from dataclasses import dataclass
+from dataclasses import dataclass, field, replace
 from datetime import date, datetime, timedelta, timezone
 from functools import lru_cache
 from zoneinfo import ZoneInfo
@@ -30,6 +30,29 @@ def _slot(day):
     return date(2000, day.month, day.day).timetuple().tm_yday - 1
 
 
+def _samples(payloads, tz, now=None):
+    samples = {}
+    for data in payloads:
+        hourly = data.get("hourly") or {}
+        for stamp, value in zip(hourly.get("time") or [],
+                                hourly.get("temperature_2m") or []):
+            if not isinstance(value, (int, float)) or not math.isfinite(value):
+                continue
+            try:
+                moment = datetime.fromtimestamp(stamp, timezone.utc).astimezone(tz)
+            except (TypeError, ValueError, OverflowError, OSError):
+                continue
+            if now and stamp > now.timestamp():
+                # Keep the next sample for interpolation up to now, but never
+                # average an upcoming autumn fold into an hour already seen.
+                if (stamp > now.timestamp() + 3600
+                        or moment.replace(tzinfo=None) <= now.replace(tzinfo=None)):
+                    continue
+            # Overlapping payloads count a timestamp once, not as a clock fold.
+            samples.setdefault(moment.date(), {}).setdefault(moment.hour, {})[stamp] = value
+    return samples
+
+
 @dataclass
 class Temperatures:
     days: dict
@@ -37,9 +60,12 @@ class Temperatures:
     normals: tuple
     span: tuple
     tz: object
+    recent: dict = field(default_factory=dict)
+    estimates: set = field(default_factory=set)
+    until: datetime | None = None
 
     @classmethod
-    def build(cls, payloads, span, tz=timezone.utc):
+    def build(cls, payloads, span, tz=timezone.utc, *, recent=None):
         """Index once, keeping missing hours empty and averaging repeated hours.
 
         A repeated autumn hour gets equal weight with each other date/hour in
@@ -47,19 +73,9 @@ class Temperatures:
         """
         if payloads:
             tz = ZoneInfo(payloads[0]["timezone"])
-        samples = {}
-        for data in payloads:
-            hourly = data.get("hourly") or {}
-            for stamp, value in zip(hourly.get("time") or [],
-                                   hourly.get("temperature_2m") or []):
-                if not isinstance(value, (int, float)) or not math.isfinite(value):
-                    continue
-                try:
-                    moment = datetime.fromtimestamp(stamp, timezone.utc).astimezone(tz)
-                except (TypeError, ValueError, OverflowError, OSError):
-                    continue
-                # A timestamp can appear in overlapping payloads; count it once.
-                samples.setdefault(moment.date(), {}).setdefault(moment.hour, {})[stamp] = value
+        elif recent:
+            tz = ZoneInfo(recent["timezone"])
+        samples = _samples(payloads, tz)
         days, repeated = {}, set()
         sums = [[0.0] * 24 for _ in range(366)]
         counts = [[0] * 24 for _ in range(366)]
@@ -81,12 +97,47 @@ class Temperatures:
                 count = sum(counts[s][hour] for s in near)
                 row.append(sum(sums[s][hour] for s in near) / count if count else None)
             normals.append(tuple(row))
-        return cls(days, repeated, tuple(normals), span, tz)
+        return cls(days, repeated, tuple(normals), span, tz, recent=recent or {})
+
+    def with_recent(self, now):
+        """Fill missing archive hours for this frame, leaving the mean untouched."""
+        now = now.replace(tzinfo=self.tz) if now.tzinfo is None else now.astimezone(self.tz)
+        days, repeated, estimates = self.days.copy(), self.repeated.copy(), set()
+        for day, hours in _samples([self.recent], self.tz, now).items():
+            values = list(days.get(day, (None,) * 24))
+            for hour, readings in hours.items():
+                if values[hour] is not None:
+                    continue
+                values[hour] = sum(readings.values()) / len(readings)
+                estimates.add((day, hour))
+                if len(readings) > 1:
+                    repeated.add((day, hour))
+            days[day] = tuple(values)
+        return replace(self, days=days, repeated=repeated, estimates=estimates, until=now)
+
+    def _visible(self, day, hour):
+        if self.until is None or day < self.until.date():
+            return True
+        now_hour = (self.until.hour + self.until.minute / 60
+                    + self.until.second / 3600 + self.until.microsecond / 3_600_000_000)
+        return day == self.until.date() and hour <= now_hour
+
+    def values(self, day):
+        """Visible hourly samples for the legend and row extremes."""
+        return [v for h, v in enumerate(self.days.get(day, ()))
+                if v is not None and self._visible(day, h)]
+
+    def estimated(self, day, hour):
+        """Whether either endpoint of a displayed temperature is provisional."""
+        h = int(hour)
+        after = (day, h + 1) if h < 23 else (day + timedelta(days=1), 0)
+        return ((day, h) in self.estimates
+                or (hour - h >= 1e-9 and after in self.estimates))
 
     def at(self, day, hour, normal=False):
         """Interpolate consecutive clock-hour samples, never across a gap."""
         h = int(hour)
-        if not 0 <= h < 24:
+        if not 0 <= h < 24 or (not normal and not self._visible(day, hour)):
             return None
         values = self.normals[_slot(day)] if normal else self.days.get(day, ())
         a = values[h] if values else None
@@ -148,9 +199,9 @@ def _legend(series, first, runtime, width, difference):
     if difference:
         values = [-10, -5, 0, 5, 10]  # Celsius differences; units change, colors do not
     else:
-        month_values = [v for d, row in series.days.items()
+        month_values = [v for d in series.days
                         if (d.year, d.month) == (first.year, first.month)
-                        for v in row if v is not None]
+                        for v in series.values(d)]
         low, high = (min(month_values), max(month_values)) if month_values else (0, 30)
         values = [low + (high - low) * k / 4 for k in range(5)]
     parts = []
@@ -171,6 +222,8 @@ def render_month(series, first, runtime, lat, lng, label, *, difference=False,
     now = now or datetime.now(series.tz if series else timezone.utc)
     if series is None:
         series = Temperatures.build([], history_span(now.year), now.tzinfo or timezone.utc)
+    series = series.with_recent(now)
+    now = series.until
     ndays = calendar.monthrange(first.year, first.month)[1]
     days = [first + timedelta(days=k) for k in range(ndays)]
     gutter = max(visible_len(day_label(day, runtime)) for day in days) + 3
@@ -188,7 +241,7 @@ def render_month(series, first, runtime, lat, lng, label, *, difference=False,
              for group in groups]
     extremes = []
     for group in groups:
-        values = [v for day in group for v in series.days.get(day, ()) if v is not None]
+        values = [v for day in group for v in series.values(day)]
         if not values:
             extremes.append(("", ""))
             continue
@@ -289,7 +342,10 @@ def render_month(series, first, runtime, lat, lng, label, *, difference=False,
             if value is not None and normal is not None:
                 tip.append(f"{tip_bg}{tip_fg} {baseline}: {temperature_text(normal, runtime)} "
                            f" ({temperature_text(value - normal, runtime, True)}) ")
-            if (day, int(hour)) in series.repeated:
+            if value is not None and series.estimated(day, hour):
+                tip.extend(f"{tip_bg}{tip_fg} {line} "
+                           for line in wrap(_s("month_estimate", runtime), cols - 4))
+            if value is not None and (day, int(hour)) in series.repeated:
                 tip.extend(f"{tip_bg}{tip_fg} {line} "
                            for line in wrap(_s("month_repeat", runtime), cols - 4))
         chip = live.pointer_chip(tip, *mouse_pos, cols, rows, pad_bg=tip_bg)

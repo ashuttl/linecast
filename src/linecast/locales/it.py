@@ -88,6 +88,7 @@ HELP = {
 WEATHER = {
     "month_temperature": "Temperatura oraria",
     "month_departure": "Scarto dalla media oraria del {span}",
+    "month_estimate": "Stima recente del modello",
     "month_repeat": "Ora ripetuta: media delle due letture",
     "month_small": "Questa vista richiede almeno {cols} colonne e {rows} righe.",
     "month_loading": "Caricamento dello storico orario…",

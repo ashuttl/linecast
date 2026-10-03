@@ -112,6 +112,7 @@ _YEAR = 365
 _SWEEP = (
     ("", "timezone_*.json", _YEAR),
     ("weather", "forecast_*.json", 14),
+    ("weather", "hourly_*_recent.json", 14),
     ("weather", "aqi_*.json", 7),
     ("weather", "aqhi_*.json", 7),
     ("weather", "metar_*.json", 7),

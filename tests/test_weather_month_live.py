@@ -142,6 +142,19 @@ def test_new_local_day_refreshes_the_archive_and_year_boundary_drops_old_baselin
             assert fetch.call_count == 2
 
 
+def test_month_refreshes_recent_estimates_after_an_hour(app):
+    with patch.object(hourly_history, 'fetch_month', return_value=('series', True)) as fetch:
+        app.on_action('v')
+        app._month_worker.join(1)
+        live._t.monotonic.return_value += 3599
+        app._start_month()
+        assert fetch.call_count == 1
+        live._t.monotonic.return_value += 1
+        app._start_month()
+        app._month_worker.join(1)
+        assert fetch.call_count == 2
+
+
 @pytest.mark.parametrize('flag,mode', [('--month', 'temperature'),
                                      ('--month-temperature', 'temperature'),
                                      ('--month-departure', 'departure')])

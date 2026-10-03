@@ -89,6 +89,7 @@ HELP = {
 WEATHER = {
     "month_temperature": "Saatlik sıcaklık",
     "month_departure": "{span} saatlik ortalamasından sapma",
+    "month_estimate": "Güncel model tahmini",
     "month_repeat": "Tekrarlanan saat: iki değerin ortalaması",
     "month_small": "Bu görünüm en az {cols} sütun ve {rows} satır gerektirir.",
     "month_loading": "Saatlik geçmiş yükleniyor…",

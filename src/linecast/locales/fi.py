@@ -90,6 +90,7 @@ HELP = {
 WEATHER = {
     "month_temperature": "Tuntilämpötila",
     "month_departure": "Poikkeama vuosien {span} tuntikeskiarvosta",
+    "month_estimate": "Tuore malliarvio",
     "month_repeat": "Toistuva kellonaika: molempien lukemien keskiarvo",
     "month_small": "Tämä näkymä tarvitsee vähintään {cols} saraketta ja {rows} riviä.",
     "month_loading": "Ladataan tuntihistoriaa…",

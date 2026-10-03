@@ -106,6 +106,7 @@ HELP = {
 WEATHER = {
     "month_temperature": "Hodinová teplota",
     "month_departure": "Odchýlka od hodinového priemeru {span}",
+    "month_estimate": "Nedávny modelový odhad",
     "month_repeat": "Opakovaná hodina: priemer oboch hodnôt",
     "month_small": "Tento pohľad vyžaduje aspoň {cols} stĺpcov a {rows} riadkov.",
     "month_loading": "Načítava sa hodinová história…",

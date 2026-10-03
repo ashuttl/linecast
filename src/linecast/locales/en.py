@@ -174,6 +174,7 @@ HELP = {
 WEATHER = {
     "month_temperature": "Hourly temperature",
     "month_departure": "Departure from {span} hourly average",
+    "month_estimate": "Recent model estimate",
     "month_repeat": "Repeated clock hour: mean of both readings",
     "month_small": "This view needs at least {cols} columns and {rows} rows.",
     "month_loading": "Loading hourly history…",

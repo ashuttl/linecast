@@ -90,6 +90,7 @@ HELP = {
 WEATHER = {
     "month_temperature": "Hitastig á klukkustund",
     "month_departure": "Frávik frá klukkustundarmeðaltali {span}",
+    "month_estimate": "Nýlegt líkanmat",
     "month_repeat": "Endurtekin klukkustund: meðaltal beggja gilda",
     "month_small": "Þessi sýn þarf að minnsta kosti {cols} dálka og {rows} raðir.",
     "month_loading": "Hleð tímagögnum…",

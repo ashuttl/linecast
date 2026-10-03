@@ -83,6 +83,7 @@ HELP = {
 WEATHER = {
     "month_temperature": "Temperatura horaria",
     "month_departure": "Desviación de la media horaria de {span}",
+    "month_estimate": "Estimación reciente del modelo",
     "month_repeat": "Hora repetida: media de ambas lecturas",
     "month_small": "Esta vista necesita al menos {cols} columnas y {rows} filas.",
     "month_loading": "Cargando historial horario…",

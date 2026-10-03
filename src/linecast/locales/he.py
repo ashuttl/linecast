@@ -132,6 +132,7 @@ HELP = {
 WEATHER = {
     "month_temperature": "טמפרטורה שעתית",
     "month_departure": "סטייה מהממוצע השעתי של {span}",
+    "month_estimate": "הערכה עדכנית של המודל",
     "month_repeat": "שעה חוזרת: ממוצע שתי הקריאות",
     "month_small": "תצוגה זו דורשת לפחות {cols} עמודות ו־{rows} שורות.",
     "month_loading": "טעינת היסטוריה שעתית…",

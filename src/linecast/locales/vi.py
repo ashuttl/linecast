@@ -102,6 +102,7 @@ HELP = {
 WEATHER = {
     "month_temperature": "Nhiệt độ theo giờ",
     "month_departure": "Độ lệch so với trung bình theo giờ giai đoạn {span}",
+    "month_estimate": "Ước tính gần đây từ mô hình",
     "month_repeat": "Giờ lặp lại: trung bình của hai giá trị",
     "month_small": "Chế độ xem này cần ít nhất {cols} cột và {rows} hàng.",
     "month_loading": "Đang tải lịch sử theo giờ…",

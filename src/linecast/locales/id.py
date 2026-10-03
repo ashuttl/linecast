@@ -88,6 +88,7 @@ HELP = {
 WEATHER = {
     "month_temperature": "Suhu per jam",
     "month_departure": "Selisih dari rata-rata per jam {span}",
+    "month_estimate": "Perkiraan model terbaru",
     "month_repeat": "Jam berulang: rata-rata kedua nilai",
     "month_small": "Tampilan ini memerlukan setidaknya {cols} kolom dan {rows} baris.",
     "month_loading": "Memuat riwayat per jam…",

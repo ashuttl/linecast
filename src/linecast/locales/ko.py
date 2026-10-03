@@ -90,6 +90,7 @@ HELP = {
 WEATHER = {
     "month_temperature": "시간별 기온",
     "month_departure": "{span}년 시간별 평균과의 편차",
+    "month_estimate": "최근 모델 추정값",
     "month_repeat": "중복 시간: 두 측정값의 평균",
     "month_small": "이 보기는 최소 {cols}열, {rows}행이 필요합니다.",
     "month_loading": "시간별 기록 불러오는 중…",

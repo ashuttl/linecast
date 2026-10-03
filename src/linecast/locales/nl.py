@@ -88,6 +88,7 @@ HELP = {
 WEATHER = {
     "month_temperature": "Temperatuur per uur",
     "month_departure": "Afwijking van het uurgemiddelde over {span}",
+    "month_estimate": "Recente modelschatting",
     "month_repeat": "Herhaald uur: gemiddelde van beide metingen",
     "month_small": "Deze weergave vereist minstens {cols} kolommen en {rows} rijen.",
     "month_loading": "Uurhistorie laden…",

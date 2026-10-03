@@ -75,6 +75,114 @@ def test_fahrenheit_differences_are_converted_without_an_offset():
     assert month.temperature_text(-0.001, rt, difference=True) == "0.0°F"
 
 
+def test_recent_hours_fill_only_missing_archive_values_without_changing_the_mean():
+    start = datetime(2025, 12, 31, 22, tzinfo=timezone.utc)
+    archived = payload(start, [10, None, 12])
+    recent = payload(start, [100, 20, 200, 22, None, float('nan')])
+    base = month.Temperatures.build([archived], (2016, 2025), recent=recent)
+    now = datetime(2026, 1, 1, 3, tzinfo=timezone.utc)
+    series = base.with_recent(now)
+    assert series.at(date(2025, 12, 31), 22) == 10
+    assert series.at(date(2025, 12, 31), 23) == 20
+    assert series.at(date(2025, 12, 31), 23.5) == 16
+    assert series.at(now.date(), 0) == 12
+    assert series.at(now.date(), 1) == 22
+    assert series.at(now.date(), 2) is None
+    assert series.at(now.date(), 3) is None
+    assert series.normals is base.normals
+    assert series.at(now.date(), 22, normal=True) == 10
+    assert series.at(now.date(), 23, normal=True) is None
+    assert base.at(date(2025, 12, 31), 23) is None  # rendering never alters the archive
+    assert not series.estimated(date(2025, 12, 31), 22)
+    assert series.estimated(date(2025, 12, 31), 22.5)
+    assert series.estimated(date(2025, 12, 31), 23.5)
+    updated = month.Temperatures.build([payload(start, [10, 15, 12])], (2016, 2025),
+                                       recent=recent).with_recent(now)
+    assert updated.at(date(2025, 12, 31), 23) == 15
+    assert not updated.estimated(date(2025, 12, 31), 23.5)
+
+
+def test_recent_hours_advance_to_now_without_future_values_in_the_legend_or_extremes():
+    start = datetime(2026, 10, 3, 10, tzinfo=timezone.utc)
+    base = month.Temperatures.build([], (2016, 2025), recent=payload(start, [10, 20, 90]))
+    series = base.with_recent(start + timedelta(minutes=30))
+    assert series.at(start.date(), 10.5) == 15
+    assert series.at(start.date(), 10.51) is None
+    assert series.at(start.date(), 11) is None
+    assert series.values(start.date()) == [10]
+    legend = month._legend(series, start.date(), runtime(celsius=True), 100, False)
+    assert '20°C' not in legend and '90°C' not in legend
+    later = base.with_recent(start + timedelta(hours=1, minutes=30))
+    assert later.at(start.date(), 11.5) == 55
+    assert later.values(start.date()) == [10, 20]
+
+
+def test_midnight_endpoint_fills_the_last_hour_but_tomorrow_stays_empty():
+    start = datetime(2026, 10, 3, 23, tzinfo=timezone.utc)
+    base = month.Temperatures.build([], (2016, 2025), recent=payload(start, [10, 20]))
+    series = base.with_recent(start + timedelta(minutes=45))
+    assert series.at(start.date(), 23.75) == 17.5
+    assert series.estimated(start.date(), 23.75)
+    assert series.at(date(2026, 10, 4), 0) is None
+    assert series.values(date(2026, 10, 4)) == []
+
+
+def test_recent_clock_changes_preserve_gaps_and_do_not_average_a_future_fold():
+    spring = payload(datetime(2026, 3, 8, 5, tzinfo=timezone.utc), [0, 2, 4, 6],
+                     'America/New_York')
+    base = month.Temperatures.build([], (2016, 2025), recent=spring)
+    series = base.with_recent(datetime(2026, 3, 8, 9, tzinfo=timezone.utc))
+    assert series.days[date(2026, 3, 8)][:5] == (0, 2, None, 4, 6)
+    assert series.at(date(2026, 3, 8), 1.5) is None
+    fall = payload(datetime(2026, 11, 1, 4, tzinfo=timezone.utc), [0, 2, 4, 6],
+                   'America/New_York')
+    base = month.Temperatures.build([], (2016, 2025), recent=fall)
+    first = base.with_recent(datetime(2026, 11, 1, 5, 30, tzinfo=timezone.utc))
+    second = base.with_recent(datetime(2026, 11, 1, 6, 30, tzinfo=timezone.utc))
+    assert first.at(date(2026, 11, 1), 1) == 2
+    assert (date(2026, 11, 1), 1) not in first.repeated
+    assert second.at(date(2026, 11, 1), 1) == 3
+    assert (date(2026, 11, 1), 1) in second.repeated
+    assert second.at(date(2026, 11, 1), 1.5) == 4.5
+
+
+@pytest.mark.parametrize('zone', ['Pacific/Kiritimati', 'Pacific/Pago_Pago'])
+def test_recent_cutoff_uses_the_locations_date_even_across_new_year(zone):
+    from zoneinfo import ZoneInfo
+    now = datetime(2026, 1, 1, 0, 30, tzinfo=ZoneInfo(zone))
+    recent = payload(now.replace(minute=0), [10, 20], zone)
+    base = month.Temperatures.build([], (2016, 2025), recent=recent)
+    for clock in (now, now.astimezone(timezone.utc), now.replace(tzinfo=None)):
+        series = base.with_recent(clock)
+        assert series.at(now.date(), 0.5) == 15
+        assert series.at(now.date(), 1) is None
+
+
+@pytest.mark.parametrize('difference', [False, True])
+@pytest.mark.parametrize('size', [(100, 40), (80, 24), (54, 23)])
+def test_recent_hover_identifies_estimates_and_leaves_future_cells_empty(size, difference):
+    start = datetime(2026, 10, 1, tzinfo=timezone.utc)
+    archive = payload(start.replace(year=2025), [10] * 24)
+    recent = payload(start, [20] * 13 + [90] * 35)
+    series = month.Temperatures.build([archive], (2016, 2025), recent=recent)
+    now = start.replace(hour=12)
+    rt = runtime(celsius=True)
+    with patch.object(month, 'get_terminal_size', return_value=size):
+        output = month.render_month(series, start.date(), rt, 43, -70, 'Portland', now=now,
+                                    difference=difference)
+        lines = re.sub(r'\x1b\[[0-9;]*m', '', output).splitlines()
+        row = next(i for i, line in enumerate(lines) if line.startswith(' Thu  1'))
+        assert '90°' not in output
+        for x, estimated in [(20, True), (size[0] - 13, False)]:
+            with patch.object(month.live, 'pointer_chip', return_value='') as tip:
+                month.render_month(series, start.date(), rt, 43, -70, 'Portland', now=now,
+                                   difference=difference, mouse_pos=(x, row + 1))
+            text = '\n'.join(tip.call_args.args[0])
+            assert ('Recent model estimate' in text) == estimated
+            assert ('20.0°C' in text) == estimated
+            assert max(map(visible_len, tip.call_args.args[0])) <= size[0]
+
+
 @pytest.mark.parametrize("size", [(100, 40), (80, 24), (54, 23)])
 @pytest.mark.parametrize("difference", [False, True])
 def test_month_fits_and_preserves_the_last_day_and_complete_color_escapes(size, difference):
@@ -135,7 +243,8 @@ def test_localized_layout_keeps_heading_with_chart_and_legend_within_window(lang
     if size[0] >= 80:
         assert f'←→ {hs("months", lang)}' in lines[-1]
     if size == (100, 40):
-        assert not lines[title + 2].strip()
+        # At 40 rows, spare lines separate the header and footer first.
+        assert first_day == title + 2
     legends = [line for line in lines if ('+18°F' if difference else '50°F') in line]
     assert len(legends) == 1
     assert '.4°F' not in legends[0]

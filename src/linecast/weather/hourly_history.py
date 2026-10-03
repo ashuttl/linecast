@@ -1,5 +1,6 @@
-"""The month view's Celsius archive, shared by both colorings and all months."""
+"""The month view's Celsius archive and recent model estimates."""
 
+import math
 from datetime import date, timedelta
 from urllib.parse import urlencode
 from zoneinfo import ZoneInfo
@@ -13,6 +14,15 @@ from linecast.weather.month import Temperatures
 
 HISTORY_AGE = 7 * 86400
 YEAR_AGE = 3 * 3600
+RECENT_AGE = 3600
+
+
+def _validate(data):
+    ZoneInfo(data["timezone"])
+    hourly = data["hourly"]
+    if not hourly.get("time") or len(hourly["time"]) != len(hourly["temperature_2m"]):
+        raise ValueError("hourly temperatures are empty or incomplete")
+    return data
 
 
 def read_archive(lat, lng, first, last, *, year=False, stale=None):
@@ -32,11 +42,7 @@ def read_archive(lat, lng, first, last, *, year=False, stale=None):
     url = "https://archive-api.open-meteo.com/v1/archive?" + urlencode(params)
 
     def validate(data):
-        ZoneInfo(data["timezone"])
-        hourly = data["hourly"]
-        if not hourly.get("time") or len(hourly["time"]) != len(hourly["temperature_2m"]):
-            raise ValueError("hourly archive is empty or incomplete")
-        return dict(data, _requested_end=last.isoformat())
+        return dict(_validate(data), _requested_end=last.isoformat())
 
     return fetch_json_cached(
         path, age, url, timeout=30, provider="weather/hourly",
@@ -45,11 +51,37 @@ def read_archive(lat, lng, first, last, *, year=False, stale=None):
         transform=validate)
 
 
-def fetch_month(lat, lng, today, *, stale=None):
-    """Return the indexed temperatures and whether both requests succeeded.
+def read_recent(lat, lng, today):
+    """Recent model hours, cached separately so the archive can replace them.
 
-    Missing spans leave their cells blank. No forecast hours are mixed into
-    the archive or the comparison. Current-year values never enter the mean.
+    Tomorrow supplies the interpolation endpoint for today's last hour.
+    The renderer reveals these hours only as the local clock reaches them.
+    """
+    key = location_cache_key(lat, lng)
+    path = cache_dir("weather") / f"hourly_{key}_recent.json"
+    params = dict(latitude=lat, longitude=lng, start_date=today - timedelta(days=7),
+                  end_date=today + timedelta(days=1), hourly="temperature_2m",
+                  temperature_unit="celsius", timezone="auto", timeformat="unixtime")
+    url = "https://api.open-meteo.com/v1/forecast?" + urlencode(params)
+
+    def validate(data):
+        _validate(data)
+        if not any(isinstance(v, (int, float)) and math.isfinite(v)
+                   for v in data["hourly"]["temperature_2m"]):
+            raise ValueError("recent temperatures are missing")
+        return dict(data, _requested_day=today.isoformat())
+
+    return fetch_json_cached(
+        path, RECENT_AGE, url, timeout=10, provider="weather/hourly",
+        fresh=lambda data: data.get("_requested_day") == today.isoformat(),
+        transform=validate)
+
+
+def fetch_month(lat, lng, today, *, stale=None):
+    """Return the indexed archive, recent hours, and request completeness.
+
+    Recent estimates fill gaps when rendering, never in the comparison mean.
+    Missing spans leave their cells blank. Current-year values are not averaged.
     """
     span = history_span(today.year)
     end = today - timedelta(days=1)
@@ -65,11 +97,17 @@ def fetch_month(lat, lng, today, *, stale=None):
         if data:
             payloads.append(data)
         complete = complete and bool(data and data.get("_requested_end") == last.isoformat())
-    if not payloads:
+    if stale and stale():
+        return None, False
+    recent = read_recent(lat, lng, today)
+    complete = complete and bool(recent and recent.get("_requested_day") == today.isoformat())
+    if stale and stale():
+        return None, False
+    if not payloads and not recent:
         return None, False
     try:
-        series = Temperatures.build(payloads, span)
-        return (series, complete) if series.days else (None, False)
+        series = Temperatures.build(payloads, span, recent=recent)
+        return (series, complete) if series.days or recent else (None, False)
     except (KeyError, TypeError, ValueError) as exc:
         log_failure("weather/hourly", "index archive", exc, fallback="empty month")
         return None, False

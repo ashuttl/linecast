@@ -8,6 +8,8 @@ Tides gain month and year views, a look at what moves the tide, and coverage fro
 
 New this version:
 
+- Weather: The hourly month view now fills recent gaps up to the current time with model estimates, identified on hover.
+
 - Weather: Added a month view of hourly temperatures, with sunrise and sunset and a comparison with the ten-year hourly average. Press `v` to cycle forecast, month, and year, or open the month directly with `--month` or `--month-departure`.
 
 - Tides: Moved the month view's sunrise and sunset legend below the chart.
