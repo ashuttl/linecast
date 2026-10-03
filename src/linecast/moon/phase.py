@@ -11,7 +11,7 @@ from linecast.astro.ephemeris import (
     _moon_events_for_local_date, moon_illuminated_fraction, moon_phase_frac,
     next_moon_phase_utc,
 )
-from linecast.terminal.glyphs import _icon_set
+from linecast.terminal.glyphs import moon_icon
 from linecast._runtime import RuntimeConfig, current_runtime
 
 
@@ -35,11 +35,13 @@ def moon_cycle_frac(dt):
         dt = dt.replace(tzinfo=timezone.utc)
     return moon_phase_frac(dt.astimezone(timezone.utc))
 
-def moon_phase(dt, runtime=None):
-    """Returns (index 0-7, name, nerd_font_icon).
+def moon_phase(dt, runtime=None, *, bg_color=None):
+    """Returns (index 0-7, name, icon).
 
     Uses narrow ~24h windows for principal phases (New, Full, Quarters)
     and wider bins for transitional phases, matching almanac conventions.
+    Renderers pass their background to adapt Nerd Font moon shapes;
+    without one, the icon keeps its named phase, as in JSON output.
     """
     frac = moon_cycle_frac(dt)
 
@@ -65,7 +67,7 @@ def moon_phase(dt, runtime=None):
         idx = 7   # Waning Crescent
     if runtime is None:
         runtime = current_runtime(RuntimeConfig)
-    return idx, MOON_NAMES[idx], _icon_set(runtime)["moon_icons"][idx]
+    return idx, MOON_NAMES[idx], moon_icon(idx, runtime, bg_color=bg_color)
 
 
 def moon_illumination(dt):

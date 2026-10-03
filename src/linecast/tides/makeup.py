@@ -35,6 +35,7 @@ from datetime import date, datetime, timedelta, timezone
 
 from linecast._i18n import DAY_NAMES, fmt_decimal, lang_of, table_for
 from linecast.terminal import live as _live
+from linecast.terminal import theme as _theme
 from linecast.terminal.color import RESET, bg, fg
 from linecast.terminal.framebuffer import get_terminal_size
 from linecast.terminal.textwidth import cells as text_cells, visible_len, wrap_display_width
@@ -444,8 +445,10 @@ def render_makeup(first, made, runtime, *, header, footer, station_tz, now_local
 
     compass = rs("compass", lang).split()
     north, south = compass[0], compass[4]
-    new_moon = moon_phase(datetime(2000, 1, 6, 18, 14, tzinfo=UTC), runtime)[2]
-    full_moon = moon_phase(datetime(2000, 1, 21, 4, 40, tzinfo=UTC), runtime)[2]
+    new_moon = moon_phase(datetime(2000, 1, 6, 18, 14, tzinfo=UTC), runtime,
+                          bg_color=_theme.theme_bg)[2]
+    full_moon = moon_phase(datetime(2000, 1, 21, 4, 40, tzinfo=UTC), runtime,
+                           bg_color=_theme.theme_bg)[2]
     # What the table's figures are, then what the axes' marks are; a
     # short window keeps the marks' lines and lets the others go.  Each
     # sentence has a line to itself where the longest fits; where it
@@ -531,7 +534,8 @@ def render_makeup(first, made, runtime, *, header, footer, station_tz, now_local
             values = {"month": month[part], "year": _fortnightly(year_rows[part]),
                       "long": long_rows[part]}
             if part == 0:
-                moon = [(f, moon_phase(when, runtime)[2]) for f, when in sky["phases"]]
+                moon = [(f, moon_phase(when, runtime, bg_color=_theme.theme_bg)[2])
+                        for f, when in sky["phases"]]
                 near = [(f, _ts("makeup_mark_near", runtime)) for f in sky["near"]]
             else:
                 letters = {"N": north, "S": south, "0": "0"}

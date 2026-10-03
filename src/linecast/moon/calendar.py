@@ -324,7 +324,7 @@ def render_calendar(now_local, lat, lng, runtime, month_offset=0,
             # On a one-row cell it sits a space after where a two-digit
             # day number ends, beside its own number rather than the
             # next day's, and a cell too narrow for both keeps the number.
-            icon = moon_phase(noon, runtime)[2]
+            icon = moon_phase(noon, runtime, bg_color=cell_bg)[2]
             gx = cx if cell_h > 1 else x0 + 4
             _put(overlays, gx, y0 + cell_h // 2, icon, T, max_x=graph_w)
 
@@ -483,11 +483,11 @@ def _hover_chip(d, ctx, found, phase_days, mouse_pos, cols, rows):
         lit_moon = found.new_moon_name(at) if found and idx == 0 else None
         if lit_moon:
             name = lit_moon
-        icon = moon_phase(at, runtime)[2]
+        icon = moon_phase(at, runtime, bg_color=TIP_BG_RGB)[2]
         phase_line = (f"{icon} {name} · "
                       f"{fmt_time_dt(at, use_24h=runtime.use_24h)}")
     else:
-        idx, _name, icon = moon_phase(noon, runtime)
+        idx, _name, icon = moon_phase(noon, runtime, bg_color=TIP_BG_RGB)
         name = night_name or moon_name(idx, runtime)
         phase_line = (f"{icon} {name} · "
                       f"{_ms('illuminated', runtime, pct=f'{illum * 100:.0f}')}")

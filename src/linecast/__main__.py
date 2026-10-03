@@ -21,9 +21,10 @@ def sky_now():
         from linecast._runtime import resolve_icons
         from linecast.astro.ephemeris import moon_illuminated_fraction
         from linecast.moon.phase import moon_phase
+        from linecast.terminal import theme
         now = datetime.now(timezone.utc)
         icons, _source = resolve_icons()
-        _idx, name, icon = moon_phase(now, SimpleNamespace(icons=icons))
+        _idx, name, icon = moon_phase(now, SimpleNamespace(icons=icons), bg_color=theme.theme_bg)
         return f"{icon} {name}, {moon_illuminated_fraction(now) * 100:.0f}% lit"
     except Exception:
         return ""

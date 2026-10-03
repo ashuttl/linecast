@@ -12,6 +12,7 @@ import select
 import subprocess
 import sys
 import textwrap
+from datetime import datetime, timezone
 from types import SimpleNamespace
 
 import pytest
@@ -177,6 +178,150 @@ class TestLightThemeInk:
         assert old_bg not in modal
         assert _theme.contrast_ratio(
             alerts.TEXT_RGB, alerts.MODAL_BG_RGB) >= 4.5
+
+
+class TestMoonGlyphs:
+    @pytest.mark.parametrize("icons", ("nerd", "emoji", "plain"))
+    @pytest.mark.parametrize("phase,dark,light", (
+        (0, "\U000F0F64", "\U000F0F62"),  # new: dark disc on a light page
+        (1, "\U000F0F67", "\U000F0F66"),  # waxing crescent: light at the right
+        (2, "\U000F0F61", "\U000F0F63"),  # first quarter: shadow at the left
+        (3, "\U000F0F68", "\U000F0F65"),  # waxing gibbous: thin shadow at the left
+        (4, "\U000F0F62", "\U000F0F64"),  # full: light disc inside a dark outline
+        (5, "\U000F0F66", "\U000F0F67"),
+        (6, "\U000F0F63", "\U000F0F61"),
+        (7, "\U000F0F65", "\U000F0F68"),
+    ))
+    def test_oneline_follows_theme_without_changing_phase(
+            self, restore_theme, icons, phase, dark, light):
+        from linecast._runtime import RuntimeConfig
+        from linecast.astro.ephemeris import next_moon_phase_utc
+        from linecast.moon.oneline import moon_oneline
+        from linecast.moon.phase import moon_phase
+
+        runtime = RuntimeConfig(live=False, icons=icons, lang="en", oneline=True)
+        now = next_moon_phase_utc(datetime(2000, 1, 1, tzinfo=timezone.utc), phase / 8)
+        index, name, canonical = moon_phase(now, runtime)
+        assert index == phase
+        for theme, icon in ((DARK, dark), (LIGHT, light), (DARK, dark)):
+            _theme._apply(*theme)
+            line = moon_oneline(now, 43.7, -70.3, runtime)
+            expected = icon if icons == "nerd" else canonical
+            assert f"{expected} {name}" in line
+            assert moon_phase(now, runtime) == (index, name, canonical)
+
+    def test_moon_panel_and_compact_calendar_keep_the_dark_sky(self, restore_theme, monkeypatch):
+        import re
+        from linecast._runtime import RuntimeConfig
+        from linecast.moon import calendar
+
+        _theme._apply(*LIGHT)
+        runtime = RuntimeConfig(live=False, icons="nerd", lang="en", oneline=False)
+        now = datetime(2000, 1, 21, tzinfo=timezone.utc)
+        monkeypatch.setattr(moon, "get_terminal_size", lambda: (100, 30))
+        panel = moon.render(now, 43.7, -70.3, runtime)
+        assert "\U000F0F62" in panel and "\U000F0F64" not in panel
+
+        monkeypatch.setattr(calendar, "get_terminal_size", lambda: (80, 10))
+        grid = calendar.render_calendar(now, 43.7, -70.3, runtime, fullscreen=True)
+        plain = re.sub(r"\x1b\[[0-9;]*m", "", grid)
+        assert re.search("21 +\U000F0F62", plain)
+        assert re.search("6 +\U000F0F64", plain)
+
+    @pytest.mark.parametrize("principal", (False, True))
+    def test_calendar_hover_uses_its_own_background(self, restore_theme, principal):
+        from linecast._runtime import RuntimeConfig
+        from linecast.moon import calendar
+        from linecast.moon.readings import context
+
+        _theme._apply(*LIGHT)
+        runtime = RuntimeConfig(live=False, icons="nerd", lang="en", oneline=False)
+        now = datetime(2000, 1, 21, tzinfo=timezone.utc)
+        ctx = context(now, 43.7, -70.3, runtime, None)
+        phases = {now.date(): (4, now)} if principal else {}
+        chip = calendar._hover_chip(now.date(), ctx, None, phases, (5, 5), 100, 30)
+        assert "\U000F0F64" in chip and "\U000F0F62" not in chip
+
+    def test_tide_month_and_year_marks_follow_theme(self, restore_theme):
+        from linecast._runtime import RuntimeConfig
+        from linecast.tides import month, year
+
+        runtime = RuntimeConfig(live=False, icons="nerd", lang="en", oneline=False)
+        first = datetime(2000, 1, 1, tzinfo=timezone.utc).date()
+        for theme, new, full in ((LIGHT, "\U000F0F62", "\U000F0F64"),
+                                 (DARK, "\U000F0F64", "\U000F0F62")):
+            _theme._apply(*theme)
+            marks = month._phase_marks(first, timezone.utc, runtime)
+            assert marks[first.replace(day=6)] == new
+            assert marks[first.replace(day=21)] == full
+            row = year._moon_row(2000, 366, 366, timezone.utc, runtime)
+            # One cell per day, including the glyph's ANSI escapes.
+            import re
+            plain = re.sub(r"\x1b\[[0-9;]*m", "", row)
+            assert plain[5] == new and plain[20] == full
+
+    def test_json_keeps_the_named_icon(self, restore_theme):
+        from linecast._runtime import RuntimeConfig
+        from linecast.moon.json import build_payload
+
+        runtime = RuntimeConfig(live=False, icons="nerd", lang="en", oneline=False)
+        now = datetime(2000, 1, 21, tzinfo=timezone.utc)
+        _theme._apply(*DARK)
+        dark = build_payload(now, 43.7, -70.3, runtime)
+        _theme._apply(*LIGHT)
+        assert build_payload(now, 43.7, -70.3, runtime) == dark
+        assert dark["icon"] == "\U000F0F62" and dark["phase"] == "Full Moon"
+
+    def test_sky_summary_and_hover_use_their_own_surfaces(self, restore_theme, monkeypatch):
+        from linecast._runtime import RuntimeConfig
+        from linecast.sky import view
+        from linecast.sky.oneline import sky_oneline
+        from linecast.sky.scene import Scene, default_view
+
+        monkeypatch.setattr(_color, "_COLOR_MODE", "truecolor")
+        _theme._apply(*LIGHT)
+        runtime = RuntimeConfig(live=False, icons="nerd", lang="en", oneline=False)
+        now = datetime(2000, 1, 21, tzinfo=timezone.utc)
+        scene = Scene(now, 0, 0)
+        assert scene.moon_alt > 0
+        facing = default_view(scene, 200, 24)
+        summary = sky_oneline(now, 0, 0, runtime)
+        status = view._status_line(scene, now, runtime, facing, 200, "", 0, None, None)
+        # On the terminal's light background, the full Moon is an outline
+        # in dark ink. The sky's pale text ink would disappear here.
+        ink = _theme.ensure_contrast(view.TEXT_RGB, _theme.theme_bg, minimum=4.5)
+        assert _theme.luminance(ink) < _theme.luminance(_theme.theme_bg)
+        for line in (summary, status):
+            assert f"{_color.fg(*ink)}\U000F0F64" in line
+        chip = view._chip((10, 10), [(9, 18, "moon", None)], scene, runtime,
+                          200, 24, 200, 24, facing)
+        assert "\U000F0F64" in chip
+
+    @pytest.mark.parametrize("surface,icon", (
+        ((15, 23, 42), "\U000F0F62"),
+        ((250, 250, 248), "\U000F0F64"),
+    ))
+    def test_sky_status_reads_the_drawn_background(self, restore_theme, monkeypatch, surface, icon):
+        from linecast._runtime import RuntimeConfig
+        from linecast.sky import view
+        from linecast.sky.scene import Scene, default_view
+
+        _theme._apply(*LIGHT)
+        runtime = RuntimeConfig(live=False, icons="nerd", lang="en", oneline=False)
+        now = datetime(2000, 1, 21, tzinfo=timezone.utc)
+        facing = default_view(Scene(now, 0, 0), 200, 24)
+        paint = view._paint_sky
+
+        def sky_surface(fb, scene, lens):
+            omega = paint(fb, scene, lens)
+            for row in fb.fb[-2:]:
+                row[:] = [surface] * len(row)
+            return omega
+
+        monkeypatch.setattr(view, "_paint_sky", sky_surface)
+        monkeypatch.setattr(view, "get_terminal_size", lambda: (200, 24))
+        output = view.render(now, 0, 0, runtime, facing, fullscreen=True)
+        assert icon in output.splitlines()[-1]
 
 
 def _copied_names():

@@ -384,7 +384,7 @@ def _render_header_line(cols, station_name, runtime, offset_minutes=0, location_
     _pill_width = pill_w
 
     # Moon phase (right-aligned)
-    idx, _, moon_icon = moon_phase(datetime.now(timezone.utc), runtime)
+    idx, _, moon_icon = moon_phase(datetime.now(timezone.utc), runtime, bg_color=_theme.theme_bg)
     phase_name = moon_name(idx, runtime)
     moon_color = fg(*MUTED_RGB)
     moon_str = f"{moon_color}{moon_icon} {DIM}{phase_name}{RESET}"

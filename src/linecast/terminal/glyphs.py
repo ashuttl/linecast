@@ -69,3 +69,18 @@ _PLAIN_ICONS = {
 def _icon_set(runtime):
     return {"nerd": _NERD_ICONS, "emoji": _EMOJI_ICONS,
             "plain": _PLAIN_ICONS}[runtime.icons]
+
+
+def moon_icon(index, runtime, *, bg_color=None):
+    """A phase glyph for its drawing surface; None keeps the named icon.
+
+    Nerd Font moons paint the lit part in the foreground. On a light
+    surface the ink is the shadow instead: the opposite phase supplies
+    its shape, preserving the side that is lit. Emoji carry their own
+    colors, and the plain set is a dial showing the fraction filled.
+    """
+    if runtime.icons == "nerd" and bg_color is not None:
+        from linecast.terminal.theme import is_light_theme
+        if is_light_theme(bg_color):
+            index = (index + 4) % 8
+    return _icon_set(runtime)["moon_icons"][index]

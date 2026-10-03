@@ -3,6 +3,7 @@ calendar's date in one line."""
 
 from linecast._i18n import fmt_percent
 from linecast._timefmt import fmt_time_dt
+from linecast.terminal import theme as _theme
 from linecast.terminal.color import RESET, fg
 
 
@@ -28,7 +29,7 @@ def moon_oneline(now_local, lat, lng, runtime, calendar=None):
     from linecast.astro.calendars.lunisolar import resolve_calendar
     from linecast._i18n import moon_name
 
-    idx, _name, icon = moon_phase(now_local, runtime)
+    idx, _name, icon = moon_phase(now_local, runtime, bg_color=_theme.theme_bg)
     name = moon_name(idx, runtime)
     illum = moon_illumination(now_local)
     cal, _source = resolve_calendar(calendar, lang_of(runtime))

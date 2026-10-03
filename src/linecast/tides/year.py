@@ -303,7 +303,7 @@ def _moon_row(year, width, n, tzinfo, runtime):
               else _moon_phases.__wrapped__(year, tzinfo))
     for day, moment in phases:
         x = min(width - 1, int((day - jan1).days * width / n))
-        cells[x] = f"{ink}{moon_phase(moment, runtime)[2]}{RESET}"
+        cells[x] = f"{ink}{moon_phase(moment, runtime, bg_color=_theme.theme_bg)[2]}{RESET}"
     return "".join(cells)
 
 

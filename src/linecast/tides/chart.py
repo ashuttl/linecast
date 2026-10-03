@@ -159,6 +159,7 @@ def compute_moon_labels(window_start, total_hours, graph_w, station_meta, runtim
                     _idx, _name, phase_icon = moon_phase(
                         event_dt.astimezone(timezone.utc),
                         runtime,
+                        bg_color=_theme.theme_bg,
                     )
                     arrow = "↑" if is_rise else "↓"
                     labels[col] = (

@@ -46,6 +46,7 @@ from datetime import datetime, timezone
 from linecast.terminal.braille import DOT_BITS
 from linecast.terminal.color import RESET, bg, fg, interp_stops, lerp
 from linecast.terminal.textwidth import visible_len
+from linecast.terminal.glyphs import moon_icon
 from linecast.terminal.framebuffer import Framebuffer, cell_aspect, get_terminal_size
 from linecast.terminal import live as _live
 from linecast.terminal import theme as _theme
@@ -817,7 +818,13 @@ def render(now_local, lat, lng, runtime, view, fullscreen=False,
 
     # The Moon and extended objects may have painted under a label after
     # its space was reserved. Pick its final ink from the finished image.
+    phase, _name, icon = moon_phase(moment_utc, runtime)
     for x, text in status_labels:
+        if icon in text:
+            col = x + visible_len(text[:text.index(icon)])
+            # The sky can be pale by day even on a dark terminal.
+            surface = fb.cell_bg(col, graph_h - 1)
+            text = text.replace(icon, moon_icon(phase, runtime, bg_color=surface), 1)
         paint_text(fb, overlays, text, x, graph_h - 1,
                    None if text == help_label else TEXT_RGB)
     lines = fb.render(overlays=overlays)
@@ -834,7 +841,8 @@ def _status_line(scene, now_local, runtime, view, width, location_label,
     """Place and clock; where the view faces and how wide; the sky's name
     and what is up. Parts drop from the right as the width runs out.
     With layout=True, return positioned plain labels for the image."""
-    text, dim, amber = fg(*TEXT_RGB), fg(*DIM_RGB), fg(*AMBER_RGB)
+    text, dim, amber = (fg(*_theme.ensure_contrast(ink, _theme.theme_bg, minimum=4.5))
+                        for ink in (TEXT_RGB, DIM_RGB, AMBER_RGB))
     clock = clock_label(now_local, runtime, today)
     if layout:
         text = dim = amber = ''
@@ -854,7 +862,8 @@ def _status_line(scene, now_local, runtime, view, width, location_label,
     elif offset_minutes:
         center += f"  {dim}{_ts('space_to_now', runtime)}"
     sky = sky_phase(scene.sun_alt, runtime, morning=scene.morning())
-    up = _whats_up(scene, runtime, view.culture)
+    up = _whats_up(scene, runtime, view.culture,
+                   bg_color=None if layout else _theme.theme_bg)
     right_full = f"{dim}{sky} · {text}{up}" if up else f"{dim}{sky}"
     right_short = f"{dim}{sky}"
 
@@ -889,12 +898,12 @@ def _status_line(scene, now_local, runtime, view, width, location_label,
     return f"{RESET}{line}{RESET}"
 
 
-def _whats_up(scene, runtime, culture=None):
+def _whats_up(scene, runtime, culture=None, *, bg_color=None):
     """The Moon and the planets above the horizon, brightest first, each
     with the way to look: '🌖 84% W · Jupiter SE · Saturn S'."""
     parts = []
     if scene.moon_alt > 0.0:
-        _idx, _name, icon = moon_phase(scene.moment_utc, runtime)
+        _idx, _name, icon = moon_phase(scene.moment_utc, runtime, bg_color=bg_color)
         parts.append(f"{icon} {fmt_percent(scene.moon_illum * 100, runtime)} "
                      f"{compass_point(scene.moon_az, runtime, culture)}")
     for key, _vec, alt, az, mag in scene.planets:
@@ -928,7 +937,7 @@ def _chip(mouse_pos, hits, scene, runtime, cols, rows, graph_w, graph_h, view):
                                                               morning=scene.morning())
         alt, az = scene.sun_alt, scene.sun_az
     elif kind == "moon":
-        idx, _name, icon = moon_phase(scene.moment_utc, runtime)
+        idx, _name, icon = moon_phase(scene.moment_utc, runtime, bg_color=TIP_BG_RGB)
         from linecast._i18n import moon_name
         title = f"{icon} {body_name('moon', runtime)}"
         detail = f"{moon_name(idx, runtime)} · {fmt_percent(scene.moon_illum * 100, runtime)}"

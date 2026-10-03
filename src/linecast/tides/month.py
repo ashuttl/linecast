@@ -348,7 +348,7 @@ def _phase_marks(first, tz, runtime):
     """{day: icon} for the month's principal phases of the Moon."""
     from linecast.moon.calendar import principal_phase_days
     from linecast.moon.phase import moon_phase
-    return {day: moon_phase(moment, runtime)[2]
+    return {day: moon_phase(moment, runtime, bg_color=_theme.theme_bg)[2]
             for day, (_idx, moment) in principal_phase_days(first.year, first.month, tz).items()}
 
 

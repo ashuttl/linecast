@@ -51,6 +51,8 @@ New this version:
 
 Fixes:
 
+- Icons: Nerd Font moon phases show the correct light and dark portions on light backgrounds.
+
 - Maps: City names stay more stable while the globe rotates, with fewer brief appearances and swaps between nearby cities.
 
 - Clock changes:

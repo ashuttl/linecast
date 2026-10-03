@@ -479,7 +479,7 @@ class _Facts(NamedTuple):
 def _moon_facts(now_local, lat, lng, runtime):
     """The Moon's _Facts at *now_local*, seen from *lat*, *lng*, its
     times in *now_local*'s zone."""
-    idx, _name, icon = moon_phase(now_local, runtime)
+    idx, _name, icon = moon_phase(now_local, runtime, bg_color=SKY_RGB)
     moment_utc = now_local.astimezone(timezone.utc)
     alt = _moon_altitude_deg(moment_utc, lat, lng)
     # Where the bright limb and the Moon's north pole fall on screen.

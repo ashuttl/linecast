@@ -363,7 +363,7 @@ class TestSunshineOnelineMoon:
         # moon_phase is read as UTC, hours off anywhere but Greenwich
         from linecast.sunshine import oneline
         seen = []
-        monkeypatch.setattr("linecast.moon.phase.moon_phase", lambda dt, runtime=None:
+        monkeypatch.setattr("linecast.moon.phase.moon_phase", lambda dt, runtime=None, **kwargs:
                             (seen.append(dt), (0, "", "🌑"))[1])
         now = datetime(2026, 3, 5, 14, 30, tzinfo=timezone(timedelta(hours=-10)))
         oneline.sunshine_oneline(21.3, -157.8, 64, RuntimeConfig(

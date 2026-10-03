@@ -2,6 +2,7 @@
 
 from linecast._i18n import fmt_duration_parts, has_duration_words, lang_of
 from linecast._timefmt import fmt_time
+from linecast.terminal import theme as _theme
 from linecast.terminal.color import RESET, fg
 
 
@@ -33,7 +34,7 @@ def sunshine_oneline(lat, lng, doy, runtime, tz_offset_h=None, hours=None, now=N
     # The Moon's phase at the moment shown, as an instant: moon_phase
     # reads a naive time as UTC, which a local clock is not.
     moment = (now if now is not None else datetime.now()).astimezone()
-    _idx, _name, moon_icon = moon_phase(moment, runtime)
+    _idx, _name, moon_icon = moon_phase(moment, runtime, bg_color=_theme.theme_bg)
 
     # Format sunrise/sunset times compactly
     def _fmt(h):

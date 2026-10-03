@@ -1,6 +1,7 @@
 """sky --oneline: the Moon and the planets that are up, in one line."""
 
 from linecast._i18n import fmt_percent
+from linecast.terminal import theme as _theme
 from linecast.terminal.color import RESET, fg
 
 
@@ -26,10 +27,11 @@ def sky_oneline(now_local, lat, lng, runtime, culture=None):
 
     scene = Scene(now_local.astimezone(timezone.utc), lat, lng)
     culture, _source = resolve_culture(culture, lang_of(runtime))
-    text, dim = fg(*TEXT_RGB), fg(*DIM_RGB)
+    text, dim = (fg(*_theme.ensure_contrast(ink, _theme.theme_bg, minimum=4.5))
+                 for ink in (TEXT_RGB, DIM_RGB))
     parts = []
     if scene.moon_alt > 0.0:
-        _idx, _name, icon = moon_phase(scene.moment_utc, runtime)
+        _idx, _name, icon = moon_phase(scene.moment_utc, runtime, bg_color=_theme.theme_bg)
         parts.append(f"{text}{icon} {fmt_percent(scene.moon_illum * 100, runtime)} "
                      f"{compass_point(scene.moon_az, runtime, culture)} {scene.moon_alt:.0f}°")
     for key, _vec, alt, az, mag in scene.planets:
