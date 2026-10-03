@@ -8,6 +8,8 @@ Tides gain month and year views, a look at what moves the tide, and coverage fro
 
 New this version:
 
+- Fixed footer flickering during mouse hover in tmux.
+
 - `maps --view now` starts with text and labels hidden and the globe slowly rotating. `t`, `l`, and `r` toggle them independently.
 
 - **Hide the chrome with `t`.** In moon, it leaves the Moon alone in its sky. In sunshine's day and year views, it hides the supporting text but keeps the location and time. In maps, it hides the header and footer and gives those rows to the map; `l` still controls map labels independently. Press `t` again to bring the text back, or launch any of these views with `--no-text` to start with it hidden.

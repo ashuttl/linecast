@@ -94,15 +94,19 @@ def frame_paint(body, floating=""):
     the body from wherever it ended: a row that reaches the last column
     leaves the cursor on that cell, and \033[J from there erases the
     cell's glyph -- the last letter of the help hint.  When the frame
-    fills the screen the row after the last is the last, which the
-    clear empties and the body then draws.
+    fills the screen, skip this clear: terminals clamp the row after
+    the last to the last row.  Clearing there would erase the footer
+    for the duration of the repaint, visible through tmux when updates
+    are not presented atomically.
     """
     rows = body.count("\n") + 1
     width = _mirror_width()
     body, floating = _bidi.display(body, width), _bidi.display(floating, width)
     from linecast.terminal.composition import resolve_shadows
+    from linecast.terminal.framebuffer import get_terminal_size
     floating = resolve_shadows(body, floating)
-    return (f"{_SYNC_BEGIN}{_AUTOWRAP_OFF}\033[{rows + 1};1H\033[J{frame_body(body)}"
+    clear_below = f"\033[{rows + 1};1H\033[J" if rows < get_terminal_size()[1] else ""
+    return (f"{_SYNC_BEGIN}{_AUTOWRAP_OFF}{clear_below}{frame_body(body)}"
             f"\033[0m{floating}\033[0m{_AUTOWRAP_ON}{_SYNC_END}")
 
 

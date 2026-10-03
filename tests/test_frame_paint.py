@@ -2,6 +2,8 @@
 
 import io
 
+import pytest
+
 from linecast.terminal.live import (_AUTOWRAP_OFF, _AUTOWRAP_ON, _SYNC_BEGIN, _SYNC_END,
                             frame_body, frame_paint, print_frame)
 
@@ -85,14 +87,36 @@ class TestFramePaint:
         assert inner.endswith(_AUTOWRAP_ON)
         assert inner.index(frame_body("a")) < inner.index("\033[3;4Hchip")
 
-    def test_the_clear_below_comes_before_the_body(self):
+    def test_the_clear_below_comes_before_the_body(self, monkeypatch):
         # A row that reaches the last column leaves the cursor on that
         # cell, and a clear-to-end-of-screen from there would take the
         # cell's glyph: the last letter of "? help".  So the space below
         # the frame is cleared first, from the row after the last, and
         # the body is drawn after it.
+        monkeypatch.setenv("LINES", "4")
         out = frame_paint("a\nb\nc")
         assert "\033[4;1H\033[J" in out
         assert out.index("\033[J") < out.index(frame_body("a\nb\nc"))
         assert out.count("\033[J") == 1
         assert "\033[J" not in out[out.index(frame_body("a\nb\nc")):]
+
+    @pytest.mark.parametrize("height", [2, 3])
+    def test_a_full_frame_does_not_erase_the_footer_before_repainting(self, monkeypatch,
+                                                                    height):
+        # CUP beyond the bottom clamps to the bottom row. An erase there
+        # would blank the old footer while all the rows above are painted.
+        # Include a frame taller than the terminal, as during a resize.
+        monkeypatch.setenv("LINES", str(height))
+        out = frame_paint("header\nchart\n? help")
+        assert "\033[J" not in out
+        assert "\033[3;1H\033[K? help" in out
+
+    def test_a_shorter_frame_erases_the_previous_frames_leftover_rows(self, monkeypatch):
+        from test_maps_color_runs import painted
+
+        monkeypatch.setenv("LINES", "4")
+        first = frame_paint("header\nchart\nchart\n? help")
+        second = frame_paint("header\n? help")
+        grid = painted(first + second, cols=6, rows=4)
+        assert [''.join(cell[0] for cell in row) for row in grid] == [
+            "header", "? help", "      ", "      "]
