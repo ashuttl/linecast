@@ -4,6 +4,8 @@ Notable changes, by release. Notes for the next release collect under **Unreleas
 
 ## Unreleased
 
+## 2.10.0 — 2026-10-03
+
 Weather gains a month view of hourly temperatures, with sunrise and sunset and a comparison with the ten-year average. Browse the past ten years and the current year so far, and hover to see how warm or cold an hour was for the time of year.
 
 Tides gain month and year views and a view of what moves the tide. The month helps you find low water in daylight; the year compares predictions with measurements where available. “What moves the tide here” shows how the Sun and Moon shape the tides through a month, a year, and the Moon's long cycle. Coverage expands to Japan, Norway, and about 1,200 more gauges around the world.
