@@ -1,116 +1,56 @@
 # Changelog
 
-Notable changes, by release. Notes for the next release collect under **Unreleased** and get a final edit when `release.sh` runs.
+Notable changes, by release. Notes for the next release collect under **Unreleased** and get a final edit before release.
 
 ## Unreleased
 
-Tides gain month and year views, a look at what moves the tide, and coverage from Japan, Norway, and about 1,200 gauges around the world. The Moon has a new layout, and its `t` key to hide the surrounding text comes to sunshine and maps too. linecast now speaks Hungarian and Slovak. There are also fixes across the views, especially around clock changes, at high latitudes, and in languages other than English.
+Weather gains a month view of hourly temperatures, with sunrise and sunset and a comparison with the ten-year average. Browse the past ten years and the current year so far, and hover to see how warm or cold an hour was for the time of year.
+
+Tides gain month and year views and a view of what moves the tide. The month helps you find low water in daylight; the year compares predictions with measurements where available. “What moves the tide here” shows how the Sun and Moon shape the tides through a month, a year, and the Moon's long cycle. Coverage expands to Japan, Norway, and about 1,200 more gauges around the world.
+
+The Moon has a new layout, with its phase, rise and set times, and calendar information around a centered disc. linecast now speaks Hungarian and Slovak, with experimental Hebrew and Modern Standard Arabic alongside Persian.
 
 New this version:
 
-- Weather: The hourly month view now fills recent gaps up to the current time with model estimates, identified on hover.
-
-- Weather: Added a month view of hourly temperatures, with sunrise and sunset and a comparison with the ten-year hourly average. Press `v` to cycle forecast, month, and year, or open the month directly with `--month` or `--month-departure`.
-
-- Tides: Moved the month view's sunrise and sunset legend below the chart.
-
-- Print: Added `--width` and `--height` to size a static view in character cells or percentages of the terminal, including for shell startup greetings.
-
-- Maps: `t` now hides the center and location crosshairs along with the header and footer.
-
-- Languages: Added experimental Hebrew and Modern Standard Arabic translations, using the right-to-left layout introduced for Persian. All three remain experimental.
-
-- Fixed footer flickering during mouse hover in tmux.
-
-- `maps --view now` starts with text and labels hidden and the globe slowly rotating. `t`, `l`, and `r` toggle them independently.
-
-- **Hide the chrome with `t`.** In moon, it leaves the Moon alone in its sky. In sunshine's day and year views, it hides the supporting text but keeps the location and time. In maps, it hides the header and footer and gives those rows to the map; `l` still controls map labels independently. Press `t` again to bring the text back, or launch any of these views with `--no-text` to start with it hidden.
-- Tides — new views:
-  - Press `v` to cycle through the views available for the station, or open one directly with `--month`, `--year`, or `--makeup`, including with `--print`.
-  - The month puts a day on each row and the hours across, marking sunrise, sunset, and each day's lowest low water in daylight.
-  - The year shows each day's predicted range, the new and full moons, and measurements where available. NOAA stations also show their flood stage.
-  - “What moves the tide here” shows the twice-a-day and once-a-day parts through a month, a year, and nineteen years of the Moon's long cycle. It gives the height of each cause and compares it with an ideal ocean. The title moves into the header in short terminals.
-  - The hourly chart shows up to 72 hours in wider terminals, keeping now a quarter of the way across.
-- Tides — wider coverage:
-  - Japan's tides come from the Japan Meteorological Agency; Norway, Svalbard, and Jan Mayen use Kartverket.
-  - About 1,200 gauges in 103 countries, including Brest, Cape Town, and Auckland, supply predictions for any date where no national service reaches.
-  - The global tide model also reaches any date, where it previously stopped about a week ahead.
-  - TideCheck stations draw TideCheck's predicted curve instead of estimating it from highs and lows. Charts no longer have gaps in seas with hardly a tide, such as the Black Sea.
-  - Station search accepts names without accents: `tromso` finds Tromsø.
-- Moon:
-  - The Moon stays in the middle at every window size, with the phase, rise and set times, the month's new and full moons, and the year's days in the four corners.
-  - `--month` opens the month view. `--grid` still works.
-  - `--calendar icelandic` follows the old Icelandic calendar: its weeks of summer and winter, named days such as bóndadagur, and moons such as the jólatungl. It is the default in Icelandic.
-- Language:
-  - Hungarian and Slovak throughout: use `linecast language hu` or `linecast language sk`, or a terminal locale in either. The sky also names constellations and some of the brightest stars in each language.
-  - Capitalized names follow Greek and Turkish spelling: "ΑΘΗΝΑ", not "ΑΘΉΝΑ", and "İZMİR", not "İZMIR".
-  - Moon phases use sentence case in eleven more languages, as they already do in French: "Første kvarter", not "Første Kvarter".
-  - Japanese maps use kana place names, such as さいたま市, instead of their romanization.
-- Weather:
-  - Hovering over a daily temperature bar shows a small graph from midnight to midnight.
-  - `--prose` prints just the forecast paragraph, in the chosen language and units.
-  - `--oneline` and `--prose` can be combined in either order to print the one-line summary followed by the forecast paragraph.
-  - The temperature scale extends to a deeper blue at -40°F (-40°C) and a crimson at 115°F (46°C).
-  - Calm days' conditions are dimmed in the daily forecast, letting rain, snow, and wind stand out.
-- Help pages list a flag's choices first, followed by a short explanation.
-- Hover chips get a new drop shadow.
+- Weather: Hover over a daily temperature bar for an hourly graph. The forecast makes rain, snow, and wind easier to pick out, and the temperature colors distinguish more extreme heat and cold.
+- Weather: `--prose` prints the forecast paragraph in your chosen language and units. Add `--oneline` to include the current conditions above it.
+- Tides: The hourly chart shows up to 72 hours in wider terminals. Predictions from the global model are available beyond the coming week.
+- Tides: Station search accepts names without accents: `tromso` finds Tromsø.
+- Moon: `--month` opens the calendar; `--grid` still works. `--calendar icelandic` adds the old Icelandic calendar and its named days and moons, and is the default in Icelandic.
+- Views: Press `t` to hide the surrounding text in moon, sunshine, and maps, or start with `--no-text`. Sunshine keeps the location and clock; maps also hides the crosshairs.
+- Maps: `--view now` opens a slowly rotating globe with daylight and clouds, with text and labels hidden. Press `r` to stop or resume rotation.
+- Print: `--width` and `--height` size a static view in columns and rows or percentages of the terminal, including for shell startup greetings.
+- Language: Greek and Turkish capitals follow local spelling, more languages use sentence case for Moon phases, and Japanese maps use kana place names.
 
 Fixes:
 
-- Weather and tides: Month views keep consistent spacing around headings and legends in short windows. The tides location name is easier to read.
-
-- Icons: Nerd Font moon phases show the correct light and dark portions on light backgrounds.
-
-- Maps: City names stay more stable while the globe rotates, with fewer brief appearances and swaps between nearby cities.
-
-- Clock changes:
-  - Corrected moonrise and moonset countdowns across a clock change, and tomorrow's sunrise and sunset in `sunshine --json` on the evening before one.
-  - Corrected tide times near clock changes for the global model, Canadian stations, and TideCheck. NOAA stations chosen with `--station`, including Back Cove in Portland, Maine, and stations in the western Aleutians, now use the right summer time and night shading.
-  - Moon and sky use the right offset beyond the next clock change when the location comes from the network. An incorrect offset could previously put a new or full moon on the wrong day.
-- Far north and south:
-  - The next moonrise or moonset is correct on dates when the Moon rises or sets twice in the far north.
-  - `sunshine --oneline` names polar night and midnight sun instead of giving a sunrise and sunset. Hebrew and Islamic dates no longer turn at noon during polar night.
-  - Sunshine's day view no longer draws a winter arc as high as a summer arc south of the equator. The sky also names dawn and dusk correctly there in languages that distinguish them, such as Polish and Swedish.
-- Language:
-  - Live views no longer crash when Hebrew or Arabic text appears beside numbers.
-  - Persian, Arabic, and Hebrew text reads in the right direction, with joined letters, in `radar --print`, directions from `maps --print`, and map labels for neighbourhoods, parks, and water.
-  - Thai retains its vowel and tone marks on the sky chart and in weather's year view; the Moon's almanac no longer wraps Thai lines too early.
-  - Chinese, Japanese, and Korean text fits correctly in the sunshine views, the radar and maps headers, and the theme menu.
-  - Map elevations use the right separators for languages with a decimal comma, avoiding labels such as "5,094 m" that read as five metres.
-  - Tides `--oneline` names high and low tide in the chosen language.
-  - Language selection follows the environment: `LC_ALL=C` selects English, and `LANGUAGE=ca:es` uses the first supported language in the list.
-- Weather:
-  - The forecast in words keeps the snow total when snow turns to longer-lasting rain. Blowing or drifting snow reported by a nearby station is no longer shown as falling snow.
-  - Rain and snow amounts are correct in the daily forecast, hourly hover, and last 24 hours. A rainy day with a little snow no longer reads "Snow 0.0″", and hourly snowfall is no longer given as its melted water.
-  - Alert times on the 12-hour clock keep their minutes: "until 3:45pm", not "until 3pm".
-  - Temperatures just below zero no longer read "-0°"; tide heights just below the datum no longer read "-0.0′".
-  - Missing past data no longer makes the year view show dry months.
-- Moon:
-  - Calendar night names, dates, and observances are easier to read, with stronger contrast and space clear of the Moon images.
-  - Blue Moons are identified correctly when two full moons fall close to 29½ days apart. The Moon's age no longer runs past the month's length, as in "Day 29.8 of 29.5".
-  - Countdowns use hours and minutes in the last day, avoiding "in 0.0d" in the last hour.
-  - `sunshine --oneline` shows the correct phase near a new or full moon outside UTC.
-- Tides:
-  - Near Vancouver's Second Narrows, linecast skips Canadian stations that predict only currents and finds the nearest station with tides, avoiding "Could not fetch tide data".
-  - Hovering over the year view is faster.
-- Maps and radar:
-  - Maps and radar draw both sides of the 180th meridian, including Fiji and the Aleutians. Directions across it no longer open on the whole planet.
-  - Failed map tiles are retried without waiting for the view to move. One damaged cached tile no longer blanks the street view, and switching to OSM US when OpenFreeMap is unavailable no longer deletes saved street tiles.
-  - Help agrees with the keys: `n` and space in maps return to where the map opened; `A` toggles radar alerts; `radar --help` gives the right satellite and wind keys.
-  - An invalid `--zoom` gives an explanation instead of a Python traceback.
-- Live views:
-  - Inside tmux, a theme change no longer applies new colors while tmux still reports the old foreground and background. The view keeps its previous palette until those colors update too.
-  - Fixed slow hover updates in large terminals after the drop shadows were added.
-  - Ctrl-Z restores the shell's screen, cursor, and mouse behavior; `fg` returns to the view.
-  - Ctrl-C during loading or `--print` quits promptly, without a traceback or a wait for a slow tide provider.
-  - Esc while the mouse is moving no longer turns mouse reports into keypresses that could swing the sky view.
-  - Hover chips in weather and maps, and the space around the globe, follow terminal theme changes.
-- Location, settings, and cache:
-  - Negative coordinates, such as `-33.87,151.21` for Sydney, work with `--location`, `--to`, `--from`, and `linecast location set` on Python 3.13 and older.
-  - Moon, sunshine, and sky can use a saved location offline; place names survive more than a day offline; Canadian tide stations recover after a run without a connection.
-  - Setting commands preserve an unreadable `config.json` instead of replacing it with one setting. A config file symlink, such as one from a dotfiles repository, also stays intact.
-  - `linecast link` explains when its install directory is unwritable and suggests `--dir`, instead of ending in a traceback.
-  - A daily cleanup removes cached data the views will no longer read, keeping the cache from growing indefinitely.
+- Clock changes: Corrected tide times, Moon phase dates and countdowns, and tomorrow's sunrise and sunset in `sunshine --json` around daylight saving changes.
+- Sunshine and Moon: Corrected rise and set information at high latitudes, including polar night and midnight sun. Hebrew and Islamic calendar dates no longer change at noon during polar night.
+- Sunshine and sky: Corrected the Sun's seasonal height and the names for dawn and dusk south of the equator.
+- Weather: Corrected rain and snow amounts in the forecast and the last 24 hours. The forecast keeps the snow total when snow turns to rain, and distinguishes blowing snow from falling snow.
+- Weather: Showers separated by a dry spell are no longer described as lasting through the day. Temperatures just below zero no longer read “-0°”.
+- Weather: Alert times keep their minutes on the 12-hour clock, and Canadian alerts show their times on Python 3.10.
+- Weather: Missing historical data no longer appears as dry months or produces misleading rainfall comparisons in the year view.
+- Weather: A problem fetching alerts no longer prevents the forecast from opening; it reports that alerts are unavailable.
+- Moon: Corrected Blue Moon identification and the Moon's age. Countdowns in their last day show hours and minutes.
+- Moon: Calendar dates and observances are easier to read, and phases stay beside the right dates in short windows. Nerd Font phase icons show correctly on light backgrounds.
+- Sunshine and sky: `sunshine --oneline` shows the correct Moon phase near new and full moons. `sky --oneline` follows the chosen `--culture`.
+- Tides: Fixed gaps in charts for places with very small tides. TideCheck charts show the full predicted curve.
+- Tides: Fixed failures to find tides near Vancouver's Second Narrows. Station searches can continue when one tide service fails.
+- Tides: High and low tide times remain legible over the chart, and wave and swell information fits narrow windows.
+- Maps and radar: Fixed missing areas near the 180th meridian, including Fiji and the Aleutians, and directions across it opening on the whole planet.
+- Maps: Street and terrain views recover from failed downloads, and a damaged map tile no longer blanks the whole street view.
+- Maps: City names stay more stable while the globe rotates. Search no longer repeats a city or misses a result when Enter is pressed before suggestions arrive.
+- Maps: Directions say when no route exists between two places. Printed routes keep your location marker in the right place.
+- Maps and radar: Corrected keyboard help and restored radar's `A` key for alerts. The mouse wheel moves through an open radar theme menu, and invalid `--zoom` values give a clear error.
+- Language: Fixed crashes and incorrectly ordered or unjoined letters in right-to-left place names and printed output.
+- Language: Thai text keeps its vowel and tone marks, and Chinese, Japanese, and Korean labels fit correctly. Map elevations and tide summaries follow the chosen language.
+- Language: Language selection respects `LC_ALL` and `LANGUAGE`, and saved settings accept codes such as `zh_Hant` and `es-419`.
+- Live views: Fixed footer flicker on mouse hover in tmux and inconsistent colors after a terminal theme change.
+- Live views: Ctrl-Z returns control to the shell, `fg` resumes the view, and Ctrl-C quits promptly during loading or printing. Pressing Esc while moving the mouse no longer moves the sky unexpectedly.
+- Location: Coordinates beginning with a minus sign work on Python 3.13 and older. Moon, sunshine, and sky can open with a saved location offline, place names remain available, and Canadian tides keep their last predictions.
+- Settings and storage: Setting commands leave unreadable configuration files intact and preserve links to files in a dotfiles repository. Old cached data is removed automatically to limit disk use.
+- Tools: `linecast link` explains when its destination is unwritable. `linecast doctor` now checks the airport reports and the weather alert service for your country.
 
 ## 2.9.3 — 2026-09-30
 

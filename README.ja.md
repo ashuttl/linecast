@@ -19,17 +19,17 @@
 
 ![Omarchyのデスクトップに並んだlinecast。メイン州ウェストブルックの天気とその一年、ポートランドのレーダー、日本語で表示した月、アイスランド語で表示したレイキャビクの一年の日照](screenshots/hero.png)
 
-linecastは、無料で公開されているデータを、macOS・Linux・Windowsで動く7つのターミナルアプリで見せます。どれもリアルタイムに更新され、マウスでも操作できます。依存パッケージのない純粋なPythonで書かれ、色はターミナルのテーマに従い、アカウントもAPIキーも要りません。SSH越しでも、tmuxの中でも、ターミナルが動くところならどこでも動きます。
+linecastは、無料で公開されているデータを使う、7つのターミナルアプリです。Pythonで書かれ、macOS・Linux・Windowsで動きます。どれもリアルタイムに更新され、マウスでも操作できます。色はターミナルのテーマに従い、アカウントもAPIキーも要りません。SSH越しでも、tmuxの中でも使えます。
 
 | コマンド | 表示するもの |
 | --- | --- |
-| `linecast weather` | 現在の天気、1時間ごとと7日間の予報、45か国の公式警報 |
+| `linecast weather` | 現在の天気と予報、45か国の公式警報、過去の天気を月・年で見る表示 |
 | `linecast sunshine` | 今日の太陽が空を渡る軌跡と、一年を通じた昼の長さ |
-| `linecast moon` | その場所から見た月。月の出と月の入りの時刻、次の満月と新月 |
-| `linecast sky` | 今いる場所から見た空。夜には、ターミナルのプラネタリウムが星、星座、惑星、月、天の川を映します |
-| `linecast tides` | 昼夜で陰影をつけた、スクロールできる潮汐曲線 |
-| `linecast radar` | 世界中の気象レーダーをアニメーション表示。警報、気温、風も文字の升目に描きます |
-| `linecast maps` | 街路地図、地形、そして今の昼夜と雲を映した回せる地球儀。地名検索と経路案内つき |
+| `linecast moon` | その場所から見た月相、月の出と月の入り、ひと月の暦 |
+| `linecast sky` | 星、星座、惑星、月、天の川を映すプラネタリウム |
+| `linecast tides` | 一日・ひと月・一年の潮汐と、その潮を動かすもの |
+| `linecast radar` | 世界中の気象レーダーをアニメーション表示 |
+| `linecast maps` | 街路地図、地形、経路案内、今の昼夜と雲を映した地球儀 |
 
 **[インストール](#インストール) · [使い方](#使い方) · [日本語で](#日本語で) · [設定](#設定) · [貢献するには](#貢献するには)**
 
@@ -63,12 +63,12 @@ curl -sL https://raw.githubusercontent.com/ashuttl/linecast/main/get.sh | sh
 
 これで `weather` が開きます。行末の `sh` を `sh -s sunshine` にすると別のツールが開き、`sh -s -- --metric` ならフラグを渡せます。
 
-パッケージマネージャーが使えないときや、linecastをファイルとして持ち歩きたいときのために、各[リリース](https://github.com/ashuttl/linecast/releases/latest)にはlinecast全体を1つにまとめたファイル `linecast.pyz` も付いています。ただ、パッケージマネージャーが使えるならそちらをおすすめします。linecastを自動で最新に保ってくれるからです。このファイルは、新しいリリースが出たことを週に1回知らせるだけです。`chmod +x linecast.pyz` で実行できるようにしてから `./linecast.pyz weather` のように実行するか、名前を `linecast` に変えてPATHの通ったディレクトリに置いてください。Python 3.10以降が必要です。
+ファイルとして持ち歩くなら、最新の[リリース](https://github.com/ashuttl/linecast/releases/latest)から `linecast.pyz` をダウンロードし、`python3 linecast.pyz weather` で実行できます。macOSやLinuxでは、`chmod +x linecast.pyz` で実行可能にし、`linecast` に改名してPATHの通ったディレクトリに置くこともできます。新しいリリースは週に1回確認します。更新も管理したい場合は、パッケージマネージャーを使ってください。
 
 <details>
 <summary><strong>Windowsでは</strong></summary>
 
-Windows Terminalを使ってください。Git Bashとminttyは、linecastからはターミナルではなくパイプに見えるため、静止した出力になります。Windowsではインストール時に2つのパッケージが加わります。Windowsに独自のタイムゾーンデータベースがないための `tzdata` と、TLSにWindowsが信頼する証明書を使わせるための `truststore` です。アイコンは絵文字ですが、Nerd Fontを設定していれば `linecast icons nerd` でフルセットに切り替わります。
+Windows Terminalを使ってください。Git Bashとminttyでは、リアルタイム表示ではなく静止した出力になります。アイコンは絵文字ですが、Nerd Fontを設定していれば `linecast icons nerd` で切り替えられます。
 
 </details>
 
@@ -90,13 +90,15 @@ linecast maps --from "477 congress street 04101" --to "portland head light" --pr
 linecast maps --view now
 ```
 
-`--print` を付けると、更新し続ける表示の代わりに静止した1フレームを出力します。weather、sunshine、moon、sky、tidesには、生データを出す `--json` と、ステータスバー用の `--oneline` もあります。`linecast weather --prose` は、選んだ言語と単位で予報の文章だけを出力します。
+`--print` を付けると、静止した1フレームを出力します。weather、sunshine、moon、sky、tidesには、生データを出す `--json` と、ステータスバー用の `--oneline` もあります。`linecast weather --prose` は予報の文章を出力し、`--oneline` を加えると、その前に現在の天気を1行で添えます。
 
-シェル起動時の表示には、例えば `linecast moon --width 80 --height 20` や `linecast weather --width 100% --height 50%` を使えます。`--width` と `--height` は描画に使う領域を文字の列数・行数、または端末サイズに対する割合で指定し、`--print` も有効にします。単位の混在や片方だけの指定も可能です。各ビューの最小サイズとプロンプト用の余白は維持されます。詳しくは[描画サイズの設定](docs/configuration.md#print-sizing)（英語）をご覧ください。
+シェル起動時の表示には、例えば `linecast moon --width 80 --height 20` や `linecast weather --width 100% --height 50%` を使えます。サイズは文字の列数・行数、または端末サイズに対する割合で指定し、`--print` も有効にします。詳しくは[表示サイズの設定](docs/configuration.md#print-sizing)（英語）をご覧ください。
 
-`weather` では `v` で予報、月表示、年表示を切り替えます。月表示は前の暦月から始まり、縦に日、横に時刻を並べて、1時間ごとの気温と日の出・日の入りを描きます。`c` で気温と過去10年の同じ日・時刻の平均からの偏差を切り替え、ホバーで数値を確認できます。矢印キーやスクロールで過去10年と今年をたどり、スペースか `n` で前の暦月に戻ります。時間別の履歴は初めて表示するときに読み込み、キャッシュに保存します。`r` で再読み込みできます。年表示では各日の最高・最低気温と月ごとの降水量を過去10年と比較し、`c` で配色を切り替えます。詳しくは[月表示の説明](docs/weather-month.md)（英語）をご覧ください。
+`weather` では `v` で予報、月表示、年表示を切り替えます。月表示は先月から始まり、縦に日、横に時刻を並べて、1時間ごとの気温と日の出・日の入りを描きます。`c` で過去10年の平均との比較に切り替え、ポインタを合わせると数値を確認できます。矢印キーやスクロールで過去10年と今年をたどり、スペースか `n` で先月に戻ります。詳しくは[月表示の説明](docs/weather-month.md)（英語）をご覧ください。
 
-`linecast weather --month`（または `--month-temperature`）で気温の月表示、`--month-departure` で偏差の月表示、`--year` で年表示を直接開けます。`--print` との併用もできます。これらの表示は `--json`、`--oneline`、`--prose` とは併用できません。
+`linecast weather --month` で気温の月表示、`--month-departure` で平均との比較を直接開けます。`--year` は各日の最高・最低気温と月ごとの降水量を過去10年と比較し、`c` で配色を切り替えます。月・年表示や潮汐の `--makeup` は `--print` と併用できますが、`--json`、`--oneline`、`--prose` には対応していません。
+
+moon、sunshine、mapsでは `t` で周囲の文字を隠し、`--no-text` でその状態から開けます。sunshineは場所と時刻を残し、mapsは十字マークも隠します。`linecast maps --view now` は昼夜と雲を映した地球儀を、文字と地名を隠してゆっくり回します。`r` で回転を止めたり再開したりできます。
 
 linecastは色をターミナルの配色から取ります。アプリを開いたまま配色を変えると、アプリは新しい色で描き直されます。これは同じデスクトップを、Omarchyの10のテーマで順に表示したものです:
 
@@ -116,7 +118,9 @@ linecast weather --lang ja      # 今回だけ
 export LINECAST_LANG=ja         # 環境変数で。保存した設定より優先されます
 ```
 
-`weather` の警報は日本では気象庁から届き、画面の下の行にその名が出ます。`moon` は月相のとなりに旧暦の日付を添え、旧暦の日付に応じて、その夜を十六夜、立待月、居待月、寝待月、更待月などの名で呼び、今の二十四節気と、次の節気を迎える日、次の十五夜までの日数を示します。`v` を押すか、`--month` を付けて開くと、ひと月の月相が暦になり、十五夜などの行事がその日に記されます。`sunshine --hours japanese` は、常用時のとなりに江戸の不定時法で一日を読みます。`tides` も日本では気象庁の潮位表を使います。`v` を押すたびに、ひと月、一年、そしてその場所の潮を動かすものへと表示が切り替わります。
+日本では、`weather` の警報も `tides` の潮位表も気象庁から届きます。潮汐は `v` でひと月、一年、その場所の潮を動かすものへと切り替わり、`--month`、`--year`、`--makeup` で直接開けます。ひと月の表示では昼間の最も低い潮を探せます。一年と潮を動かすものの表示には、通年の予測がある観測点が必要です。
+
+`moon` は月相に旧暦の日付を添え、その夜を十六夜、立待月、居待月、寝待月、更待月などの名で呼びます。今の二十四節気、次の節気を迎える日、次の十五夜までの日数も示します。`v` を押すか `--month` で開くと、ひと月の月相と十五夜などの行事を暦で見られます。`sunshine --hours japanese` は、通常の時刻のとなりに江戸の不定時法を表示します。
 
 <p align="center">
   <img src="screenshots/weather-kyoto.png" width="49%" alt="京都の天気、日本語で">
@@ -134,7 +138,7 @@ export LINECAST_LANG=ja         # 環境変数で。保存した設定より優�
 | 設定 | 値 | 今回だけ |
 | --- | --- | --- |
 | `linecast location` | `set "Kyoto"`、`set 35.01,135.77`、`search 地名` | `--location` |
-| `linecast language` | [31の言語](docs/languages.md)のいずれか | `--lang` |
+| `linecast language` | [対応言語](docs/languages.md)のいずれか | `--lang` |
 | `linecast units` | `metric`、`imperial` | `--metric`、`--imperial` |
 | `linecast clock` | `12`、`24` | `--12h`、`--24h` |
 | `linecast week` | `monday`、`sunday`、`saturday` | `--week-start` |
@@ -151,7 +155,7 @@ export LINECAST_LANG=ja         # 環境変数で。保存した設定より優�
 
 場所を保存しないと、linecastはIPアドレスから場所を推定します。VPNやSSH越しでは大きくずれることがあります。
 
-ペルシア語、ヘブライ語（`he`）、アラビア語（`ar`）のサポートは試験的です。ペルシア語の右から左への描画はGhostty、Alacritty、footで確認済みですが、macOSのターミナルとiTerm2ではうまく表示されません。ヘブライ語とアラビア語も同じ描画を使い、翻訳は母語話者による確認を待っています。詳しくは[docs/languages.md](docs/languages.md#persian-and-right-to-left-text)をご覧ください。
+ペルシア語（`fa`）、ヘブライ語（`he`）、アラビア語（`ar`）は試験的で、母語話者による確認を待っています。ペルシア語はGhostty、Alacritty、footで確認済みですが、macOSのターミナルとiTerm2ではうまく表示されません。ヘブライ語とアラビア語は、各ターミナルでの確認も必要です。詳しくは[言語の説明](docs/languages.md#persian-and-right-to-left-text)（英語）をご覧ください。
 
 暦は[docs/calendars.md](docs/calendars.md)、時刻法は[docs/hours.md](docs/hours.md)、星空の伝統は[docs/cultures.md](docs/cultures.md)、環境変数は[docs/configuration.md](docs/configuration.md)、データの出典とクレジットは[docs/sources.md](docs/sources.md)にあります（いずれも英語）。
 

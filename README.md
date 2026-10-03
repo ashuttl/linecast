@@ -17,15 +17,15 @@ English | [日本語](README.ja.md)
 
 ![linecast tiled on an Omarchy desktop: the weather in Westbrook, Maine, and its year so far, the radar over Portland, the Moon in Japanese, and a year of daylight in Reykjavík in Icelandic](screenshots/hero.png)
 
-Seven live terminal apps built on free public data. Pure Python, no dependencies, no accounts or API keys. Colors come from your terminal theme, and the mouse works. Runs on macOS, Linux, and Windows, over SSH, and in tmux.
+Seven live terminal apps built on free public data. Pure Python, no accounts or API keys required. Colors come from your terminal theme, and the mouse works. Runs on macOS, Linux, and Windows, over SSH, and in tmux.
 
 | Command | Shows |
 | --- | --- |
-| `linecast weather` | Current conditions, hourly and seven-day forecasts, and official alerts for 45 countries |
+| `linecast weather` | Current conditions and forecasts, official alerts for 45 countries, and month and year views of past weather |
 | `linecast sunshine` | The sun's path today, and daylight through the year |
 | `linecast moon` | The Moon's phase as you see it, with rise, set, and a month calendar |
 | `linecast sky` | A planetarium: stars, constellations, planets, and the Milky Way over you |
-| `linecast tides` | A tide curve for the nearest station |
+| `linecast tides` | Local tides through the day, month, and year, and what moves them |
 | `linecast radar` | Animated weather radar for the whole world |
 | `linecast maps` | Street maps, terrain, directions, and a globe with live daylight and clouds |
 
@@ -42,13 +42,13 @@ curl -sL https://raw.githubusercontent.com/ashuttl/linecast/main/get.sh | sh   #
 
 `pipx` and `pip` work too, and there are community packages in the [AUR](https://aur.archlinux.org/packages/linecast) and [nixpkgs](https://search.nixos.org/packages?channel=unstable&show=linecast). linecast needs Python 3.10 or newer. On Windows, use Windows Terminal.
 
-If you can't use a package manager, or would rather carry linecast around as a file, each [release](https://github.com/ashuttl/linecast/releases/latest) also has all of it in one file, `linecast.pyz`. A package manager is the better choice where you have one, because it keeps linecast up to date for you; the file only tells you, once a week, when there's a newer release. Make it executable with `chmod +x linecast.pyz` and run `./linecast.pyz weather`, or rename it `linecast` and put it on your PATH. It needs Python 3.10 or newer.
+For a portable copy, download `linecast.pyz` from the latest [release](https://github.com/ashuttl/linecast/releases/latest) and run `python3 linecast.pyz weather`. On macOS or Linux, you can also make it executable with `chmod +x linecast.pyz` and put it on your PATH as `linecast`. It checks weekly for a newer release; use a package manager if you want it to manage updates.
 
 ## Using it
 
-Every command opens live. Press `?` for the keys. Add `--print` for one static frame, `--json` for raw data, or `--oneline` for a status bar. `linecast weather --prose` prints just the forecast paragraph, in your chosen language and units. Combine `--oneline` and `--prose` in either order to print the one-line summary followed by the forecast paragraph.
+Every command opens live. Press `?` for the keys, or add `--print` for one static frame. Weather, sunshine, moon, sky, and tides also offer `--json` for raw data and `--oneline` for a status bar. `linecast weather --prose` prints the forecast paragraph; add `--oneline` to include the current conditions above it.
 
-For a shell startup greeting, use `linecast moon --width 80 --height 20`, or `linecast weather --width 100% --height 50%`. `--width` and `--height` set the rendering viewport in character columns and rows, or as percentages of the terminal, and imply `--print`. You can mix units or set just one dimension. Views keep their usual minimum sizes and prompt space; see [print sizing](docs/configuration.md#print-sizing) for details.
+For a shell startup greeting, try `linecast moon --width 80 --height 20` or `linecast weather --width 100% --height 50%`. Sizes are in columns and rows, or percentages of the terminal, and imply `--print`. See [print sizing](docs/configuration.md#print-sizing) for details.
 
 ```sh
 linecast weather --location "quebec"
@@ -58,7 +58,7 @@ linecast maps --from "portland, maine" --to "portland head light" --profile bike
 linecast maps --view now
 ```
 
-Open weather's alternate views directly with `linecast weather --month` (also `--month-temperature`), `--month-departure`, or `--year`. For the other apps, use `linecast sunshine --year`, `linecast moon --month`, or `linecast tides --month`, `--year`, or `--makeup`. These flags also work with `--print`; `--json`, `--oneline`, and weather's `--prose` describe the current conditions and forecast and cannot be combined with an alternate view.
+Month, year, and tide makeup views also work with `--print`. They have no `--json`, `--oneline`, or `--prose` output.
 
 linecast takes its colors from your terminal's color scheme. If you change the scheme while an app is open, the app redraws itself in the new colors. This is the same desktop through ten Omarchy themes:
 
@@ -74,9 +74,11 @@ The [gallery](docs/gallery.md) shows each one in more of its states.
 
 An hourly chart on the scale of a typical year where you are, so a mild day looks mild, with a forecast in words. Click an alert to read it. Press `v` to cycle through the forecast, month, and year views.
 
-The month opens on the previous calendar month, with days down the chart and hours across it. Sunrise and sunset trace the changing daylight. Press `c` to switch between temperature and departure from the ten-year average for that date and hour; hover for the numbers. Scroll or use the arrows to browse the last ten years and the current year so far; space or `n` returns to the previous calendar month. The hourly archive loads when you first open the view and is cached for later visits. Open it directly with `--month` or `--month-temperature`, or start with the comparison using `--month-departure`. See [the month view](docs/weather-month.md) for how to read it.
+The month shows hourly temperatures, with days down the chart and hours across it. Sunrise and sunset trace the changing daylight. Press `c` to compare each hour with the ten-year average, and hover for the numbers. Open it with `--month`, or start with the comparison using `--month-departure`.
 
-The year so far, [après Tufte](https://www.edwardtufte.com/notebook/new-york-city-weather-chart/), shows each day's high and low against the last ten years, and each month's precipitation against its average. Press `c` to change the chart's colors. The first highlights where the temperature went above or below the average, the second uses the temperature colors from the main weather view, and the third is plain.
+It opens on the previous calendar month. Scroll or use the arrows to browse the past ten years and the current year so far; space or `n` returns to the previous calendar month. See [the month view](docs/weather-month.md) for how to read it.
+
+The year so far, [après Tufte](https://www.edwardtufte.com/notebook/new-york-city-weather-chart/), shows each day's high and low against the last ten years, and each month's precipitation against its average. Open it with `--year`. Press `c` to switch between comparison colors, temperature colors, and plain.
 
 ![weather dashboard](screenshots/weather.png)
 
@@ -149,18 +151,18 @@ Press `-` a few times and the view lies back until the horizon closes into a cir
 
 ### Tides
 
-National tide services in the US, Canada, Queensland, Hong Kong, Japan, and Norway; 1,215 tide gauges elsewhere, predicted on your computer from their harmonic constants; and a global model beyond them. `--nearby` lists stations.
+Tides from national and regional services in the US, Canada, Queensland, Hong Kong, Japan, and Norway, with about 1,200 additional gauges and global predictions elsewhere. `--nearby` lists stations.
 
 ![tide chart](screenshots/tides.png)
 
-Press `v` for the month, with a row for each day and the hours across, and again for the year, where what the gauge measured is drawn over what was predicted. Open directly with `linecast tides --month` or `linecast tides --year`:
+Press `v` for the month, showing the tides through each day and the lowest low water in daylight. Press it again for the year, comparing predictions with measured water levels where available. Open directly with `linecast tides --month` or `linecast tides --year`:
 
 <p align="center">
   <img src="screenshots/tides-month.png" width="49%" alt="October 2026 at Portland, Maine: the high water as two slanting bands a day, sunrise and sunset as dotted lines down the month, and each day's lowest low water in daylight at the right">
   <img src="screenshots/tides-year.png" width="49%" alt="2026 at Portland, Maine: each day's predicted range as a band, the gauge's highest and lowest water traced over it, and the pointer on the middle of June, where the water measured 12.4 feet and passed the flood stage">
 </p>
 
-Press `v` once more, or start with `linecast tides --makeup`, to see what moves the tide at that place: how much of it comes twice a day and how much once a day, what causes each part, and how each changes through the month, the year, and nineteen years of the Moon's long cycle. The year and makeup views require a source with year-round predictions. [About the tides](docs/tides.md) explains what it shows.
+Press `v` once more, or start with `linecast tides --makeup`, to see what moves the tide: how the Sun and Moon shape its daily rhythm through the month, the year, and the Moon's long cycle. The year and makeup views require a source with year-round predictions. [About the tides](docs/tides.md) explains what it shows.
 
 ![what moves the tide at Portland, Maine: a table of five causes and the height of each, beside strips for the twice-a-day and once-a-day parts through October 2026, the year 2026, and 2016 to 2034](screenshots/tides-makeup.png)
 
@@ -172,7 +174,7 @@ The last hour and the next, with US warnings on top. `S` switches to satellite, 
 
 ### Maps
 
-Streets or terrain; press `v` to switch, `/` to search, `D` for directions. Zoom out to the globe, and press `S` for daylight and `c` for clouds. Press `t` to hide the header and footer and fill the terminal with the map; `--no-text` starts that way. `l` toggles map labels independently.
+Streets or terrain; press `v` to switch, `/` to search, `D` for directions. Zoom out to the globe, and press `S` for daylight and `c` for clouds. Press `t` to hide the header, footer, and crosshairs and fill the terminal with the map; `--no-text` starts that way. `l` toggles map labels independently.
 
 `linecast maps --view now` opens a full-terminal globe with daylight and clouds, text and labels hidden, slowly rotating. Press `t` to restore the header and footer, `l` for labels, or `r` to stop or resume rotation.
 
@@ -203,7 +205,7 @@ Run a setting alone to see it, with a value to save it, or with `auto` to reset 
 | Setting | Values | For one run |
 | --- | --- | --- |
 | `linecast location` | `set "Portland, Maine"`, `set 44.54,-68.42`, `search NAME` | `--location` |
-| `linecast language` | one of [31 languages](docs/languages.md) | `--lang` |
+| `linecast language` | one of the [supported languages](docs/languages.md) | `--lang` |
 | `linecast units` | `metric`, `imperial` | `--metric`, `--imperial` |
 | `linecast clock` | `12`, `24` | `--12h`, `--24h` |
 | `linecast week` | `monday`, `sunday`, `saturday` | `--week-start` |
@@ -220,7 +222,7 @@ The same apps in other languages and traditions: the weather in Montréal in Can
 
 Without a saved location, linecast guesses from your IP address, which can be far off on a VPN or over SSH.
 
-Persian, Hebrew (`he`), and Arabic (`ar`) are experimental. The Persian RTL rendering has been tested in Ghostty, Alacritty, and foot, but does not work well in the Mac's Terminal or iTerm2. Hebrew and Arabic use the same rendering and still need native-speaker review. See [docs/languages.md](docs/languages.md#persian-and-right-to-left-text).
+Persian (`fa`), Hebrew (`he`), and Arabic (`ar`) are experimental and need native-speaker review. Persian has been tested in Ghostty, Alacritty, and foot, but does not display well in the Mac's Terminal or iTerm2. Hebrew and Arabic still need testing across terminals. See [languages](docs/languages.md#persian-and-right-to-left-text) for details.
 
 Environment variables, and the optional TideCheck key for more tide stations, are in [docs/configuration.md](docs/configuration.md), and data sources and credits in [docs/sources.md](docs/sources.md).
 
