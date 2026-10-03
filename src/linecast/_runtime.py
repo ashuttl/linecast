@@ -404,6 +404,8 @@ class RuntimeConfig:
     metric: bool = True      # resolved units, every command
     use_24h: bool = True     # resolved clock, every command
     week_start: str = "monday"  # resolved first day of the week
+    width: str | None = None   # print viewport: cells or percentage
+    height: str | None = None
 
     # the parser whose defaults stand in before a main() has run
     _parser = staticmethod(lambda: _base_parser("linecast", ""))
@@ -437,6 +439,8 @@ class RuntimeConfig:
             metric=units == "metric",
             use_24h=clock == "24",
             week_start=week_start,
+            width=namespace.width,
+            height=namespace.height,
         )
 
     @classmethod
@@ -474,6 +478,8 @@ class WeatherRuntime(RuntimeConfig):
             metric=base.metric,
             use_24h=base.use_24h,
             week_start=base.week_start,
+            width=base.width,
+            height=base.height,
             shading=(not namespace.no_shading
                      and not env_truthy(env.get("WEATHER_NO_SHADING", ""))),
             json_mode=base.json_mode,
@@ -526,6 +532,26 @@ class TidesRuntime(RuntimeConfig):
 # The running command's runtime
 # ---------------------------------------------------------------------------
 _current = None
+
+
+def print_viewport(size):
+    """Apply the running command's print dimensions to an observed size.
+
+    Resolve against the original terminal each time, so rebuilding a
+    runtime after locating the user never compounds percentages.
+    """
+    if _current is None or _current.live:
+        return size
+
+    def resolve(value, observed):
+        if value is None:
+            return observed
+        if value.endswith("%"):
+            return max(1, int(observed * float(value[:-1]) / 100))
+        return int(value)
+
+    return os.terminal_size((resolve(_current.width, size[0]),
+                             resolve(_current.height, size[1])))
 
 
 def set_current(runtime):

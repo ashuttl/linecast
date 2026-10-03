@@ -8,6 +8,8 @@ Tides gain month and year views, a look at what moves the tide, and coverage fro
 
 New this version:
 
+- Print: Added `--width` and `--height` to size a static view in character cells or percentages of the terminal, including for shell startup greetings.
+
 - Maps: `t` now hides the center and location crosshairs along with the header and footer.
 
 - Languages: Added experimental Hebrew and Modern Standard Arabic translations, using the right-to-left layout introduced for Persian. All three remain experimental.

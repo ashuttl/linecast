@@ -6,6 +6,20 @@ Not every environment variable has a saved setting. The ones that do say what th
 
 Cached data lives in `~/Library/Caches/linecast` on macOS and `~/.cache/linecast` elsewhere. Both paths honor the `XDG_*` variables, and `LINECAST_CACHE_DIR` and `LINECAST_CONFIG_DIR` override everything.
 
+## Print sizing
+
+Every view accepts `--width` and `--height` for a static rendering at a chosen terminal viewport size. Either flag implies `--print`, including when `--live` is present. They work with alternate views such as `moon --month` and `weather --year`, but cannot be combined with `--json` or `--oneline`.
+
+```sh
+linecast moon --width 80 --height 20
+linecast weather --width 100% --height 50%
+linecast sunshine --width 80 --height 37.5%
+```
+
+Bare numbers are positive whole character columns or rows. Percentages may include decimals and must be above 0 and at most 100. Width percentages use the observed terminal width; height percentages use its height. Results round down to whole cells, with a minimum of one. An omitted dimension uses the terminal's corresponding dimension. `COLUMNS` and `LINES` override the observed size before percentages are applied; when a dimension cannot be detected, its fallback is 80 columns or 24 rows. The flags do not change these environment variables or resize the terminal window.
+
+The dimensions describe the viewport offered to the renderer, rather than an exact output rectangle. Views keep their usual minimum sizes and space for the prompt. Very small dimensions can therefore produce a larger frame, and output wider than the physical terminal may be clipped when printed to it.
+
 ## Environment variables
 
 ### Settings

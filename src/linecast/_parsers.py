@@ -10,6 +10,7 @@ command.  Nothing imports this module until a command parses its
 arguments, so `linecast` alone loads no argparse."""
 
 import argparse
+import re
 import sys
 
 from linecast import _config
@@ -53,6 +54,28 @@ def zoom_degrees(text):
     return value
 
 
+def print_dimension(text):
+    """A positive cell count or a percentage of the terminal dimension."""
+    if re.fullmatch(r"[0-9]+", text) and int(text) > 0:
+        return text
+    if (re.fullmatch(r"[0-9]+(?:\.[0-9]+)?%", text)
+            and 0 < float(text[:-1]) <= 100):
+        return text
+    raise argparse.ArgumentTypeError("expected a positive cell count or percentage (0 < % <= 100)")
+
+
+class ViewParser(parser_class()):
+    """Shared view flags, including output modes implied by sizing."""
+
+    def parse_args(self, args=None, namespace=None):
+        ns = super().parse_args(args, namespace)
+        if ns.width is not None or ns.height is not None:
+            if ns.oneline or ns.json_mode:
+                self.error("--width and --height size a view; cannot use with --oneline or --json")
+            ns.print_mode = True
+        return ns
+
+
 def _base_parser(prog, description, units=None, clock=False, json=False,
                  temperature_scale=False, oneline=True,
                  location_help="location as 'lat,lng' or place name"):
@@ -67,10 +90,10 @@ def _base_parser(prog, description, units=None, clock=False, json=False,
     --12h; *json* adds --json to the output section; *oneline* offers
     --oneline, for the views that have a line to give.
     """
-    p = parser_class()(prog=prog, usage="%(prog)s [options]",
-                       description=description, add_help=False,
-                       formatter_class=formatter_class(),
-                       epilog="In a live view, press ? for controls; Esc closes help.")
+    p = ViewParser(prog=prog, usage="%(prog)s [options]",
+                   description=description, add_help=False,
+                   formatter_class=formatter_class(),
+                   epilog="In a live view, press ? for controls; Esc closes help.")
     title = {(True, True): "units, clock, and language",
              (True, False): "units and language",
              (False, True): "clock and language",
@@ -114,6 +137,12 @@ def _base_parser(prog, description, units=None, clock=False, json=False,
     output = p.add_argument_group("output")
     output.add_argument("--print", dest="print_mode", action="store_true",
                         help="print once, instead of the live view")
+    output.add_argument("--width", type=print_dimension, metavar="COLS|PERCENT%",
+                        help="rendering width in cells or terminal percentage, e.g. 80 or 50%% "
+                             "(implies --print)")
+    output.add_argument("--height", type=print_dimension, metavar="ROWS|PERCENT%",
+                        help="rendering height in cells or terminal percentage, e.g. 24 or 50%% "
+                             "(implies --print)")
     # live is the default in a terminal; the flag is still taken
     output.add_argument("--live", action="store_true", help=argparse.SUPPRESS)
     if oneline:

@@ -28,16 +28,18 @@ def halfblock(top, bot):
 
 
 def get_terminal_size(fallback=(80, 24)):
-    """Terminal size, honouring $COLUMNS/$LINES overrides.
+    """Rendering size, honouring $COLUMNS/$LINES and print dimensions.
 
     shutil.get_terminal_size consults the env vars before the tty ioctl,
     which is what status-bar and tmux-pane captures expect; bare
     os.get_terminal_size ignores them.
     """
+    from linecast._runtime import print_viewport
     try:
-        return shutil.get_terminal_size(fallback)
+        size = shutil.get_terminal_size(fallback)
     except (OSError, ValueError):
-        return os.terminal_size(fallback)
+        size = os.terminal_size(fallback)
+    return print_viewport(size)
 
 
 def cell_aspect(fallback=2.0):

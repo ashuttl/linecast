@@ -48,6 +48,8 @@ If you can't use a package manager, or would rather carry linecast around as a f
 
 Every command opens live. Press `?` for the keys. Add `--print` for one static frame, `--json` for raw data, or `--oneline` for a status bar.
 
+For a shell startup greeting, use `linecast moon --width 80 --height 20`, or `linecast weather --width 100% --height 50%`. `--width` and `--height` set the rendering viewport in character columns and rows, or as percentages of the terminal, and imply `--print`. You can mix units or set just one dimension. Views keep their usual minimum sizes and prompt space; see [print sizing](docs/configuration.md#print-sizing) for details.
+
 ```sh
 linecast weather --location "quebec"
 linecast sky --culture hawaiian

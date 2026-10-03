@@ -92,6 +92,8 @@ linecast maps --view now
 
 `--print` を付けると、更新し続ける表示の代わりに静止した1フレームを出力します。weather、sunshine、moon、sky、tidesには、生データを出す `--json` と、ステータスバー用の `--oneline` もあります。
 
+シェル起動時の表示には、例えば `linecast moon --width 80 --height 20` や `linecast weather --width 100% --height 50%` を使えます。`--width` と `--height` は描画に使う領域を文字の列数・行数、または端末サイズに対する割合で指定し、`--print` も有効にします。単位の混在や片方だけの指定も可能です。各ビューの最小サイズとプロンプト用の余白は維持されます。詳しくは[描画サイズの設定](docs/configuration.md#print-sizing)（英語）をご覧ください。
+
 linecastは色をターミナルの配色から取ります。アプリを開いたまま配色を変えると、アプリは新しい色で描き直されます。これは同じデスクトップを、Omarchyの10のテーマで順に表示したものです:
 
 ![同じデスクトップを、明るいものと暗いものを含むOmarchyの10のテーマで。テーマが変わるたびに、各アプリが新しい色で描き直される](screenshots/themes.gif)
