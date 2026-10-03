@@ -287,7 +287,7 @@ class TestWeatherYearSnapshot:
 
 class TestTidesSnapshot:
     def test_tides_80x24(self):
-        from datetime import timedelta
+        from datetime import timedelta, timezone
         from linecast._runtime import TidesRuntime
         from linecast.tides import view as tides
         from linecast.tides.providers import NOAA
@@ -305,8 +305,12 @@ class TestTidesSnapshot:
                 if (v > a and v >= b) or (v < a and v <= b)]
         runtime = TidesRuntime(live=False, icons="emoji", lang="en", metric=False,
                                oneline=False)
-        with patch.object(tides, "_station_now", return_value=datetime(2026, 3, 5, 14, 30)), \
+        # The header reads UTC directly for the Moon's phase, separately
+        # from the chart's station clock. Pin both to March 5 in Portland.
+        with patch.object(tides, "datetime", wraps=datetime) as clock, \
+             patch.object(tides, "_station_now", return_value=FIXED_NOW), \
              patch.object(tides, "get_terminal_size", return_value=(80, 24)):
+            clock.now.return_value = datetime(2026, 3, 5, 19, 30, tzinfo=timezone.utc)
             output = tides.render("8418150", "Portland, ME", runtime=runtime,
                                   predictions=preds, hilo=hilo, y_range=(-0.8, 10.4),
                                   provider=NOAA)
