@@ -78,8 +78,6 @@ The month shows hourly temperatures, with days down the chart and hours across i
 
 It opens on the previous calendar month. Scroll or use the arrows to browse the past ten years and the current year so far; space or `n` returns to the previous calendar month. See [the month view](docs/weather-month.md) for how to read it.
 
-The year so far, [après Tufte](https://www.edwardtufte.com/notebook/new-york-city-weather-chart/), shows each day's high and low against the last ten years, and each month's precipitation against its average. Open it with `--year`. Press `c` to switch between comparison colors, temperature colors, and plain.
-
 ![weather dashboard](screenshots/weather.png)
 
 Reykjavík in Icelandic, and Kyoto in Japanese:
@@ -89,7 +87,9 @@ Reykjavík in Icelandic, and Kyoto in Japanese:
   <img src="screenshots/weather-kyoto.png" width="49%" alt="the weather in Kyoto, in Japanese">
 </p>
 
-The year view for Westbrook, Maine, with the pointer on a week in May:
+The year so far, [après Tufte](https://www.edwardtufte.com/notebook/new-york-city-weather-chart/), shows each day's high and low against the last ten years, and each month's precipitation against its average. Open it with `--year`. Press `c` to switch between comparison colors, temperature colors, and plain.
+
+The year view for Westbrook, Maine:
 
 ![the weather year view for Westbrook, Maine, with the chip for a week in May](screenshots/weather-year.png)
 
