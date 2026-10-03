@@ -18,6 +18,7 @@ from linecast.terminal.theme import (
 
 def _rebuild():
     global CURVE_COLOR, NOW_LINE_COLOR, HOVER_COLOR, DIM_RGB, MUTED_RGB
+    global TIP_DIM_RGB
     global TEXT_RGB, PILL_BG_RGB, PILL_FG_RGB, NOW_PILL_RGB, NOW_PILL_TEXT_RGB
     global DIM, NIGHT_DIM, MOON_RISE_RGB, MOON_SET_RGB, TIP_BG_RGB, TIP_TEXT_RGB
     CURVE_COLOR = ensure_contrast(
@@ -47,7 +48,7 @@ def _rebuild():
                  _theme.theme_ansi[5], 0.35),
         minimum=2.0,
     )
-    TIP_BG_RGB, TIP_TEXT_RGB, _dim = _theme.chip_inks()
+    TIP_BG_RGB, TIP_TEXT_RGB, TIP_DIM_RGB = _theme.chip_inks()
     DIM = fg(*DIM_RGB)
     NIGHT_DIM = 0.6 if not is_light_theme() else 0.78
 

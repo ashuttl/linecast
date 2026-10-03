@@ -38,19 +38,19 @@ class TestPointerChip:
 
     def test_sits_below_the_pointer_with_a_clear_row(self):
         pos = self._rows_cols(_live.pointer_chip(["a", "bb"], 10, 5, 80, 24))
-        assert pos == [(7, 10), (8, 10)]
+        assert pos == [(7, 10), (8, 10), (9, 11)]
 
     def test_flips_above_when_there_is_no_room_below(self):
         pos = self._rows_cols(_live.pointer_chip(["a", "bb"], 10, 22, 80, 24))
-        assert pos == [(20, 10), (21, 10)]
+        assert pos == [(20, 10), (21, 10), (19, 11)]
 
     def test_slides_inward_at_the_right_edge(self):
         pos = self._rows_cols(_live.pointer_chip(["abcd"], 79, 5, 80, 24))
-        assert pos == [(7, 77)]
+        assert pos == [(7, 76), (8, 76)]
 
     def test_flip_at_ends_the_chip_left_of_the_anchor(self):
         pos = self._rows_cols(_live.pointer_chip(["abcd"], 79, 5, 80, 24, flip_at=78))
-        assert pos == [(7, 74)]
+        assert pos == [(7, 73), (8, 73)]
 
     def test_pads_to_one_width_with_the_fill(self):
         out = _live.pointer_chip(["a", "bb"], 10, 5, 80, 24, pad_bg="<BG>")
@@ -58,6 +58,32 @@ class TestPointerChip:
 
     def test_nothing_from_no_lines(self):
         assert _live.pointer_chip([], 10, 5, 80, 24) == ""
+
+    def test_thin_shadow_and_uneven_lines(self):
+        out = _live.pointer_chip(["abc", "d"], 10, 5, 80, 24)
+        assert plain_text(out) == "abc▄d  █▀▀▀"
+
+    def test_styled_text_survives_width_measurement(self):
+        from linecast.terminal.color import bg, fg
+        ink = bg(20, 20, 30) + fg(180, 190, 210)
+        out = _live.pointer_chip([ink + " 15:42 ", ink + " Wed Oct 21  2.9′ "],
+                                 10, 5, 80, 24)
+        assert "15:42" in plain_text(out)
+        assert "Wed Oct 21  2.9′" in plain_text(out)
+        assert ink in out
+
+    def test_shadow_fits_at_bottom_and_right(self):
+        out = _live.pointer_chip(["abc", "def"], 80, 24, 80, 24)
+        assert self._rows_cols(out) == [(22, 77), (23, 77), (21, 77)]
+
+    def test_tiny_screen_preserves_text_without_shadow(self):
+        out = _live.pointer_chip(["ab", "cd"], 1, 1, 1, 1)
+        assert self._rows_cols(out) == [(1, 1)]
+        assert plain_text(out) == "a"
+
+    def test_clips_wide_text_to_leave_room_for_shadow(self):
+        out = _live.pointer_chip(["日本語"], 1, 1, 5, 4)
+        assert plain_text(out) == "日本▄▀▀▀▀"
 
 
 class TestMenuBox:

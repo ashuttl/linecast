@@ -462,3 +462,15 @@ def test_live_loop_re_inks_when_the_terminal_changes(tmp_path):
         os.close(master)
     assert "BG (18, 18, 24)" in seen, (seen, errbuf)
     assert "BG (250, 250, 248)" in seen, (seen, errbuf)
+
+
+@pytest.mark.parametrize("background,foreground", [
+    ((28, 28, 38), (180, 185, 210)),
+    ((250, 250, 248), (35, 35, 40)),
+])
+def test_chip_text_contrast(background, foreground, monkeypatch):
+    monkeypatch.setattr(_theme, "theme_bg", background)
+    monkeypatch.setattr(_theme, "theme_fg", foreground)
+    surface, text, secondary = _theme.chip_inks()
+    assert _theme.contrast_ratio(text, surface) >= 4.5
+    assert _theme.contrast_ratio(secondary, surface) >= 4.5

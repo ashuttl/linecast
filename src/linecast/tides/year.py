@@ -301,7 +301,7 @@ def _tooltip(span, predicted, observed, observed_name, runtime, col, mouse_row, 
     from linecast.moon.i18n import _fmt_month_day
     tbg = bg(*_palette.TIP_BG_RGB)
     tfg = fg(*_palette.TIP_TEXT_RGB)
-    tdim = fg(*_palette.DIM_RGB)
+    tdim = fg(*_palette.TIP_DIM_RGB)
     unit = runtime.height_unit
 
     def fmt(v):

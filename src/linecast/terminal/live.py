@@ -100,6 +100,8 @@ def frame_paint(body, floating=""):
     rows = body.count("\n") + 1
     width = _mirror_width()
     body, floating = _bidi.display(body, width), _bidi.display(floating, width)
+    from linecast.terminal.composition import resolve_shadows
+    floating = resolve_shadows(body, floating)
     return (f"{_SYNC_BEGIN}{_AUTOWRAP_OFF}\033[{rows + 1};1H\033[J{frame_body(body)}"
             f"\033[0m{floating}\033[0m{_AUTOWRAP_ON}{_SYNC_END}")
 
@@ -192,34 +194,76 @@ def pointer_chip(lines, col, mouse_row, cols, rows, pad_bg="", flip_at=None):
     column instead (for chips beside a hairline or the pointer itself).
     Returns cursor-addressed escapes for overlay()'s floating channel.
     """
-    if not lines:
+    if not lines or cols < 1 or rows < 1:
         return ""
     from linecast.terminal.textwidth import visible_len
-    width = max(visible_len(line) for line in lines)
-    height = len(lines)
+    shadow = cols > 1 and len(lines) < rows
+    width = min(cols, max(visible_len(line) for line in lines) + int(shadow))
+    height = min(rows, len(lines) + int(shadow))
     row = mouse_row + 2
     if row + height - 1 > rows:
         row = mouse_row - height
     if row < 1:
         row = max(1, rows - height + 1)
+    anchor = col if flip_at is None else flip_at
     if flip_at is not None and col + width - 1 > cols:
         col = max(1, flip_at - width)
-    return chip_at(lines, row, col, cols, pad_bg)
+    col = max(1, min(col, cols - width + 1))
+    # Compare the placed footprint with the pointer: when an edge forces
+    # the chip across it, the shadow falls on the opposite side too.
+    dx = -1 if col + (width - 1) / 2 < anchor else 1
+    dy = -1 if row + (height - 1) / 2 < mouse_row else 1
+    return chip_at(lines, row + int(shadow and dy < 0),
+                   col + int(shadow and dx < 0), cols, pad_bg, rows=rows,
+                   shadow_direction=(dx, dy))
 
 
-def chip_at(lines, row, col, cols, pad_bg=""):
-    """A floating chip with its top-left cell at *row*, *col*, pushed
-    left of the right edge if it would pass it.  `lines` are padded to
-    one visible width, with `pad_bg` re-asserted under the padding."""
+def chip_at(lines, row, col, cols, pad_bg="", *, rows=None, shadow_direction=(1, 1)):
+    """A padded chip with a shadow offset one column and half a row.
+
+    Exposed halves are resolved against the displayed frame by frame_paint.
+    Reserve the shadow's footprint; on a screen too small for it, keep the
+    text and omit the shadow. ``shadow_direction`` gives the horizontal and
+    vertical signs; row and col locate the text, excluding the shadow.
+    """
+    from linecast.terminal import theme
     from linecast.terminal.box import place
-    from linecast.terminal.color import RESET
-    from linecast.terminal.textwidth import visible_len
-    width = max(visible_len(line) for line in lines)
-    padded = [f"{line}{pad_bg}{' ' * (width - visible_len(line))}{RESET}"
-              for line in lines]
-    if col + width - 1 > cols:
-        col = max(1, cols - width + 1)
-    return place(padded, row, col)
+    from linecast.terminal.color import RESET, bg, fg
+    from linecast.terminal.textwidth import clip_styled, visible_len
+    if not lines or cols < 1 or (rows is not None and rows < 1):
+        return ""
+    shadow = cols > 1 and (rows is None or len(lines) < rows)
+    dx, dy = shadow_direction
+    left, up = int(shadow and dx < 0), int(shadow and dy < 0)
+    right, down = int(shadow and dx > 0), int(shadow and dy > 0)
+    row = max(1 + up, row)
+    if rows is not None:
+        lines = lines[:rows]
+        row = max(1 + up, min(row, rows - len(lines) - down + 1))
+    width = min(cols - int(shadow), max(visible_len(line) for line in lines))
+    col = max(1 + left, min(col, cols - width - right + 1))
+    surface, _, dim = theme.chip_inks()
+    pad_bg = pad_bg or bg(*surface)
+    from linecast.terminal.composition import SHADOW
+
+    def half_block(glyph):
+        return f"\033[0m{SHADOW}{fg(*dim)}{glyph}\033[0m"
+
+    padded = []
+    for i, line in enumerate(lines):
+        line = clip_styled(line, width)
+        body = f"{line}{pad_bg}{' ' * (width - visible_len(line))}{RESET}"
+        if shadow:
+            end = 0 if dy > 0 else len(lines) - 1
+            glyph = ("▄" if dy > 0 else "▀") if i == end else "█"
+            side = half_block(glyph)
+            body = side + body if dx < 0 else body + side
+        padded.append(body)
+    out = place(padded, row, col - left)
+    if shadow:
+        cap = "".join(half_block("▀" if dy > 0 else "▄") for _ in range(width))
+        out += place([cap], row + len(lines) if dy > 0 else row - 1, col + dx)
+    return out
 
 
 MUTED = (150, 155, 170)   # the frame and text of a menu box

@@ -262,3 +262,12 @@ class TestThePointer:
         row = lines.index(_day_rows(lines)[9]) + 1
         _lines, chip = _frame(None, mouse=(self.GUTTER + 1 + 30, row))
         assert "Sat Oct 10  –" in chip
+
+
+def test_hover_shadow_is_resolved_by_the_shared_frame(water, truecolor):
+    from linecast.terminal.composition import SHADOW
+    body, floating = _frame(water, mouse=(20, 10), raw=True)
+    assert SHADOW in floating
+    out = month._live.frame_paint("\n".join(body), floating)
+    assert SHADOW not in out
+    assert "▄" in out and "▀" in out

@@ -50,6 +50,18 @@ def _app():
 
 
 class TestExpand:
+    def test_wide_window_fetches_through_its_later_edge(self):
+        app, provider = _app()
+        with patch.object(_tides_live, "_station_now", return_value=NOW), \
+             patch.object(_tides_live, "get_terminal_size", return_value=(192, 10)):
+            app.expand_for(6 * 24 * 60)
+            app._worker.join(1.0)
+        # The 48-hour view starts at midnight and reaches two days ahead.
+        new_end = TODAY + timedelta(days=6 + 2 + 7)
+        assert provider.calls[0] == (
+            "tides", "8418150", TODAY - timedelta(days=7), new_end, "tz")
+        assert app.fetched_end == new_end
+
     def test_no_expansion_while_the_window_is_inside_the_range(self):
         app, provider = _app()
         with patch.object(_tides_live, "_station_now", return_value=NOW):

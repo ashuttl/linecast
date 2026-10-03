@@ -63,6 +63,15 @@ LIVE_WINDOW_HOURS = 24
 LIVE_NOW_RATIO = 0.25  # Keep "now" ~25% from the left in live mode.
 
 
+def _live_window_hours(cols):
+    """Widen in six-hour steps, aiming for four columns per hour.
+
+    Keep at least a day on small terminals and at most three days so
+    individual tides remain readable even on very wide displays.
+    """
+    return max(LIVE_WINDOW_HOURS, min(72, ((cols + 12) // 24) * 6))
+
+
 def _live_window_start(now_local, offset_minutes, hours_shown=LIVE_WINDOW_HOURS,
                        now_ratio=LIVE_NOW_RATIO):
     """Start datetime for the live view window.
@@ -496,9 +505,10 @@ def render(station_id, station_name, station_meta=None, runtime=None,
            provider=None, location_menu=False):
     """Build the complete multi-line tide display.
 
-    When predictions/hilo are provided (live mode), renders a sliding 24h
-    window with hover and scroll support.  Otherwise fetches the current
-    day's data from *provider* (NOAA when not given) for a static view.
+    With predictions/hilo, renders a sliding window that widens with the
+    terminal in fullscreen mode, with hover and scroll support. Otherwise
+    fetches the current day's data from *provider* (NOAA when not given)
+    for a static view.
 
     y_range: optional (min_ft, max_ft) to fix the y-axis scale (e.g. from
              30-day hilo data) so the curve doesn't rescale as you scroll.
@@ -517,13 +527,14 @@ def render(station_id, station_name, station_meta=None, runtime=None,
     # --- build the window ---
     if predictions is not None:
         # Live mode: keep "now" near the left so most of the chart looks ahead.
+        hours_shown = _live_window_hours(cols) if fullscreen else LIVE_WINDOW_HOURS
         start_dt = _live_window_start(
             now_local,
             offset_minutes=offset_minutes,
-            hours_shown=LIVE_WINDOW_HOURS,
+            hours_shown=hours_shown,
         )
         window = prepare_tide_window(
-            predictions, hilo or [], start_dt, hours_shown=LIVE_WINDOW_HOURS,
+            predictions, hilo or [], start_dt, hours_shown=hours_shown,
         )
     else:
         # Static mode: show the current calendar day

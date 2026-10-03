@@ -8,7 +8,10 @@ The tides have three new views: a month, a year, and what moves the tide at a pl
 
 New this version:
 
+- Hover chips have clearer secondary text and a thin, 40% transparent half-block shadow that preserves the chart colors beneath it in every view. The shadow falls away from the cursor when a chip changes sides.
+
 - Tides:
+  - The hourly tides view shows up to 72 hours in wider terminals, while keeping now a quarter of the way across.
   - `--month`, `--year`, and `--makeup` open directly on the alternate views, including with `--print`.
   - `v` steps the live view from the day to a month: a day to a row and the hours across, with sunrise and sunset and each day's lowest low water in daylight.
   - `v` again reaches the year: each day's predicted range, the new and full moons, and what the gauge measured, where the station has one. NOAA stations show their flood stage.

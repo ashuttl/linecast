@@ -828,7 +828,7 @@ def _tooltip(climate, days, span, jan1, slots, runtime, col, mouse_row, cols, ro
 
     tbg = bg(*_style.TOOLTIP_BG_RGB)
     tfg = fg(*_style.TOOLTIP_TEXT_RGB)
-    tdim = _style.DIM
+    tdim = fg(*_style.TOOLTIP_DIM_RGB)
     first, last = span[0], span[-1]
 
     def present(values):

@@ -247,7 +247,7 @@ def chip_inks(text: RGB | None = None) -> tuple[RGB, RGB, RGB]:
     surface = darken(surface_bg(0.10), 0.45 if not is_light_theme() else 0.10)
     return (surface,
             ensure_contrast(theme_fg if text is None else text, surface, minimum=4.5),
-            ensure_contrast(surface_bg(0.55), surface, minimum=2.2))
+            ensure_contrast(surface_bg(0.55), surface, minimum=4.5))
 
 
 def themed(color: RGB) -> RGB:

@@ -173,7 +173,7 @@ def compute_moon_labels(window_start, total_hours, graph_w, station_meta, runtim
 def render_tide_ticks(window_start, total_hours, graph_w, runtime, now_col=None, hover_col=None):
     """Render time axis labels under the chart."""
     use_24h = runtime.use_24h
-    interval = tick_interval(graph_w)
+    interval = tick_interval(graph_w * 24 / total_hours) if total_hours > 0 else 6
 
     window_secs = total_hours * 3600
     label_items = []

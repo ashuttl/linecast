@@ -360,7 +360,7 @@ def _hover_chip(hover, row_days, heights, gutter, width, mouse_pos, runtime, tz)
     minutes = round((x + 0.5) * 1440 / width)
     tip_bg = bg(*_palette.TIP_BG_RGB)
     tip_fg = fg(*_palette.TIP_TEXT_RGB)
-    dim = fg(*_palette.DIM_RGB)
+    dim = fg(*_palette.TIP_DIM_RGB)
     lines = []
     for day in row_days[r]:
         moment = datetime(day.year, day.month, day.day, tzinfo=tz) + timedelta(minutes=minutes)

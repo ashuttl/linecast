@@ -43,7 +43,7 @@ def _rebuild():
     global MODAL_BORDER_RGB, LINK_RGB, TEXT, DIM, MUTED, PRECIP, PRECIP_RAIN
     global PRECIP_SNOW, PRECIP_MIX, PRECIP_STORM, ALERT_RED, ALERT_AMBER
     global ALERT_YELLOW, ALERT_BLUE, WIND_COLOR, SEP, CLOUD_RGB
-    global CHIP_BG_RGB, CHIP_FG_RGB, CHIP
+    global CHIP_BG_RGB, CHIP_FG_RGB, CHIP, TOOLTIP_DIM_RGB
     TEXT_RGB = ensure_contrast(_theme.theme_fg, _theme.theme_bg, minimum=4.5)
     DIM_RGB = ensure_contrast(neutral_tone(0.32), _theme.theme_bg, minimum=2.0)
     MUTED_RGB = ensure_contrast(neutral_tone(0.48), _theme.theme_bg, minimum=2.5)
@@ -122,7 +122,7 @@ def _rebuild():
                                         minimum=2.0)
     SUNSET_LABEL_RGB = ensure_contrast(lerp_rgb(RED_RGB, MAGENTA_RGB, 0.25), _theme.theme_bg,
                                        minimum=2.0)
-    TOOLTIP_BG_RGB, TOOLTIP_TEXT_RGB, _dim = _theme.chip_inks(TEXT_RGB)
+    TOOLTIP_BG_RGB, TOOLTIP_TEXT_RGB, TOOLTIP_DIM_RGB = _theme.chip_inks(TEXT_RGB)
     MODAL_BG_RGB = darken(lerp_rgb(_theme.theme_bg, BLUE_RGB, 0.04),
                           0.10 if not is_light_theme() else 0.06)
     MODAL_BORDER_RGB = ensure_contrast(DIM_RGB, MODAL_BG_RGB, minimum=2.2)

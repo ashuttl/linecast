@@ -42,7 +42,7 @@ from linecast.weather.hourly import (
 from linecast.weather.header import render_header
 from linecast.weather.narrative import narrative_lines
 from linecast.weather.style import (
-    ALERT_AMBER, CLOUD_RGB, DIM, MUTED, TEXT, TOOLTIP_BG_RGB, TOOLTIP_TEXT_RGB,
+    ALERT_AMBER, CLOUD_RGB, DIM, MUTED, TEXT, TOOLTIP_BG_RGB, TOOLTIP_DIM_RGB, TOOLTIP_TEXT_RGB,
     _colored_temp, _precip_rgb, _precip_type, notable_moisture,
 )
 from linecast.weather.alert_feeds import alert_source
@@ -304,7 +304,7 @@ def _build_daily_tooltip(data, mouse_col, mouse_row, daily_start, daily_spans, c
             name = names[datetime.fromisoformat(date).weekday()]
         except (TypeError, ValueError):
             name = str(date)
-    lines = [f"{TBG}{DIM} {name} "]
+    lines = [f"{TBG}{fg(*TOOLTIP_DIM_RGB)} {name} "]
 
     if field == "day":
         condition = sky_condition(code, day_value("cloud_cover_mean"))

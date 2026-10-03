@@ -37,7 +37,7 @@ from linecast.tides.stations import (
     _station_for_location, _station_now,
 )
 from linecast.tides.view import (
-    LIVE_WINDOW_HOURS, _live_window_start, _render_header_line, pill_width, render,
+    _live_window_hours, _live_window_start, _render_header_line, pill_width, render,
 )
 
 
@@ -186,12 +186,13 @@ class TidesApp(LocationMenu, _live.LiveApp):
         short pause so a dead network is not asked on every repaint.
         """
         current_now = _station_now(self.station_meta, self.predictions)
+        hours_shown = _live_window_hours(get_terminal_size()[0])
         view_start = _live_window_start(
             current_now,
             offset_minutes=offset_minutes,
-            hours_shown=LIVE_WINDOW_HOURS,
+            hours_shown=hours_shown,
         )
-        view_end = view_start + timedelta(hours=LIVE_WINDOW_HOURS)
+        view_end = view_start + timedelta(hours=hours_shown)
         view_start_date = view_start.date()
         view_end_date = view_end.date()
 

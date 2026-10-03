@@ -613,7 +613,7 @@ def _hover_chip(mouse_pos, strips, spans, left_w, cell_w, gap, strip_rows, strip
         when = f"{table_for(DAY_NAMES, lang)[day.weekday()]} {_fmt_month_day(day, runtime)}"
         value = _sample(values, frac)
     tip_bg, tip_fg, dim = (bg(*_palette.TIP_BG_RGB), fg(*_palette.TIP_TEXT_RGB),
-                           fg(*_palette.DIM_RGB))
+                           fg(*_palette.TIP_DIM_RGB))
     name = _ts("makeup_twice" if part == 0 else "makeup_once", runtime)
     lines = [f"{tip_bg}{dim} {when} ",
              f"{tip_bg}{tip_fg} {name}  {_height(value, runtime)} "]

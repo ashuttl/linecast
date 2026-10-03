@@ -1,0 +1,49 @@
+Completed October 2, 2026
+
+The shared composition path is implemented in terminal/composition.py and
+called by frame_paint after bidi layout. Chips mark unresolved shadow cells
+with an internal SGR attribute; composition removes it and samples the final
+frame plus earlier overlays. The month-specific callback is retired.
+
+Follow-up requests implemented: shadows are 40% transparent (60% shadow ink),
+with each underlying half blended independently, and pointer_chip flips the
+shadow away from the cursor when the placed chip crosses to another side.
+Indexed inks use the current terminal palette; exposed halves retain their
+original colors. Fixed-position chip_at defaults to down/right.
+
+Offscreen visual checks: /tmp/linecast-half-shadow.png and
+/tmp/linecast-shadow-directions.png. No commits made; pre-existing edits remain.
+
+Validation: 8,206 tests passed in the full run; the one subprocess import
+failure passed when rerun with the checkout src directory on PYTHONPATH.
+Five skipped, 78 deselected. Ruff and git diff --check passed.
+
+Original handoff follows for context.
+
+Hover chip handoff — October 2, 2026
+
+Resume tomorrow: extend the approved thin shadow to every hover chip through shared rendering. The user asked to save this plan and stop for today; no scheduled reminder was requested.
+
+Design agreed with Andrew
+
+Use a contrasting shadow offset one column right and half a terminal row down. Fill each half-block's unused half with the underlying chart/background color. Losing a letter or braille glyph in that cell is acceptable. Filling the unused half with the terminal background is wrong over a chart. A full-row solid-block shadow was tried and rejected as too heavy.
+
+Current implementation
+
+terminal/live.py owns pointer_chip and chip_at. They accept background_at(col, row), with 1-based terminal coordinates, returning RGB or None for the theme background. With that callback the shadow uses half blocks; without it the shadow still uses full blocks. tides/month.py supplies the callback from its Framebuffer.cell_bg, translating terminal coordinates to chart coordinates. The user approved the month view's appearance, then asked to apply it everywhere.
+
+The shared chip palette now raises secondary text contrast to 4.5:1. Tide and weather hover labels use chip-specific secondary colors. terminal/textwidth.py has clip_styled to preserve ANSI styling while clipping by visible cell width; an initial plain-text clipping implementation erased chip text and has been fixed.
+
+Next approach, discussed but not yet implemented
+
+Move shadow background resolution into the shared overlay/frame composition path, where the underlying rendered frame and overlay positions are both available. Read the background color of affected cells; for half-block graphics, use the appropriate half's color. Draw the same thin shadow for all chips without individual chart callbacks. Retire the month-specific callback once the shared path works.
+
+This is a moderate refactor, not an existing capability. Inspect overlay(), frame_paint(), bidi handling, and the ANSI/color helpers before choosing how to represent unresolved shadow cells. Keep sampling limited to linecast's own output rather than building a general terminal emulator. Verify default/truecolor/indexed colors, resets, wide glyphs, screen-edge placement, stacked overlays, and right-to-left layouts. Preserve the approved month appearance.
+
+Validation and workspace
+
+Latest change: 68 tests passed in tests/test_live_app.py and tests/test_tides_month.py; ruff check src tests scripts and git diff --check passed. Earlier solid-shadow/text-contrast implementation passed 404 focused tests. The thin-shadow month view was visually checked using scripts/offscreen_terminal.py; temporary preview is /tmp/linecast-half-shadow.png.
+
+No commits made. Existing unrelated edits were already present in CHANGELOG.md, tides/chart.py, tides/live.py, tides/view.py, and tests/test_tides.py, tests/test_tides_chart.py, tests/test_tides_live.py; preserve them.
+
+pytest is not installed in .venv. Tests ran via python -m pytest with PYTHONPATH=/home/ashuttl/.cache/uv/archive-v0/_pM6CvrQEZppMEVK/lib/python3.14/site-packages. uv's default cache was read-only and fetching pytest using a temporary cache failed on DNS; the cached pytest environment worked.

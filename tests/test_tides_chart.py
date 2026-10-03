@@ -58,6 +58,17 @@ def test_render_tide_ticks_anchor_to_clock_boundaries():
     assert canvas[first_tick:first_tick + 3] == "\u257503"
 
 
+def test_wider_time_window_keeps_hour_labels_spaced():
+    canvas = _canvas(render_tide_ticks(
+        datetime(2026, 3, 5, 0, 0), 48, 192,
+        SimpleNamespace(use_24h=True),
+    ))
+    ticks = [i for i, ch in enumerate(canvas) if ch in ("│", "╵")]
+    assert len(ticks) == 16
+    assert min(b - a for a, b in zip(ticks, ticks[1:])) >= 11
+    assert canvas[ticks[1]:ticks[1] + 3] == "╵03"
+
+
 def test_night_shading_follows_summer_time():
     # Portland, Maine, on 28 September: sunrise 6:34 and sunset 18:27
     # EDT. NOAA's metadata gives the standard offset, -5.

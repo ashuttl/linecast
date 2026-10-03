@@ -49,23 +49,25 @@ class RenderTests(unittest.TestCase):
             captured["hours_shown"] = hours_shown
             raise _StopRender()
 
-        with patch.object(tides, "_station_now", return_value=now_local), \
-             patch.object(tides, "get_terminal_size", return_value=(80, 24)), \
-             patch.object(tides, "prepare_tide_window", side_effect=fake_prepare_tide_window), \
-             self.assertRaises(_StopRender):
-            tides.render(
-                "123",
-                "Test Harbor",
-                offset_minutes=120,
-                predictions=[(now_local, 1.0)],
-                hilo=[],
-            )
+        for cols, fullscreen, hours in (
+            (80, True, 24), (108, True, 30), (192, True, 48),
+            (400, True, 72), (192, False, 24), (80, True, 24),
+        ):
+            with self.subTest(cols=cols, fullscreen=fullscreen), \
+                 patch.object(tides, "_station_now", return_value=now_local), \
+                 patch.object(tides, "get_terminal_size", return_value=(cols, 10)), \
+                 patch.object(tides, "prepare_tide_window", side_effect=fake_prepare_tide_window), \
+                 self.assertRaises(_StopRender):
+                tides.render(
+                    "123", "Test Harbor", fullscreen=fullscreen,
+                    offset_minutes=120, predictions=[(now_local, 1.0)], hilo=[],
+                )
 
-        self.assertEqual(captured["hours_shown"], 24)
-        self.assertEqual(
-            captured["start_dt"],
-            now_local - timedelta(hours=6) + timedelta(minutes=120),
-        )
+            self.assertEqual(captured["hours_shown"], hours)
+            self.assertEqual(
+                captured["start_dt"],
+                now_local - timedelta(hours=hours / 4) + timedelta(minutes=120),
+            )
 
     def test_render_footer_names_the_data_source(self):
         now_local = datetime(2026, 3, 5, 12, 0, 0)

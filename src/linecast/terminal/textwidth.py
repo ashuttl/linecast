@@ -155,6 +155,26 @@ def visible_len(s):
     return sum(char_widths(stripped))
 
 
+def clip_styled(text, width):
+    """Clip styled text to cells without counting or cutting color escapes."""
+    if width <= 0:
+        return ""
+    parts = re.split(r'(\033\[[0-9;:]*m|\033\][^\033]*\033\\)', text)
+    widths = iter(char_widths("".join(parts[::2])))
+    out, used = [], 0
+    for i, part in enumerate(parts):
+        if i % 2:
+            out.append(part)
+            continue
+        for ch in part:
+            w = next(widths)
+            if used + w > width:
+                return "".join(out)
+            out.append(ch)
+            used += w
+    return "".join(out)
+
+
 # Where a line without spaces may not break (kinsoku shori): no line
 # opens on closing punctuation or a small kana, and none ends on an
 # opening bracket.
