@@ -200,7 +200,8 @@ def test_daily_chips_answer_for_each_part():
     assert re.search(r"\d\S*\u2033 between \d\d:\d\d and \d\d:\d\d", texts["rain"])
     assert re.search(r"heaviest around \d\d:\d\d", texts["rain"])
     assert texts["bar"].count("°") == 2
-    assert "around" in texts["bar"]
+    assert "around" not in texts["bar"]
+    assert any("\u2801" <= ch <= "\u28ff" for ch in texts["bar"])
     assert re.search(r"[A-Z][a-z]+", texts["day"].replace(day, ""))  # the conditions
     # The chip's left edge is at the pointer column, two rows below it.
     a = span["cols"]["rain"][0]

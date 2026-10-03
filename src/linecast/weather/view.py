@@ -37,6 +37,7 @@ from linecast.weather.alerts import alerts_notice, build_alert_modal, render_ale
 from linecast.weather.daily import (
     fmt_precip_amount, fmt_snow_amount, mostly_snow, render_daily_mapped,
 )
+from linecast.weather.day_chart import temperature_chip
 from linecast.weather.hourly import (
     _precip_bar_full, _prepare_hourly_window, _present, label_rows, render_hourly,
 )
@@ -251,7 +252,7 @@ def _build_daily_tooltip(data, mouse_col, mouse_row, daily_start, daily_spans, c
     """A chip for the part of a daily row under the pointer.
 
     Each part of the row answers for itself: the day's name and icon give
-    the day and its weather, the bar the high and low and when they come,
+    the day and its weather, the bar a midnight-to-midnight temperature curve,
     the odds and the amount together the day's total, its chance, the
     hours with rain and the heaviest of them, the wind its speed and
     gusts.  Returns
@@ -316,18 +317,14 @@ def _build_daily_tooltip(data, mouse_col, mouse_row, daily_start, daily_spans, c
             lines.append(f"{TBG}{ink} {icons.get(condition, icons[0])}{ink} {wmo_name} ")
 
     elif field == "bar":
-        temps = hour_values("temperature_2m")
-        for value, pick in ((day_value("temperature_2m_max"), max),
-                            (day_value("temperature_2m_min"), min)):
-            if value is None:
-                continue
-            line = f"{TBG} {_colored_temp(value, runtime, deg)}"
-            if temps:
-                j = pick(temps, key=lambda jv: jv[1])[0]
-                at = when(j)
-                if at:
-                    line += f" {TFG}{_s('around', runtime, time=at)}"
-            lines.append(f"{line} ")
+        low, high = day_value("temperature_2m_min"), day_value("temperature_2m_max")
+        curve = temperature_chip(hourly, date, low, high, cols, rows, runtime)
+        if curve:
+            lines.extend(curve)
+        else:
+            for value in (high, low):
+                if value is not None:
+                    lines.append(f"{TBG} {_colored_temp(value, runtime, deg)} ")
 
     elif field == "rain":
         total = day_value("precipitation_sum", 0) or 0

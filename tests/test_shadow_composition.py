@@ -2,7 +2,7 @@
 
 import pytest
 
-from linecast.terminal import bidi, color, live
+from linecast.terminal import bidi, color, composition, live
 from linecast.terminal.composition import SHADOW, resolve_shadows
 from test_maps_color_runs import painted
 
@@ -59,6 +59,39 @@ def test_background_carries_across_body_rows_but_not_into_overlay():
     assert cell(body, shadow("▀", row=2), row=1)[2] == (5, 18)
     floating = "\033[2;1Hx" + shadow("▀", row=2)
     assert cell(body, floating, row=1)[2] is None
+
+
+def test_shadow_does_not_measure_uncovered_chart_rows(monkeypatch):
+    measured = []
+    glyphs = composition.glyphs
+
+    def measure(text):
+        measured.append(text)
+        return glyphs(text)
+
+    monkeypatch.setattr(composition, "glyphs", measure)
+    rows = ["\033[48;5;18muncovered\033[0m"] * 80
+    rows[39] = "\033[48;5;22mcovered\033[0m"
+    output = resolve_shadows("\n".join(rows), shadow("▀", row=40))
+    assert "\033[48;5;22m" in output
+    assert "covered" in measured
+    assert "uncovered" not in measured
+
+
+@pytest.mark.parametrize("reset", ["\033[0m", "\033[m", "\033[0;48;5;20m", ""])
+def test_skipped_rows_preserve_the_state_after_their_last_reset(reset):
+    body = ("\033[31;48;5;18mfirst\n"
+            f"{reset}\033[48;5;22msecond\n"
+            "\033[38;5;25m▀")
+    assert cell(body, shadow("▀", row=3), row=2)[2] == (5, 22)
+    assert cell(body, shadow("▄", row=3), row=2)[2] == (5, 25)
+
+
+def test_skipped_rows_carry_reverse_video_until_it_is_reset():
+    body = "\033[31;44;7mfirst\nsecond\nx"
+    assert "\033[41m" in resolve_shadows(body, shadow("▀", row=3))
+    body = "\033[31;44;7mfirst\n\033[27msecond\nx"
+    assert "\033[44m" in resolve_shadows(body, shadow("▀", row=3))
 
 
 def test_blank_space_beyond_body_uses_default_background():

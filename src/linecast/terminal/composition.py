@@ -6,6 +6,8 @@ stay in their original form on exposed halves; blended halves use the
 current palette and are encoded in the terminal's selected color mode.
 """
 
+from functools import lru_cache
+
 from linecast.terminal import bidi
 from linecast.terminal.textwidth import glyphs
 
@@ -70,6 +72,11 @@ def resolve_shadows(body, floating):
 
     surface = {}
     blends = {}
+    needed = {}
+    # Chart rows repeat the same glyphs and color transitions. Keep these
+    # caches within one frame so a font-width probe cannot leave stale cells.
+    measure = lru_cache(maxsize=512)(glyphs)
+    next_state = lru_cache(maxsize=2048)(bidi._next_state)
 
     def blend(under, ink):
         key = under, ink
@@ -81,20 +88,31 @@ def resolve_shadows(body, floating):
     state = bidi._EMPTY
     row = col = 1
 
-    def read(text, emit=False):
+    def read(text, emit=False, locate=False):
         nonlocal state, row, col
         out = []
         pos = 0
 
         def write(run):
             nonlocal row, col
+            if not run:
+                return
             for i, line in enumerate(run.split("\n")):
                 if i:
                     row, col = row + 1, 1
                     if emit:
                         out.append("\n")
-                for _x, glyph, width in glyphs(line):
+                for _x, glyph, width in measure(line):
                     attrs, foreground, background, _link = state
+                    if locate:
+                        if _SHADOW_ATTR in attrs and glyph in ("▀", "▄", "█"):
+                            needed.setdefault(row, set()).update(range(col, col + width))
+                        col += width
+                        continue
+                    if not emit and not any(c in needed.get(row, ())
+                                            for c in range(col, col + width)):
+                        col += width
+                        continue
                     reverse = "7" in attrs
                     back = _background(foreground if reverse else background, reverse)
                     front = _background(background if reverse else foreground, not reverse)
@@ -126,7 +144,7 @@ def resolve_shadows(body, floating):
             seq = match.group()
             pos = match.end()
             if bidi._SGR.match(seq):
-                state = bidi._next_state(state, seq)
+                state = next_state(state, seq)
                 if emit:
                     groups = list(bidi._sgr_groups(seq[2:-1]))
                     clean = [g for g in groups if g != _SHADOW_ATTR]
@@ -141,6 +159,30 @@ def resolve_shadows(body, floating):
         write(text[pos:])
         return "".join(out)
 
-    read(body)
+    # Locate the small shadow footprint before reading the chart beneath it.
+    # Rebuilding every screen cell on each mouse motion made large charts
+    # spend far more time on the shadow than on rendering the forecast.
+    read(floating, locate=True)
+    state = bidi._EMPTY
+    last_row = max(needed, default=0)
+    for row, line in enumerate(body.split("\n"), 1):
+        if row > last_row:
+            break
+        col = 1
+        if row in needed:
+            read(line)
+        else:
+            # Only the final drawing state of a skipped row can affect the
+            # next one. Most chart rows end in a reset, so everything before
+            # it can be skipped too. With no reset, carry every SGR forward.
+            reset = max(line.rfind("\033[0m"), line.rfind("\033[m"))
+            if reset >= 0:
+                state = bidi._EMPTY
+                line = line[reset:]
+            for match in bidi._ESCAPE.finditer(line):
+                seq = match.group()
+                if bidi._SGR.match(seq):
+                    state = next_state(state, seq)
     state = bidi._EMPTY  # frame_paint resets between body and floating
+    row = col = 1
     return read(floating, emit=True)

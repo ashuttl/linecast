@@ -41,6 +41,7 @@ New this version:
   - Moon phases use sentence case in eleven more languages, as they already do in French: "Første kvarter", not "Første Kvarter".
   - Japanese maps use kana place names, such as さいたま市, instead of their romanization.
 - Weather:
+  - Hovering over a daily temperature bar shows a small graph from midnight to midnight.
   - `--prose` prints just the forecast paragraph, in the chosen language and units.
   - `--oneline` and `--prose` can be combined in either order to print the one-line summary followed by the forecast paragraph.
   - The temperature scale extends to a deeper blue at -40°F (-40°C) and a crimson at 115°F (46°C).
@@ -88,6 +89,7 @@ Fixes:
   - Help agrees with the keys: `n` and space in maps return to where the map opened; `A` toggles radar alerts; `radar --help` gives the right satellite and wind keys.
   - An invalid `--zoom` gives an explanation instead of a Python traceback.
 - Live views:
+  - Fixed slow hover updates in large terminals after the drop shadows were added.
   - Ctrl-Z restores the shell's screen, cursor, and mouse behavior; `fg` returns to the view.
   - Ctrl-C during loading or `--print` quits promptly, without a traceback or a wait for a slow tide provider.
   - Esc while the mouse is moving no longer turns mouse reports into keypresses that could swing the sky view.
