@@ -34,12 +34,23 @@ Two recordings driven by the mouse: the globe tipped up to Antarctica and rolled
 
 The dashboard gives up rows as the window shrinks: the cloud strip first, then the spacing, until only the chart and the days are left.
 
+Hovering over a day's bar draws that day's hours.
+
+<img src="../screenshots/gallery/weather-day.png" width="66%" alt="the dashboard for Dublin with the pointer on a day's temperature bar and the chip that graphs that day's hours">
+
 <p>
   <img src="../screenshots/weather-reykjavik.png" width="49%" alt="the weather in Reykjavík, in Icelandic">
   <img src="../screenshots/weather-kyoto.png" width="49%" alt="the weather in Kyoto, in Japanese">
 </p>
 
-Press `v` to cycle forecast, month, and year. The month shows hourly temperatures, with `c` switching to departures from the ten-year average; arrows browse months. The year so far, [après Tufte](https://www.edwardtufte.com/notebook/new-york-city-weather-chart/). Each day's high and low is drawn against the last ten years' average and extremes, tinted warm or cool where it went past the average, and each month's precipitation is a running total against its average. The pointer here is on a week in May.
+Press `v` to cycle forecast, month, and year. The month has a row for each day and the hours across it, with sunrise and sunset as dotted lines; arrows browse months. This is September 2026 in Westbrook, Maine: first the hourly temperatures, and then, after `c`, each hour's departure from its ten-year average, blue where it was cooler and red where it was warmer. The pointer is on the afternoon of the 10th, the warmest of the month: 82°F at an hour that averages 72°F. [The month view](weather-month.md) explains how to read it.
+
+<p>
+  <img src="../screenshots/gallery/weather-month.png" width="49%" alt="the hourly temperatures of September 2026 in Westbrook, Maine, a row for each day">
+  <img src="../screenshots/gallery/weather-month-departure.png" width="49%" alt="the same month as departures from the 2016–2025 hourly average, with the chip for the afternoon of September 10">
+</p>
+
+Press `v` again for the year so far, [après Tufte](https://www.edwardtufte.com/notebook/new-york-city-weather-chart/). Each day's high and low is drawn against the last ten years' average and extremes, tinted warm or cool where it went past the average, and each month's precipitation is a running total against its average. The pointer here is on a week in May.
 
 <img src="../screenshots/weather-year.png" alt="the weather year view for Westbrook, Maine, with the chip for a week in May">
 
@@ -110,7 +121,30 @@ The same view played forward with `p`, an hour a second, from an August afternoo
 
 ## Tides
 
+The day's curve at Portland, Maine.
+
 ![the tide curve at Portland, Maine](../screenshots/tides.png)
+
+Press `v` for the month and again for the year. The month has a row for each day, with the water drawn light where it is high, so Portland's two high waters a day are two slanting bands. The dotted lines are sunrise and sunset, and the times at the right are each day's lowest low water in daylight. The year draws each day's predicted range as a band and traces the gauge's highest and lowest measured water over it. The pointer is on the middle of June, where the water measured 12.4 feet and passed the flood stage.
+
+<p>
+  <img src="../screenshots/tides-month.png" width="49%" alt="October 2026 at Portland, Maine: the high water as two slanting bands a day, sunrise and sunset as dotted lines down the month, and each day's lowest low water in daylight at the right">
+  <img src="../screenshots/tides-year.png" width="49%" alt="2026 at Portland, Maine: each day's predicted range as a band, the gauge's highest and lowest water traced over it, and the pointer on the middle of June">
+</p>
+
+The same October at Quarry Bay, Hong Kong, and at Tokyo. Neither draws Portland's picture: Hong Kong's broad bands break off around the 10th and the 24th, and Tokyo's two bands a day fade into one near the quarter moons. [About the tides](tides.md) explains why.
+
+<p>
+  <img src="../screenshots/tides-month-quarry-bay.png" width="49%" alt="the month view for Quarry Bay, Hong Kong in October 2026: broad bands that break off around the 10th and the 24th">
+  <img src="../screenshots/tides-month-tokyo.png" width="49%" alt="the month view for Tokyo in October 2026: two bands a day that fade into one near the quarter moons">
+</p>
+
+Press `v` once more for what moves the tide: a table of the causes and the height of each, beside strips for the twice-a-day and once-a-day parts through the month, the year, and 2016 to 2034. Portland, where the Moon's part is more than six times the Sun's, and then Tokyo in Japanese, where it is only twice.
+
+<p>
+  <img src="../screenshots/tides-makeup.png" width="49%" alt="what moves the tide at Portland, Maine: a table of five causes and the height of each, beside strips for the twice-a-day and once-a-day parts through October 2026, the year 2026, and 2016 to 2034">
+  <img src="../screenshots/tides-makeup-tokyo.png" width="49%" alt="what moves the tide at Tokyo, in Japanese">
+</p>
 
 ## Radar
 
@@ -175,9 +209,9 @@ The globe as it was when the gallery was refreshed, in daylight alone and with t
   <img src="../screenshots/maps-globe-clouds.png" width="49%" alt="the same globe with the hour's clouds">
 </p>
 
-The same two with the labels hidden by `l`.
+The same two with the labels hidden by `l` and the text by `t`. The second is what `--view now` opens on, with the planet slowly turning.
 
 <p>
-  <img src="../screenshots/maps-globe-bare.png" width="49%" alt="the globe in daylight with no labels">
-  <img src="../screenshots/maps-globe-clouds-bare.png" width="49%" alt="the globe under the hour's clouds with no labels">
+  <img src="../screenshots/maps-globe-bare.png" width="49%" alt="the globe in daylight with no labels or text">
+  <img src="../screenshots/maps-globe-clouds-bare.png" width="49%" alt="the globe under the hour's clouds with no labels or text, as --view now opens">
 </p>
