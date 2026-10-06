@@ -30,4 +30,4 @@ The archive loads in the background on the first visit, with the usual loading i
 
 Recent hours the archive has not reached are filled from Open-Meteo's forecast API, covering the previous seven days and today up to the now marker. Hover identifies these as “Recent model estimate.” They refresh hourly or on a new local day, give way to archive values when available, and never enter the ten-year average. Future hours stay blank and do not affect the legend or the row's temperature extremes. Other missing hours stay blank too. A spring clock-change gap stays empty; a repeated autumn hour is the average of both readings and is identified on hover.
 
-The view needs at least 54 columns and 23 rows. More height gives each day its own row; more width leaves room for the temperature extremes and a single legend line. See [Where the numbers come from](sources.md#weather) for the archive and comparison details.
+The view needs at least 54 columns and 23 rows. More height gives each day its own row; more width leaves room for the temperature extremes and a single legend line. See [Where the numbers come from](sources.md#weather) for the archive.
