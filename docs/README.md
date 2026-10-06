@@ -15,6 +15,5 @@ The README says what linecast does. These pages go further, one subject each.
 For anyone changing linecast:
 
 - [architecture.md](architecture.md) — where the code for each part lives and how the parts talk to each other.
-- [persian-and-rtl.md](persian-and-rtl.md) — the design brief for Persian and right-to-left text, with notes on each terminal and what is still open.
 
 The star catalogues' own notes stay beside the data they describe, in [src/linecast/data/STARS.md](../src/linecast/data/STARS.md).

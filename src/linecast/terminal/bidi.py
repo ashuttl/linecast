@@ -153,13 +153,22 @@ def bidi_mode(environ=None):
 # not order text, answers the mode request for BDSM, and cursor reports
 # are logical.  Nor do marks around display-ordered text serve both: in
 # Konsole LRM or LRO keeps the order but the letters are reshaped wrongly,
-# and Alacritty draws the marks.  So a terminal is recognized by name.
+# and Alacritty draws the marks; Konsole also drops a zero-width character
+# sent at column 1.  So a terminal is recognized by name.
 # Each entry: the name, the variable, and the value it must have (None
 # for any).  Apple's Terminal gives no name when asked, and orders each
 # line itself; it also draws whatever follows a run of right-to-left text
 # too far right, n - 1 columns for a run of n cells and one for each
-# zero-width mark on the line, with the backgrounds left in place.  Its
-# words read right in the isolates; that drift stays.
+# zero-width mark on the line, with the backgrounds left in place.  A run
+# there is what Terminal's own algorithm reverses, so a space or a block
+# between two right-to-left words joins them.  Its words read right in
+# the isolates; that drift stays.  A correction was sketched and set
+# aside as too much for one terminal: send each word reversed for
+# Terminal to turn back, part the runs with LRM, and move the glyphs left
+# over the blanks that follow while each cell keeps its background.
+# iTerm2 (3.7) reverses the words this pass has ordered too, with the
+# layout intact, and is not in the table: it has an advanced setting for
+# bidi on the alternate screen (alternateScreenBidi) that is untried.
 _ORDERS_TEXT_ITSELF = (
     ("Konsole", "KONSOLE_VERSION", None),
     ("Terminal.app", "TERM_PROGRAM", "Apple_Terminal"),

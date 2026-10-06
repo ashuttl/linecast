@@ -62,5 +62,3 @@ Most terminals draw right-to-left text backwards and leave Arabic letters unjoin
 Some terminals order the text themselves and ignore that request. linecast recognizes Konsole and the Mac's Terminal, lays out each row, and leaves the ordering and joining to them. `LINECAST_BIDI=terminal` does the same in another terminal that orders text itself, and `LINECAST_BIDI=linecast` goes back to linecast's own ordering, for a Konsole with its bidi rendering turned off. `linecast doctor` shows which is in use, with a line of Persian and Hebrew to show whether your font has the letters.
 
 Names in Hebrew, Arabic, Persian, and Urdu on maps and in the sky are ordered and joined the same way in every language.
-
-[persian-and-rtl.md](persian-and-rtl.md) is the design brief behind this work, with notes on each terminal and what is still open.
