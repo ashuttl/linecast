@@ -79,12 +79,14 @@ Targets:
              zoom series maps-zoom-blocks/streets/city/region/state.png
   globe      maps-globe.png, the planet in this hour's daylight, and
              maps-globe-clouds.png with this hour's clouds (differ every run),
-             and both again without labels, maps-globe-bare.png and
+             and both again without labels or text, maps-globe-bare.png and
              maps-globe-clouds-bare.png
   gallery    the frames docs/gallery.md shows and the README does not, into
              screenshots/gallery: the radar in its fixed themes and its
              other layers, the sky in more traditions, the weather in a
-             short window, the moon's month grid, a walking route
+             short window, with a day's hours under the pointer, and its
+             month view, as temperatures and as departures, the moon's
+             month grid, a walking route
   tours      globe-spin.gif and sky-pan.gif in screenshots/gallery, each
              a recording driven by a mouse script in scripts/tours
   hero       hero.png — five apps tiled on a 1920x1200 desktop, drawn at 2x,
@@ -433,33 +435,35 @@ print(f"20,{lon:.0f}")')
         printf 'Globe centred on %s\n' "$GLOBE_PLACE"
     fi
     printf 'Capturing globe…\n'
-    # First the plain terrain planet with this hour's daylight, then --view
-    # now with this hour's clouds as well: the daylight-only frame reads at
-    # a glance, the cloudy one is the planet as it is. The clouds take a
-    # while to arrive at this size, hence the longer settle.
-    "$CAPTURE_TOOL" -s 120x38 -w 45 --font "$CAPTURE_FONT" \
-        -o "$SHOT_DIR/maps-globe-clouds.png" \
-        uv --directory "$REPO_DIR" run linecast maps --view now --zoom 130 \
-        --location "$GLOBE_PLACE"
-    # The frame is this hour's terminator and city lights — honestly
-    # different every run — but *not* this hour's clouds: daylight alone
-    # reads instantly, where the cloud layer makes a first-glance reader
-    # work out what they are looking at.  So the capture opens the plain
-    # terrain planet and presses S once the canvas is warm.
+    # The plain terrain planet with S pressed for this hour's daylight
+    # and city lights, and then with c pressed as well for this hour's
+    # clouds: the daylight-only frame reads at a glance, where the cloud
+    # layer makes a first-glance reader work out what they are looking
+    # at; the cloudy one is the planet as it is. Both are honestly
+    # different every run. --view now brings the daylight and the clouds
+    # by itself, but it also puts the text and the labels away and sets
+    # the planet turning a degree a second, so by the time the clouds are
+    # in, the sunset line has left the frame; these open on terrain and
+    # press the keys instead. The clouds take a while to arrive at this
+    # size, hence the longer settle.
     "$CAPTURE_TOOL" -s 120x38 -w 25 --font "$CAPTURE_FONT" --key S --sleep 4 \
         -o "$SHOT_DIR/maps-globe.png" \
         uv --directory "$REPO_DIR" run linecast maps --view terrain --zoom 130 \
         --location "$GLOBE_PLACE"
-    # The same two with the labels put away (l): the planet alone, in its
-    # daylight, and under its clouds.
-    printf 'Capturing the globe without labels…\n'
-    "$CAPTURE_TOOL" -s 120x38 -w 25 --font "$CAPTURE_FONT" --key S --sleep 2 --key l \
-        --sleep 3 -o "$SHOT_DIR/maps-globe-bare.png" \
+    "$CAPTURE_TOOL" -s 120x38 -w 25 --font "$CAPTURE_FONT" --key Sc --sleep 25 \
+        -o "$SHOT_DIR/maps-globe-clouds.png" \
         uv --directory "$REPO_DIR" run linecast maps --view terrain --zoom 130 \
         --location "$GLOBE_PLACE"
-    "$CAPTURE_TOOL" -s 120x38 -w 45 --font "$CAPTURE_FONT" --key l --sleep 3 \
+    # The planet alone: the same two with the labels put away by l and
+    # the text by t. The second is what --view now opens on, held still.
+    printf 'Capturing the globe alone…\n'
+    "$CAPTURE_TOOL" -s 120x38 -w 25 --font "$CAPTURE_FONT" --key Slt --sleep 4 \
+        -o "$SHOT_DIR/maps-globe-bare.png" \
+        uv --directory "$REPO_DIR" run linecast maps --view terrain --zoom 130 \
+        --location "$GLOBE_PLACE"
+    "$CAPTURE_TOOL" -s 120x38 -w 25 --font "$CAPTURE_FONT" --key Sclt --sleep 25 \
         -o "$SHOT_DIR/maps-globe-clouds-bare.png" \
-        uv --directory "$REPO_DIR" run linecast maps --view now --zoom 130 \
+        uv --directory "$REPO_DIR" run linecast maps --view terrain --zoom 130 \
         --location "$GLOBE_PLACE"
 }
 
@@ -503,6 +507,31 @@ gallery() {
         -o "$GALLERY_DIR/weather-short.png" \
         uv --directory "$REPO_DIR" run linecast weather --location "$WEATHER_PLACE"
 
+    # The dashboard at the README's size, with the pointer on a day's bar
+    # for the chip that draws that day's hours: the fourth day, column 58,
+    # row 26 on 110x34.
+    printf 'Capturing weather with the pointer on a day…\n'
+    "$CAPTURE_TOOL" -s 110x34 -w 10 --font "$CAPTURE_FONT" \
+        --hover 100x12 --sleep 0.5 --hover 56x26 --sleep 0.7 --hover 58x26 --sleep 1.5 \
+        -o "$GALLERY_DIR/weather-day.png" \
+        uv --directory "$REPO_DIR" run linecast weather --location "$WEATHER_PLACE"
+
+    # Last month's hourly temperatures for the year view's place, as
+    # --month opens, then the same month as c shows it, each hour against
+    # its ten-year average, with the pointer on the afternoon of the 10th
+    # so the chip that gives the hour, its average, and the difference is
+    # in the frame: on 110x40, column 66, row 16. A 31-day month starts a
+    # row higher, and the pointer is then on the 11th. As in weather_year,
+    # the pointer stops once on the way.
+    printf 'Capturing the weather month view…\n'
+    "$CAPTURE_TOOL" -s 110x40 -w 15 --font "$CAPTURE_FONT" \
+        -o "$GALLERY_DIR/weather-month.png" \
+        uv --directory "$REPO_DIR" run linecast weather --month --location "$WEATHER_YEAR_PLACE"
+    "$CAPTURE_TOOL" -s 110x40 -w 15 --font "$CAPTURE_FONT" \
+        --hover 100x12 --sleep 0.5 --hover 70x16 --sleep 0.7 --hover 66x16 --sleep 1.5 \
+        -o "$GALLERY_DIR/weather-month-departure.png" \
+        uv --directory "$REPO_DIR" run linecast weather --month-departure --location "$WEATHER_YEAR_PLACE"
+
     printf 'Capturing the moon month grid…\n'
     "$CAPTURE_TOOL" -s 120x40 -w 4 --font "$CAPTURE_FONT" \
         -o "$GALLERY_DIR/moon-grid.png" \
@@ -522,7 +551,9 @@ gallery() {
         --location -41.3,174.6 --zoom 7
 
     # A continent under this hour's clouds, at a zoom between the street
-    # map and the globe, centred where it is mid-afternoon right now.
+    # map and the globe, centred where it is mid-afternoon right now. S and
+    # c bring the daylight and the clouds, as in globe(), since --view now
+    # would put the labels away and turn the view off the continent.
     local afternoon
     afternoon=$(python3 -c '
 import datetime
@@ -531,9 +562,9 @@ subsolar = -15 * (now.hour + now.minute / 60 - 12)
 lon = (subsolar - 20 + 180) % 360 - 180
 print(f"30,{lon:.0f}")')
     printf 'Capturing clouds over a continent at %s…\n' "$afternoon"
-    "$CAPTURE_TOOL" -s 120x38 -w 40 --font "$CAPTURE_FONT" \
+    "$CAPTURE_TOOL" -s 120x38 -w 15 --font "$CAPTURE_FONT" --key Sc --sleep 25 \
         -o "$GALLERY_DIR/maps-clouds-continent.png" \
-        uv --directory "$REPO_DIR" run linecast maps --view now \
+        uv --directory "$REPO_DIR" run linecast maps --view terrain \
         --location "$afternoon" --zoom 45
 
     printf 'Capturing a walking route…\n'
