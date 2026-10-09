@@ -5,6 +5,7 @@ Notable changes, by release. Notes for the next release collect under **Unreleas
 ## Unreleased
 
 - Weather: The forecast paragraph mentions sharp changes in the highs ahead: “It will get up to 86° tomorrow afternoon. Cooler on Sunday, then warmer again on Monday.”
+- Weather: Warnings from Met Éireann show again in Ireland.
 
 ## 2.10.0 — 2026-10-03
 

@@ -87,7 +87,7 @@ def fetch(lat, lng, lang="en", address=None):
     county = _meteireann_county(address)
     return _cached_feed(
         cache_dir("weather") / f"alerts_ie_{location_cache_key(lat, lng)}.json",
-        "https://prodapi.metweb.ie/warnings/active",
+        "https://prodapi.metweb.ie/warnings",
         lambda data: _parse_meteireann(data, county),
         headers={"Accept": "application/json"}, timeout=10)
 
