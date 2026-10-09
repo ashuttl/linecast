@@ -4,6 +4,8 @@ Notable changes, by release. Notes for the next release collect under **Unreleas
 
 ## Unreleased
 
+## 2.10.1 — 2026-10-09
+
 - Weather: The forecast paragraph mentions sharp changes in the highs ahead: “It will get up to 86° tomorrow afternoon. Cooler on Sunday, then warmer again on Monday.”
 - Weather: Warnings from Met Éireann show again in Ireland after a change to the Met Éireann API URLs.
 - Weather: Warnings for Croatia's inland counties are matched to your location by region, as the coastal ones are.
