@@ -192,6 +192,14 @@ WEATHER = {
     "today_ref": "امروز",
     "will_be": "{subject} {comparison} خواهد بود",
     "will_be_then": "دمای بیشینه {comparison} خواهد بود",
+    "high_up_to": "{time} دما تا {temp} بالا می\u200cرود",
+    "high_only_up_to": "{time} دما فقط تا {temp} بالا می\u200cرود",
+    "highs_warmer": "{day} هوا گرم\u200cتر می\u200cشود",
+    "highs_cooler": "{day} هوا خنک\u200cتر می\u200cشود",
+    "highs_much_warmer": "{day} هوا بسیار گرم\u200cتر می\u200cشود",
+    "highs_much_cooler": "{day} هوا بسیار خنک\u200cتر می\u200cشود",
+    "highs_then_cooler": "{change}؛ سپس {then} دوباره خنک\u200cتر می\u200cشود",
+    "highs_then_warmer": "{change}؛ سپس {then} دوباره گرم\u200cتر می\u200cشود",
     # Precipitation: a turn to another kind is "تبدیل می\u200cشود", and the
     # same rain harder "شدت می\u200cگیرد"
     "ending": "{desc} {time} قطع می\u200cشود",

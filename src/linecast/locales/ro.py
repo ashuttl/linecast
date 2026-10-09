@@ -236,6 +236,14 @@ WEATHER = {
     "degrees_one": "{n}\u00a0grad",
     "degrees_many": "{n}\u00a0de grade",
     "will_be_then": "Maxima va fi {comparison}",
+    "high_up_to": "temperatura va urca până la {temp} {time}",
+    "high_only_up_to": "temperatura nu va trece de {temp} {time}",
+    "highs_warmer": "vremea se încălzește {day}",
+    "highs_cooler": "vremea se răcește {day}",
+    "highs_much_warmer": "vremea se încălzește mult {day}",
+    "highs_much_cooler": "vremea se răcește mult {day}",
+    "highs_then_cooler": "{change}, apoi se răcește din nou {then}",
+    "highs_then_warmer": "{change}, apoi se încălzește din nou {then}",
     "more_later_pl": "{desc_def} revin {time}",
 }
 

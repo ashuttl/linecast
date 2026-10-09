@@ -188,6 +188,14 @@ WEATHER = {
     "today_ref": "dnešná",
     "will_be": "{subject} bude {comparison}",
     "will_be_then": "Najvyššia teplota bude {comparison}",
+    "high_up_to": "{time} teplota vystúpi až na {temp}",
+    "high_only_up_to": "{time} teplota vystúpi len na {temp}",
+    "highs_warmer": "{day} sa oteplí",
+    "highs_cooler": "{day} sa ochladí",
+    "highs_much_warmer": "{day} sa výrazne oteplí",
+    "highs_much_cooler": "{day} sa výrazne ochladí",
+    "highs_then_cooler": "{change}, potom sa {then} opäť ochladí",
+    "highs_then_warmer": "{change}, potom sa {then} opäť oteplí",
     # Precipitation line.  The verbs are in the future, which does not
     # mark gender, so only the plural nouns (prehánky, búrky, snehové
     # zrná) need a form of their own, "_pl".  What sets in comes last,

@@ -247,6 +247,14 @@ WEATHER = {
     "feels_ahead_cold": "{time}จะรู้สึกหนาวถึง {temp}",
     "feels_ahead_cold_wind": "ลมจะทำให้{time}รู้สึกหนาวถึง {temp}",
     "will_be_then": "อุณหภูมิสูงสุดจะ{comparison}",
+    "high_up_to": "{time}อุณหภูมิจะสูงขึ้นถึง {temp}",
+    "high_only_up_to": "{time}อุณหภูมิจะสูงสุดเพียง {temp}",
+    "highs_warmer": "อุณหภูมิจะสูงขึ้น{day}",
+    "highs_cooler": "อุณหภูมิจะลดลง{day}",
+    "highs_much_warmer": "อุณหภูมิจะสูงขึ้นมาก{day}",
+    "highs_much_cooler": "อุณหภูมิจะลดลงมาก{day}",
+    "highs_then_cooler": "{change} แล้วจะลดลงอีกครั้ง{then}",
+    "highs_then_warmer": "{change} แล้วจะสูงขึ้นอีกครั้ง{then}",
 }
 
 

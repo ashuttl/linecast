@@ -199,6 +199,14 @@ WEATHER = {
     "today_ref": "a mai",
     "will_be": "{subject} {comparison}",
     "will_be_then": "A legmagasabb hőmérséklet {comparison}",
+    "high_up_to": "{time} {temp}ig emelkedik a hőmérséklet",
+    "high_only_up_to": "{time} csak {temp}ig emelkedik a hőmérséklet",
+    "highs_warmer": "{day} melegebb lesz",
+    "highs_cooler": "{day} hűvösebb lesz",
+    "highs_much_warmer": "{day} jóval melegebb lesz",
+    "highs_much_cooler": "{day} jóval hűvösebb lesz",
+    "highs_then_cooler": "{change}, majd {then} ismét hűvösebb",
+    "highs_then_warmer": "{change}, majd {then} ismét melegebb",
     # The precipitation.  What is falling now is known, so it takes the
     # article ({desc_def}: "az eső", "a havazás"); what is to come is new,
     # and goes bare before its verb ("16 óra körül eső kezdődik").  A

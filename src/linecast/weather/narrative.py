@@ -115,10 +115,12 @@ def _prose_inches(n, runtime):
 #
 # Salience is what a person would be sure to mention: thunder, a freeze,
 # a gale, snow on the ground by morning, then rain and when, then the sky
-# and the felt temperature, then how today compares, then what fell
-# yesterday.  The comparison is what most people open the app for --
-# will it be like today out there, or not -- so it is never dropped
-# lightly, "about the same" included.
+# and the felt temperature, then how today compares and what tomorrow
+# gets up to, then what fell yesterday.  The comparison is what most
+# people open the app for -- will it be like today out there, or not --
+# so it is never dropped lightly, "about the same" included.  A turn in
+# the week's highs comes last, said when there is room for it, unless
+# it is a big one.
 #
 # The sentences then read in the order of the things they describe: now,
 # later today, tonight, tomorrow, the week.  What fell in the last day
@@ -218,6 +220,12 @@ def narrative_text(data, now, runtime=None, trace=None):
     add(3, 0.0, now, lambda after: feels)
     if now.hour < _COMPARISON_TURNS_TO_TOMORROW:
         add(big, 0.01, now, lambda after: comparison)
+        # The comparison is still looking back, so a change tomorrow has
+        # a sentence of its own
+        high, high_big, high_at = _high_tomorrow(daily, hourly, now, runtime)
+        if high:
+            add(high_big, hours(high_at), high_at,
+                lambda after: _high_tomorrow(daily, hourly, now, runtime, after)[0])
     else:
         noon_tomorrow = (now + timedelta(days=1)).replace(hour=12, minute=0, second=0,
                                                           microsecond=0)
@@ -243,6 +251,9 @@ def narrative_text(data, now, runtime=None, trace=None):
     if ahead:
         add(4, hours(ahead_at), ahead_at,
             lambda after: _feels_ahead(hourly, now, runtime, after, current)[0])
+    turn, turn_big, turn_at, turn_end = _highs_turn(daily, now, runtime)
+    if turn:
+        add(turn_big, hours(turn_at), turn_at, lambda after: turn, leaves=turn_end)
     if not kind:
         week, week_at = _next_rain(daily, now, runtime, hourly)
         if week:
@@ -773,6 +784,28 @@ def _feels_ahead(hourly, now, runtime, after=None, current=None):
 _COMPARISON_TURNS_TO_TOMORROW = 14
 
 
+def _daily_highs(daily, now, offsets):
+    """The daily highs `offsets` days from today, None for a day the
+    forecast does not have.
+
+    The dates are resolved in cached forecasts too: index 1 only means
+    today on the day of the fetch.  Undated series use past_days=1, and
+    stop where the series does."""
+    highs = daily.get("temperature_2m_max", [])
+    if daily.get("time") is not None:
+        by_date = dict(zip(daily["time"], highs))
+        return [by_date.get((now.date() + timedelta(days=offset)).isoformat())
+                for offset in offsets]
+    return [highs[offset + 1] for offset in offsets if offset + 1 < len(highs)]
+
+
+def _change_floors(runtime):
+    """The degrees from which one day's high is not about the same as
+    another's, is more than a bit off it, and is much off it: smaller
+    in Celsius, since 1°C ≈ 1.8°F."""
+    return (2, 4, 8) if runtime.celsius else (3, 8, 15)
+
+
 def _comparison(daily, now, runtime, inherited=False):
     """The comparative sentence and its salience: nothing to say, about the
     same, a few degrees, or a real change.  With `inherited`, the sentence
@@ -780,14 +813,7 @@ def _comparison(daily, now, runtime, inherited=False):
     "will_be_then" form carries it: "It will be 3° cooler than today"."""
     if runtime is None:
         runtime = current_runtime(WeatherRuntime)
-    hi_temps = daily.get("temperature_2m_max", [])
-
-    # Resolve the dates in cached forecasts too: index 1 only means
-    # today on the day of the fetch. Undated series use past_days=1.
-    if daily.get("time") is not None:
-        by_date = dict(zip(daily["time"], hi_temps))
-        hi_temps = [by_date.get((now.date() + timedelta(days=offset)).isoformat())
-                    for offset in (-1, 0, 1)]
+    hi_temps = _daily_highs(daily, now, (-1, 0, 1))
     if len(hi_temps) < 3:
         return "", 0
 
@@ -807,8 +833,7 @@ def _comparison(daily, now, runtime, inherited=False):
     diff = b - a
 
     abs_diff = abs(diff)
-    # Thresholds in degrees (smaller for Celsius since 1°C ≈ 1.8°F)
-    t_same, t_bit, t_much = (2, 4, 8) if runtime.celsius else (3, 8, 15)
+    t_same, t_bit, t_much = _change_floors(runtime)
     if abs_diff < t_same:
         key, salience = "same_temp", 2
     elif abs_diff < t_bit:
@@ -844,6 +869,123 @@ def comparative_sentence(daily, now, runtime=None):
 def _comparative_line(daily, now, runtime=None):
     """ANSI-colored comparative sentence for the dashboard."""
     return _prose(comparative_sentence(daily, now, runtime))
+
+
+# ---------------------------------------------------------------------------
+# The highs ahead
+# ---------------------------------------------------------------------------
+# A day's high is a change from another's when it is more than "a bit"
+# off it, the comparison's own measure.  The week is read as far as the
+# daily forecast under the paragraph shows it; past the third day a
+# change has to be a big one, as rain that far off has to be surer.
+_TURN_LAST_DAY = 6
+_TURN_NEAR_DAYS = 3
+# The change back is the same spell of weather for two days after the
+# turn.  Later than that it is another week's news.
+_TURN_BACK_DAYS = 2
+
+
+def high_tomorrow_sentence(daily, hourly, now, runtime=None):
+    """"It will get up to 30° tomorrow afternoon": tomorrow's high and
+    the part of the day it comes in, when it is a change from today's.
+
+    Said in the hours the comparison is still about yesterday.  After
+    that the comparison is about tomorrow and says the same thing.
+
+    A day whose warmest hour is in the small hours is falling from
+    midnight on: its high is the last of today's warmth, not something
+    tomorrow gets up to, and it goes unsaid.  So does a day without its
+    hours, which has no part of the day to name."""
+    if runtime is None:
+        runtime = current_runtime(WeatherRuntime)
+    return _high_tomorrow(daily, hourly, now, runtime)[0]
+
+
+def _high_tomorrow(daily, hourly, now, runtime, after=None):
+    """The sentence for tomorrow's high, its salience, and the hour of
+    the high."""
+    nothing = ("", 0, None)
+    today = _daily_highs(daily, now, (0,))
+    if not today or today[0] is None:
+        return nothing
+    day = (now + timedelta(days=1)).date()
+    temps = hourly.get("temperature_2m") or []
+    hours = [(i, dt) for i, dt in _hours_ahead(hourly, now, span=48)
+             if dt.date() == day and i < len(temps) and temps[i] is not None]
+    if not hours:
+        return nothing
+    i, at = max(hours, key=lambda h: temps[h[0]])
+    if at.hour < 5:
+        return nothing
+    change = temps[i] - today[0]
+    _, t_bit, t_much = _change_floors(runtime)
+    if abs(change) < t_bit:
+        return nothing
+    # A cooler day gets up to its high too, but "only" that far
+    key = "high_up_to" if change > 0 else "high_only_up_to"
+    if not _has(key, runtime):
+        return nothing
+    return (_s(key, runtime, temp=_degrees(temps[i], runtime, signed=True),
+               time=_time_phrase(at, now, runtime, after=after)),
+            3 if abs(change) >= t_much else 2, at)
+
+
+def highs_turn_sentence(daily, now, runtime=None):
+    """"Cooler on Sunday, then warmer again on Monday": the next sharp
+    change in the week's highs after tomorrow, and the change back when
+    one follows it.
+
+    Tomorrow is the comparison's, or the sentence above's.  This reads
+    on from there, for the first day whose high is a change from the
+    day before it.  A week that drifts by a degree a day has no day to
+    name and goes unsaid."""
+    if runtime is None:
+        runtime = current_runtime(WeatherRuntime)
+    return _highs_turn(daily, now, runtime)[0]
+
+
+def _highs_turn(daily, now, runtime):
+    """The sentence for the week's highs, its salience, the day it turns
+    on, and the day it turns back on, when it does."""
+    nothing = ("", 0, None, None)
+    if not _has("highs_cooler", runtime):
+        return nothing
+    # highs[k] is the day k days from today
+    highs = [None] + _daily_highs(daily, now, range(1, _TURN_LAST_DAY + 1))
+    _, t_bit, t_much = _change_floors(runtime)
+
+    def noon(k):
+        return (now + timedelta(days=k)).replace(hour=12, minute=0, second=0, microsecond=0)
+
+    def on(k):
+        return _on_full_day(noon(k).date(), runtime)
+
+    turn = None
+    for k in range(2, len(highs)):
+        if highs[k] is None or highs[k - 1] is None:
+            return nothing
+        if abs(highs[k] - highs[k - 1]) >= (t_bit if k <= _TURN_NEAR_DAYS else t_much):
+            turn = k
+            break
+    if turn is None:
+        return nothing
+    step = highs[turn] - highs[turn - 1]
+    much = abs(step) >= t_much
+    key = ("highs_much_" if much else "highs_") + ("warmer" if step > 0 else "cooler")
+    sentence = _s(key, runtime, day=on(turn))
+    # The change back is measured from the furthest the turn goes: a
+    # cool day, a cooler one, and then a warm one is one turn and back
+    furthest = highs[turn]
+    back = "highs_then_cooler" if step > 0 else "highs_then_warmer"
+    for k in range(turn + 1, min(turn + _TURN_BACK_DAYS, len(highs) - 1) + 1):
+        if highs[k] is None or not _has(back, runtime):
+            break
+        if (highs[k] > furthest) == (step > 0):
+            furthest = highs[k]
+        elif abs(highs[k] - furthest) >= t_bit:
+            return (_s(back, runtime, change=sentence, then=on(k)),
+                    2 if much else 1, noon(turn), noon(k))
+    return sentence, 2 if much else 1, noon(turn), None
 
 
 # ---------------------------------------------------------------------------

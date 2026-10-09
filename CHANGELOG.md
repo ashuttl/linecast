@@ -4,6 +4,8 @@ Notable changes, by release. Notes for the next release collect under **Unreleas
 
 ## Unreleased
 
+- Weather: The forecast paragraph mentions sharp changes in the highs ahead: “It will get up to 86° tomorrow afternoon. Cooler on Sunday, then warmer again on Monday.”
+
 ## 2.10.0 — 2026-10-03
 
 Weather gains a month view of hourly temperatures, with sunrise and sunset and a comparison with the ten-year average. Browse the past ten years and the current year so far, and hover to see how warm or cold an hour was for the time of year.

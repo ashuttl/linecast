@@ -273,6 +273,22 @@ WEATHER = {
     "will_be": "{subject} will be {comparison}",
     # When the sentence before has already said "tomorrow"
     "will_be_then": "The high will be {comparison}",
+    # Tomorrow's high, when it is a change from today's and the
+    # comparison is still about yesterday: "It will get up to 30°
+    # tomorrow afternoon".  A cooler day gets "only" that far.
+    "high_up_to": "It will get up to {temp} {time}",
+    "high_only_up_to": "It will only get up to {temp} {time}",
+    # The next sharp change in the week's highs after tomorrow, and
+    # the change back when one follows: "Much cooler on Sunday",
+    # "Cooler on Sunday, then warmer again on Monday".  {day} and
+    # {then} are the "on Sunday" of the rain sentences; {change} is
+    # one of the four sentences above it.
+    "highs_warmer": "Warmer {day}",
+    "highs_cooler": "Cooler {day}",
+    "highs_much_warmer": "Much warmer {day}",
+    "highs_much_cooler": "Much cooler {day}",
+    "highs_then_cooler": "{change}, then cooler again {then}",
+    "highs_then_warmer": "{change}, then warmer again {then}",
     # Precipitation line
     "ending": "{desc} ending {time}",
     "continuing": "{desc} continuing through the day",

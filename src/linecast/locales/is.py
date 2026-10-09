@@ -246,6 +246,14 @@ WEATHER = {
     "degrees_diff": "{n}\u00a0stigum",
     "degrees_diff_one": "{n}\u00a0stigi",
     "will_be_then": "Hámarkshitinn verður þá {comparison}",
+    "high_up_to": "Hitinn fer upp í {temp} {time}",
+    "high_only_up_to": "Hitinn fer aðeins upp í {temp} {time}",
+    "highs_warmer": "Hlýnar {day}",
+    "highs_cooler": "Kólnar {day}",
+    "highs_much_warmer": "Hlýnar talsvert {day}",
+    "highs_much_cooler": "Kólnar talsvert {day}",
+    "highs_then_cooler": "{change}, síðan kólnar aftur {then}",
+    "highs_then_warmer": "{change}, síðan hlýnar aftur {then}",
 }
 
 

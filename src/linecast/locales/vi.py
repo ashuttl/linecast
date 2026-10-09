@@ -245,6 +245,14 @@ WEATHER = {
     "feels_ahead_cold": "{time}, nhiệt độ cảm nhận sẽ xuống tới {temp}",
     "feels_ahead_cold_wind": "{time}, gió sẽ khiến nhiệt độ cảm nhận xuống tới {temp}",
     "will_be_then": "Nhiệt độ cao nhất sẽ {comparison}",
+    "high_up_to": "{time}, nhiệt độ sẽ lên tới {temp}",
+    "high_only_up_to": "{time}, nhiệt độ chỉ lên tới {temp}",
+    "highs_warmer": "Nhiệt độ sẽ tăng {day}",
+    "highs_cooler": "Nhiệt độ sẽ giảm {day}",
+    "highs_much_warmer": "Nhiệt độ sẽ tăng mạnh {day}",
+    "highs_much_cooler": "Nhiệt độ sẽ giảm mạnh {day}",
+    "highs_then_cooler": "{change}, rồi giảm trở lại {then}",
+    "highs_then_warmer": "{change}, rồi tăng trở lại {then}",
 }
 
 

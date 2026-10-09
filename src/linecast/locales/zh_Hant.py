@@ -242,6 +242,14 @@ WEATHER = {
     "feels_ahead_cold": "{time}體感溫度將低至{temp}",
     "feels_ahead_cold_wind": "受風影響，{time}體感溫度將低至{temp}",
     "will_be_then": "高溫{comparison}",
+    "high_up_to": "{time}氣溫將升至{temp}",
+    "high_only_up_to": "{time}氣溫最高只有{temp}",
+    "highs_warmer": "{day}氣溫上升",
+    "highs_cooler": "{day}氣溫下降",
+    "highs_much_warmer": "{day}氣溫明顯上升",
+    "highs_much_cooler": "{day}氣溫明顯下降",
+    "highs_then_cooler": "{change}，{then}再度下降",
+    "highs_then_warmer": "{change}，{then}再度回升",
 }
 
 

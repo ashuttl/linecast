@@ -240,6 +240,14 @@ WEATHER = {
     "feels_ahead_cold": "Suhu akan terasa serendah {temp} {time}",
     "feels_ahead_cold_wind": "Angin akan membuat suhu terasa serendah {temp} {time}",
     "will_be_then": "Suhu tertinggi diperkirakan {comparison}",
+    "high_up_to": "Suhu akan naik hingga {temp} {time}",
+    "high_only_up_to": "Suhu hanya akan naik hingga {temp} {time}",
+    "highs_warmer": "Suhu akan naik {day}",
+    "highs_cooler": "Suhu akan turun {day}",
+    "highs_much_warmer": "Suhu akan naik tajam {day}",
+    "highs_much_cooler": "Suhu akan turun tajam {day}",
+    "highs_then_cooler": "{change}, lalu turun lagi {then}",
+    "highs_then_warmer": "{change}, lalu naik lagi {then}",
 }
 
 

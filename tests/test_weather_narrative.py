@@ -1607,6 +1607,160 @@ class TestWhatIsSaidAndInWhatOrder:
             "明日の最高気温は今日と同じくらいでしょう。"
             "午後に霧雨になるでしょう。風も強まり、最大26mphの突風が吹くでしょう。")
 
+
+class TestTheHighsAhead:
+    """Tomorrow's high while the comparison is still about yesterday, and
+    the next sharp change in the week's highs."""
+
+    # NOON is a Wednesday: tomorrow Thursday, then Friday, Saturday
+
+    @staticmethod
+    def _daily(*highs, now=NOON):
+        # Yesterday first, as the forecast sends it
+        days = [now.date() + timedelta(days=k - 1) for k in range(len(highs))]
+        return {"time": [d.isoformat() for d in days],
+                "temperature_2m_max": list(highs)}
+
+    @staticmethod
+    def _hourly(daily, now=NOON):
+        """The hours from `now` to the end of tomorrow, each day warmest
+        at three in the afternoon, at the day's high."""
+        highs = dict(zip(daily["time"], daily["temperature_2m_max"]))
+        hours = [now.replace(minute=0) + timedelta(hours=k) for k in range(48 - now.hour)]
+        return {"time": [h.isoformat(timespec="minutes") for h in hours],
+                "temperature_2m": [highs[h.date().isoformat()] - abs(h.hour - 15)
+                                   for h in hours]}
+
+    def _tomorrow(self, *highs, now=NOON, **overrides):
+        from linecast.weather.narrative import high_tomorrow_sentence
+        daily = self._daily(*highs, now=now)
+        return high_tomorrow_sentence(daily, self._hourly(daily, now), now,
+                                      _runtime(**overrides))
+
+    def _turn(self, *highs, **overrides):
+        from linecast.weather.narrative import highs_turn_sentence
+        return highs_turn_sentence(self._daily(*highs), NOON, _runtime(**overrides))
+
+    def _prose(self, data, now=NOON, **overrides):
+        import re
+        return " ".join(re.sub(r"\x1b\[[0-9;]*m", "", row)
+                        for row in narrative_lines(data, now, 400, _runtime(**overrides)))
+
+    def test_a_warmer_tomorrow_gets_up_to_its_high(self):
+        assert self._tomorrow(66, 69, 86) == "It will get up to 86° tomorrow afternoon"
+        assert (self._tomorrow(66, 69, 86, lang="ja")
+                == "明日の午後には気温が86度まで上がる見込みです")
+
+    def test_a_cooler_tomorrow_only_gets_up_to_its_high(self):
+        assert self._tomorrow(70, 70, 58) == "It will only get up to 58° tomorrow afternoon"
+
+    def test_a_bit_of_a_change_is_not_worth_the_sentence(self):
+        assert self._tomorrow(70, 70, 76) == ""
+        assert self._tomorrow(70, 70, 64) == ""
+
+    def test_a_degree_celsius_counts_for_more(self):
+        assert self._tomorrow(21, 21, 25) == ""
+        assert (self._tomorrow(21, 21, 25, celsius=True, metric=True)
+                == "It will get up to 25° tomorrow afternoon")
+
+    def test_a_high_at_midnight_is_not_what_tomorrow_gets_up_to(self):
+        # A front in the night: tomorrow is warmest in its first hour and
+        # falls from there
+        from linecast.weather.narrative import high_tomorrow_sentence
+        daily = self._daily(70, 70, 58)
+        hourly = self._hourly(daily)
+        hourly["temperature_2m"] = [70 - k / 2 for k in range(len(hourly["time"]))]
+        assert high_tomorrow_sentence(daily, hourly, NOON, _runtime()) == ""
+
+    def test_without_the_hours_there_is_no_part_of_the_day_to_name(self):
+        from linecast.weather.narrative import high_tomorrow_sentence
+        assert high_tomorrow_sentence(self._daily(66, 69, 86), {}, NOON, _runtime()) == ""
+
+    def _swinging_week(self, now=NOON):
+        # Sydney in October, in Fahrenheit: 69 today, then 86, 74, 93, 69
+        daily = self._daily(66, 69, 86, 74, 93, 69, 61, 63, now=now)
+        hourly = self._hourly(daily, now)
+        hours = [datetime.fromisoformat(t) for t in hourly["time"]]
+        tomorrow = (now + timedelta(days=1)).date()
+        codes = [51 if h.date() == tomorrow and 5 <= h.hour < 8 else 0 for h in hours]
+        hourly.update(weather_code=codes,
+                      precipitation_probability=[70 if c else 0 for c in codes])
+        return {"current": {}, "daily": daily, "hourly": hourly}
+
+    def test_a_week_that_swings(self):
+        assert self._prose(self._swinging_week()) == (
+            "Today's high will be a bit warmer than yesterday's. "
+            "Light drizzle likely early tomorrow morning. "
+            "It will get up to 86° in the afternoon. "
+            "Cooler on Friday, then warmer again on Saturday.")
+
+    def test_from_two_the_comparison_speaks_for_tomorrow(self):
+        afternoon = NOON.replace(hour=15)
+        prose = self._prose(self._swinging_week(afternoon), afternoon)
+        assert "The high will be 17° warmer than today's." in prose
+        assert "get up to" not in prose
+        assert prose.endswith("Cooler on Friday, then warmer again on Saturday.")
+
+    def test_the_week_turns(self):
+        assert self._turn(70, 70, 72, 60, 62, 61) == "Cooler on Friday"
+        assert self._turn(70, 70, 72, 84, 82, 83) == "Warmer on Friday"
+
+    def test_a_big_turn_is_much(self):
+        assert self._turn(70, 70, 72, 50, 52, 51) == "Much cooler on Friday"
+        assert self._turn(70, 70, 72, 88, 86, 87) == "Much warmer on Friday"
+
+    def test_the_week_turns_and_turns_back(self):
+        assert (self._turn(70, 70, 72, 60, 75)
+                == "Cooler on Friday, then warmer again on Saturday")
+        assert (self._turn(70, 70, 72, 90, 75)
+                == "Much warmer on Friday, then cooler again on Saturday")
+
+    def test_the_change_back_is_measured_from_the_furthest_the_turn_goes(self):
+        # Friday cool, Saturday cooler, Sunday ten degrees up on Saturday
+        assert (self._turn(70, 70, 72, 60, 56, 66)
+                == "Cooler on Friday, then warmer again on Sunday")
+
+    def test_a_change_back_after_two_days_is_another_weeks_news(self):
+        assert self._turn(70, 70, 72, 60, 60, 60, 75) == "Cooler on Friday"
+
+    def test_a_week_that_drifts_has_no_day_to_name(self):
+        assert self._turn(70, 70, 73, 76, 79, 82, 85, 88) == ""
+
+    def test_far_off_the_change_has_to_be_a_big_one(self):
+        # Sunday is four days off
+        assert self._turn(70, 70, 72, 72, 72, 62, 62) == ""
+        assert self._turn(70, 70, 72, 72, 72, 56, 56) == "Much cooler on Sunday"
+
+    def test_tomorrow_is_not_the_weeks_turn(self):
+        # Tomorrow belongs to the comparison, or to its own sentence
+        assert self._turn(60, 60, 80, 80, 80, 80) == ""
+
+    def test_a_day_the_forecast_lacks_ends_the_reading(self):
+        assert self._turn(70, 70, 72, None, 50, 50) == ""
+        assert self._turn(70, 70, None, 50, 50, 50) == ""
+        assert self._turn(70, 70) == ""
+
+    def test_the_turn_in_celsius(self):
+        assert self._turn(22, 22, 22, 17, 17) == ""
+        assert self._turn(22, 22, 22, 17, 17, celsius=True, metric=True) == "Cooler on Friday"
+
+    def test_the_turn_in_other_languages(self):
+        assert (self._turn(70, 70, 72, 60, 75, lang="ja")
+                == "金曜日は気温が下がるでしょう。土曜日は再び上がるでしょう")
+        assert (self._turn(70, 70, 72, 60, 75, lang="de")
+                == "am Freitag kühler, am Samstag wieder wärmer")
+        assert (self._turn(70, 70, 72, 50, 52, lang="fr")
+                == "températures en nette baisse vendredi")
+
+    def test_the_week_gives_way_on_a_busy_day(self):
+        # Five things to say already; a cooler Friday is not one of the four
+        data = TestWhatIsSaidAndInWhatOrder()._busy_day()
+        data["daily"]["temperature_2m_max"] = [60, 61, 63, 50, 50]
+        from linecast.weather.narrative import highs_turn_sentence
+        assert highs_turn_sentence(data["daily"], NOON, _runtime()) == "Cooler on Friday"
+        assert "Friday" not in self._prose(data)
+
+
 class TestDegreesAsWords:
     """Where the language counts its degrees in words, the word agrees
     with the number and the case."""
