@@ -287,13 +287,33 @@ def dedup_sorted(points: list[tuple[datetime, float]]) -> list[tuple[datetime, f
 # ---------------------------------------------------------------------------
 # Timezones
 # ---------------------------------------------------------------------------
+# CHS names its stations' zones the old way, Canada/Atlantic. Debian 13
+# and Ubuntu 23.10 moved those names to tzdata-legacy, which is not
+# installed by default, so each is looked up by the name it links to.
+LEGACY_ZONES = {
+    "Canada/Atlantic": "America/Halifax",
+    "Canada/Central": "America/Winnipeg",
+    "Canada/Eastern": "America/Toronto",
+    "Canada/Mountain": "America/Edmonton",
+    "Canada/Newfoundland": "America/St_Johns",
+    "Canada/Pacific": "America/Vancouver",
+    "Canada/Saskatchewan": "America/Regina",
+    "Canada/Yukon": "America/Whitehorse",
+}
+
+
+def zone_info(tz_code: str) -> tzinfo:
+    """ZoneInfo for an IANA name, legacy Canadian names included."""
+    from zoneinfo import ZoneInfo
+    return ZoneInfo(LEGACY_ZONES.get(tz_code, tz_code))
+
+
 def tz_offset_hours(tz_code: str) -> float:
     """Current UTC offset in hours for an IANA timezone (0 when unknown)."""
     if not tz_code:
         return 0
     try:
-        from zoneinfo import ZoneInfo
-        now = datetime.now(ZoneInfo(tz_code))
+        now = datetime.now(zone_info(tz_code))
         return now.utcoffset().total_seconds() / 3600
     except Exception as exc:
         log_failure("tz", f"lookup of {tz_code}", exc, fallback="offset 0")

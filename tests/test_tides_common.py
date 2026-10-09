@@ -240,6 +240,13 @@ class TimezoneTests(unittest.TestCase):
         self.assertEqual(common.tz_offset_hours("Not/AZone"), 0)
         self.assertEqual(common.tz_offset_hours("Australia/Brisbane"), 10)
 
+    def test_legacy_canadian_names_need_no_tzdata_legacy(self):
+        # CHS's names; Debian 13 ships them only in tzdata-legacy
+        self.assertEqual(common.zone_info("Canada/Atlantic").key, "America/Halifax")
+        self.assertEqual(common.tz_offset_hours("Canada/Saskatchewan"), -6)
+        for target in common.LEGACY_ZONES.values():
+            self.assertEqual(common.zone_info(target).key, target)
+
 
 class LabelHiloTests(unittest.TestCase):
     def test_label_hilo_basic(self):

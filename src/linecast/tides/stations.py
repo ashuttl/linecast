@@ -16,6 +16,7 @@ from linecast._geo import haversine_nm
 from linecast._location import resolve_location
 from linecast._plaintext import plain_text
 from linecast._log import log_failure
+from linecast.tides.common import zone_info
 from linecast.tides.marine import fetch_marine
 from linecast.tides.tidecheck import budget_line as tidecheck_budget_line
 from linecast.tides.providers import (
@@ -187,8 +188,7 @@ def _station_tzinfo(meta):
     tz_code = meta.get("timeZoneCode")
     if tz_code:
         try:
-            from zoneinfo import ZoneInfo
-            return ZoneInfo(tz_code)
+            return zone_info(tz_code)
         except Exception as exc:
             log_failure("tz", f"lookup of {tz_code}", exc, fallback="abbreviation mapping")
 

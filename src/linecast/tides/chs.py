@@ -17,7 +17,7 @@ from linecast._log import debug_log, log_failure, log_skipped
 from linecast.tides.common import (
     M_TO_FT, cache_dir, cached_y_range, dedup_sorted, iana_to_abbr,
     label_hilo, local_day_bounds, measured_turns, month_after, nearest_station,
-    parse_cached_dt, parse_utc_iso, station_coords, tz_offset_hours,
+    parse_cached_dt, parse_utc_iso, station_coords, tz_offset_hours, zone_info,
     y_range_window,
 )
 
@@ -309,10 +309,9 @@ def _series_id(station_id, code):
 
 def _station_zone(station_id):
     """The station's zone, from its metadata; UTC when it names none."""
-    from zoneinfo import ZoneInfo
     tz_code = (fetch_station_metadata_chs(station_id) or {}).get("timeZoneCode")
     try:
-        return ZoneInfo(tz_code) if tz_code else timezone.utc
+        return zone_info(tz_code) if tz_code else timezone.utc
     except (KeyError, ValueError) as exc:
         log_failure("tides/chs", f"lookup of {tz_code}", exc, fallback="UTC days")
         return timezone.utc
