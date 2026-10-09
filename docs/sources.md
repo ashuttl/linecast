@@ -66,7 +66,7 @@ Fetched:
 Bundled, for placing MeteoAlarm's warnings:
 
 - **MeteoAlarm's geocodes** of 31 July 2026 (© EUMETNET, CC BY 4.0). The warning regions.
-- **[Eurostat GISCO](https://ec.europa.eu/eurostat/web/gisco)**, the 2013 NUTS boundaries (© EuroGeographics for the administrative boundaries). The regions some feeds file by.
+- **[Eurostat GISCO](https://ec.europa.eu/eurostat/web/gisco)**, the 2013 NUTS boundaries, and 2021's for Croatia (© EuroGeographics for the administrative boundaries). The regions some feeds file by.
 - **[ČÚZK RÚIAN](https://www.cuzk.gov.cz/)**, with the [Czech Statistical Office's](https://csu.gov.cz/) code list, both open data. Czechia's 206 ORP.
 
 Checked against: real responses from every feed, saved as fixtures, and the bundled regions by looking up twelve places and a point in the Atlantic. No placed alert has been compared with a dated real one beyond these.

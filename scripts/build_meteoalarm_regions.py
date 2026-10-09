@@ -19,15 +19,19 @@ Two kinds of geocode are placed:
   NUTS2/3   Eurostat's statistical regions, for the feeds that file
             those instead (Bulgaria, Romania, France, and Croatia at
             level 3; Hungary and Belgium at level 2), from GISCO's 2013
-            edition -- France, Hungary, and Croatia still file 2013
-            codes -- at 1:3M,
+            edition -- France and Hungary still file 2013 codes -- at
+            1:3M,
             which holds a departement's edge within a few hundred
             metres for half the bytes of the 1:1M file. Keyed by type
             and code, NUTS3/FR101, so a NUTS code and an EMMA_ID that
             share a spelling can never cross. © EuroGeographics for the
             administrative boundaries. Croatia files a county as an
             EMMA_ID no geocodes edition yet carries, with the NUTS3
-            code beside it (#127); the NUTS3 is what places it.
+            code beside it (#127); the NUTS3 is what places it. Its
+            NUTS3 codes are 2021's, which renumbered the inland
+            counties (Karlovačka, HR04D in 2013, is HR027) and kept the
+            coastal ones, so Croatia is carried from both editions: no
+            code means one county in 2013 and another in 2021.
 
   CISORP    Czechia's municipalities with extended powers (ORP), 206 of
             them, finer than any region MeteoAlarm publishes. Geometry
@@ -48,7 +52,8 @@ those since its 2026 editions, so both codes on an area now place it.)
         "https://gitlab.com/meteoalarm-pm-group/documents/-/raw/master/MeteoAlarm_Geocodes_2026_07_31.json"
 
 fetches the NUTS files from GISCO and the Czech ORP files from ČÚZK and
-ČSÚ; pass --nuts3, --nuts2, --orp, and --cisorp to use local copies.
+ČSÚ; pass --nuts3, --nuts2, --nuts3-2021, --orp, and --cisorp to use
+local copies.
 Then
 
     uv run python scripts/build_meteoalarm_regions.py check
@@ -92,11 +97,14 @@ OUT = os.path.join(os.path.dirname(__file__), "..", "src", "linecast",
                    "data", "meteoalarm_regions.bin.gz")
 
 GISCO = ("https://gisco-services.ec.europa.eu/distribution/v2/nuts/geojson/"
-         "NUTS_RG_03M_2013_4326_LEVL_{level}.geojson")
+         "NUTS_RG_03M_{year}_4326_LEVL_{level}.geojson")
 
 # Which countries' NUTS regions to carry, by level: the feeds that file
 # NUTS codes, at the level they file them.
 NUTS = {"NUTS3": ("BG", "RO", "FR", "HR"), "NUTS2": ("HU", "BE")}
+
+# Feeds that file 2021 NUTS3 codes, carried as well as their 2013 ones.
+NUTS3_2021 = ("HR",)
 
 # Feeds whose geocodes are EMMA_IDs under another type name.
 ALIASES = {"MK": "NUTS3"}
@@ -174,7 +182,7 @@ def q(deg):
     return round(deg * 1e5)
 
 
-def regions(geocodes, nuts3, nuts2, orp, cisorp):
+def regions(geocodes, nuts3, nuts2, nuts3_2021, orp, cisorp):
     """(key, geometry) for every region to bake, in key order."""
     out = {}
     for f in geocodes["features"]:
@@ -191,6 +199,10 @@ def regions(geocodes, nuts3, nuts2, orp, cisorp):
             props = f["properties"]
             if props["CNTR_CODE"] in NUTS[level]:
                 out[f"{level}/{props['NUTS_ID']}"] = f["geometry"]
+    for f in nuts3_2021["features"]:
+        props = f["properties"]
+        if props["CNTR_CODE"] in NUTS3_2021:
+            out[f"NUTS3/{props['NUTS_ID']}"] = f["geometry"]
     code_by_ruian = {row["kod_ruian"]: row["chodnota"] for row in cisorp}
     for f in orp["features"]:
         code = code_by_ruian[str(f["properties"]["kod"])]
@@ -232,11 +244,12 @@ def pack(items):
 
 def bake(args):
     geocodes = load(args.geocodes)
-    nuts3 = load(args.nuts3 or GISCO.format(level=3))
-    nuts2 = load(args.nuts2 or GISCO.format(level=2))
+    nuts3 = load(args.nuts3 or GISCO.format(year=2013, level=3))
+    nuts2 = load(args.nuts2 or GISCO.format(year=2013, level=2))
+    nuts3_2021 = load(args.nuts3_2021 or GISCO.format(year=2021, level=3))
     orp = load(args.orp or RUIAN_ORP)
     cisorp = load_csv(args.cisorp or CISORP)
-    items = regions(geocodes, nuts3, nuts2, orp, cisorp)
+    items = regions(geocodes, nuts3, nuts2, nuts3_2021, orp, cisorp)
     raw, npts = pack(items)
     with open(OUT, "wb") as fh:
         fh.write(gzip.compress(raw, 9))
@@ -308,6 +321,7 @@ def main(argv=None):
     p.add_argument("geocodes", help="MeteoAlarm geocodes GeoJSON, path or URL")
     p.add_argument("--nuts3", help="GISCO NUTS 2013 level-3 GeoJSON (default: fetch)")
     p.add_argument("--nuts2", help="GISCO NUTS 2013 level-2 GeoJSON (default: fetch)")
+    p.add_argument("--nuts3-2021", help="GISCO NUTS 2021 level-3 GeoJSON (default: fetch)")
     p.add_argument("--orp", help="RÚIAN ORP GeoJSON in WGS84 (default: fetch)")
     p.add_argument("--cisorp", help="ČSÚ CISORP list, CSV (default: fetch)")
     p.set_defaults(func=bake)

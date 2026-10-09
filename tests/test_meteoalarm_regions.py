@@ -136,6 +136,10 @@ class TestRegionSelection:
             {"properties": {"CNTR_CODE": "HU", "NUTS_ID": "HU10"}, "geometry": geom},
             {"properties": {"CNTR_CODE": "FR", "NUTS_ID": "FR10"}, "geometry": geom},
         ]}
+        nuts3_2021 = {"features": [
+            {"properties": {"CNTR_CODE": "HR", "NUTS_ID": "HR027"}, "geometry": geom},
+            {"properties": {"CNTR_CODE": "FR", "NUTS_ID": "FRB01"}, "geometry": geom},
+        ]}
         orp = {"features": [
             {"properties": {"kod": 19, "nazev": "Praha"}, "geometry": geom},
             {"properties": {"kod": 582786, "nazev": "Brno"}, "geometry": geom},
@@ -143,11 +147,12 @@ class TestRegionSelection:
         cisorp = [{"kod_ruian": "19", "chodnota": "1000"},
                   {"kod_ruian": "582786", "chodnota": "6203"}]
 
-        items = bake.regions(geocodes, nuts3, nuts2, orp, cisorp)
+        items = bake.regions(geocodes, nuts3, nuts2, nuts3_2021, orp, cisorp)
 
         assert [key for key, _ in items] == [
             "CISORP/1000", "CISORP/1100", "CISORP/6203",
-            "MK001", "NUTS2/HU10", "NUTS3/FR101", "NUTS3/MK001", "PL3001",
+            "MK001", "NUTS2/HU10", "NUTS3/FR101", "NUTS3/HR027", "NUTS3/MK001",
+            "PL3001",
         ]
         for key, geometry in items:
             assert geometry is geom, key
