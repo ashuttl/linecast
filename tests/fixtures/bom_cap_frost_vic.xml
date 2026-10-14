@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Shaped after the Bureau of Meteorology's IDV23000.cap.xml of 15 October 2026, with the text rewritten and the dates moved: the Bureau's terms do not allow passing its files on. -->
+<alert xmlns="urn:oasis:names:tc:emergency:cap:1.2">
+    <identifier>AusBoM-IDV23000-2035-10-14T06:02:30+00:00</identifier>
+    <sender>CAP.Message@bom.gov.au</sender>
+    <sent>2035-10-14T06:02:30+00:00</sent>
+    <status>Actual</status>
+    <msgType>Update</msgType>
+    <scope>Public</scope>
+    <code>urn:oasis:names:tc:emergency:cap:1.2:profile:CAP-AU:1.0</code>
+    <info>
+        <language>en-AU</language>
+        <category>Met</category>
+        <event>Frost</event>
+        <urgency>Unknown</urgency>
+        <severity>Moderate</severity>
+        <certainty>Unknown</certainty>
+        <eventCode>
+            <valueName>https://govshare.gov.au/xmlui/handle/10772/6495</valueName>
+            <value>frost</value>
+        </eventCode>
+        <effective>2035-10-14T04:00:00+00:00</effective>
+        <expires>2035-10-15T04:00:00+00:00</expires>
+        <senderName>Australian Government Bureau of Meteorology</senderName>
+        <headline>Frost Warning for East Gippsland forecast district</headline>
+        <description>Frost is likely on Thursday morning, with temperatures falling to around zero in the valleys.</description>
+        <web>http://www.bom.gov.au/australia/warnings</web>
+        <area>
+            <areaDesc>Victoria: East Gippsland</areaDesc>
+            <geocode>
+                <valueName>AMOC-AreaCode</valueName>
+                <value>VIC_PW005</value>
+            </geocode>
+        </area>
+    </info>
+</alert>

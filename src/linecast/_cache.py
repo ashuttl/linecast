@@ -117,6 +117,8 @@ _SWEEP = (
     ("weather", "aqhi_*.json", 7),
     ("weather", "metar_*.json", 7),
     ("weather", "alerts_*", 7),
+    # the Bureau of Meteorology's forecast locations, kept a month
+    ("weather", "bom_locations.json", 90),
     ("weather", "place_*.json", _YEAR),
     # the reverse geocoder's names before they were kept per place
     ("weather", "location.json", 0),

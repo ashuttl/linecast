@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Shaped after the Bureau of Meteorology's sample IDQ21033.cap.xml, with the text rewritten, the districts and dates moved: the Bureau's terms do not allow passing its files on. The Bureau gives a severe thunderstorm warning no severity. -->
+<alert xmlns="urn:oasis:names:tc:emergency:cap:1.2">
+    <identifier>AusBoM-IDN21033-2035-11-27T06:37:00+00:00</identifier>
+    <sender>CAP.Message@bom.gov.au</sender>
+    <sent>2035-11-27T06:37:00+00:00</sent>
+    <status>Actual</status>
+    <msgType>Update</msgType>
+    <scope>Public</scope>
+    <code>urn:oasis:names:tc:emergency:cap:1.2:profile:CAP-AU:1.0</code>
+    <info>
+        <language>en-AU</language>
+        <category>Met</category>
+        <event>Thunderstorm</event>
+        <urgency>Unknown</urgency>
+        <severity>Unknown</severity>
+        <certainty>Unknown</certainty>
+        <effective>2035-11-27T06:36:57+00:00</effective>
+        <expires>2035-11-27T11:36:57+00:00</expires>
+        <headline>Severe Thunderstorm Warning for Metropolitan and Hunter forecast districts</headline>
+        <description>
+          Severe thunderstorms are likely to bring damaging winds
+          and large hail over the next several hours.
+
+          30 mm of rain fell in half an hour at one gauge.
+          2 cm hail was reported in the north.
+        </description>
+        <web>http://www.bom.gov.au/australia/warnings</web>
+        <area>
+            <areaDesc>New South Wales: Metropolitan and Hunter</areaDesc>
+            <geocode>
+                <valueName>AMOC-AreaCode</valueName>
+                <value>NSW_PW005</value>
+            </geocode>
+            <geocode>
+                <valueName>AMOC-AreaCode</valueName>
+                <value>NSW_PW003</value>
+            </geocode>
+        </area>
+    </info>
+</alert>

@@ -389,8 +389,12 @@ class TestProviders:
         ok, status = _doctor().probe("https://api.example/", timeout=1)
         assert ok is False
         assert status.startswith("unreachable (")
-        ok, status = _doctor().probe("ftp://api.example/", timeout=1)
+        ok, status = _doctor().probe("gopher://api.example/", timeout=1)
         assert (ok, status[:8]) == (False, "bad url ")
+        # an FTP host is asked over FTP, the Bureau of Meteorology's way
+        ok, status = _doctor().probe("ftp://api.example/", timeout=1)
+        assert ok is False
+        assert status.startswith("unreachable (")
 
 
 class TestCacheDirectory:

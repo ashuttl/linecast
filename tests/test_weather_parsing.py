@@ -785,6 +785,14 @@ class TestAlertProviderRouting:
         mock_fn.assert_called_once_with(-41.29, 174.78, "en", None)
         assert result == [{"event": "x"}]
 
+    def test_routes_au_to_bom(self):
+        from linecast.weather.alert_feeds import fetch_alerts
+        with patch("linecast.weather.alert_feeds.bom.fetch",
+                   return_value=[{"event": "x"}]) as mock_fn:
+            result = fetch_alerts(-37.81, 144.96, country_code="AU")
+        mock_fn.assert_called_once_with(-37.81, 144.96, "en", None)
+        assert result == [{"event": "x"}]
+
     def test_routes_newer_meteoalarm_members(self):
         from linecast.weather.alert_feeds import fetch_alerts
         for code, slug, lat, lng in (
@@ -2008,3 +2016,218 @@ class TestMetServiceAlerts:
     def test_unreachable_feed_is_no_alerts(self):
         assert self._alerts(-39.379, 175.709,
                             side_effect=lambda *a, **k: None) == []
+
+
+# ---------------------------------------------------------------------------
+# Bureau of Meteorology alerts (Australia)
+# ---------------------------------------------------------------------------
+# The Bureau's terms do not allow passing its files on, so the CAP
+# fixtures are rewritten after real ones, and the forecast locations are
+# a few made here in the shape of its IDM00013 table.
+
+_BOM_FIELDS = (("PT_NAME", 40), ("LAT", 19), ("LON", 19),
+               ("AAC_PW", 10), ("AAC_FW", 10), ("AAC_ME", 60))
+_BOM_LOCATIONS = [
+    ("Melbourne", -37.8139, 144.975, "VIC_PW007", "VIC_FW007", "VIC_ME001 VIC_ME004"),
+    ("Geelong", -38.16, 144.365, "VIC_PW007", "VIC_FW007", ""),
+    ("Bairnsdale", -37.83, 147.61, "VIC_PW005", "VIC_FW005", ""),
+    ("Mildura", -34.193, 142.157, "VIC_PW001", "VIC_FW001", ""),
+    ("Wodonga", -36.12, 146.89, "VIC_PW004", "VIC_FW004", ""),
+    ("Albury", -36.08, 146.92, "NSW_PW011", "NSW_FW016", ""),
+    ("Sydney", -33.8593, 151.2048, "NSW_PW005", "NSW_FW004", "NSW_ME001"),
+    ("Central Bass Strait Virtual Buoy", -39.5, 146.0, "", "", ""),
+    # deleted, and nearer the CBD than Melbourne is
+    ("Withdrawn", -37.814, 144.963, "VIC_PW001", "VIC_FW001", ""),
+]
+_BOM_PRODUCTS = {"IDV29000": "sheep_vic", "IDV23000": "frost_vic", "IDV20600": "wind_vic",
+                 "IDN22000": "fire_nsw", "IDN21033": "storm_nsw"}
+
+
+def _dbase(fields, rows, deleted=()):
+    """A dBase III table of text fields."""
+    import struct
+    record_len = 1 + sum(n for _name, n in fields)
+    header_len = 32 + 32 * len(fields) + 1
+    out = bytearray(struct.pack("<BBBBIHH20x", 3, 126, 10, 15, len(rows),
+                                header_len, record_len))
+    for name, n in fields:
+        out += struct.pack("<11sc4xBB14x", name.encode(), b"C", n, 0)
+    out += b"\r"
+    for i, row in enumerate(rows):
+        out += b"*" if i in deleted else b" "
+        for (_name, n), value in zip(fields, row):
+            text = f"{value:.11e}" if isinstance(value, float) else value
+            out += text.encode("latin-1").ljust(n)[:n]
+    return bytes(out + b"\x1a")
+
+
+def _bom_locations_zip():
+    import io
+    import zipfile
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w") as archive:
+        archive.writestr("IDM00013.dbf", _dbase(_BOM_FIELDS, _BOM_LOCATIONS,
+                                                deleted={len(_BOM_LOCATIONS) - 1}))
+    return buf.getvalue()
+
+
+class _BomFtp:
+    """The Bureau's FTP as the tests serve it: files by path, listed by
+    pattern, every command kept."""
+
+    files: dict = {}
+    commands: list = []
+
+    def __init__(self, host, timeout=None):
+        assert host == "ftp.bom.gov.au"
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc):
+        return False
+
+    def login(self):
+        return "230 Login successful."
+
+    def retrlines(self, cmd, callback):
+        import fnmatch
+        self.commands.append(cmd)
+        pattern = cmd.split(" ", 1)[1]
+        for path, data in sorted(self.files.items()):
+            if fnmatch.fnmatch(path, pattern):
+                callback(f"-rw-rw-r--    1 1050     1502     {len(data):8d} "
+                         f"Oct 14 17:10 {path.rsplit('/', 1)[1]}")
+        return "226 Directory send OK."
+
+    def retrbinary(self, cmd, callback):
+        import ftplib
+        self.commands.append(cmd)
+        path = cmd.split(" ", 1)[1]
+        if path not in self.files:
+            raise ftplib.error_perm("550 Failed to open file.")
+        callback(self.files[path])
+        return "226 Transfer complete."
+
+
+class TestBomAlerts:
+    """The Bureau's CAP files, placed by forecast district."""
+
+    def _serve(self, tmp_path, monkeypatch):
+        from linecast.weather.alert_feeds import bom, cap
+        monkeypatch.setattr(bom, "cache_dir", lambda *parts: tmp_path.joinpath(*parts))
+        monkeypatch.setattr(cap, "cache_dir", lambda *parts: tmp_path.joinpath(*parts))
+
+        class Ftp(_BomFtp):
+            files = {bom._LOCATIONS_PATH: _bom_locations_zip(),
+                     **{f"/anon/gen/fwo/{product}.cap.xml":
+                        (FIXTURES / f"bom_cap_{name}.xml").read_bytes()
+                        for product, name in _BOM_PRODUCTS.items()}}
+            commands = []
+
+        monkeypatch.setattr("ftplib.FTP", Ftp)
+        return Ftp
+
+    def _alerts(self, lat, lng):
+        from linecast.weather.alert_feeds import bom
+        return bom.fetch(lat, lng)
+
+    def test_melbourne_gets_the_sheep_warning(self, tmp_path, monkeypatch):
+        self._serve(tmp_path, monkeypatch)
+        alerts = self._alerts(-37.81, 144.96)
+        # not the frost in East Gippsland, the wind at sea, or the
+        # cancelled warning for its own district
+        assert [a["event"] for a in alerts] == ["Warning to Sheep Graziers"]
+        a = alerts[0]
+        assert a["severity"] == "Moderate"
+        assert a["headline"].startswith("Warning to Sheep Graziers for North East")
+        assert "newborn lambs" in a["description"]
+        assert a["effective"] == "2035-10-14T17:59:00+00:00"
+        assert a["expires"] == "2035-10-15T13:00:00+00:00"
+        assert a["url"] == "http://www.bom.gov.au/australia/warnings"
+
+    def test_east_gippsland_gets_the_frost_too(self, tmp_path, monkeypatch):
+        self._serve(tmp_path, monkeypatch)
+        events = {a["event"] for a in self._alerts(-37.83, 147.63)}
+        assert events == {"Frost Warning", "Warning to Sheep Graziers"}
+
+    def test_the_mallee_gets_nothing(self, tmp_path, monkeypatch):
+        self._serve(tmp_path, monkeypatch)
+        assert self._alerts(-34.2, 142.15) == []
+
+    def test_each_info_is_placed_by_its_own_districts(self, tmp_path, monkeypatch):
+        self._serve(tmp_path, monkeypatch)
+        alerts = {a["event"]: a for a in self._alerts(-33.87, 151.21)}
+        assert set(alerts) == {"Extreme Fire Weather Warning", "Severe Thunderstorm Warning"}
+        assert alerts["Extreme Fire Weather Warning"]["severity"] == "Severe"
+        # the Bureau says Unknown; the warning's name says Severe
+        assert alerts["Severe Thunderstorm Warning"]["severity"] == "Severe"
+
+    def test_a_description_keeps_its_paragraphs(self, tmp_path, monkeypatch):
+        self._serve(tmp_path, monkeypatch)
+        storm = next(a for a in self._alerts(-33.87, 151.21)
+                     if a["event"] == "Severe Thunderstorm Warning")
+        assert storm["description"] == (
+            "Severe thunderstorms are likely to bring damaging winds and large hail "
+            "over the next several hours.\n\n30 mm of rain fell in half an hour at "
+            "one gauge. 2 cm hail was reported in the north.")
+
+    def test_only_the_point_s_states_are_listed(self, tmp_path, monkeypatch):
+        ftp = self._serve(tmp_path, monkeypatch)
+        self._alerts(-37.81, 144.96)
+        assert [c for c in ftp.commands if c.startswith("LIST")] == [
+            "LIST /anon/gen/fwo/IDV*.cap.xml"]
+        ftp.commands.clear()
+        # Wodonga, across the Murray from Albury: both states' districts
+        events = {a["event"] for a in self._alerts(-36.12, 146.88)}
+        assert [c for c in ftp.commands if c.startswith("LIST")] == [
+            "LIST /anon/gen/fwo/IDN*.cap.xml", "LIST /anon/gen/fwo/IDV*.cap.xml"]
+        assert events == {"Warning to Sheep Graziers"}  # North East
+
+    def test_a_file_is_fetched_again_only_when_it_changes(self, tmp_path, monkeypatch):
+        ftp = self._serve(tmp_path, monkeypatch)
+        sheep = "RETR /anon/gen/fwo/IDV29000.cap.xml"
+        self._alerts(-37.81, 144.96)
+        self._alerts(-38.15, 144.36)  # Geelong: listed again, not fetched
+        assert ftp.commands.count(sheep) == 1
+        path = "/anon/gen/fwo/IDV29000.cap.xml"
+        ftp.files[path] = ftp.files[path].replace(b"freshly shorn", b"newly shorn")
+        events = [a["event"] for a in self._alerts(-37.83, 147.63)]
+        assert ftp.commands.count(sheep) == 2
+        assert "Warning to Sheep Graziers" in events
+        # the superseded copy is swept, the frost and wind files kept
+        cached = sorted(p.name for p in (tmp_path / "weather").glob("alerts_au_cap_*"))
+        assert [name.split("_")[3] for name in cached] == ["IDV20600", "IDV23000", "IDV29000"]
+
+    def test_a_cancelled_file_is_dropped(self, tmp_path, monkeypatch):
+        ftp = self._serve(tmp_path, monkeypatch)
+        path = "/anon/gen/fwo/IDV29000.cap.xml"
+        ftp.files[path] = ftp.files[path].replace(b"<msgType>Update</msgType>",
+                                                  b"<msgType>Cancel</msgType>")
+        assert self._alerts(-37.81, 144.96) == []
+
+    def test_the_forecast_locations(self):
+        from linecast.weather.alert_feeds import bom
+        locations = bom._parse_locations(_bom_locations_zip())
+        # no buoy at sea, nothing deleted
+        assert len(locations) == 7
+        assert locations[0] == [-37.8139, 144.975, "VIC_PW007 VIC_FW007 VIC_ME001 VIC_ME004"]
+
+    def test_the_name_is_the_headline_s(self):
+        from linecast.weather.alert_feeds import bom
+        assert bom._warning_name("Severe heatwave warning for Northern Territory",
+                                 "Extreme Heat") == "Severe heatwave warning"
+        assert bom._warning_name("", "Frost") == "Frost"
+        assert bom._severity("Unknown", "Coastal Hazard Warning") == "Moderate"
+
+    def test_an_unreachable_ftp_is_unavailable(self, tmp_path, monkeypatch):
+        from linecast.weather.alert_feeds import ALERTS_UNAVAILABLE, bom, fetch_alerts
+        monkeypatch.setattr(bom, "cache_dir", lambda *parts: tmp_path.joinpath(*parts))
+
+        def refuse(*args, **kwargs):
+            raise ConnectionRefusedError("refused")
+
+        monkeypatch.setattr("ftplib.FTP", refuse)
+        alerts = fetch_alerts(-37.81, 144.96, country_code="AU")
+        assert alerts == []
+        assert alerts.status == ALERTS_UNAVAILABLE

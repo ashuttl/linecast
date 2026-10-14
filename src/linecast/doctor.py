@@ -128,12 +128,16 @@ def _tidecheck_budget():
 
 def probe(url, timeout=PROBE_TIMEOUT):
     """(ok, status) for one host: "ok", "ok (HTTP 404)", or the failure
-    in a word or two."""
+    in a word or two. An FTP host answers by letting an anonymous user
+    log in."""
     import socket
     import ssl
     from linecast._http import HTTPError, fetch_bytes
     try:
-        fetch_bytes(url, timeout=timeout, limit=1024 * 1024)
+        if url.startswith("ftp://"):
+            _probe_ftp(url, timeout)
+        else:
+            fetch_bytes(url, timeout=timeout, limit=1024 * 1024)
         return True, "ok"
     except HTTPError as exc:
         return True, f"ok (HTTP {exc.code})"
@@ -153,6 +157,13 @@ def probe(url, timeout=PROBE_TIMEOUT):
         return False, f"unreachable ({type(exc).__name__})"
     except Exception as exc:
         return False, f"failed ({type(exc).__name__})"
+
+
+def _probe_ftp(url, timeout):
+    """Log in to an FTP host anonymously and leave."""
+    from ftplib import FTP
+    with FTP(_hostname(url) or "", timeout=timeout) as ftp:
+        ftp.login()
 
 
 def probe_all(hosts, timeout=PROBE_TIMEOUT):

@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Shaped after the Bureau of Meteorology's IDV20600.cap.xml and IDQ20085.cap.xml of 15 October 2026, with the text rewritten and the dates moved: the Bureau's terms do not allow passing its files on. A marine warning, filed by coastal waters zone, beside a cancellation filed by forecast district. -->
+<alert xmlns="urn:oasis:names:tc:emergency:cap:1.2">
+    <identifier>AusBoM-IDV20600-2035-10-14T17:10:12+00:00</identifier>
+    <sender>CAP.Message@bom.gov.au</sender>
+    <sent>2035-10-14T17:10:12+00:00</sent>
+    <status>Actual</status>
+    <msgType>Update</msgType>
+    <scope>Public</scope>
+    <code>urn:oasis:names:tc:emergency:cap:1.2:profile:CAP-AU:1.0</code>
+    <info>
+        <language>en-AU</language>
+        <category>Met</category>
+        <event>Wind</event>
+        <urgency>Unknown</urgency>
+        <severity>Moderate</severity>
+        <certainty>Unknown</certainty>
+        <effective>2035-10-14T17:10:00+00:00</effective>
+        <expires>2035-10-15T13:00:00+00:00</expires>
+        <headline>Strong Wind Warning for coastal waters between Cape Otway and Wilsons Promontory for 15 October</headline>
+        <description>Southeasterly winds of 25 to 30 knots.</description>
+        <web>http://www.bom.gov.au/australia/warnings</web>
+        <area>
+            <areaDesc>Victoria: Central Coast</areaDesc>
+            <geocode>
+                <valueName>AMOC-AreaCode</valueName>
+                <value>VIC_MW002</value>
+            </geocode>
+        </area>
+    </info>
+    <info>
+        <language>en-AU</language>
+        <category>Met</category>
+        <event>Weather</event>
+        <urgency>Unknown</urgency>
+        <severity>Unknown</severity>
+        <certainty>Unknown</certainty>
+        <effective>2035-10-14T17:10:00+00:00</effective>
+        <expires>2035-10-15T13:00:00+00:00</expires>
+        <headline>Cancellation of Severe Weather Warning for Central forecast district</headline>
+        <description>The severe weather has eased and the warning is cancelled.</description>
+        <web>http://www.bom.gov.au/australia/warnings</web>
+        <area>
+            <areaDesc>Victoria: Central</areaDesc>
+            <geocode>
+                <valueName>AMOC-AreaCode</valueName>
+                <value>VIC_PW007</value>
+            </geocode>
+        </area>
+    </info>
+</alert>

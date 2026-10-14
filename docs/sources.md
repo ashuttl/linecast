@@ -47,7 +47,7 @@ Computed from:
 
 ## Alerts
 
-The country of the place shown decides the feed. Ten countries have a feed of their own and thirty-five read MeteoAlarm; each has one feed, with no second behind it. A country with no feed shows no alerts. Iran is one, since its meteorological organization (IRIMO) publishes no warning feed that linecast has found. When a feed cannot be reached, the last copy fetched stands in with a line saying when it is from, and with no copy the view says the alerts could not be checked; `--json` reports this as `alerts_status`. linecast does not translate the text of an alert.
+The country of the place shown decides the feed. Eleven countries have a feed of their own and thirty-five read MeteoAlarm; each has one feed, with no second behind it. A country with no feed shows no alerts. Iran is one, since its meteorological organization (IRIMO) publishes no warning feed that linecast has found. When a feed cannot be reached, the last copy fetched stands in with a line saying when it is from, and with no copy the view says the alerts could not be checked; `--json` reports this as `alerts_status`. linecast does not translate the text of an alert.
 
 Fetched:
 
@@ -61,6 +61,7 @@ Fetched:
 - **China**. The [CMA's](http://www.nmc.cn/) alarm list for the country, matched to the province. A Chinese reader gets the title as issued; otherwise an English name is put together from the type and the color.
 - **India**. [SACHET](https://sachet.ndma.gov.in/), the national aggregator. An alert is kept when the point is within its area plus 25 km, and is shown in the display language where the issuer wrote one, else in English.
 - **New Zealand**. [MetService's](https://alerts.metservice.com/) CAP feed (CC BY 4.0), placed by each alert's polygon.
+- **Australia**. The [Bureau of Meteorology's](https://www.bom.gov.au/) warnings, as CAP files from its [anonymous FTP](https://reg.bom.gov.au/catalogue/anon-ftp.shtml), the channel it offers for machine access. A warning names the forecast, fire weather, or metropolitan districts it covers, and is shown when one of them is the point's. The point's districts are those of the nearest of the Bureau's forecast locations (IDM00013), and of any other no more than 15 km farther. The Bureau's terms allow a copy of its products for personal use but not supplying one to anyone else, so the table is fetched on the device and kept for a month, and nothing of the Bureau's is bundled. Flood warnings, filed by river catchment, and marine and tsunami warnings, filed by coastal zone, are not shown.
 - **MeteoAlarm**, the [country's feed](https://feeds.meteoalarm.org/), for Austria, Belgium, Bosnia and Herzegovina, Bulgaria, Croatia, Cyprus, Czechia, Denmark, Estonia, Finland, France, Greece, Hungary, Iceland, Israel, Italy, Latvia, Lithuania, Luxembourg, Malta, Moldova, Montenegro, the Netherlands, North Macedonia, Poland, Portugal, Romania, Serbia, Slovakia, Slovenia, Spain, Sweden, Switzerland, Ukraine, and the United Kingdom. Minor warnings are dropped. A warning is placed by its polygon, else by the region codes it carries, else by reading its area's description against the address; an Extreme warning is shown regardless. Switzerland, Estonia, the United Kingdom, Israel, Luxembourg, Sweden, and Ukraine have no bundled regions and rely on the polygons and the text. Germany, Norway, and Ireland are on MeteoAlarm too, but their own feeds say more.
 
 Bundled, for placing MeteoAlarm's warnings:
@@ -69,7 +70,7 @@ Bundled, for placing MeteoAlarm's warnings:
 - **[Eurostat GISCO](https://ec.europa.eu/eurostat/web/gisco)**, the 2013 NUTS boundaries, and 2021's for Croatia (© EuroGeographics for the administrative boundaries). The regions some feeds file by.
 - **[ČÚZK RÚIAN](https://www.cuzk.gov.cz/)**, with the [Czech Statistical Office's](https://csu.gov.cz/) code list, both open data. Czechia's 206 ORP.
 
-Checked against: real responses from every feed, saved as fixtures, and the bundled regions by looking up twelve places and a point in the Atlantic. No placed alert has been compared with a dated real one beyond these.
+Checked against: real responses from every feed, saved as fixtures (the Bureau of Meteorology's rewritten, since its terms do not allow passing them on), and the bundled regions by looking up twelve places and a point in the Atlantic. In Australia, placing a point by the nearest forecast locations was compared with the Bureau's district boundaries (IDM00001) on 15 October 2026: it found the district of 98.5% of points within 20 km of a forecast location, adding a neighboring district for about one point in ten, and of 87.5% of points on a quarter-degree grid over the whole country, where the interior's locations are far apart. The same day, Melbourne was shown the Warning to Sheep Graziers that Apple Weather showed there. No other placed alert has been compared with a dated real one.
 
 ## Sunshine and the Moon
 

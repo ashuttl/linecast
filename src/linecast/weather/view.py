@@ -7,7 +7,8 @@ Temperature-driven color palette, Nerd Font icons, clean column alignment.
 
 Alerts sourced from NWS (US), Environment Canada (CA), Bright Sky/DWD (DE),
 MET Norway (NO), Met Éireann (IE), JMA (Japan), CMA (China),
-MetService (NZ), and MeteoAlarm (34 European countries).
+MetService (NZ), the Bureau of Meteorology (AU), and MeteoAlarm
+(34 European countries).
 
 Languages: see `linecast language` for the full list.
 

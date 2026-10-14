@@ -222,7 +222,8 @@ def _plain_alert(alert):
 
 class AlertFeed(NamedTuple):
     """A country's alert service: its name, the root of the host its
-    feed comes from, and the module of alert_feeds that fetches it.
+    feed comes from (an FTP host for the Bureau of Meteorology), and the
+    module of alert_feeds that fetches it.
 
     The name is a proper name, given as the service writes its own:
     `names` has it for the display languages the service has one in, and
@@ -288,6 +289,7 @@ ALERT_FEEDS = {
                     {"zh": "中国气象局", "zh-Hant": "中國氣象局"}),
     "IN": AlertFeed("SACHET", "https://sachet.ndma.gov.in/", "sachet"),
     "NZ": AlertFeed("MetService", "https://alerts.metservice.com/", "metservice"),
+    "AU": AlertFeed("Bureau of Meteorology", "ftp://ftp.bom.gov.au/", "bom"),
     **{code: AlertFeed("MeteoAlarm", "https://feeds.meteoalarm.org/", "meteoalarm", slug=slug)
        for code, slug in _METEOALARM_SLUGS.items()},
 }

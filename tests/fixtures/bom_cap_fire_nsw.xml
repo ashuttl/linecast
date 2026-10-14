@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Shaped after the Bureau of Meteorology's sample IDN22000.cap.xml, with the text rewritten and the dates moved: the Bureau's terms do not allow passing its files on. One file, two infos, each placed by its own fire districts. -->
+<alert xmlns="urn:oasis:names:tc:emergency:cap:1.2">
+    <identifier>AusBoM-IDN22000-2035-11-25T17:43:44+00:00</identifier>
+    <sender>CAP.Message@bom.gov.au</sender>
+    <sent>2035-11-25T17:43:44+00:00</sent>
+    <status>Actual</status>
+    <msgType>Update</msgType>
+    <scope>Public</scope>
+    <code>urn:oasis:names:tc:emergency:cap:1.2:profile:CAP-AU:1.0</code>
+    <info>
+        <language>en-AU</language>
+        <category>Met</category>
+        <event>Fire Weather</event>
+        <urgency>Unknown</urgency>
+        <severity>Extreme</severity>
+        <certainty>Unknown</certainty>
+        <effective>2035-11-25T16:00:00+00:00</effective>
+        <expires>2035-11-26T13:00:00+00:00</expires>
+        <headline>Catastrophic Fire Weather Warning for Lower Central West Plains fire district for 26 November</headline>
+        <description>Hot, dry and very windy conditions are forecast.</description>
+        <web>http://www.bom.gov.au/australia/warnings</web>
+        <area>
+            <areaDesc>New South Wales: Lower Central West Plains</areaDesc>
+            <geocode>
+                <valueName>AMOC-AreaCode</valueName>
+                <value>NSW_FW015</value>
+            </geocode>
+        </area>
+    </info>
+    <info>
+        <language>en-AU</language>
+        <category>Met</category>
+        <event>Fire Weather</event>
+        <urgency>Unknown</urgency>
+        <severity>Severe</severity>
+        <certainty>Unknown</certainty>
+        <effective>2035-11-25T16:00:00+00:00</effective>
+        <expires>2035-11-26T13:00:00+00:00</expires>
+        <headline>Extreme Fire Weather Warning for Greater Hunter and Greater Sydney Region fire districts for 26 November</headline>
+        <description>Hot and windy conditions are forecast.</description>
+        <web>http://www.bom.gov.au/australia/warnings</web>
+        <area>
+            <areaDesc>New South Wales: Greater Hunter and Greater Sydney Region</areaDesc>
+            <geocode>
+                <valueName>AMOC-AreaCode</valueName>
+                <value>NSW_FW003</value>
+            </geocode>
+            <geocode>
+                <valueName>AMOC-AreaCode</valueName>
+                <value>NSW_FW004</value>
+            </geocode>
+        </area>
+    </info>
+</alert>

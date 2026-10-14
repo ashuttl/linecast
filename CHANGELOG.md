@@ -4,6 +4,8 @@ Notable changes, by release. Notes for the next release collect under **Unreleas
 
 ## Unreleased
 
+- Weather: Official alerts in Australia, from the Bureau of Meteorology, matched to your forecast district. Flood, marine, and tsunami warnings are not shown.
+
 ## 2.10.1 — 2026-10-09
 
 - Weather: The forecast paragraph mentions sharp changes in the highs ahead: “It will get up to 86° tomorrow afternoon. Cooler on Sunday, then warmer again on Monday.”

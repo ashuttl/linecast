@@ -185,6 +185,7 @@ ALERT_FEEDS = [
     ("HK", HONG_KONG, "HKO"),
     ("CN", (39.90, 116.40), "CMA"),
     ("NL", (52.37, 4.90), "MeteoAlarm"),
+    ("AU", (-37.81, 144.96), "Bureau of Meteorology"),
 ]
 
 
@@ -233,6 +234,39 @@ def test_meteoalarm_feed_is_placed(failures, country, slug):
     assert not unplaced, (
         f"{country}: {sum(unplaced.values())} areas the region file cannot place: "
         + "; ".join(f"{n} x [{codes}]" for codes, n in sorted(unplaced.items())[:12]))
+
+
+# ---------------------------------------------------------------------------
+# Bureau of Meteorology: every land warning can still be placed
+# ---------------------------------------------------------------------------
+# A warning is placed by the district codes of the forecast location
+# nearest the point. A district the table no longer carries, or a land
+# warning filed under a code of a new kind, would never be shown; this
+# asks, of the warnings in force, whether the table still knows every
+# forecast and fire weather district they name. Marine, flood and
+# tsunami warnings are filed by zone and catchment, and are not placed.
+
+
+def test_bom_warnings_are_placed(failures):
+    from ftplib import FTP
+    from xml.etree import ElementTree
+    from linecast.weather.alert_feeds import bom
+    from linecast.weather.alert_feeds.cap import local_tag
+    locations = bom._locations(15)
+    assert failures() == [] and locations
+    known = {code for _lat, _lng, codes in locations for code in codes.split()}
+    unknown = set()
+    with FTP(bom._FTP_HOST, timeout=15) as ftp:
+        ftp.login()
+        names = ftp.nlst(f"{bom._WARNINGS_DIR}*.cap.xml")
+        for name in names:
+            root = ElementTree.fromstring(bom._retrieve(ftp, name, bom._CAP_BYTES))
+            for el in root.iter():
+                if local_tag(el.tag) == "value" and (el.text or "").count("_") == 1:
+                    code = el.text.strip()
+                    if code.split("_")[1][:2] in ("PW", "FW") and code not in known:
+                        unknown.add(f"{code} ({name.rsplit('/', 1)[-1]})")
+    assert not unknown, f"districts the forecast locations do not carry: {sorted(unknown)}"
 
 
 # ---------------------------------------------------------------------------

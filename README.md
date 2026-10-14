@@ -21,7 +21,7 @@ Seven live terminal apps built on free public data. Pure Python, no accounts or 
 
 | Command | Shows |
 | --- | --- |
-| `linecast weather` | Current conditions and forecasts, official alerts for 45 countries, and month and year views of past weather |
+| `linecast weather` | Current conditions and forecasts, official alerts for 46 countries, and month and year views of past weather |
 | `linecast sunshine` | The sun's path today, and daylight through the year |
 | `linecast moon` | The Moon's phase as you see it, with rise, set, and a month calendar |
 | `linecast sky` | A planetarium: stars, constellations, planets, and the Milky Way over you |

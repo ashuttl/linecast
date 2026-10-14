@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Shaped after the Bureau of Meteorology's IDV29000.cap.xml of 15 October 2026, with the text rewritten and the dates moved: the Bureau's terms do not allow passing its files on. -->
+<alert xmlns="urn:oasis:names:tc:emergency:cap:1.2">
+    <identifier>AusBoM-IDV29000-2035-10-14T18:00:02+00:00</identifier>
+    <sender>CAP.Message@bom.gov.au</sender>
+    <sent>2035-10-14T18:00:02+00:00</sent>
+    <status>Actual</status>
+    <msgType>Update</msgType>
+    <scope>Public</scope>
+    <code>urn:oasis:names:tc:emergency:cap:1.2:profile:CAP-AU:1.0</code>
+    <references>CAP.Message@bom.gov.au,AusBoM-IDV29000-2035-10-14T06:01:50+00:00,2035-10-14T06:01:50+00:00</references>
+    <info>
+        <language>en-AU</language>
+        <category>Met</category>
+        <event>Sheep Grazier Warning</event>
+        <urgency>Unknown</urgency>
+        <severity>Moderate</severity>
+        <certainty>Unknown</certainty>
+        <eventCode>
+            <valueName>https://govshare.gov.au/xmlui/handle/10772/6495</valueName>
+            <value>sheepWarning</value>
+        </eventCode>
+        <effective>2035-10-14T17:59:00+00:00</effective>
+        <expires>2035-10-15T13:00:00+00:00</expires>
+        <senderName>Australian Government Bureau of Meteorology</senderName>
+        <headline>Warning to Sheep Graziers for North East, Central and East Gippsland forecast districts</headline>
+        <description>Cold and windy weather on Thursday morning puts newborn lambs and freshly shorn sheep at risk in parts of these districts.</description>
+        <web>http://www.bom.gov.au/australia/warnings</web>
+        <contact>http://www.bom.gov.au/inside/contacts.shtml</contact>
+        <area>
+            <areaDesc>Victoria: North East, Central and East Gippsland forecast districts</areaDesc>
+            <geocode>
+                <valueName>AMOC-AreaCode</valueName>
+                <value>VIC_PW004</value>
+            </geocode>
+            <geocode>
+                <valueName>AMOC-AreaCode</valueName>
+                <value>VIC_PW007</value>
+            </geocode>
+            <geocode>
+                <valueName>AMOC-AreaCode</valueName>
+                <value>VIC_PW005</value>
+            </geocode>
+        </area>
+    </info>
+</alert>
