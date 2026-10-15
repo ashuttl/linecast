@@ -14,7 +14,7 @@ from __future__ import annotations
 from linecast._commands import COMMAND_NAMES, VIEW_NAMES
 from linecast._config import (
     CALENDAR_CHOICES, CLOCK_CHOICES, CULTURE_CHOICES, DATES_CHOICES, DIGITS_CHOICES,
-    HOURS_CHOICES, ICON_SETS, UNITS_CHOICES, WEEK_STARTS,
+    HOURS_CHOICES, ICON_SETS, UNITS_CHOICES, WEEK_STARTS, WIND_UNITS,
 )
 from linecast._i18n import LANGUAGE_CODES, VARIANTS
 
@@ -38,6 +38,7 @@ SETTING_SUBCOMMANDS = {
     "location": ("show", "set", "auto", "search"),
     "language": ("show", *LANGUAGE_CODES, *VARIANTS, "auto"),
     "units": ("show", *UNITS_CHOICES, "auto"),
+    "wind": ("show", *WIND_UNITS, "auto"),
     "clock": ("show", *CLOCK_CHOICES, "auto"),
     "week": ("show", *WEEK_STARTS, "auto"),
     "dates": ("show", *DATES_CHOICES, "auto"),

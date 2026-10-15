@@ -60,6 +60,7 @@ HELP = {
     "forecast": "prechádzať predpoveď",
     "now": "späť na súčasnosť",
     "alert": "prečítať výstrahu",
+    "radar_hover": "prečítať výstrahy, teplotu a vietor",
     "browser": "otvoriť výstrahu v prehliadači",
     "refresh": "obnoviť predpoveď",
     "time30": "posunúť čas o 30 minút",

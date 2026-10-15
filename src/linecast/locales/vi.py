@@ -56,6 +56,7 @@ HELP = {
     "forecast": "duyệt dự báo",
     "now": "trở về hiện tại",
     "alert": "đọc cảnh báo",
+    "radar_hover": "đọc cảnh báo, nhiệt độ và gió",
     "browser": "mở cảnh báo trong trình duyệt",
     "refresh": "tải lại dự báo",
     "time30": "dịch thời gian 30 phút",

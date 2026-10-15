@@ -43,6 +43,7 @@ HELP = {
     "forecast": "pitia utabiri",
     "now": "rudi sasa",
     "alert": "soma onyo",
+    "radar_hover": "soma maonyo, joto na upepo",
     "browser": "fungua onyo kwenye kivinjari",
     "refresh": "sasisha utabiri",
     "time30": "sogeza muda kwa dakika 30",

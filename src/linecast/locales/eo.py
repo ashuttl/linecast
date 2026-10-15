@@ -42,6 +42,7 @@ HELP = {
     "forecast": "foliumi la prognozon",
     "now": "reveni al nun",
     "alert": "legi averton",
+    "radar_hover": "legi avertojn, temperaturon kaj venton",
     "browser": "malfermi la averton en la retumilo",
     "refresh": "aktualigi la prognozon",
     "time30": "movi la tempon je 30 minutoj",

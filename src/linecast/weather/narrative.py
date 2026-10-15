@@ -2115,7 +2115,8 @@ def _gusts_usual(daily, day, runtime):
     return others[len(others) // 2]
 
 
-_WIND_PROSE_KEYS = {"km/h": "unit_kmh_prose", "m/s": "unit_ms_prose", "mph": "unit_mph_prose"}
+_WIND_PROSE_KEYS = {"km/h": "unit_kmh_prose", "m/s": "unit_ms_prose", "mph": "unit_mph_prose",
+                    "kn": "unit_kn_prose"}
 
 
 def _prose_wind_unit(runtime):

@@ -43,6 +43,7 @@ HELP = {
     "forecast": "tahmine göz at",
     "now": "şimdiye dön",
     "alert": "bir uyarıyı oku",
+    "radar_hover": "uyarıları, sıcaklığı ve rüzgarı oku",
     "browser": "uyarıyı tarayıcıda aç",
     "refresh": "tahmini yenile",
     "time30": "zamanı 30 dakika oynat",

@@ -43,6 +43,7 @@ HELP = {
     "forecast": "przeglądaj prognozę",
     "now": "wróć do teraz",
     "alert": "czytaj ostrzeżenie",
+    "radar_hover": "czytaj ostrzeżenia, temperaturę i wiatr",
     "browser": "otwórz ostrzeżenie w przeglądarce",
     "refresh": "odśwież prognozę",
     "time30": "przesuń czas o 30 minut",

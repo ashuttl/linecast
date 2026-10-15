@@ -6,7 +6,7 @@ from contextlib import redirect_stderr, redirect_stdout
 from unittest.mock import patch
 
 from linecast import _config
-from linecast.settings import units
+from linecast.settings import units, wind
 from linecast import _log
 from linecast import _runtime
 from linecast._runtime import (
@@ -205,7 +205,7 @@ class WindUnitsTests(ConfigDirMixin):
         self.assertEqual(self._rt("--wind-units", "ms").wind_unit, "m/s")
         self.assertEqual(self._rt("--wind-units", "KMH").wind_unit, "km/h")
         with redirect_stderr(io.StringIO()), self.assertRaises(SystemExit):
-            _weather_args("--wind-units", "knots")
+            _weather_args("--wind-units", "furlongs")
 
     def test_the_env_var_applies_below_the_flag(self):
         env = {"LINECAST_WIND_UNITS": "m/s"}
@@ -221,6 +221,47 @@ class WindUnitsTests(ConfigDirMixin):
             radar_parser().parse_args(["--wind-units", "m/s"]), environ={}, country=None)
         self.assertEqual(rt.wind_unit, "m/s")
         self.assertEqual(rt.wind_from_kmh(36), 10)
+
+    def test_knots(self):
+        rt = self._rt("--lang", "en", "--wind-units", "knots")
+        self.assertEqual((rt.wind_unit, rt.wind_unit_param), ("kn", "kn"))
+        self.assertAlmostEqual(rt.wind_kmh(10), 18.52)
+        self.assertAlmostEqual(rt.wind_from_kmh(18.52), 10)
+        from linecast.weather.i18n import fmt_wind
+        self.assertEqual(fmt_wind(10, rt), "10kn")
+        self.assertEqual(fmt_wind(10, self._rt("--lang", "ja", "--wind-units", "kt")),
+                         "10ノット")
+        self.assertEqual(fmt_wind(10, self._rt("--lang", "fr", "--wind-units", "kn")),
+                         "10 nd")
+
+    def test_the_saved_setting_applies_below_the_env_var(self):
+        with redirect_stdout(io.StringIO()):
+            wind._cmd_set("kn")
+        self.assertEqual(_config.saved_wind_units(), "kn")
+        self.assertEqual(self._rt("--lang", "en", "--metric").wind_unit, "kn")
+        rt = self._rt("--lang", "en", environ={"LINECAST_WIND_UNITS": "m/s"})
+        self.assertEqual(rt.wind_unit, "m/s")
+        self.assertEqual(self._rt("--wind-units", "mph").wind_unit, "mph")
+        with redirect_stdout(io.StringIO()):
+            wind._cmd_auto()
+        self.assertIsNone(_config.saved_wind_units())
+        self.assertEqual(self._rt("--lang", "en", "--metric").wind_unit, "km/h")
+
+    def test_the_saved_setting_ignores_junk(self):
+        _config.write_config({"wind": "furlongs"})
+        self.assertIsNone(_config.saved_wind_units())
+        _config.write_config({"wind": "KNOTS"})
+        self.assertEqual(_config.saved_wind_units(), "kn")
+
+    def test_the_command_takes_the_usual_spellings(self):
+        with patch("sys.argv", ["linecast wind", "knots"]), \
+                redirect_stdout(io.StringIO()) as out:
+            wind.main()
+        self.assertEqual(_config.saved_wind_units(), "kn")
+        self.assertEqual(out.getvalue(), "Wind speeds set to kn\n")
+        with patch("sys.argv", ["linecast wind"]), redirect_stdout(io.StringIO()) as out:
+            wind.main()
+        self.assertTrue(out.getvalue().startswith("kn  [fixed]"))
 
     def test_the_label_follows_the_unit(self):
         from linecast.weather.i18n import fmt_wind

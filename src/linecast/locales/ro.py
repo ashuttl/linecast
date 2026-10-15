@@ -43,6 +43,7 @@ HELP = {
     "forecast": "răsfoiește prognoza",
     "now": "înapoi la prezent",
     "alert": "citește o avertizare",
+    "radar_hover": "citește avertizările, temperatura și vântul",
     "browser": "deschide avertizarea în browser",
     "refresh": "reîmprospătează prognoza",
     "time30": "mută timpul cu 30 de minute",

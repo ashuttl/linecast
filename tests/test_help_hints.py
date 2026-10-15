@@ -171,6 +171,6 @@ def test_map_and_radar_footer_hints_reach_the_last_column(monkeypatch, keep_rada
     assert visible_len(foot) == cols
 
 
-def test_radar_help_describes_warning_hover():
+def test_radar_help_describes_the_hover_chip():
     entries = dict(_help.entries('radar', 'en'))
-    assert entries['hover'] == 'read an alert'
+    assert entries['hover'] == 'read alerts, temperature, and wind'

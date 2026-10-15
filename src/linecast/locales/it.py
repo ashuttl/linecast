@@ -42,6 +42,7 @@ HELP = {
     "forecast": "sfoglia le previsioni",
     "now": "torna al presente",
     "alert": "leggi un avviso",
+    "radar_hover": "leggi avvisi, temperatura e vento",
     "browser": "apri avviso nel browser",
     "refresh": "aggiorna previsioni",
     "time30": "sposta il tempo di 30 minuti",

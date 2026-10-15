@@ -23,6 +23,8 @@ SETTINGS = (
     ("location", "A fixed place, instead of the one your IP address suggests"),
     ("language", ", ".join(LANGUAGE_CODES)),
     ("units", "metric or imperial"),
+    ("wind", "km/h, m/s, mph, or kn: the unit for wind speeds, whatever the "
+             "other units"),
     ("clock", "12-hour or 24-hour"),
     ("week", "monday, sunday, or saturday: where the week opens in the moon's "
              "month view"),

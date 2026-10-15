@@ -98,6 +98,8 @@ linecast maps --view now
 
 `linecast weather --month` で気温の月表示、`--month-departure` で平均との比較を直接開けます。`--year` は各日の最高・最低気温と月ごとの降水量を過去10年と比較し、`c` で配色を切り替えます。月・年表示や潮汐の `--makeup` は `--print` と併用できますが、`--json`、`--oneline`、`--prose` には対応していません。
 
+radarでは `c` で気温、`W` で風を重ねます。地図にポインタを合わせると、その地点の気温と風速を確認できます。
+
 moon、sunshine、mapsでは `t` で周囲の文字を隠し、`--no-text` でその状態から開けます。sunshineは場所と時刻を残し、mapsは十字マークも隠します。`linecast maps --view now` は昼夜と雲を映した地球儀を、文字と地名を隠してゆっくり回します。`r` で回転を止めたり再開したりできます。
 
 linecastは色をターミナルの配色から取ります。アプリを開いたまま配色を変えると、アプリは新しい色で描き直されます。これは同じデスクトップを、Omarchyの10のテーマで順に表示したものです:
@@ -117,6 +119,8 @@ linecast language ja            # 既定を日本語に
 linecast weather --lang ja      # 今回だけ
 export LINECAST_LANG=ja         # 環境変数で。保存した設定より優先されます
 ```
+
+日本語では、風速を気象庁と同じm/sで表示します（ヤード・ポンド法ではmph）。`linecast wind` で `km/h`、`mph`、ノット（`kn`）にも変えられます。
 
 日本では、`weather` の警報も `tides` の潮位表も気象庁から届きます。潮汐は `v` でひと月、一年、その場所の潮を動かすものへと切り替わり、`--month`、`--year`、`--makeup` で直接開けます。ひと月の表示では昼間の最も低い潮を探せます。一年と潮を動かすものの表示には、通年の予測がある観測点が必要です。
 
@@ -140,6 +144,7 @@ export LINECAST_LANG=ja         # 環境変数で。保存した設定より優�
 | `linecast location` | `set "Kyoto"`、`set 35.01,135.77`、`search 地名` | `--location` |
 | `linecast language` | [対応言語](docs/languages.md)のいずれか | `--lang` |
 | `linecast units` | `metric`、`imperial` | `--metric`、`--imperial` |
+| `linecast wind` | `km/h`、`m/s`、`mph`、`kn` | `--wind-units` |
 | `linecast clock` | `12`、`24` | `--12h`、`--24h` |
 | `linecast week` | `monday`、`sunday`、`saturday` | `--week-start` |
 | `linecast calendar` | `japanese`、`chinese`、`hebrew`、… | `--calendar` |

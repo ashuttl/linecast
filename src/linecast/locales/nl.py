@@ -42,6 +42,7 @@ HELP = {
     "forecast": "verwachting doorlopen",
     "now": "terug naar nu",
     "alert": "waarschuwing lezen",
+    "radar_hover": "waarschuwingen, temperatuur en wind lezen",
     "browser": "waarschuwing in browser openen",
     "refresh": "verwachting vernieuwen",
     "time30": "tijd met 30 minuten verschuiven",

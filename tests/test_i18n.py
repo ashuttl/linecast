@@ -669,8 +669,8 @@ class TestTablesComplete:
     # A day of the month alone is its bare number but where the language
     # counts it: 27日, 27일.
     DEFAULTS = {
-        "linecast.weather.i18n": {"unit_kmh", "unit_ms", "unit_mph", "unit_mm", "unit_cm",
-                                  "unit_km", "unit_mi", "aqhi", "day_of_month"},
+        "linecast.weather.i18n": {"unit_kmh", "unit_ms", "unit_mph", "unit_kn", "unit_mm",
+                                  "unit_cm", "unit_km", "unit_mi", "aqhi", "day_of_month"},
         "linecast.tides.i18n": {"period"},
         "linecast.radar.i18n": {"unit_km", "unit_mi"},
         "linecast.maps.i18n": {"unit_m", "unit_km", "unit_ft", "unit_mi"},

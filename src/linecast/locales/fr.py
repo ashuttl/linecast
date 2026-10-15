@@ -44,6 +44,7 @@ HELP = {
     "forecast": "parcourir les prévisions",
     "now": "revenir à maintenant",
     "alert": "lire une alerte",
+    "radar_hover": "lire les alertes, la température et le vent",
     "browser": "ouvrir l’alerte dans le navigateur",
     "refresh": "actualiser les prévisions",
     "time30": "avancer de 30 minutes",
@@ -114,6 +115,8 @@ WEATHER = {
     "credit_current": "Conditions actuelles par {source}",
     "credit_observed": "Observé à {time} à {place}, à {distance}",
     "metric_unit_sep": "\u00a0",
+    # The knot is the nœud, "nd" in French
+    "unit_kn": "nd",
     "precip_inch": "″",
     "feels": "ressenti",
     "humidex": "humidex",

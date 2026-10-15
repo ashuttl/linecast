@@ -44,6 +44,7 @@ HELP = {
     "forecast": "fletta í spá",
     "now": "aftur til nútímans",
     "alert": "lesa viðvörun",
+    "radar_hover": "lesa viðvaranir, hita og vind",
     "browser": "opna viðvörun í vafra",
     "refresh": "uppfæra spá",
     "time30": "færa tímann um 30 mínútur",

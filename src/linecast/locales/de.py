@@ -45,6 +45,7 @@ HELP = {
     "forecast": "Vorhersage durchsehen",
     "now": "zur Gegenwart zurück",
     "alert": "Warnung lesen",
+    "radar_hover": "Warnungen, Temperatur und Wind lesen",
     "browser": "Warnung im Browser öffnen",
     "refresh": "Vorhersage aktualisieren",
     "time30": "Zeit um 30 Minuten ändern",

@@ -43,6 +43,7 @@ HELP = {
     "forecast": "bladre i prognosen",
     "now": "tilbage til nu",
     "alert": "læs et varsel",
+    "radar_hover": "læs varsler, temperatur og vind",
     "browser": "åbn varsel i browser",
     "refresh": "opdater prognosen",
     "time30": "flyt tiden 30 minutter",

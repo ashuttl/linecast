@@ -100,16 +100,22 @@ def saved_units() -> str | None:
 
 
 # The units a wind speed is shown in, as the views write them, and the
-# other ways they are typed: Open-Meteo's kmh and ms, and kph and mps.
-# Nothing saves one; --wind-units and LINECAST_WIND_UNITS choose it.
-WIND_UNITS = ("km/h", "m/s", "mph")
+# other ways they are typed: Open-Meteo's kmh and ms, kph and mps, and
+# the knot as kt or by name.
+WIND_UNITS = ("km/h", "m/s", "mph", "kn")
 _WIND_SPELLINGS = {"km/h": "km/h", "kmh": "km/h", "kph": "km/h",
-                   "m/s": "m/s", "ms": "m/s", "mps": "m/s", "mph": "mph"}
+                   "m/s": "m/s", "ms": "m/s", "mps": "m/s", "mph": "mph",
+                   "kn": "kn", "kt": "kn", "kts": "kn", "knot": "kn", "knots": "kn"}
 
 
 def wind_unit_of(value) -> str | None:
     """The wind unit *value* names, as WIND_UNITS spells it, or None."""
     return _WIND_SPELLINGS.get(str(value or "").strip().lower())
+
+
+def saved_wind_units() -> str | None:
+    """Return the wind unit saved via `linecast wind`, or None."""
+    return wind_unit_of(read_config().get("wind"))
 
 
 CLOCK_CHOICES = ("12", "24")

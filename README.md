@@ -168,7 +168,7 @@ Press `v` once more, or start with `linecast tides --makeup`, to see what moves 
 
 ### Radar
 
-The last hour and the next, with US warnings on top. `S` switches to satellite, `t` changes the colors. Real radar comes from wherever it is published openly: North America, Europe, and parts of East and Southeast Asia. Everywhere else a precipitation model fills in, and it looks like one.
+The last hour and the next, with US warnings on top. `S` switches to satellite, `t` changes the colors. Press `c` for temperature or `W` for wind, and hover over the map to read them. Real radar comes from wherever it is published openly: North America, Europe, and parts of East and Southeast Asia. Everywhere else a precipitation model fills in, and it looks like one.
 
 ![animated radar forecast](screenshots/radar.gif)
 
@@ -207,6 +207,7 @@ Run a setting alone to see it, with a value to save it, or with `auto` to reset 
 | `linecast location` | `set "Portland, Maine"`, `set 44.54,-68.42`, `search NAME` | `--location` |
 | `linecast language` | one of the [supported languages](docs/languages.md) | `--lang` |
 | `linecast units` | `metric`, `imperial` | `--metric`, `--imperial` |
+| `linecast wind` | `km/h`, `m/s`, `mph`, `kn` | `--wind-units` |
 | `linecast clock` | `12`, `24` | `--12h`, `--24h` |
 | `linecast week` | `monday`, `sunday`, `saturday` | `--week-start` |
 | `linecast calendar` | `chinese`, `hebrew`, `islamic`, … | `--calendar` |

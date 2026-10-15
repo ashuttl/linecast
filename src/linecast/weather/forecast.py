@@ -114,7 +114,7 @@ def fetch_forecast(lat: float, lng: float,
     if runtime is None:
         runtime = current_runtime(WeatherRuntime)
     temp_tag = "C" if runtime.celsius else "F"
-    wind_tag = {"km/h": "m", "mph": "i", "m/s": "s"}[runtime.wind_unit]
+    wind_tag = {"km/h": "m", "mph": "i", "m/s": "s", "kn": "k"}[runtime.wind_unit]
     cache_file = cache_dir(
         "weather", f"forecast_{location_cache_key(lat, lng)}_{temp_tag}{wind_tag}.json")
     url = (

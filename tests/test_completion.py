@@ -74,7 +74,7 @@ class CompletionScriptTests(unittest.TestCase):
         script = render_completion("fish")
         self.assertIn(
             "complete -c linecast -f -n '__fish_use_subcommand' "
-            "-a 'weather sunshine moon sky tides radar maps location language units clock "
+            "-a 'weather sunshine moon sky tides radar maps location language units wind clock "
             "week dates digits icons calendar culture hours link doctor completion'",
             script,
         )

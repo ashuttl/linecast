@@ -125,6 +125,7 @@ HELP = {
     "forecast": "browse forecast",
     "now": "return to now",
     "alert": "read an alert",
+    "radar_hover": "read alerts, temperature, and wind",
     "browser": "open alert in browser",
     "refresh": "refresh forecast",
     "time30": "move time by 30 minutes",
@@ -206,6 +207,7 @@ WEATHER = {
     "unit_kmh": "km/h",
     "unit_ms": "m/s",
     "unit_mph": "mph",
+    "unit_kn": "kn",
     "unit_mm": "mm",
     # The distance to the reporting station, in the credit line
     "unit_km": "km",

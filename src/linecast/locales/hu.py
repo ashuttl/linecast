@@ -64,6 +64,7 @@ HELP = {
     "forecast": "az előrejelzés böngészése",
     "now": "vissza a jelenhez",
     "alert": "figyelmeztetés olvasása",
+    "radar_hover": "figyelmeztetések, hőmérséklet és szél olvasása",
     "browser": "figyelmeztetés megnyitása böngészőben",
     "refresh": "az előrejelzés frissítése",
     "time30": "idő léptetése 30 perccel",
@@ -144,6 +145,7 @@ WEATHER = {
     "unit_kmh": "km/h",
     "unit_ms": "m/s",
     "unit_mph": "mph",
+    "unit_kn": "csomó",
     "unit_mm": "mm",
     "unit_km": "km",
     "unit_mi": "mérföld",
@@ -170,6 +172,7 @@ WEATHER = {
     "unit_kmh_prose": "km/h-s",
     "unit_ms_prose": "m/s-os",
     "unit_mph_prose": "mph-s",
+    "unit_kn_prose": "csomós",
     # -ig keeps its shape after any time: "V 20:00-ig"
     "until": "{time}-ig",
     "sentence_end": ".",

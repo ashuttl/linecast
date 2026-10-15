@@ -41,6 +41,7 @@ COMMANDS = {
     "location": "linecast.settings.location",
     "language": "linecast.settings.language",
     "units": "linecast.settings.units",
+    "wind": "linecast.settings.wind",
     "clock": "linecast.settings.clock",
     "week": "linecast.settings.week",
     "dates": "linecast.settings.dates",

@@ -49,6 +49,7 @@ HELP = {
     "forecast": "procházet předpověď",
     "now": "zpět na současnost",
     "alert": "přečíst výstrahu",
+    "radar_hover": "přečíst výstrahy, teplotu a vítr",
     "browser": "otevřít výstrahu v prohlížeči",
     "refresh": "obnovit předpověď",
     "time30": "posunout čas o 30 minut",

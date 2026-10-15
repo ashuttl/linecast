@@ -30,7 +30,7 @@ A regional variant changes only the words that differ in its country, and Hong K
 
 ## What follows the language
 
-- **Units.** With metric units, wind speeds are in metres per second in Japanese, Korean, Danish, Norwegian, Swedish, Icelandic, Finnish, Russian, Ukrainian, Czech, and Slovak, as those countries' forecasts give them, and in km/h elsewhere. Add `--wind-units km/h`, `m/s`, or `mph` to `weather` or `radar`, or set `LINECAST_WIND_UNITS`, to choose one in any language.
+- **Units.** With metric units, wind speeds are in metres per second in Japanese, Korean, Danish, Norwegian, Swedish, Icelandic, Finnish, Russian, Ukrainian, Czech, and Slovak, as those countries' forecasts give them, and in km/h elsewhere. `linecast wind` chooses km/h, m/s, mph, or knots (`kn`) in any language, and `--wind-units` chooses one for a single run.
 - **The moon's calendar.** In Chinese, Japanese, Korean, Vietnamese, and Thai, `moon` shows that language's traditional calendar; in Persian and Arabic, the Islamic; in Hebrew, the Hebrew calendar. See [calendars.md](calendars.md).
 - **The sky.** In Chinese, `sky` draws the Chinese sky; in every other language, the IAU constellations. Star and constellation names come from Wikidata where the language has them. Swahili names Crux and Scorpius; other stars and constellations keep their catalogue names.
 - **The hours.** In Swahili, `sunshine` reads the day in Swahili time. See [hours.md](hours.md).

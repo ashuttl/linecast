@@ -65,11 +65,11 @@ def print_dimension(text):
 
 
 def wind_units(text):
-    """A --wind-units: km/h, m/s, or mph, or another way of typing one
-    (kmh, ms)."""
+    """A --wind-units: km/h, m/s, mph, or kn, or another way of typing
+    one (kmh, ms, knots)."""
     unit = _config.wind_unit_of(text)
     if unit is None:
-        raise argparse.ArgumentTypeError(f"expected km/h, m/s, or mph, got {text!r}")
+        raise argparse.ArgumentTypeError(f"expected km/h, m/s, mph, or kn, got {text!r}")
     return unit
 
 
@@ -127,11 +127,11 @@ def _base_parser(prog, description, units=None, clock=False, json=False,
     if wind:
         locale.add_argument("--wind-units", metavar="UNIT", type=wind_units,
                             choices=WIND_UNITS, default=None,
-                            help="km/h, m/s, or mph\n"
+                            help="km/h, m/s, mph, or kn (knots)\n"
                                  "Wind speeds in this unit, whatever the other "
                                  "units. Default: mph with imperial units; with "
                                  "metric, m/s in the languages whose forecasts "
-                                 "use it, else km/h")
+                                 "use it, else km/h; 'linecast wind' saves one")
     if clock:
         # explicit dest: "12h" is not a Python identifier
         g = locale.add_mutually_exclusive_group()

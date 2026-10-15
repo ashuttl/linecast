@@ -285,7 +285,7 @@ def _collect_paths():
     from linecast._config import (
         config_file, read_config, saved_clock, saved_dates, saved_digits,
         saved_icons, saved_language, saved_location, saved_units,
-        saved_week_start,
+        saved_week_start, saved_wind_units,
     )
     from linecast._paths import cache_root
     settings = config_file()
@@ -303,6 +303,8 @@ def _collect_paths():
             keys.append("language")
         if saved_units() is not None:
             keys.append("units")
+        if saved_wind_units() is not None:
+            keys.append("wind")
         if saved_clock() is not None:
             keys.append("clock")
         if saved_week_start() is not None:
@@ -315,8 +317,8 @@ def _collect_paths():
             keys.append("icons")
         keys.extend(sorted(k for k in config
                            if k not in ("location", "language", "units",
-                                        "clock", "week", "dates", "digits",
-                                        "icons")))
+                                        "wind", "clock", "week", "dates",
+                                        "digits", "icons")))
     root = cache_root()
     exists = os.path.isdir(root)
     writable, reason = cache_writable(root)

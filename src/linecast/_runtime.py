@@ -182,10 +182,11 @@ def resolve_wind_units(namespace=None, environ=None, metric=True, lang="en"):
     """The unit wind speeds are fetched and shown in, and where it came
     from.
 
-    Returns ("km/h" | "m/s" | "mph", source); source is "flag",
-    "LINECAST_WIND_UNITS", or "auto".  Precedence: --wind-units,
-    LINECAST_WIND_UNITS, then default_wind_unit for the units and the
-    language.  Nothing saves one.
+    Returns ("km/h" | "m/s" | "mph" | "kn", source); source is "flag",
+    "LINECAST_WIND_UNITS", "config", or "auto".  Precedence:
+    --wind-units, LINECAST_WIND_UNITS, the `wind` key in config.json
+    (`linecast wind kn`), then default_wind_unit for the units and the
+    language.
     """
     env = _environ(environ)
     candidates = (
@@ -196,6 +197,9 @@ def resolve_wind_units(namespace=None, environ=None, metric=True, lang="en"):
         unit = _config.wind_unit_of(value)
         if unit is not None:
             return unit, source
+    saved = _config.saved_wind_units()
+    if saved is not None:
+        return saved, "config"
     return default_wind_unit(metric, lang), "auto"
 
 
@@ -438,8 +442,8 @@ class RuntimeConfig:
     week_start: str = "monday"  # resolved first day of the week
     width: str | None = None   # print viewport: cells or percentage
     height: str | None = None
-    # --wind-units or LINECAST_WIND_UNITS; None leaves wind_unit to the
-    # units and the language
+    # --wind-units, LINECAST_WIND_UNITS or `linecast wind`; None leaves
+    # wind_unit to the units and the language
     wind_choice: str | None = None
 
     # the parser whose defaults stand in before a main() has run
@@ -494,7 +498,7 @@ class RuntimeConfig:
     @property
     def wind_unit_param(self):
         """`wind_unit` as Open-Meteo's wind_speed_unit parameter names it."""
-        return {"km/h": "kmh", "m/s": "ms", "mph": "mph"}[self.wind_unit]
+        return {"km/h": "kmh", "m/s": "ms", "mph": "mph", "kn": "kn"}[self.wind_unit]
 
     def wind_kmh(self, speed):
         """A speed in the runtime's wind unit, in km/h: the thresholds
@@ -506,7 +510,7 @@ class RuntimeConfig:
         return kmh / _KMH_PER[self.wind_unit]
 
 
-_KMH_PER = {"km/h": 1.0, "m/s": 3.6, "mph": 1.609344}  # km/h in one of each
+_KMH_PER = {"km/h": 1.0, "m/s": 3.6, "mph": 1.609344, "kn": 1.852}  # km/h in one of each
 
 
 @dataclass(frozen=True)

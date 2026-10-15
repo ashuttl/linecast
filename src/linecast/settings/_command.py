@@ -53,12 +53,15 @@ def show(value, source, auto, fixed, saved=None, defaults=("auto",)):
             print(f"The saved setting ({saved}) is overridden by {source}.")
 
 
-def run(prog, usage, description, commands, on_set, on_auto, on_show, metavar=None):
+def run(prog, usage, description, commands, on_set, on_auto, on_show, metavar=None,
+        argv=None):
     """Read `linecast <setting> [show | <choice> | auto]` and do it.
 
     *commands* is each subcommand's name and help, in the order --help
     lists them: show, the choices, then auto.  A choice is handed to
     *on_set*; auto runs *on_auto*, and show, or nothing, *on_show*.
+    *argv* stands in for the command line, for a setting that respells
+    a choice before argparse reads it.
     """
     parser = argparse.ArgumentParser(
         prog=prog, usage=usage, description=description,
@@ -68,7 +71,7 @@ def run(prog, usage, description, commands, on_set, on_auto, on_show, metavar=No
     sub = parser.add_subparsers(dest="action", metavar=metavar)
     for name, help_ in commands:
         sub.add_parser(name, help=help_)
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
     if args.action in (None, "show"):
         on_show()
     elif args.action == "auto":

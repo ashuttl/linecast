@@ -44,6 +44,7 @@ HELP = {
     "forecast": "selaa ennustetta",
     "now": "palaa nykyhetkeen",
     "alert": "lue varoitus",
+    "radar_hover": "lue varoitukset, lämpötila ja tuuli",
     "browser": "avaa varoitus selaimessa",
     "refresh": "päivitä ennuste",
     "time30": "siirrä aikaa 30 minuuttia",
