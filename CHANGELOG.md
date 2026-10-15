@@ -4,6 +4,8 @@ Notable changes, by release. Notes for the next release collect under **Unreleas
 
 ## Unreleased
 
+## 2.10.2 — 2026-10-15
+
 - Weather: Official alerts in Australia, from the Bureau of Meteorology, matched to your forecast district. Flood, marine, and tsunami warnings are not shown.
 
 ## 2.10.1 — 2026-10-09
