@@ -15,7 +15,7 @@ from linecast.terminal.color import BG_PRIMARY  # noqa: E402
 from linecast.radar.basemap import Basemap, DotLayer, SEA_FILL  # noqa: E402
 from linecast.terminal.braille import DOT_BITS  # noqa: E402
 from linecast._xyz import bbox_for  # noqa: E402
-from linecast.radar.render import build_radar_buffer  # noqa: E402
+from linecast.radar.render import build_radar_buffer, echo_over  # noqa: E402
 from linecast.radar.sources import get_source  # noqa: E402
 from png_encode import encode_rgb  # noqa: E402
 
@@ -62,7 +62,9 @@ def main():
         for cx in range(graph_w):
             r0, c0 = cy * 4, cx * 2
             ov = overlays.get((cx, cy))
-            top, bot = radar[cy * 2][cx], radar[cy * 2 + 1][cx]
+            # a translucent echo over the plain background (the PNG has no sea)
+            top, bot = (px if px is None or len(px) == 3 else echo_over(px, BG_PRIMARY)
+                        for px in (radar[cy * 2][cx], radar[cy * 2 + 1][cx]))
             # only point markers render in the PNG; labels are terminal-only glyphs
             wmask = warn.dots[cy][cx] if warn is not None else 0
             if ov is not None and ov[0] in ("•", "+"):

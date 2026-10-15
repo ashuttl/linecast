@@ -69,13 +69,14 @@ class TestBuildRadarBuffer:
         buf, echo = build_radar_buffer(rgba, pw, ph, graph_w=2, height_cells=1)
         assert buf[0][0] == (10, 20, 30)
 
-    def test_partial_alpha_blends_toward_background(self):
+    def test_partial_alpha_keeps_its_alpha(self):
+        # what a translucent echo fades into is compose()'s to decide
         pw, ph = 1, 1
         rgba = bytearray([10, 20, 30, 128])
         buf, echo = build_radar_buffer(rgba, pw, ph, graph_w=1, height_cells=1)
         # spy_h = 2 but ph = 1, so only row 0 is populated
-        expected = lerp(BG_PRIMARY, (10, 20, 30), 128 / 255)
-        assert buf[0][0] == expected
+        assert buf[0][0] == (10, 20, 30, 128)
+        assert buf[1][0] is None
 
     def test_echo_percentage(self):
         # 2x2 image (matches graph_w=2, height_cells=1 -> spy_h=2), one opaque pixel
@@ -164,12 +165,27 @@ class TestCompose:
         lines = compose(basemap, radar, {}, graph_w=1, height_cells=1)
         assert HALF_BLOCK in lines[0]
 
+    # A label over a cell takes the cell's colour as its background, which
+    # is how these read what a translucent echo was blended into.
+    _EDGE = (10, 20, 30, 128)
+
+    def _cell(self, sea=None, under=None):
+        basemap = FakeBasemap(dots=[[0]], color=[[None]], sea=sea)
+        lines = compose(basemap, [[self._EDGE], [self._EDGE]], {(0, 0): ("X", (9, 9, 9))},
+                        graph_w=1, height_cells=1, under=under)
+        return lines[0]
+
+    def test_partial_alpha_blends_toward_the_land_background(self):
+        assert bg(*lerp(BG_PRIMARY, (10, 20, 30), 128 / 255)) in self._cell()
+
     def test_partial_alpha_blends_toward_sea_fill_over_water(self):
-        pw, ph = 1, 1
-        rgba = bytearray([10, 20, 30, 128])
-        buf, echo = build_radar_buffer(rgba, pw, ph, graph_w=1, height_cells=1,
-                                       sea=[[True], [True]])
-        assert buf[0][0] == lerp(SEA_FILL, (10, 20, 30), 128 / 255)
+        line = self._cell(sea=[[True], [True]])
+        assert bg(*lerp(SEA_FILL, (10, 20, 30), 128 / 255)) in line
+
+    def test_partial_alpha_blends_toward_the_temperature_tint(self):
+        tint = (110, 200, 110)
+        line = self._cell(sea=[[True], [True]], under=[[tint], [tint]])
+        assert bg(*lerp(tint, (10, 20, 30), 128 / 255)) in line
 
     def test_priority_order_across_row(self):
         # col0: overlay+radar -> overlay wins; col1: radar only -> half-block;

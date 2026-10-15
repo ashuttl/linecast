@@ -6,6 +6,7 @@ Notable changes, by release. Notes for the next release collect under **Unreleas
 
 - Units: `linecast wind` sets the unit for wind speeds in weather and radar, whatever the other units and the language: km/h, m/s, mph, or knots. `--wind-units` sets it for one run.
 - Radar: With the temperature or wind layer on, hover over the map for the temperature and wind speed there. The header shows them for the center of the view.
+- Radar: With the temperature layer on, the faint edges of rain fade into the temperature colors rather than the background.
 
 ## 2.10.2 — 2026-10-15
 

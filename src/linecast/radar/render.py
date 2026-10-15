@@ -10,7 +10,8 @@ Per terminal cell, the layers resolve in priority order:
   1. city marker / label   → text glyph over the cell's blended colour
   2. warning outline (braille stroke over the cell's blended colour)
   3. coast / border braille → stroke over the cell's blended colour
-  4. radar echo blended over sea fill / land at half-block resolution
+  4. radar echo blended over the temperature tint, sea fill, or land, at
+     half-block resolution
 
 A glyph cell collapses its two sub-pixels into one background colour, so full
 half-block resolution is lost only where a glyph actually sits.  Every glyph —
@@ -31,20 +32,20 @@ def _bbox_key(bbox):
     return tuple(round(v, 3) for v in bbox)
 
 
-def build_radar_buffer(rgba, pw, ph, graph_w, height_cells, sea=None):
-    """Blend a decoded radar frame into a sub-pixel buffer over the background.
+def build_radar_buffer(rgba, pw, ph, graph_w, height_cells):
+    """A decoded radar frame as a sub-pixel buffer.
 
     Returns (buffer, echo_fraction). buffer[spy][x] is an (r,g,b) tuple where
-    there is an echo, else None. 1:1 map: PNG pixel (x,y) → sub-pixel (x,y).
-    ``sea`` is the basemap's sub-pixel water mask; translucent echo edges
-    blend against the sea fill there instead of the land background.
+    the echo is opaque, (r,g,b,a) where it is translucent, else None. 1:1
+    map: PNG pixel (x,y) → sub-pixel (x,y).  A translucent echo keeps its
+    alpha because what it fades into is not known until compose(): the
+    temperature tint where that layer is on, else the sea fill or the land.
     """
     spy_h = height_cells * 2
     buf = [[None] * graph_w for _ in range(spy_h)]
     opaque = 0
     for y in range(min(ph, spy_h)):
         row = buf[y]
-        srow = sea[y] if sea is not None else None
         base = y * pw
         for x in range(min(pw, graph_w)):
             i = (base + x) * 4
@@ -52,14 +53,17 @@ def build_radar_buffer(rgba, pw, ph, graph_w, height_cells, sea=None):
             if a == 0:
                 continue
             opaque += 1
-            echo = (rgba[i], rgba[i + 1], rgba[i + 2])
             if a >= 250:
-                row[x] = echo
+                row[x] = (rgba[i], rgba[i + 1], rgba[i + 2])
             else:
-                under = SEA_FILL if srow is not None and srow[x] else BG_PRIMARY
-                row[x] = lerp(under, echo, a / 255)
+                row[x] = (rgba[i], rgba[i + 1], rgba[i + 2], a)
     total = max(1, min(ph, spy_h) * min(pw, graph_w))
     return buf, 100 * opaque / total
+
+
+def echo_over(echo, beneath):
+    """A translucent echo, (r,g,b,a), over the colour beneath it."""
+    return lerp(beneath, echo[:3], echo[3] / 255)
 
 
 def compose(basemap, radar, overlays, graph_w, height_cells, warnings=None,
@@ -69,8 +73,9 @@ def compose(basemap, radar, overlays, graph_w, height_cells, warnings=None,
     `under` is an optional sub-pixel RGB buffer (same shape as `radar`)
     painted *beneath* everything as a background tint — the temperature
     layer. It replaces the plain land background and the sea fill wherever
-    it has a colour (a drag preview backfills with None); geography braille,
-    warning strokes, and radar echoes all stay readable on top.
+    it has a colour (a drag preview backfills with None), and a translucent
+    echo fades into it; geography braille, warning strokes, and radar echoes
+    all stay readable on top.
     """
     sea = getattr(basemap, "sea", None)
     lines = []
@@ -83,20 +88,22 @@ def compose(basemap, radar, overlays, graph_w, height_cells, warnings=None,
         u_bot = under[cy * 2 + 1] if under is not None else None
         parts = []
         for cx in range(graph_w):
-            # resolve the cell's two sub-pixels: echo where present, else the
-            # temperature tint, else the underlying sea fill / land background
-            top = top_row[cx]
-            if top is None:
-                if u_top is not None and u_top[cx] is not None:
-                    top = u_top[cx]
-                else:
-                    top = SEA_FILL if sea_top is not None and sea_top[cx] else BG_PRIMARY
-            bot = bot_row[cx]
-            if bot is None:
-                if u_bot is not None and u_bot[cx] is not None:
-                    bot = u_bot[cx]
-                else:
-                    bot = SEA_FILL if sea_bot is not None and sea_bot[cx] else BG_PRIMARY
+            # resolve the cell's two sub-pixels: the temperature tint, else
+            # the sea fill / land background, with any echo over it
+            if u_top is not None and u_top[cx] is not None:
+                top = u_top[cx]
+            else:
+                top = SEA_FILL if sea_top is not None and sea_top[cx] else BG_PRIMARY
+            echo = top_row[cx]
+            if echo is not None:
+                top = echo if len(echo) == 3 else echo_over(echo, top)
+            if u_bot is not None and u_bot[cx] is not None:
+                bot = u_bot[cx]
+            else:
+                bot = SEA_FILL if sea_bot is not None and sea_bot[cx] else BG_PRIMARY
+            echo = bot_row[cx]
+            if echo is not None:
+                bot = echo if len(echo) == 3 else echo_over(echo, bot)
             ov = overlays.get((cx, cy))
             if ov is not None:
                 ch, color = ov[0], ov[1]

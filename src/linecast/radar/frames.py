@@ -22,7 +22,6 @@ from linecast.radar import sources as _sources
 from linecast.radar import warnings as _warnings
 from linecast.terminal.live import nudge as _nudge  # a landed frame repaints the live view
 from linecast.radar.render import _bbox_key, build_radar_buffer
-from linecast.radar.ui import _get_basemap
 from linecast._log import debug_log, log_failure
 
 MAX_REWIND_MIN = 180  # how far back scrubbing can go (IEM; tile sources
@@ -118,8 +117,7 @@ def _load_frame(bbox, gw, hc, frame, layer="radar"):
         pw, ph, rgba = src.satellite_rgba(bbox, gw, hc, frame)
     else:
         pw, ph, rgba = src.frame_rgba(bbox, gw, hc, frame)
-    result = build_radar_buffer(rgba, pw, ph, gw, hc,
-                                sea=_get_basemap(bbox, gw, hc).sea)
+    result = build_radar_buffer(rgba, pw, ph, gw, hc)
     with _frame_lock:
         _frame_cache[key] = result
         if len(_frame_cache) > N_FRAMES + 8:  # bound to the rewind window
