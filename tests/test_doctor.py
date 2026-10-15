@@ -271,6 +271,7 @@ class TestJson:
             "icons", "theme", "lang", "glyph_widths", "bidi"}
         assert set(report["preferences"]) == {
             "units", "units_source", "tides_units", "tides_units_source",
+            "wind", "wind_source",
             "clock", "clock_source", "week", "week_source", "location",
             "location_source", "language", "language_source",
             "calendar", "calendar_source", "culture", "culture_source",

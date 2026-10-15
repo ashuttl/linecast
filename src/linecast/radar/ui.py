@@ -4,7 +4,7 @@ placename, and the overlays and footer pieces the live view draws.
 These are the radar's screen-side helpers, shared with the maps view: a
 _ShiftedBasemap stands in for a Basemap while a drag preview slides the
 already-composed layers, panned_place names a view centre from the
-offline basemap data, and the theme picker, warning tooltip and timeline
+offline basemap data, and the theme picker, hover chip and timeline
 scrubber are the chrome the live loop draws around the map.  ThemePicker
 is the picker's state; live routes the keys to it.
 """
@@ -16,7 +16,10 @@ from linecast.terminal import theme as _theme
 from linecast.terminal.color import fg, bg, RESET
 from linecast._timefmt import fmt_time_dt
 from linecast.terminal.theme import ensure_contrast
-from linecast.weather.style import TOOLTIP_BG_RGB
+from linecast.terminal.glyphs import arrow_toward
+from linecast.weather.i18n import fmt_wind
+from linecast.weather.style import TOOLTIP_BG_RGB, TOOLTIP_TEXT_RGB
+from linecast.radar.layers import CALM_KMH
 from linecast.radar.basemap import (
     Basemap, _point_in_rings, marine_region, nearest_city,
 )
@@ -208,11 +211,29 @@ def _fmt_expire(iso, use_24h):
     return _fmt_local(exp, use_24h)
 
 
-def _build_warning_tooltip(warns, mouse_pos, bbox, graph_w, height_cells,
-                           cols, rows, use_24h):
-    """A floating chip naming the warning(s) under the cursor, drawn over the
-    map via live_loop's \\x00 overlay channel. Empty string when the pointer
-    isn't over a warned area.
+def conditions_at(field, t_idx, layers, lon, lat, runtime):
+    """The condition layers' reading at a place, one part a layer:
+    ["14°C", "↗ 12km/h"].  The arrow points where the wind blows, as
+    the map's do, and is left off where the map draws none."""
+    parts = []
+    if "temp" in layers:
+        tc = field.sample_temp(t_idx, lon, lat)
+        parts.append(f"{round(tc)}°C" if runtime.metric
+                     else f"{round(tc * 9 / 5 + 32)}°F")
+    if "wind" in layers:
+        speed, bearing = field.sample_wind(t_idx, lon, lat)
+        shown = fmt_wind(runtime.wind_from_kmh(speed), runtime)
+        parts.append(f"{arrow_toward(bearing)} {shown}" if speed >= CALM_KMH
+                     else shown)
+    return parts
+
+
+def _build_hover_chip(warns, conditions, mouse_pos, bbox, graph_w,
+                      height_cells, cols, rows, use_24h):
+    """A floating chip for the place under the cursor, drawn over the map
+    via live_loop's \\x00 overlay channel: the warning(s) there, then
+    `conditions(lon, lat)`, the condition layers' reading (see
+    conditions_at).  Empty string off the map, or with nothing to say.
 
     The warned *area* is hoverable, not just its braille outline: we invert
     the cell → lon/lat projection and point-in-polygon test the raw rings, so
@@ -228,10 +249,8 @@ def _build_warning_tooltip(warns, mouse_pos, bbox, graph_w, height_cells,
 
     # most-severe-first (warns is least-severe-first), so the deadliest
     # overlapping warning heads the list
-    hits = [(color, info) for _sev, color, rings, info in warns
+    hits = [(color, info) for _sev, color, rings, info in warns or ()
             if _point_in_rings(lon, lat, rings)]
-    if not hits:
-        return ""
     hits.reverse()
 
     TBG = bg(*TOOLTIP_BG_RGB)
@@ -248,6 +267,11 @@ def _build_warning_tooltip(warns, mouse_pos, bbox, graph_w, height_cells,
         lines.append(f"{TBG} {cfg}{name}{tail} ")
     if len(hits) > 4:
         lines.append(f"{TBG} {fg(*MUTED)}+{len(hits) - 4} ")
+    reading = conditions(lon, lat) if conditions else []
+    if reading:
+        lines.append(f"{TBG} {fg(*TOOLTIP_TEXT_RGB)}{'  '.join(reading)} ")
+    if not lines:
+        return ""
 
     # right of the pointer, or ending just left of it at the screen edge
     return _live.pointer_chip(lines, mcol + 1, mrow, cols, rows,

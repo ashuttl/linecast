@@ -1,10 +1,10 @@
 """What a command runs with: the settings its flags resolve to.
 
-The resolvers settle the units, the clock, the first day of the week,
-the language and the icons from the flags (parsed by _parsers.py), the
-environment, config.json and the country; RuntimeConfig is what a
-command's main() makes of them, and current_runtime() hands it to the
-helpers called without one."""
+The resolvers settle the units, the wind units, the clock, the first
+day of the week, the language and the icons from the flags (parsed by
+_parsers.py), the environment, config.json and the country;
+RuntimeConfig is what a command's main() makes of them, and
+current_runtime() hands it to the helpers called without one."""
 
 from dataclasses import dataclass
 import os
@@ -165,6 +165,38 @@ def resolve_clock(namespace=None, environ=None, country=_UNSET):
         from linecast._location import own_country
         country = own_country()
     return default_clock(country), "auto"
+
+
+def default_wind_unit(metric, lang):
+    """The wind unit for a user who has asked for none: mph with
+    imperial units, else m/s in the languages whose forecasts give wind
+    that way (Japanese, Korean, the Nordic languages, Russian,
+    Ukrainian, Czech, Slovak), else km/h."""
+    if not metric:
+        return "mph"
+    from linecast._i18n import setting
+    return setting(lang, "metric_wind")
+
+
+def resolve_wind_units(namespace=None, environ=None, metric=True, lang="en"):
+    """The unit wind speeds are fetched and shown in, and where it came
+    from.
+
+    Returns ("km/h" | "m/s" | "mph", source); source is "flag",
+    "LINECAST_WIND_UNITS", or "auto".  Precedence: --wind-units,
+    LINECAST_WIND_UNITS, then default_wind_unit for the units and the
+    language.  Nothing saves one.
+    """
+    env = _environ(environ)
+    candidates = (
+        (getattr(namespace, "wind_units", None), "flag"),
+        (env.get("LINECAST_WIND_UNITS", ""), "LINECAST_WIND_UNITS"),
+    )
+    for value, source in candidates:
+        unit = _config.wind_unit_of(value)
+        if unit is not None:
+            return unit, source
+    return default_wind_unit(metric, lang), "auto"
 
 
 def resolve_week_start(namespace=None, environ=None, country=_UNSET):
@@ -406,6 +438,9 @@ class RuntimeConfig:
     week_start: str = "monday"  # resolved first day of the week
     width: str | None = None   # print viewport: cells or percentage
     height: str | None = None
+    # --wind-units or LINECAST_WIND_UNITS; None leaves wind_unit to the
+    # units and the language
+    wind_choice: str | None = None
 
     # the parser whose defaults stand in before a main() has run
     _parser = staticmethod(lambda: _base_parser("linecast", ""))
@@ -430,6 +465,7 @@ class RuntimeConfig:
                                        country)
         clock, _source = resolve_clock(namespace, env, country)
         week_start, _source = resolve_week_start(namespace, env, country)
+        wind, wind_source = resolve_wind_units(namespace, env, units == "metric", lang)
         return cls(
             live=_resolve_live(namespace),
             icons=_resolve_icons(namespace, env),
@@ -441,12 +477,36 @@ class RuntimeConfig:
             week_start=week_start,
             width=namespace.width,
             height=namespace.height,
+            wind_choice=None if wind_source == "auto" else wind,
         )
 
     @classmethod
     def defaults(cls, environ=None):
         """The runtime with no flags given."""
         return cls.from_sources(cls._parser().parse_args([]), environ)
+
+    @property
+    def wind_unit(self):
+        """The unit wind speeds are fetched and shown in: the one asked
+        for, else default_wind_unit's for the units and the language."""
+        return self.wind_choice or default_wind_unit(self.metric, self.lang)
+
+    @property
+    def wind_unit_param(self):
+        """`wind_unit` as Open-Meteo's wind_speed_unit parameter names it."""
+        return {"km/h": "kmh", "m/s": "ms", "mph": "mph"}[self.wind_unit]
+
+    def wind_kmh(self, speed):
+        """A speed in the runtime's wind unit, in km/h: the thresholds
+        that decide what is worth showing are written in km/h."""
+        return speed * _KMH_PER[self.wind_unit]
+
+    def wind_from_kmh(self, kmh):
+        """A speed in km/h, in the runtime's wind unit."""
+        return kmh / _KMH_PER[self.wind_unit]
+
+
+_KMH_PER = {"km/h": 1.0, "m/s": 3.6, "mph": 1.609344}  # km/h in one of each
 
 
 @dataclass(frozen=True)
@@ -485,32 +545,12 @@ class WeatherRuntime(RuntimeConfig):
                      and not env_truthy(env.get("WEATHER_NO_SHADING", ""))),
             json_mode=base.json_mode,
             prose=namespace.prose,
+            wind_choice=base.wind_choice,
         )
 
     @property
     def temp_unit(self):
         return "°C" if self.celsius else "°F"
-
-    @property
-    def wind_unit(self):
-        """The unit wind speeds are fetched and shown in: mph with
-        imperial units, else m/s in the languages whose forecasts give
-        wind that way (Japanese, Korean, the Nordic languages, Russian,
-        Ukrainian, Czech), else km/h."""
-        if not self.metric:
-            return "mph"
-        from linecast._i18n import setting
-        return setting(self.lang, "metric_wind")
-
-    @property
-    def wind_unit_param(self):
-        """`wind_unit` as Open-Meteo's wind_speed_unit parameter names it."""
-        return {"km/h": "kmh", "m/s": "ms", "mph": "mph"}[self.wind_unit]
-
-    def wind_kmh(self, speed):
-        """A speed in the runtime's wind unit, in km/h: the thresholds
-        that decide what is worth showing are written in km/h."""
-        return speed * {"km/h": 1.0, "m/s": 3.6, "mph": 1.609344}[self.wind_unit]
 
     @property
     def precip_unit(self):

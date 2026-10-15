@@ -46,10 +46,10 @@ from linecast.radar.frames import (
 from linecast.radar.sources import has_radar
 from linecast.terminal.scenes import Memo, SceneCache
 from linecast.radar.ui import (
-    CROSSHAIR, DIM, MARKER, MUTED, _ShiftedBasemap, _build_warning_tooltip, _fmt_local,
-    _get_basemap, panned_place, shift_grid, _theme_menu_overlay, _timeline_bar,
+    CROSSHAIR, DIM, MARKER, MUTED, _ShiftedBasemap, _build_hover_chip, _fmt_local,
+    _get_basemap, conditions_at, panned_place, shift_grid, _theme_menu_overlay, _timeline_bar,
 )
-from linecast._runtime import use_metric
+from linecast._runtime import current_runtime
 from linecast._log import log_failure
 from linecast.terminal.textwidth import fit, pad, visible_len
 from linecast.terminal.spinner import SPINNER_FRAMES
@@ -190,6 +190,7 @@ def render_radar(lat, lon, location_name, zoom, play_frame=0, playing=True,
     # frame's hour, so rewinding shows the field as it was
     field = t_idx = under = wind_ov = None
     if layers:
+        units = runtime or current_runtime()  # what the readings are given in
         field = _get_field(bbox, block)
         if field is None:
             loading = loading or not block
@@ -284,12 +285,11 @@ def render_radar(lat, lon, location_name, zoom, play_frame=0, playing=True,
         tag += f" · {spin_ch} {rs('loading', lang)} {n_loaded}/{len(frames)}"
     elif loading:
         tag += f" · {rs('loading', lang)}"
-    if field is not None and "temp" in layers:
-        # temperature at the view centre, in the units panned_place uses
-        tc = field.sample_temp(t_idx, lon, lat)
-        metric = runtime.metric if runtime else use_metric()
-        tag += (f" · {round(tc)}°C" if metric
-                else f" · {round(tc * 9 / 5 + 32)}°F")
+    if field is not None:
+        # the temperature and wind at the view centre, in the units
+        # panned_place uses; hovering reads them anywhere else
+        for part in conditions_at(field, t_idx, layers, lon, lat, units):
+            tag += f" · {part}"
     icon = "▶" if playing else "⏸"
     # with the cloud layer in, the coverage figure is cloud, not echo —
     # and its word is what tells the two layers apart up here
@@ -327,16 +327,21 @@ def render_radar(lat, lon, location_name, zoom, play_frame=0, playing=True,
 
     out = "\n".join([header, *map_lines, foot])
     # a single \x00 overlay channel: the theme picker (modal) wins it while
-    # open; otherwise a hover tooltip names any warning under the cursor
+    # open; otherwise a hover chip names any warning under the cursor and
+    # reads the condition layers there
     floating = ""
     if theme_menu is not None:
         names, sel = theme_menu
         floating = _theme_menu_overlay(
             names, sel, getattr(source, "theme", None), lang, cols,
             rows)
-    elif mouse_pos and warns and pan_offset == (0, 0):
-        floating = _build_warning_tooltip(
-            warns, mouse_pos, bbox, graph_w, height_cells, cols, rows, use_24h)
+    elif mouse_pos and (warns or field is not None) and pan_offset == (0, 0):
+        conditions = None if field is None else (
+            lambda at_lon, at_lat: conditions_at(field, t_idx, layers,
+                                                 at_lon, at_lat, units))
+        floating = _build_hover_chip(
+            warns, conditions, mouse_pos, bbox, graph_w, height_cells,
+            cols, rows, use_24h)
     return overlay(out, floating), err is not None
 
 

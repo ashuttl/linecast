@@ -135,13 +135,14 @@ def wmo_label(code, lang, default=""):
     return WMO_NAMES.get(code, default)
 
 
+_WIND_LABEL_KEYS = {"km/h": "unit_kmh", "m/s": "unit_ms", "mph": "unit_mph"}
+
+
 def wind_unit_label(runtime):
     """The wind unit as the display language writes it (Turkish reads
     km/sa, Russian м/с); the runtime's `wind_unit` is the JSON's and
-    stays km/h or m/s."""
-    if not runtime.metric:
-        return _s("unit_mph", runtime)
-    return _s("unit_ms" if runtime.wind_unit == "m/s" else "unit_kmh", runtime)
+    stays km/h, m/s, or mph."""
+    return _s(_WIND_LABEL_KEYS[runtime.wind_unit], runtime)
 
 
 def precip_unit_label(runtime):

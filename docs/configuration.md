@@ -30,6 +30,7 @@ The dimensions describe the viewport offered to the renderer, rather than an exa
 | `LINECAST_UNITS` | `metric` or `imperial` for every command; overrides the saved units |
 | `WEATHER_UNITS` | Units for the weather command; overrides `LINECAST_UNITS` |
 | `TIDES_UNITS` | Units for tide heights; overrides `LINECAST_UNITS` |
+| `LINECAST_WIND_UNITS` | `km/h`, `m/s`, or `mph` for wind speeds in weather and radar, whatever the other units and the language; `--wind-units` overrides it |
 | `LINECAST_CLOCK` | `12` or `24`; overrides the saved clock |
 | `LINECAST_WEEK_START` | `monday`, `sunday`, or `saturday`; overrides the saved week |
 | `LINECAST_DATES` | `gregorian` or `solar-hijri`; overrides the saved dates |

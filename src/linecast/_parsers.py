@@ -15,7 +15,7 @@ import sys
 
 from linecast import _config
 from linecast._commands import BLURB, formatter_class, parser_class
-from linecast._config import HOURS_CHOICES, ICON_SETS, WEEK_STARTS
+from linecast._config import HOURS_CHOICES, ICON_SETS, WEEK_STARTS, WIND_UNITS
 from linecast._i18n import LANGUAGE_CODES, VARIANTS
 
 
@@ -64,6 +64,15 @@ def print_dimension(text):
     raise argparse.ArgumentTypeError("expected a positive cell count or percentage (0 < % <= 100)")
 
 
+def wind_units(text):
+    """A --wind-units: km/h, m/s, or mph, or another way of typing one
+    (kmh, ms)."""
+    unit = _config.wind_unit_of(text)
+    if unit is None:
+        raise argparse.ArgumentTypeError(f"expected km/h, m/s, or mph, got {text!r}")
+    return unit
+
+
 class ViewParser(parser_class()):
     """Shared view flags, including output modes implied by sizing."""
 
@@ -81,7 +90,7 @@ class ViewParser(parser_class()):
 
 
 def _base_parser(prog, description, units=None, clock=False, json=False,
-                 temperature_scale=False, oneline=True, prose=False,
+                 temperature_scale=False, wind=False, oneline=True, prose=False,
                  location_help="location as 'lat,lng' or place name"):
     """A view command's parser, with its help page in sections.
 
@@ -90,7 +99,8 @@ def _base_parser(prog, description, units=None, clock=False, json=False,
     every view shares follow in sections of their own, made here because
     argparse prints sections in the order they are made.  *units* is the
     pair of help strings for --metric and --imperial; *temperature_scale*
-    adds --celsius and --fahrenheit beside them; *clock* adds --24h and
+    adds --celsius and --fahrenheit beside them, and *wind* adds
+    --wind-units, for the views that give wind speeds; *clock* adds --24h and
     --12h; *json* adds --json to the output section; *oneline* offers
     --oneline, for the views that have a line to give; *prose* offers
     --prose, for weather's forecast paragraph.
@@ -114,6 +124,14 @@ def _base_parser(prog, description, units=None, clock=False, json=False,
                             help="celsius temperatures, whatever the other units")
         locale.add_argument("--fahrenheit", action="store_true",
                             help="fahrenheit temperatures, whatever the other units")
+    if wind:
+        locale.add_argument("--wind-units", metavar="UNIT", type=wind_units,
+                            choices=WIND_UNITS, default=None,
+                            help="km/h, m/s, or mph\n"
+                                 "Wind speeds in this unit, whatever the other "
+                                 "units. Default: mph with imperial units; with "
+                                 "metric, m/s in the languages whose forecasts "
+                                 "use it, else km/h")
     if clock:
         # explicit dest: "12h" is not a Python identifier
         g = locale.add_mutually_exclusive_group()
@@ -196,7 +214,8 @@ def weather_parser():
                       units=("metric units: celsius, km/h (m/s in the languages "
                              "that use it), mm",
                              "imperial units: fahrenheit, mph, inches"),
-                      temperature_scale=True, clock=True, json=True, prose=True)
+                      temperature_scale=True, wind=True, clock=True, json=True,
+                      prose=True)
     p.add_argument("--search", metavar="QUERY", default=None,
                     help="search for a location and exit")
     p.add_argument("--temp-range", dest="temp_range",
@@ -318,9 +337,10 @@ def sky_parser():
 
 def radar_parser():
     p = _base_parser("linecast radar", BLURB["radar"],
-                      units=("metric units: celsius, kilometres",
-                             "imperial units: fahrenheit, miles"),
-                      clock=True, oneline=False)
+                      units=("metric units: celsius, km/h (m/s in the languages "
+                             "that use it), kilometres",
+                             "imperial units: fahrenheit, mph, miles"),
+                      wind=True, clock=True, oneline=False)
     p.add_argument("--search", metavar="QUERY", default=None,
                     help="search for a location and exit")
     p.add_argument("--zoom", metavar="DEGREES", type=zoom_degrees, default=6.0,

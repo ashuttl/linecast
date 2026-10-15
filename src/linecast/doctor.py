@@ -472,8 +472,11 @@ def _collect_preferences():
         location, location_source = "(set)", "config"
     else:
         location, location_source = "auto (IP geolocation)", "auto"
-    from linecast._runtime import resolve_lang
+    from linecast._runtime import resolve_lang, resolve_wind_units
     language, language_source = resolve_lang(None, env)
+    wind, wind_source = resolve_wind_units(None, env, weather == "metric", language)
+    if wind_source == "auto":
+        wind_source = f"auto: {weather}, {language}"
     from linecast.astro.calendars.lunisolar import resolve_calendar
     from linecast.astro.hours import resolve_hours
     from linecast.sky.catalogue import resolve_culture
@@ -499,6 +502,8 @@ def _collect_preferences():
         "units_source": weather_source,
         "tides_units": tides,
         "tides_units_source": tides_source,
+        "wind": wind,
+        "wind_source": wind_source,
         "clock": f"{clock}-hour",
         "clock_source": clock_source,
         "week": week,
@@ -643,6 +648,7 @@ def render(report):
         units += f"; tides {prefs['tides_units']} ({prefs['tides_units_source']})"
     rows = [
         ("units", units),
+        ("wind", f"{prefs['wind']} ({prefs['wind_source']})"),
         ("clock", f"{prefs['clock']} ({prefs['clock_source']})"),
         ("week", f"{prefs['week']} ({prefs['week_source']})"),
         ("dates", f"{prefs['dates']} ({prefs['dates_source']})"),

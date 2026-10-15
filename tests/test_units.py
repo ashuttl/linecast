@@ -2,7 +2,7 @@ import io
 import os
 import tempfile
 import unittest
-from contextlib import redirect_stdout
+from contextlib import redirect_stderr, redirect_stdout
 from unittest.mock import patch
 
 from linecast import _config
@@ -174,6 +174,60 @@ class RuntimeUnitsTests(ConfigDirMixin):
         rt = TidesRuntime.from_sources(tides_parser().parse_args(["--print"]),
                                        environ={}, country="US")
         self.assertTrue(rt.metric)
+
+
+class WindUnitsTests(ConfigDirMixin):
+    """--wind-units and LINECAST_WIND_UNITS choose the wind unit,
+    whatever the units and the language."""
+
+    def _rt(self, *argv, environ=None):
+        return WeatherRuntime.from_sources(
+            _weather_args("--print", *argv), environ=environ or {}, country=None)
+
+    def test_the_default_follows_the_units_and_the_language(self):
+        self.assertEqual(self._rt("--lang", "en", "--metric").wind_unit, "km/h")
+        self.assertEqual(self._rt("--lang", "ja", "--metric").wind_unit, "m/s")
+        self.assertEqual(self._rt("--lang", "ja", "--imperial").wind_unit, "mph")
+
+    def test_the_flag_wins_over_the_units_and_the_language(self):
+        rt = self._rt("--lang", "en", "--metric", "--wind-units", "m/s")
+        self.assertEqual((rt.wind_unit, rt.wind_unit_param), ("m/s", "ms"))
+        self.assertTrue(rt.metric)
+        rt = self._rt("--lang", "ja", "--metric", "--wind-units", "km/h")
+        self.assertEqual(rt.wind_unit, "km/h")
+        rt = self._rt("--imperial", "--wind-units", "km/h")
+        self.assertEqual(rt.wind_unit, "km/h")
+        self.assertFalse(rt.metric)
+        rt = self._rt("--metric", "--wind-units", "mph")
+        self.assertEqual(rt.wind_unit, "mph")
+
+    def test_the_flag_takes_the_usual_spellings(self):
+        self.assertEqual(self._rt("--wind-units", "ms").wind_unit, "m/s")
+        self.assertEqual(self._rt("--wind-units", "KMH").wind_unit, "km/h")
+        with redirect_stderr(io.StringIO()), self.assertRaises(SystemExit):
+            _weather_args("--wind-units", "knots")
+
+    def test_the_env_var_applies_below_the_flag(self):
+        env = {"LINECAST_WIND_UNITS": "m/s"}
+        self.assertEqual(self._rt("--lang", "en", environ=env).wind_unit, "m/s")
+        self.assertEqual(self._rt("--wind-units", "mph", environ=env).wind_unit, "mph")
+        # junk in the variable is ignored
+        rt = self._rt("--lang", "en", "--metric", environ={"LINECAST_WIND_UNITS": "fast"})
+        self.assertEqual(rt.wind_unit, "km/h")
+
+    def test_the_radar_takes_it_too(self):
+        from linecast._parsers import radar_parser
+        rt = RuntimeConfig.from_sources(
+            radar_parser().parse_args(["--wind-units", "m/s"]), environ={}, country=None)
+        self.assertEqual(rt.wind_unit, "m/s")
+        self.assertEqual(rt.wind_from_kmh(36), 10)
+
+    def test_the_label_follows_the_unit(self):
+        from linecast.weather.i18n import fmt_wind
+        self.assertEqual(fmt_wind(10, self._rt("--lang", "en", "--metric",
+                                               "--wind-units", "mph")), "10mph")
+        self.assertEqual(fmt_wind(10, self._rt("--lang", "ru", "--imperial",
+                                               "--wind-units", "m/s")), "10\u00a0м/с")
 
 
 class CurrentRuntimeTests(ConfigDirMixin):

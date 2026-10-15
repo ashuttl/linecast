@@ -99,6 +99,19 @@ def saved_units() -> str | None:
     return _saved_choice("units", UNITS_CHOICES)
 
 
+# The units a wind speed is shown in, as the views write them, and the
+# other ways they are typed: Open-Meteo's kmh and ms, and kph and mps.
+# Nothing saves one; --wind-units and LINECAST_WIND_UNITS choose it.
+WIND_UNITS = ("km/h", "m/s", "mph")
+_WIND_SPELLINGS = {"km/h": "km/h", "kmh": "km/h", "kph": "km/h",
+                   "m/s": "m/s", "ms": "m/s", "mps": "m/s", "mph": "mph"}
+
+
+def wind_unit_of(value) -> str | None:
+    """The wind unit *value* names, as WIND_UNITS spells it, or None."""
+    return _WIND_SPELLINGS.get(str(value or "").strip().lower())
+
+
 CLOCK_CHOICES = ("12", "24")
 
 
