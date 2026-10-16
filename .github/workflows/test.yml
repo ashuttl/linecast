@@ -174,7 +174,7 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
 
-      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: dist
           path: ${{ runner.temp }}/dist
@@ -192,7 +192,7 @@ jobs:
           PATH="$RUNNER_TEMP/venv/bin:$PATH" \
             sh scripts/smoke_wheel.sh "$WHEEL_VERSION"
 
-      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: pyz
           path: ${{ runner.temp }}/pyz
