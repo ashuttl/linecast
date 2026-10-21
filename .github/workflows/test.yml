@@ -67,7 +67,7 @@ jobs:
         run: |
           sudo apt-get update -q
           sudo apt-get install -y -q --no-install-recommends zsh fish
-      - uses: hustcer/setup-nu@9215c80adb545a85c419d5085b76eb6d082f49e7 # v3.27
+      - uses: hustcer/setup-nu@95cd3bfe252450ef7d35dd9a7ddecf3484341134 # v3.28
         if: runner.os == 'Linux'
 
       - name: Run tests
@@ -130,7 +130,7 @@ jobs:
       - name: Check that both carry the data files
         run: sh scripts/check_dist.sh dist
 
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: dist
           path: dist/*
@@ -143,7 +143,7 @@ jobs:
           pip install shiv==1.0.8
           sh scripts/build_pyz.sh dist pyz
 
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: pyz
           path: pyz/linecast.pyz
@@ -174,7 +174,7 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
 
-      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: dist
           path: ${{ runner.temp }}/dist
@@ -192,7 +192,7 @@ jobs:
           PATH="$RUNNER_TEMP/venv/bin:$PATH" \
             sh scripts/smoke_wheel.sh "$WHEEL_VERSION"
 
-      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: pyz
           path: ${{ runner.temp }}/pyz
