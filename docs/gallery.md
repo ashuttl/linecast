@@ -56,12 +56,12 @@ Press `v` again for the year so far, [après Tufte](https://www.edwardtufte.com/
 
 ## Sunshine
 
-One June day over Westbrook, Maine: night, with the sun's dot below the horizon; dawn; midday; golden hour; dusk. Then a January noon, for what nine hours of daylight do to the arc.
+One June day over Westbrook, Maine: night, with the sun's dot below the horizon; dawn; afternoon; golden hour; dusk. Then a January noon, for what nine hours of daylight do to the arc.
 
 <p>
   <img src="../screenshots/sunshine-night.png" width="32%" alt="sunshine at night">
   <img src="../screenshots/sunshine-dawn.png" width="32%" alt="sunshine at dawn">
-  <img src="../screenshots/sunshine-day.png" width="32%" alt="sunshine at midday">
+  <img src="../screenshots/sunshine-day.png" width="32%" alt="sunshine in the afternoon">
 </p>
 <p>
   <img src="../screenshots/sunshine-golden.png" width="32%" alt="sunshine in the golden hour">

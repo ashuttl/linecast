@@ -179,12 +179,16 @@ weather_year() {
 
 sunshine() {
     # One June day over Westbrook, six ways: night with the sun's dot
-    # under the horizon, dawn, midday, golden hour, dusk, and a January
-    # noon for the difference nine hours of daylight make to the arc.
+    # under the horizon, dawn, the afternoon, golden hour, dusk, and a
+    # January noon for the difference nine hours of daylight make to the
+    # arc. The afternoon is 2:30, with the sun well past the top of its
+    # arc; the README sets it beside the dawn. The clock in the corner is
+    # inked cell by cell against the sky behind it, and at 2:00 and 2:15
+    # the change from dark ink to light falls inside the time.
     local at name spec
     for spec in "2026-06-21T23:30|sunshine-night.png" \
                 "2026-06-21T05:05|sunshine-dawn.png" \
-                "2026-06-21T13:30|sunshine-day.png" \
+                "2026-06-21T14:30|sunshine-day.png" \
                 "2026-06-21T19:15|sunshine-golden.png" \
                 "2026-06-21T20:15|sunshine-dusk.png" \
                 "2026-01-15T12:00|sunshine-winter.png"; do

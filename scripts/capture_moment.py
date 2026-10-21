@@ -5,7 +5,7 @@ sunshine and moon take their place from --location here; sky resolves its own,
 so pass it --location after the -- as well.
 
 This is deliberately capture-only: the public CLI continues to show the real
-sky.  Freezing the clock here makes the README's midday, dusk, and Moon frames
+sky.  Freezing the clock here makes the README's dawn, afternoon, and Moon frames
 repeatable no matter when the screenshot pipeline runs.
 """
 

@@ -97,11 +97,11 @@ The year view for Westbrook, Maine:
 
 The sun on its arc through dawn, day, and dusk. Press `v` for the whole year. In either view, `t` hides the text except the location and current time; `--no-text` starts that way. `--hours` reads the day in [traditional hours](docs/hours.md): halachic, Roman, Edo, Islamic, or Swahili.
 
-Dawn and dusk on the June solstice:
+Dawn and afternoon on the June solstice:
 
 <p align="center">
   <img src="screenshots/sunshine-dawn.png" width="49%" alt="sunshine at dawn on the June solstice">
-  <img src="screenshots/sunshine-dusk.png" width="49%" alt="sunshine at dusk on the June solstice">
+  <img src="screenshots/sunshine-day.png" width="49%" alt="sunshine at 2:30 in the afternoon on the June solstice">
 </p>
 
 The year in Reykjavík, in Icelandic:
