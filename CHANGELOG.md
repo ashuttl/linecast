@@ -57,6 +57,7 @@ Notable changes, by release. Notes for the next release collect under **Unreleas
 - Location: When the network stops answering and no location is saved, a command gives up looking for where you are sooner.
 - Live views: Resizing the window resizes the view even with `COLUMNS` and `LINES` exported in the shell.
 - Live views: Quitting with Ctrl-C while a frame is drawing no longer leaves some terminals frozen for a moment afterwards.
+- Live views: Quitting just as something finishes downloading in the background no longer prints an error from a crashed thread afterwards.
 - Live views: A view left open does far less while it waits, and asks the terminal for fewer colors while it watches for a theme change.
 - Print: A command run in the background from a shell, such as `linecast moon --oneline &`, no longer stops with "Stopped (tty output)".
 - Print: Output is UTF-8 even where the locale or `PYTHONIOENCODING` asks for another encoding, instead of ending in an error.
