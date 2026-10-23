@@ -64,7 +64,7 @@ class LocationMenu:
         lat, lng = self._here()
         label = self._label()
         try:
-            save_location(lat, lng, label, self.country or "")
+            save_location(lat, lng, label, self.country or "", self.runtime.lang)
         except OSError as exc:
             log_failure(self.LOG_AREA, 'save default location', exc,
                         fallback='keep previous default')

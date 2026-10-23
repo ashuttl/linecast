@@ -620,8 +620,10 @@ def place_for(args, runtime, unknown="Could not determine location.", zone=False
     if lat is None:
         raise UserError(unknown)
     # A saved place has the name it was saved under, which the views show
-    # as they show a typed place's, rather than asking the geocoder for one
-    label = label or saved_label(lat, lng)
+    # as they show a typed place's, rather than asking the geocoder for
+    # one, when the name is in the language on screen.  In another, the
+    # geocoder names it in that one, as it names any other place.
+    label = label or saved_label(lat, lng, runtime.lang)
     from linecast._fanout import Fanout
     fanout, lookups = Fanout(), []
     if zone:

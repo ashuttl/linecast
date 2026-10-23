@@ -259,9 +259,9 @@ class ResolveLocationTests(unittest.TestCase):
 class SavedLabelTests(unittest.TestCase):
     SAVED = {"lat": 43.6591, "lng": -70.2568, "label": "Portland, Maine", "country": "US"}
 
-    def _label(self, saved, lat=43.6591, lng=-70.2568):
+    def _label(self, saved, lat=43.6591, lng=-70.2568, lang="en"):
         with patch.object(_location, "saved_location", return_value=saved):
-            return _location.saved_label(lat, lng)
+            return _location.saved_label(lat, lng, lang)
 
     def test_the_saved_place_has_its_saved_name(self):
         self.assertEqual(self._label(self.SAVED), "Portland, Maine")
@@ -271,6 +271,21 @@ class SavedLabelTests(unittest.TestCase):
     def test_another_place_has_none(self):
         self.assertEqual(self._label(self.SAVED, 43.68, -70.35), "")
         self.assertEqual(self._label(None), "")
+
+    def test_a_name_in_another_language_is_no_name(self):
+        # the geocoder names the place in the language on screen instead:
+        # a place saved in English is München under German, not Munich
+        self.assertEqual(self._label(self.SAVED, lang="de"), "")
+        saved_in_japanese = dict(self.SAVED, label="ポートランド", lang="ja")
+        self.assertEqual(self._label(saved_in_japanese, lang="ja"), "ポートランド")
+        self.assertEqual(self._label(saved_in_japanese, lang="en"), "")
+        # a name in the place's own language, from coordinates, is in none
+        self.assertEqual(self._label(dict(self.SAVED, lang=""), lang="en"), "")
+
+    def test_a_name_saved_before_its_language_was_kept_is_english(self):
+        self.assertNotIn("lang", self.SAVED)
+        self.assertEqual(self._label(self.SAVED, lang="en"), "Portland, Maine")
+        self.assertEqual(self._label(self.SAVED, lang="fr"), "")
 
     def test_coordinates_saved_for_want_of_a_name_are_no_name(self):
         # `linecast location set` saves the coordinates as the label

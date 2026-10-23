@@ -122,7 +122,7 @@ class TestLocationLabel:
     def _label(self, lat, lng):
         from unittest.mock import patch
         from linecast.sunshine.json import location_label
-        with patch("linecast._config.saved_location", return_value=self.SAVED), \
+        with patch("linecast._location.saved_location", return_value=self.SAVED), \
              patch("linecast._geocode.reverse_geocode",
                    return_value=("Elsewhere", "US", {})):
             return location_label(lat, lng)

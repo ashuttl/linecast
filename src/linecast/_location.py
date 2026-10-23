@@ -238,10 +238,12 @@ def resolve_location(
     return (lat, lng, "", label) if return_label else (lat, lng, "")
 
 
-def saved_label(lat: float, lng: float) -> str:
+def saved_label(lat: float, lng: float, lang: str) -> str:
     """The name the saved location was saved under, when (lat, lng) is
-    that place: "" for another place, and for one saved as coordinates
-    the geocoder could not name."""
+    that place and the name is in *lang*: "" for another place, for a
+    name in another language, and for one saved as coordinates the
+    geocoder could not name.  `linecast location set` saved names in
+    English before it said so, so a name with no language is English."""
     saved = saved_location()
     try:
         label = saved["label"]
@@ -249,6 +251,8 @@ def saved_label(lat: float, lng: float) -> str:
     except (KeyError, TypeError):
         return ""
     if not here or not isinstance(label, str) or parse_latlng(label) is not None:
+        return ""
+    if saved.get("lang", "en") != lang:
         return ""
     return plain_text(label).strip()
 

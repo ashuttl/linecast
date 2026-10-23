@@ -40,6 +40,7 @@ def _cmd_set(query):
         lat, lng = latlng
         name, country, _addr = reverse_geocode(lat, lng)
         label = name or f"{lat:.4f},{lng:.4f}"
+        lang = ""   # Nominatim's name in the place's own language
     else:
         try:
             results = geocode(query)
@@ -56,8 +57,10 @@ def _cmd_set(query):
             parts.append(r["country"])
         label = ", ".join(parts)
         country = (r.get("country_code") or "").upper()
+        lang = "en"
 
-    remember("location", {"lat": lat, "lng": lng, "label": label, "country": country})
+    remember("location", {"lat": lat, "lng": lng, "label": label, "country": country,
+                          "lang": lang})
     print(f"Location set to {label} ({lat:.4f},{lng:.4f})")
 
 

@@ -393,7 +393,8 @@ def test_save_default_uses_displayed_place_and_preserves_other_settings():
     with patch.object(_weather_live, 'gather') as gather:
         assert view.intercept('key:enter')
     assert not gather.called and not view.locations.active
-    assert _config.saved_location() == dict(lat=43, lng=-70, label='Portland', country='US')
+    assert _config.saved_location() == dict(lat=43, lng=-70, label='Portland', country='US',
+                                            lang='en')
     assert _location.get_location() == (43, -70, 'US')
     assert _config.read_config()['custom'] == {'a': 1}
     assert _config.saved("units") == 'metric' and _config.saved("language") == 'fr'
@@ -429,7 +430,7 @@ def test_save_action_tracks_successful_location_changes():
     assert ('save', '★ Save Ulaanbaatar as default') in view.locations.items()
     view._choose_location('save')
     assert _config.saved_location() == dict(
-        lat=47.92, lng=106.92, label='Ulaanbaatar', country='MN')
+        lat=47.92, lng=106.92, label='Ulaanbaatar', country='MN', lang='en')
     view.stop()
 
 

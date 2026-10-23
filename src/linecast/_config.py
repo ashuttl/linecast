@@ -131,9 +131,10 @@ def _language(value, _choices):
 
 
 def _place(value, _choices):
-    """{"lat": float, "lng": float, "label": str, "country": str}, on
-    the planet, resolved to coordinates when it was set, so reading it
-    never reaches the network."""
+    """{"lat": float, "lng": float, "label": str, "country": str,
+    "lang": str}, on the planet, resolved to coordinates when it was
+    set, so reading it never reaches the network.  *lang* is the
+    language the label is in; a place saved before it was kept has none."""
     if (isinstance(value, dict)
             and all(isinstance(value.get(k), (int, float))
                     and not isinstance(value.get(k), bool) for k in ("lat", "lng"))
@@ -270,10 +271,12 @@ def saved_location() -> dict[str, Any] | None:
     return saved("location")
 
 
-def save_location(lat: float, lng: float, label: str, country: str = "") -> None:
+def save_location(lat: float, lng: float, label: str, country: str = "",
+                  lang: str = "") -> None:
     """Save a place as the location every view starts from, in the shape
-    saved_location() reads back.  An OSError from write_config is left
-    to the caller, which says so in its own way."""
+    saved_location() reads back.  *lang* is the language *label* is
+    written in ("" for the place's own).  An OSError from write_config
+    is left to the caller, which says so in its own way."""
     config = read_config()
-    config["location"] = dict(lat=lat, lng=lng, label=label, country=country)
+    config["location"] = dict(lat=lat, lng=lng, label=label, country=country, lang=lang)
     write_config(config)

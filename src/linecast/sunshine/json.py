@@ -57,28 +57,28 @@ def _address_label(address):
 def location_label(lat, lng):
     """Best available display name for the current coordinates.
 
-    Prefers the label saved via `linecast location set`, then the cached
-    reverse geocode (same source weather uses), then the address that
-    reverse geocode returned beside an empty name, then bare coordinates.
-    The geocoder is asked in the running command's language.
+    Prefers the label saved via `linecast location set`, where it names
+    these coordinates in the running command's language
+    (_location.saved_label), then the cached reverse geocode (same source
+    weather uses), then the address that reverse geocode returned beside
+    an empty name, then bare coordinates.  The geocoder is asked in the
+    running command's language.
     """
+    from linecast._i18n import lang_of
+    from linecast._runtime import current_runtime
+    lang = lang_of(current_runtime())
     try:
-        from linecast._config import saved_location
-        from linecast._location import same_place
-        saved = saved_location()
-        # Only trust the saved label when it describes these coordinates —
-        # a --location/WEATHER_LOCATION override points somewhere else.
-        if (saved and saved.get("label") and lat is not None
-                and same_place((saved["lat"], saved["lng"]), (lat, lng))):
-            return saved["label"]
+        from linecast._location import saved_label
+        # a --location/WEATHER_LOCATION override points somewhere else,
+        # and has none
+        label = saved_label(lat, lng, lang) if lat is not None else ""
+        if label:
+            return label
     except Exception:
         pass
     try:
-        from linecast._i18n import lang_of
-        from linecast._runtime import current_runtime
         from linecast._geocode import reverse_geocode
-        name, _country, addr = reverse_geocode(
-            lat, lng, lang=lang_of(current_runtime()))
+        name, _country, addr = reverse_geocode(lat, lng, lang=lang)
         if name:
             return name
         from_address = _address_label(addr)
