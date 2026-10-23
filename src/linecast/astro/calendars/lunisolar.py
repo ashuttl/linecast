@@ -13,11 +13,12 @@ first one containing no major solar term — the no-zhōngqì rule.
 
 The solar terms are the 24 points where the Sun's ecliptic longitude
 is a multiple of 15°, the even multiples of 30° being the major terms.
-Instants come from the same solar position the rest of the app draws
-with, good to a couple of hundredths of a degree — tens of minutes of
-time. A term or new moon falling within that of the meridian's
-midnight could land a boundary a day off, which at almanac reading
-distance is the accuracy such tables have always been read at.
+Instants come from the same solar and lunar positions the rest of the
+app draws with: a term to within a quarter of an hour or so, a new
+moon to within ten minutes. One falling that close to the meridian's
+midnight can land a boundary a day off, as the new moons of 17 August
+2012 and 8 June 2013 did, at 23:54 and 23:56 in Beijing: linecast
+starts those months a day late. The next at UTC+8 is in 2057.
 """
 
 import math

@@ -1,10 +1,13 @@
 """Positions of the Sun and Moon, and the rise and set times that follow.
 
 Low-precision ephemeris after Paul Schlyter, itself a simplification of
-Meeus, "Astronomical Algorithms" (2nd ed.). Good to a couple of
-arcminutes for the Moon and a hundredth of a degree for the Sun, which is
-finer than a terminal cell and finer than the minute the clock times are
-printed to.
+Meeus, "Astronomical Algorithms" (2nd ed.). Against PyEphem over 2026
+and 2027 the Sun is within 0.8′ and the Moon within 6.6′, finer than a
+terminal cell. The Moon's error is time as well as place: a new or
+full moon comes up to five minutes early or ten late, so one within
+minutes of a midnight can fall on the wrong day. Moonrise and moonset
+are within a minute at middle latitudes, and a few minutes far north,
+where the Moon meets the horizon at a shallow angle.
 
 Source: https://stjarnhimlen.se/comp/ppcomp.html
 """
@@ -224,7 +227,7 @@ def _moon_ecliptic(dt_utc):
     Paul Schlyter's lunar ephemeris, a simplification of the method in
     Meeus, "Astronomical Algorithms" (2nd ed.), ch. 47: two-body orbital
     elements, then the perturbation terms above, which are what the Sun's
-    pull does to the orbit. With them the position is good to a couple of
+    pull does to the orbit. With them the position is good to about six
     arcminutes; without them it strays by up to a couple of degrees, and
     the Moon's age with it.
 
