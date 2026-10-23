@@ -615,6 +615,31 @@ class TestProbe:
         assert _theme.theme_bg == (250, 250, 248)
         assert not _theme.probe_pending()
 
+    def test_a_probe_put_off_in_the_background_is_made_from_the_foreground(
+            self, pipe, restore_theme, monkeypatch):
+        """`linecast sky &` stands aside at import; after `fg` the live
+        loop asks for the whole palette once."""
+        monkeypatch.setattr(_theme, "theme_available", False)
+        monkeypatch.setattr(_theme, "_stood_aside", True)
+        assert _theme.can_reprobe() and _theme.stood_aside()
+        r, w = pipe
+        assert _theme.request_probe(w, full=False)
+        assert os.read(r, 4096).startswith(b"\x1b]10;?\x07\x1b]11;?\x07\x1b]4;0;?\x07")
+        assert not _theme.stood_aside()
+        for body in _replies(*LIGHT):
+            _theme.ingest_osc(body.encode())
+        assert _theme.theme_available
+        assert _theme.theme_bg == (250, 250, 248)
+
+    def test_a_terminal_that_does_not_answer_it_is_asked_no_more(
+            self, pipe, restore_theme, monkeypatch):
+        monkeypatch.setattr(_theme, "theme_available", False)
+        monkeypatch.setattr(_theme, "_stood_aside", True)
+        assert _theme.request_probe(pipe[1])
+        monkeypatch.setattr(_theme, "_probe", None)   # given up on, unanswered
+        assert not _theme.can_reprobe()
+        assert not _theme.request_probe(pipe[1])
+
     def test_same_answer_is_not_a_change(self, pipe, restore_theme):
         _theme._apply(*DARK)
         _theme.request_probe(pipe[1])

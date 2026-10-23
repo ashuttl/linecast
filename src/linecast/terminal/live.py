@@ -516,7 +516,9 @@ class _ThemeSchedule:
         self.watch = _theme.watch_path()
         self.watch_mtime = _mtime(self.watch) if self.watch else None
         started = _time.monotonic()
-        self.next_probe = started + self.poll
+        # the probe a background start put off is made at once, now the
+        # loop has the terminal
+        self.next_probe = started if _theme.stood_aside() else started + self.poll
         self.next_watch = started + _THEME_WATCH_S
         self.last_full = started   # the probe at import asked for everything
         self.burst_until = 0.0     # the brisk probing after a watch file change

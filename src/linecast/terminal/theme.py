@@ -75,6 +75,11 @@ theme_legacy_mode = False
 
 _theme_loaded = False
 
+# True while the probe at import has stood aside for a background job
+# (`linecast sky &`), where asking would stop it or answer the shell.
+# A live loop brought to the foreground with `fg` then asks once.
+_stood_aside = False
+
 # Bumped on every applied theme change.  Render caches that bake theme
 # colours into their buffers fold this into their keys, so a change
 # simply misses instead of needing to be cleared under each cache's lock.
@@ -354,6 +359,7 @@ def _legacy_mode_requested():
 
 
 def _query_theme_via_osc(timeout_s: float):
+    global _stood_aside
     # The probe needs raw mode and a select() on stdin, neither of which
     # Windows offers; fall back to the built-in palette there.
     if termios is None:
@@ -380,6 +386,7 @@ def _query_theme_via_osc(timeout_s: float):
 
     from linecast.terminal import term as _term
     if not _term.in_foreground(fd_in):
+        _stood_aside = True
         return None
     query = _PROBE_QUERY + _term.CPR_QUERY
     fg_value = None
@@ -521,7 +528,16 @@ _PROBE_STALE_S = 2.0
 
 
 def can_reprobe():
-    return theme_available and not theme_legacy_mode
+    """Whether a live loop may ask the terminal for its colours: it
+    answered the probe at import, or that probe stood aside for a
+    background job and has not been made since."""
+    return (theme_available or _stood_aside) and not theme_legacy_mode
+
+
+def stood_aside():
+    """Whether the probe at import was put off for a background job and
+    is still owed (see _stood_aside)."""
+    return _stood_aside and not theme_available
 
 
 def request_probe(fd_out, full=True):
@@ -531,10 +547,18 @@ def request_probe(fd_out, full=True):
     questions instead of eighteen: a theme change all but always moves
     the background or the text, and when either has moved the whole
     palette is asked for next.  A palette that changes under the same
-    two defaults waits for the next full probe."""
-    global _probe
+    two defaults waits for the next full probe.  The probe a background
+    job was owed is the whole palette, asked once, from the foreground:
+    a terminal that doesn't answer it is left alone after, as one that
+    didn't answer at import is."""
+    global _probe, _stood_aside
     if not can_reprobe():
         return False
+    if not theme_available:
+        from linecast.terminal import term as _term
+        if not _term.in_foreground(fd_out):
+            return False
+        full, _stood_aside = True, False
     try:
         os.write(fd_out, _PROBE_QUERY if full else _DEFAULTS_QUERY)
     except OSError:
