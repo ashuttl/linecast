@@ -10,6 +10,7 @@ same server, which allows one request a second.
 """
 
 import sys
+import time
 
 from linecast._cache import location_cache_key, read_cache, read_stale, write_cache
 from linecast._http import fetch_json
@@ -29,6 +30,13 @@ PHOTON_LANGS = ("en", "de", "fr")
 # Nominatim's usage policy allows one request a second from an
 # application; reverse geocoding and the maps' search share this gate.
 nominatim_throttle = RateLimit(1.0, "nominatim")
+
+# After a reverse lookup fails, the next ones go straight to their
+# fallback for a while.  On a stalled network each would wait out its
+# own timeout, and a command asks more than once: a weather run asked
+# three times, two of them one after the other.
+_FAILURE_HOLD_S = 60.0
+_failed_at = None   # time.monotonic() of the last failure
 
 
 class GeocoderUnavailable(Exception):
@@ -67,7 +75,11 @@ def reverse_geocode(lat, lng, lang=None):
     if _same_place(cached, lat, lng, lang):
         return _from_cache(cached)
 
+    global _failed_at
+    held = _failed_at is not None and time.monotonic() - _failed_at < _FAILURE_HOLD_S
     try:
+        if held:
+            raise OSError("not asked again so soon after a failure")
         url = (
             f"https://nominatim.openstreetmap.org/reverse"
             f"?lat={lat}&lon={lng}&format=json&zoom=10"
@@ -91,6 +103,8 @@ def reverse_geocode(lat, lng, lang=None):
         else:
             display = ""
     except Exception as exc:
+        if not held:
+            _failed_at = time.monotonic()
         # Offline, a name from yesterday is still the place's name, and
         # its address still matches the alert feeds' areas.
         stale = read_stale(cache_file)

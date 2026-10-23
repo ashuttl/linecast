@@ -36,6 +36,7 @@ Notable changes, by release. Notes for the next release collect under **Unreleas
 - Live views: Resizing the window resizes the view even with `COLUMNS` and `LINES` exported in the shell.
 - Completions: Shell completion leaves a short name such as `sunshine` to the program that owns it, and completes it as linecast only where `linecast link` made it or an alias points it at linecast. Reported by [@jmote](https://github.com/jmote) in [#20](https://github.com/ashuttl/linecast/issues/20).
 - Live views: Quitting with Ctrl-C while a frame is drawing no longer leaves some terminals frozen for a moment afterwards.
+- Location: When the network stops answering, a command waits for the place's name once instead of several times over.
 
 ## 2.10.3 — 2026-10-20
 

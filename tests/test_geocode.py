@@ -77,6 +77,22 @@ class TestReverseCache:
             raise OSError("offline")
         assert self._ask(-34.5601, 67.8901, down) == ("", "", {})
 
+    def test_a_failure_holds_the_next_lookups_back_for_a_while(self):
+        """On a stalled network each lookup waits out its own timeout,
+        and a weather run asked three times, two of them in a row."""
+        calls = []
+
+        def down(url, **_kw):
+            calls.append(url)
+            raise OSError("timed out")
+        assert self._ask(-45.6701, 12.3401, down) == ("", "", {})
+        assert self._ask(-45.6701, 12.3401, down, lang="fr") == ("", "", {})
+        assert self._ask(-56.7801, 23.4501, down) == ("", "", {})
+        assert len(calls) == 1
+        with patch.object(_geocode, "_failed_at", _geocode._failed_at - _geocode._FAILURE_HOLD_S):
+            self._ask(-56.7801, 23.4501, lambda url, **kw: (calls.append(url), self.PAYLOAD)[1])
+        assert len(calls) == 2
+
 
 class TestTrailingCountry:
     """Open-Meteo matches a trailing ISO code or country name, and finds

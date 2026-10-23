@@ -137,6 +137,10 @@ def _private_home(monkeypatch, tmp_path):
     from linecast import _runtime
     monkeypatch.setattr(_runtime, "INVOKED_AS", None)
     monkeypatch.setattr(_runtime, "_current", None)
+    # A lookup that failed (the network is off here) holds the next ones
+    # back for a minute; a test must not inherit another's hold.
+    from linecast import _geocode
+    monkeypatch.setattr(_geocode, "_failed_at", None)
 
 
 # ---------------------------------------------------------------------------
