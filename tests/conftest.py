@@ -137,6 +137,11 @@ def _private_home(monkeypatch, tmp_path):
     from linecast import _runtime
     monkeypatch.setattr(_runtime, "INVOKED_AS", None)
     monkeypatch.setattr(_runtime, "_current", None)
+    # Nor may a test whose fake terminal answered the width probe leave
+    # its name (XTVERSION) as the terminal every later test is run in:
+    # bidi and doctor read it to decide who orders right-to-left text.
+    from linecast.terminal import term as _term
+    monkeypatch.setattr(_term, "terminal_name", None)
     # A lookup that failed (the network is off here) holds the next ones
     # back for a minute; a test must not inherit another's hold.
     from linecast import _geocode
