@@ -352,15 +352,19 @@ def radar_parser():
     themes = tuple(THEMES)
     p.add_argument("--theme", metavar="NAME", default=None,
                     help=f"{', '.join(themes[:-1])}, or {themes[-1]}\n"
-                         "The radar's colours; t picks one live. Default: "
-                         "terminal, in your terminal's own palette")
+                         "The color scale rain and snow are drawn in; t picks "
+                         "one live. Default: terminal, a scale made from your "
+                         "terminal's own palette")
     p.add_argument("--layer", default=None,
-                    help="radar or satellite, the hourly cloud mosaic; S "
-                         "switches between them live. Default: radar")
+                    help="radar or satellite\n"
+                         "What the map shows: rain and snow from radar, or the "
+                         "hourly satellite mosaic of clouds; S switches between "
+                         "them live. Default: radar")
     p.add_argument("--layers", default=None,
-                    help="temp, wind, or temp,wind: the temperature as a "
-                         "tint and the wind as arrows, over the radar; c "
-                         "and W toggle them live")
+                    help="temp, wind, or temp,wind\n"
+                         "Added to it: the temperature as a tint and "
+                         "the wind as arrows; c and W toggle them live. "
+                         "Default: neither")
     p.add_argument("--source", metavar="NAME", default=None,
                     help="librewxr, rainviewer, or iem (NEXRAD, US only): "
                          "one source for the frames, instead of the one "

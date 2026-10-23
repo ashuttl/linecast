@@ -157,6 +157,16 @@ class Argv0DispatchTests(unittest.TestCase):
         with redirect_stderr(StringIO()), self.assertRaises(SystemExit):
             weather.parse_args(["--month-temperature", "--year"])
 
+    def test_radar_help_tells_layer_layers_and_theme_apart(self):
+        """--layer is the picture, --layers what is added to it, and
+        --theme the color scale of the rain, not the terminal's theme."""
+        import re
+        from linecast import _parsers
+        page = re.sub(r"\s+", " ", _parsers.radar_parser().format_help())
+        self.assertIn("--layer LAYER radar or satellite What the map shows", page)
+        self.assertIn("--layers LAYERS temp, wind, or temp,wind Added to it", page)
+        self.assertIn("The color scale rain and snow are drawn in", page)
+
     def test_zoom_is_degrees_above_zero(self):
         # the views divide by it: 0 was a ZeroDivisionError, nan a ValueError
         from linecast._parsers import maps_parser, radar_parser
