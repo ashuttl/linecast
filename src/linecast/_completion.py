@@ -242,12 +242,18 @@ def _bash_script(flags_by_command):
     # A short name is registered whatever owns it, since `linecast link`
     # may come after the script is sourced, and checked when completed:
     # another program's gets its name back, and the 124 has bash look
-    # again, finding that program's completion or its default.
+    # again, finding that program's completion or its default.  Bash 3.2,
+    # macOS's, looks again only from 4.0 on, so there this Tab offers the
+    # file names the default would.
     standalone = "\n".join(
         f"_linecast_complete_{cmd}() {{\n"
         f"  local cur prev\n"
         f"  if ! _linecast_owns {cmd}; then\n"
         f"    complete -r {cmd}\n"
+        f"    if (( BASH_VERSINFO[0] < 4 )); then\n"
+        f'      COMPREPLY=( $(compgen -f -- "${{COMP_WORDS[COMP_CWORD]}}") )\n'
+        f"      return 0\n"
+        f"    fi\n"
         f"    return 124\n"
         f"  fi\n"
         f"  COMPREPLY=()\n"

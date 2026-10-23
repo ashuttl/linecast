@@ -335,16 +335,22 @@ class CompletionScriptTests(unittest.TestCase):
     @unittest.skipIf(sys.platform == "win32", "needs links on the PATH")
     def test_bash_completes_a_short_name_only_while_it_is_linecast(self):
         """Another program's name is given back, and the 124 has bash
-        look again for that program's completion."""
+        look again for that program's completion.  Bash 3.2 doesn't look
+        again, so there the same Tab offers file names."""
         out = self._run_in_shell(
             "bash", render_completion("bash"),
-            f'PATH="{self._bin()}:$PATH"; source "$1"; '
+            f'PATH="{self._bin()}:$PATH"; source "$1"; cd "$(mktemp -d)"; touch notes.txt; '
             'COMP_WORDS=(moon --week-start ""); COMP_CWORD=2; _linecast_complete_moon; '
             'echo "moon: ${COMPREPLY[*]}"; '
-            'COMP_WORDS=(sunshine ""); COMP_CWORD=1; _linecast_complete_sunshine; '
-            'echo "sunshine: $? $(complete -p sunshine 2>/dev/null || echo given back)"')
-        self.assertEqual(out.splitlines(), ["moon: monday sunday saturday",
-                                            "sunshine: 124 given back"])
+            'COMP_WORDS=(sunshine no); COMP_CWORD=1; _linecast_complete_sunshine; '
+            'echo "sunshine: $? $(complete -p sunshine 2>/dev/null || echo given back)"; '
+            'echo "bash ${BASH_VERSINFO[0]}: ${COMPREPLY[*]}"')
+        lines = out.splitlines()
+        self.assertEqual(lines[0], "moon: monday sunday saturday")
+        if lines[2].startswith("bash 3"):
+            self.assertEqual(lines[1:], ["sunshine: 0 given back", "bash 3: notes.txt"])
+        else:
+            self.assertEqual(lines[1], "sunshine: 124 given back")
 
     @unittest.skipIf(sys.platform == "win32", "needs links on the PATH")
     def test_zsh_completes_a_short_name_only_while_it_is_linecast(self):
