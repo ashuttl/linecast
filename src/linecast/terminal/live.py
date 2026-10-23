@@ -744,6 +744,207 @@ class _LiveLoop:
         self.theme = self.term = self.pacing = None
         self.init = self.restore = ""
 
+    def run(self):
+        """Take the terminal, paint frames until the view quits, and give
+        the terminal back however the loop ends."""
+        global _running
+        # Before the terminal is taken: the theme's import probes it, the
+        # first time.
+        self.theme = _ThemeSchedule()
+        # Cbreak input, the wakeup nudge() pulls, and resize notice — a self-pipe
+        # and SIGWINCH on POSIX, console modes and a poll on Windows.
+        self.term = _term.LiveTerminal(sys.stdin.fileno())
+        self.term.install()
+        self.pacing = _Pacing()
+        self.init, self.restore = _screen_escapes(self.mouse)
+
+        watch = WorkerWatch()
+        watch.install()
+        try:
+            _running = True
+            self._take()
+            while True:
+                if self._hold() == 'quit':
+                    return
+                if self.term.suspend_pending:
+                    self._suspend()
+                self._paint()
+                if self._idle() == 'quit':
+                    return
+        except KeyboardInterrupt:
+            pass
+        # SystemExit is NOT swallowed: a sys.exit(1) from a render callback (or
+        # a signal handler in terminal.term) must reach the shell as a nonzero
+        # status.  The finally block still restores the terminal on its way out.
+        finally:
+            _running = False
+            self._give_back()
+            watch.uninstall()
+            watch.report()
+
+    def _take(self):
+        """Put the terminal in cbreak and switch to the alternate screen."""
+        # Cbreak first, then the escapes: on Windows, switching stdin to
+        # VT input resets the terminal's mouse tracking, so enables sent
+        # beforehand are silently dropped.  Order is moot on POSIX.
+        self.term.set_cbreak()
+        sys.stdout.write(self.init)
+        sys.stdout.flush()
+
+    def _hold(self):
+        """Hold the next frame until the terminal has read the last one
+        (_Pacing); 'quit' if input during the hold quit the view.
+
+        Keys and wheel notches that arrive meanwhile change the state the
+        frame is rendered from; a wakeup or a timer tick is absorbed the
+        same way, since a repaint is coming.  Ctrl-Z ends the hold."""
+        term, pacing = self.term, self.pacing
+        if not (pacing.on and pacing.owed):
+            return None
+        until = _time.monotonic() + pacing.wait_s()
+        while pacing.owed:
+            left = until - _time.monotonic()
+            if left <= 0:
+                pacing.give_up()
+                break
+            event = term.wait(min(0.1, left))
+            if term.suspend_pending:
+                break
+            if event == 'input':
+                if self._on_input() == 'quit':
+                    return 'quit'
+        return None
+
+    def _suspend(self):
+        """Ctrl-Z: hand the terminal back as the loop's end does, stop,
+        and on resume take it again.  The frame drawn next is drawn
+        whole, as every frame is."""
+        term, pacing = self.term, self.pacing
+
+        def hand_back():
+            # Alone in its job, the loop waits for the terminal to answer,
+            # so no reply or late mouse report reaches the shell.  Under a
+            # wrapper the shell may be reading the terminal already, and
+            # the answer would land on its prompt: drop what has come in
+            careful = pacing.on and term.leads_job()
+            sys.stdout.write(self.restore + (_CPR_QUERY if careful else ""))
+            sys.stdout.flush()
+            term.settle(pacing.wait_s() if careful else 0, replies=pacing.owed + 1)
+
+        term.suspend(hand_back)
+        pacing.owed = 0
+        sys.stdout.write(self.init)
+        sys.stdout.flush()
+
+    def _paint(self):
+        """Render the frame from the state as it stands, and write it."""
+        # Drain wakeups from before this render: whatever they announced,
+        # the frame about to be drawn reflects it.  The drain must come
+        # BEFORE render_fn, never after — a background fetch can finish
+        # (and nudge the pipe) while the render is still composing its
+        # "loading" frame, and a drain after the paint would swallow that
+        # completion, leaving the loading frame up until the next input.
+        self.term.drain()
+        kwargs = {}
+        if self.mouse:
+            kwargs.update(mouse_pos=self.mouse_pos, active_alert=self.active_alert,
+                          modal_scroll=self.modal_scroll)
+        if self.auto_play:
+            kwargs.update(play_frame=self.play_frame, playing=self.playing)
+        if self.clamp_offset is not None:
+            self.offset = self.clamp_offset(self.offset)
+        result = self.render_fn(offset_minutes=self.offset, **kwargs)
+        # render_fn may return (output, metadata) or just output
+        if isinstance(result, tuple):
+            output, self.alert_row_map = result
+        else:
+            output = result
+            self.alert_row_map = {}
+        # Separate the cursor-positioned overlay from the body (the
+        # \x00 delimiter overlay() writes)
+        body, _, floating = output.partition('\x00')
+        help_panel = self.help_panel
+        if help_panel is not None and help_panel.open:
+            from linecast.terminal.framebuffer import get_terminal_size
+            floating = "\033[?1003l" + help_panel.render(*get_terminal_size())
+        elif help_panel is not None and self.mouse:
+            # A search field may intentionally disable motion; only
+            # restore it when the caller's overlay has not done so.
+            if "\033[?1003l" not in floating:
+                floating = "\033[?1003h" + floating
+        sys.stdout.write(frame_paint(body, floating) + self.pacing.ask())
+        sys.stdout.flush()
+
+    def _idle(self):
+        """Wait for the next frame to be due: input that changes the
+        view, a wakeup or a resize, the interval running out, or the
+        hover chip's time.  The theme is looked at as its schedule says
+        meanwhile.  'quit' if input quit the view."""
+        term, theme = self.term, self.theme
+        interval = self.interval
+        wait = (self.play_interval if (self.auto_play and self.playing)
+                else interval() if callable(interval) else interval)
+        deadline = _time.time() + wait
+        owed = False   # a coalesced input is waiting for its repaint
+        while True:
+            # A repaint held back for more input is due once the input
+            # has run out.  It cannot wait for the last of that input
+            # to ask: that is often the terminal's reply to the frame
+            # before, and a reply changes nothing on screen.
+            if owed and not _term.wait_readable(term.fd, 0):
+                return None
+            remaining = deadline - _time.time()
+            if remaining <= 0:
+                if self.auto_play and self.playing and (
+                        self.play_gate is None or self.play_gate()):
+                    self.play_frame += 1  # advance the animation
+                return None
+            now = _time.monotonic()
+            if self.mouse_pos is not None and self.drag_start is None:
+                if now >= self.hover_until:
+                    self.mouse_pos = None  # the mouse has been still: drop the chip
+                    return None
+                remaining = min(remaining, self.hover_until - now)
+            event = term.wait(max(0.0, min(remaining, theme.due - now)))
+            if event == 'wake':
+                return None
+            if event == 'timeout':
+                theme.look()
+                continue
+            if event == 'input':
+                verdict = self._on_input()
+                if verdict == 'quit':
+                    return 'quit'
+                if verdict == 'repaint':
+                    return None
+                if verdict == 'coalesce':
+                    owed = True
+
+    def _give_back(self):
+        """Hand the terminal back to the shell, at the loop's end."""
+        term, pacing = self.term, self.pacing
+        try:
+            sys.stdout.write(self.restore + (_CPR_QUERY if pacing.on else ""))
+            sys.stdout.flush()
+        except Exception:
+            pass  # tty may already be gone (SIGHUP); nothing left to restore
+        # What the terminal was still sending -- a colour probe's replies,
+        # mouse reports from before it read the escape above -- is read
+        # and dropped, up to its reply to the query, so none of it reaches
+        # the shell.  A frame whose reply was still owed when the loop
+        # ended is answered first, so the drain waits for one reply more
+        # than that.  Then the terminal settings, the signal handlers and
+        # the wakeup channel go back, in that order (terminal.term.LiveTerminal).
+        # The drain waits on the terminal, and a second ctrl-C or SIGTERM
+        # meanwhile raises through this block: close() runs regardless,
+        # or the shell would inherit the tty in cbreak.
+        try:
+            term.settle(pacing.wait_s() if pacing.on else 0, replies=pacing.owed + 1)
+        except Exception:
+            pass
+        finally:
+            term.close()
+
     def _coalesce_or_repaint(self):
         """The verdict for input that changed the frame: paint now, or
         hold the paint while more input is waiting."""
@@ -903,183 +1104,6 @@ class _LiveLoop:
         if help_closed:
             return 'repaint'  # even an unbound key must erase the panel
         return None
-
-    def _suspend(self):
-        """Ctrl-Z: hand the terminal back as the loop's end does, stop,
-        and on resume take it again.  The frame drawn next is drawn
-        whole, as every frame is."""
-        term, pacing = self.term, self.pacing
-
-        def hand_back():
-            # Alone in its job, the loop waits for the terminal to answer,
-            # so no reply or late mouse report reaches the shell.  Under a
-            # wrapper the shell may be reading the terminal already, and
-            # the answer would land on its prompt: drop what has come in
-            careful = pacing.on and term.leads_job()
-            sys.stdout.write(self.restore + (_CPR_QUERY if careful else ""))
-            sys.stdout.flush()
-            term.settle(pacing.wait_s() if careful else 0, replies=pacing.owed + 1)
-
-        term.suspend(hand_back)
-        pacing.owed = 0
-        sys.stdout.write(self.init)
-        sys.stdout.flush()
-
-    def run(self):
-        global _running
-        # Before the terminal is taken: the theme's import probes it, the
-        # first time.
-        self.theme = theme = _ThemeSchedule()
-
-        # Cbreak input, the wakeup nudge() pulls, and resize notice — a self-pipe
-        # and SIGWINCH on POSIX, console modes and a poll on Windows.
-        self.term = term = _term.LiveTerminal(sys.stdin.fileno())
-        term.install()
-
-        self.pacing = pacing = _Pacing()
-        self.init, self.restore = _screen_escapes(self.mouse)
-
-        watch = WorkerWatch()
-        watch.install()
-        try:
-            _running = True
-            # Cbreak first, then the escapes: on Windows, switching stdin to
-            # VT input resets the terminal's mouse tracking, so enables sent
-            # beforehand are silently dropped.  Order is moot on POSIX.
-            term.set_cbreak()
-            sys.stdout.write(self.init)
-            sys.stdout.flush()
-
-            while True:
-                # Hold this frame until the terminal has read the last one.
-                # Keys and wheel notches that arrive meanwhile change the
-                # state the frame is rendered from; a wakeup or a timer tick
-                # is absorbed the same way, since a repaint is coming.
-                if pacing.on and pacing.owed:
-                    until = _time.monotonic() + pacing.wait_s()
-                    while pacing.owed:
-                        left = until - _time.monotonic()
-                        if left <= 0:
-                            pacing.give_up()
-                            break
-                        event = term.wait(min(0.1, left))
-                        if term.suspend_pending:
-                            break
-                        if event == 'input':
-                            if self._on_input() == 'quit':
-                                return
-                if term.suspend_pending:
-                    self._suspend()
-
-                # Drain wakeups from before this render: whatever they announced,
-                # the frame about to be drawn reflects it.  The drain must come
-                # BEFORE render_fn, never after — a background fetch can finish
-                # (and nudge the pipe) while the render is still composing its
-                # "loading" frame, and a drain after the paint would swallow that
-                # completion, leaving the loading frame up until the next input.
-                term.drain()
-                kwargs = {}
-                if self.mouse:
-                    kwargs.update(mouse_pos=self.mouse_pos, active_alert=self.active_alert,
-                                  modal_scroll=self.modal_scroll)
-                if self.auto_play:
-                    kwargs.update(play_frame=self.play_frame, playing=self.playing)
-                if self.clamp_offset is not None:
-                    self.offset = self.clamp_offset(self.offset)
-                result = self.render_fn(offset_minutes=self.offset, **kwargs)
-                # render_fn may return (output, metadata) or just output
-                if isinstance(result, tuple):
-                    output, self.alert_row_map = result
-                else:
-                    output = result
-                    self.alert_row_map = {}
-                # Separate the cursor-positioned overlay from the body (the
-                # \x00 delimiter overlay() writes)
-                parts = output.split('\x00', 1)
-                main_out = parts[0]
-                overlay = parts[1] if len(parts) > 1 else ""
-                help_panel = self.help_panel
-                if help_panel is not None and help_panel.open:
-                    from linecast.terminal.framebuffer import get_terminal_size
-                    overlay = "\033[?1003l" + help_panel.render(*get_terminal_size())
-                elif help_panel is not None and self.mouse:
-                    # A search field may intentionally disable motion; only
-                    # restore it when the caller's overlay has not done so.
-                    if "\033[?1003l" not in overlay:
-                        overlay = "\033[?1003h" + overlay
-                sys.stdout.write(frame_paint(main_out, overlay) + pacing.ask())
-                sys.stdout.flush()
-
-                # Wait for input, resize, or timeout
-                interval = self.interval
-                wait = (self.play_interval if (self.auto_play and self.playing)
-                        else interval() if callable(interval) else interval)
-                deadline = _time.time() + wait
-                owed = False   # a coalesced input is waiting for its repaint
-                while True:
-                    # A repaint held back for more input is due once the input
-                    # has run out.  It cannot wait for the last of that input
-                    # to ask: that is often the terminal's reply to the frame
-                    # before, and a reply changes nothing on screen.
-                    if owed and not _term.wait_readable(term.fd, 0):
-                        break
-                    remaining = deadline - _time.time()
-                    if remaining <= 0:
-                        if self.auto_play and self.playing and (
-                                self.play_gate is None or self.play_gate()):
-                            self.play_frame += 1  # advance the animation
-                        break
-                    now = _time.monotonic()
-                    if self.mouse_pos is not None and self.drag_start is None:
-                        if now >= self.hover_until:
-                            self.mouse_pos = None  # the mouse has been still: drop the chip
-                            break
-                        remaining = min(remaining, self.hover_until - now)
-                    event = term.wait(max(0.0, min(remaining, theme.due - now)))
-                    if event == 'wake':
-                        break
-                    if event == 'timeout':
-                        theme.look()
-                        continue
-                    if event == 'input':
-                        verdict = self._on_input()
-                        if verdict == 'quit':
-                            return
-                        if verdict == 'repaint':
-                            break
-                        if verdict == 'coalesce':
-                            owed = True
-        except KeyboardInterrupt:
-            pass
-        # SystemExit is NOT swallowed: a sys.exit(1) from a render callback (or
-        # a signal handler in terminal.term) must reach the shell as a nonzero
-        # status.  The finally block still restores the terminal on its way out.
-        finally:
-            _running = False
-            try:
-                sys.stdout.write(self.restore + (_CPR_QUERY if pacing.on else ""))
-                sys.stdout.flush()
-            except Exception:
-                pass  # tty may already be gone (SIGHUP); nothing left to restore
-            # What the terminal was still sending -- a colour probe's replies,
-            # mouse reports from before it read the escape above -- is read
-            # and dropped, up to its reply to the query, so none of it reaches
-            # the shell.  A frame whose reply was still owed when the loop
-            # ended is answered first, so the drain waits for one reply more
-            # than that.  Then the terminal settings, the signal handlers and
-            # the wakeup channel go back, in that order (terminal.term.LiveTerminal).
-            # The drain waits on the terminal, and a second ctrl-C or SIGTERM
-            # meanwhile raises through this block: close() runs regardless,
-            # or the shell would inherit the tty in cbreak.
-            try:
-                term.settle(pacing.wait_s() if pacing.on else 0, replies=pacing.owed + 1)
-            except Exception:
-                pass
-            finally:
-                term.close()
-            watch.uninstall()
-            watch.report()
-
 
 
 # ---------------------------------------------------------------------------
