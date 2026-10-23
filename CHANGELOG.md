@@ -4,68 +4,41 @@ Notable changes, by release. Notes for the next release collect under **Unreleas
 
 ## Unreleased
 
-- Weather: When the forecast can't be fetched, weather says so as soon as it knows, instead of first waiting for the climate averages and the alerts.
-- Weather: Changing the precipitation units no longer shows the last forecast's millimetres as inches, or its inches as millimetres.
-- Weather: During polar night the chart no longer marks a sunset at midnight, or at 11 p.m. after the clocks go back, and `--json` gives those days no sunrise or sunset.
-- Weather: Under the midnight sun the chart no longer darkens or marks a sunrise at midnight, and `--json` gives those days no sunrise or sunset, as `sunshine --json` does.
-- Weather and tides: The month views no longer draw a sunrise at midnight on days of the midnight sun.
-- Weather: On 29 February the comparison with the ten-year average takes in the days either side, so it draws on all ten years rather than the two or three leap days.
-- Weather: The chart, the forecast in words, and `--json` give the same sunrise and sunset as the sunshine view, where they could differ by a minute.
-- Weather and tides: The help panel lists the location menu's keys in lower case, like the rows around them.
-- Sunshine: Fixed the day view's and `--oneline`'s sunrise and sunset being an hour off between midnight and 2 a.m. on the night the clocks change.
-- Sunshine: Sunrise, sunset, and the Sun's height are more accurate, within seconds of published tables rather than a minute or two, and agree with the traditional hours shown beside them.
-- Moon, sunshine and sky: When the network stops answering, they look up the place's time zone and its name at the same time instead of one after the other, so they start sooner.
-- Moon and sky: Both say the Moon is up from the moment it rises, and give it the same altitude, as seen from where you stand. In `sky --json` the Sun is up from sunrise.
-- Sky: Stars and planets count as up from the moment they rise, as the Sun and the Moon do, in the view, the search, `--json`, and `--oneline`.
-- Moon: In a small month grid, each new, quarter, and full moon shows its phase on the day it falls, and no other day shows one.
-- Tides: The day's chart no longer jumps at the hour the clocks change. It runs on through the night they go back, with the repeated hour shown twice on its time axis.
-- Tides: The month view no longer jumps partway through the hour the clocks repeat in autumn, and at Canadian stations it no longer runs an hour ahead through the hour they skip in spring.
-- Tides: Fixed the missing night shading on the chart at stations from TICON-4.
-- Tides: The chart's night shading begins and ends at sunset and sunrise, where it could be up to half an hour off.
-- Tides: Where the heights are above mean sea level, as the global tide model's are, the month view no longer brightens every low water as a minus tide. There, every low is below zero.
-- Tides: Offline, with nothing saved for the place, tides says it could not load the tides instead of that there is no tide station nearby.
-- Tides: When a station's tides cannot be fetched, the message is in your language, as the others are.
-- Tides: When the network stops answering, tides says sooner that it could not load the tides.
-- Tides: When the network stops answering, the NOAA predictions kept from an earlier run are shown sooner, instead of after a wait for each month in turn.
-- Tides: A month or year view that fails to load, as when the network drops, is tried again after a short wait instead of staying empty until linecast is restarted.
-- Tides: `--print` with `--month`, `--year` or `--makeup` says when the tides could not be loaded, and exits with an error, instead of printing the view empty.
-- Tides: With a TideCheck key, a station costs one request a day whichever views are opened, instead of up to four.
-- Tides: Queensland's year view loads with 12 requests instead of 183, and Queensland predictions still show offline the day after they were last fetched.
-- Tides: Predictions for Canadian stations still show offline the day after they were last fetched.
-- Tides: `--station` accepts the five-digit codes the Canadian Hydrographic Service gives its stations, such as 00490 for Halifax.
-- Tides: `--station` finds the NOAA stations whose IDs begin with letters, such as TEC1603 for Troy, New York, and `--search` finds any NOAA station by its ID.
-- Radar: When a frame can't be fetched, offline or when a source fails, radar says it is unavailable instead of showing an empty map with "0% echo", which read as clear skies.
-- Radar: When the network stops answering, radar says sooner that it is unavailable.
-- Radar: The newest NEXRAD frame no longer stays empty when the Iowa Environmental Mesonet is late to publish it.
-- Radar: Dragging the map across the edge of the lower 48 no longer freezes the view while radar picks a source for the new area, and a source that stops sending radar there is replaced, as it is when radar starts.
-- Radar: While a frame loads, the frame shown in its place is the one nearest it in time.
-- Radar: `--help` says plainly that `--layer` picks radar or satellite, `--layers` adds the temperature and wind, and `--theme` is the color scale for rain and snow.
-- Maps: Downloaded cloud cover is cleared from the cache after a day, as radar's frames are, even if radar is never opened.
-- Maps: Clouds that fail to download over part of the globe are filled in shortly afterwards, instead of leaving a gap until the next satellite image.
-- Maps: On a network that hangs, the live map opens at once instead of after a wait of ten seconds or more.
-- Maps: When the network stops answering, `--print` says sooner that the street map could not be loaded.
-- Maps: Flicking the map several times in a row loads one view at a time rather than one for every flick, so the motion stays smooth.
-- Maps: Panning east across the 180th meridian keeps the map on screen, as panning west always did, rather than blanking it while the view reloads.
-- Maps: Fixed the live map stopping short of places beyond 80 degrees of latitude, such as Alert, Nunavut.
-- Maps: Fixed a crash when flying a long way out over a short distance, such as pressing `n` close to home at street zoom when the map started on the globe.
-- Maps: When a tile server refuses or the network is down, the map waits a moment before asking again, rather than asking on every mouse movement. Radar's temperature and wind layers wait the same way.
-- Maps: Day and night on the map follow the same Sun as the sunshine and sky views.
-- Location: Place names ending in "UK" or "USA", such as `--location "London, UK"`, are found.
-- Location: A damaged location cache is fetched again instead of stopping every command with an error.
-- Location: Weather, sunshine, sky, radar and maps call a saved location by the name it was saved under, without looking a name up for it first.
-- Location: When the network stops answering, a command waits for the place's name once instead of several times over.
-- Location: When the network stops answering and no location is saved, a command gives up looking for where you are sooner.
-- Live views: Resizing the window resizes the view even with `COLUMNS` and `LINES` exported in the shell.
-- Live views: Quitting with Ctrl-C while a frame is drawing no longer leaves some terminals frozen for a moment afterwards.
-- Live views: Quitting just as something finishes downloading in the background no longer prints an error from a crashed thread afterwards.
-- Live views: A view left open does far less while it waits, and asks the terminal for fewer colors while it watches for a theme change.
-- Print: A command run in the background from a shell, such as `linecast moon --oneline &`, no longer stops with "Stopped (tty output)".
-- Print: Output is UTF-8 even where the locale or `PYTHONIOENCODING` asks for another encoding, instead of ending in an error.
-- Completions: Shell completion leaves a short name such as `sunshine` to the program that owns it, and completes it as linecast only where `linecast link` made it or an alias points it at linecast. Reported by [@jmote](https://github.com/jmote) in [#20](https://github.com/ashuttl/linecast/issues/20).
-- Help: `--emoji` and `--month-temperature` are no longer listed beside `--icons emoji` and `--month`, which they repeat. Both still work.
-- Doctor: A provider that answers with an error code at its root is reported as reachable, and one that is limiting requests or failing is no longer reported as ok.
-- Doctor: The settings line marks a saved setting that linecast cannot read, such as `"units": "metrik"`, as "(ignored)". It used to name a bad calendar, culture or hours setting as if it were in use, and leave a bad units setting out.
-- Windows: Moon and sky times for where you are follow your computer's clock changes, instead of keeping today's offset for dates across a change.
+Most of this release is about what linecast does when things go wrong. When the network is slow or stops answering, or a service is down, linecast gives up sooner and says what it couldn't load, instead of showing an empty view or a misleading message. A view that failed to load tries again by itself, and when a server refuses them, maps and radar wait before asking again instead of asking on every mouse movement.
+
+The Sun and the Moon are now worked out the same way in every view. Sunrise and sunset agree across weather, tides, maps, and sunshine, and are within seconds of published tables, and the moon and sky views agree on when the Moon is up. Days of midnight sun and polar night no longer show a sunrise or sunset at midnight.
+
+Changes you may notice:
+
+- Sunshine: Sunrise, sunset, and the Sun's height are more accurate, so times may differ by a minute or two from the last version. Weather's chart and forecast, tides' night shading, the map's day and night, and the traditional hours now all use the same times.
+- Moon and sky: The Moon, stars, and planets count as up from the moment they rise, and both views give the Moon the same altitude. In `sky --json` the Sun is up from sunrise.
+- Location: A saved location is called by the name you saved it under in weather, sunshine, sky, radar, and maps, as it already was in moon.
+- Completions: Shell completion treats a short name such as `sunshine` as linecast's only when `linecast link` created it or an alias points it at linecast, so another program with the same name keeps its own completions. Reported by [@jmote](https://github.com/jmote) in [#20](https://github.com/ashuttl/linecast/issues/20).
+- Doctor: A saved setting that linecast can't read, such as `"units": "metrik"`, is marked "(ignored)" on the settings line. A service that is limiting requests or failing is no longer reported as ok.
+- Help: `--emoji` and `--month-temperature` are no longer listed, since `--icons emoji` and `--month` do the same. Both still work. Radar's `--help` explains `--layer`, `--layers`, and `--theme` more clearly.
+
+Fixes:
+
+- Offline and slow networks: When the network stops answering, moon, sunshine, and sky open sooner, and tides, radar, and maps give up sooner. Radar says it is unavailable instead of showing an empty map with "0% echo", which read as clear skies, and tides says it couldn't load the tides, in your language, instead of that there is no station nearby.
+- Offline and slow networks: Weather says the forecast couldn't be fetched as soon as it knows, and the live map opens at once on a network that hangs. `tides --print` with `--month`, `--year`, or `--makeup` exits with an error instead of printing an empty view.
+- Offline and slow networks: Tides' month and year views try again after a failed download instead of staying empty until linecast is restarted, and clouds missing from part of the globe are filled in shortly afterwards. Predictions for Canadian and Queensland stations still show offline the day after they were fetched, and NOAA predictions saved from an earlier run show without a wait for each month in turn.
+- Clock changes: Tides' day chart and month view no longer jump at the hour the clocks change, and the day chart shows the repeated hour twice in autumn. Canadian stations' month views no longer run an hour ahead in spring.
+- Clock changes: Sunshine's day view and `--oneline` are no longer an hour off between midnight and 2 a.m. on the night the clocks change. On Windows, moon and sky times for a date past a clock change use that date's offset instead of today's.
+- Midnight sun and polar night: Weather's chart no longer shows a sunrise or sunset at midnight, or darkens under the midnight sun, and the month views of weather and tides no longer show a midnight sunrise. `weather --json` gives those days no sunrise or sunset, as `sunshine --json` does.
+- Weather: Changing the precipitation units no longer shows the last forecast's millimetres as inches, or its inches as millimetres. On 29 February, the comparison with the ten-year average draws on all ten years instead of the two or three leap days.
+- Tides: Stations from TICON-4 show night shading, and the shading begins and ends at sunset and sunrise, where it could be up to half an hour off. At stations measured from mean sea level, such as the global tide model's, the month view no longer highlights every low as a minus tide.
+- Tides: `--station` accepts the Canadian Hydrographic Service's five-digit codes, such as 00490 for Halifax, and NOAA IDs that begin with letters, such as TEC1603 for Troy, New York. `--search` finds any NOAA station by its ID.
+- Tides: With a TideCheck key, each station uses one request a day of your allowance, whichever views you open, instead of up to four. Queensland's year view loads much faster.
+- Radar: The newest NEXRAD frame no longer stays empty when the Iowa Environmental Mesonet is late to publish it. While a frame loads, the frame nearest it in time stands in.
+- Radar: Dragging the map across the edge of the lower 48 no longer freezes the view, and a source that stops sending radar for an area is replaced.
+- Maps: Fixed a crash when flying a long way out over a short distance, such as pressing `n` near home at street zoom after starting on the globe. The live map reaches places beyond 80 degrees of latitude, such as Alert, Nunavut.
+- Maps: Panning east across the 180th meridian keeps the map on screen, and flicking the map several times in a row loads one view at a time, so the motion stays smooth.
+- Maps and radar: When a tile server refuses or the network is down, the map and radar's temperature and wind layers wait a moment before asking again. Cloud cover is cleared from the cache after a day, even if radar is never opened.
+- Moon: In a small month grid, each new, quarter, and full moon shows its phase on the day it falls.
+- Location: Place names ending in "UK" or "USA", such as `--location "London, UK"`, are found. A damaged location cache no longer stops every command with an error.
+- Live views: Resizing the window resizes the view even with `COLUMNS` and `LINES` exported in the shell. A view left open does far less work while it waits.
+- Live views: Quitting with Ctrl-C while a frame is drawing no longer leaves some terminals frozen for a moment, and quitting as a download finishes no longer prints an error afterwards. The help panel in weather and tides lists the location menu's keys in lower case.
+- Print: A command run in the background, such as `linecast moon --oneline &`, no longer stops with "Stopped (tty output)". Output is UTF-8 even where the locale asks for another encoding, instead of ending in an error.
 
 ## 2.10.3 — 2026-10-20
 
