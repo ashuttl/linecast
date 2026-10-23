@@ -39,7 +39,9 @@ from linecast._geo import haversine_nm
 from linecast._log import log_failure
 from linecast._paths import data_path
 from linecast.tides import harmonic
-from linecast.tides.common import computed_hilo, computed_range, computed_y_range
+from linecast.tides.common import (
+    computed_hilo, computed_range, computed_y_range, tz_offset_hours,
+)
 
 PREFIX = "ticon:"
 # How far a gauge's tide is allowed to stand in for a place's.
@@ -125,6 +127,7 @@ def fetch_station_metadata_ticon(station_id: str) -> dict[str, Any] | None:
         "lat": s["lat"],
         "lng": s["lng"],
         "timezone_abbr": "",
+        "timezonecorr": tz_offset_hours(s["tz"]),
         "timeZoneCode": s["tz"],
         "observedst": False,
         "datum": s["datum"],

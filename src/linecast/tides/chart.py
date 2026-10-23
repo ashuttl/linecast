@@ -70,7 +70,11 @@ def compute_daylight_window(graph_w, window_start, total_hours, station_meta):
 
     try:
         lat = float(station_meta["lat"])
-        tz_offset_h = float(station_meta["timezonecorr"])
+        # The clock a column is read on is the window's own where it has
+        # a zone, summer time and all, which the metadata's offset does
+        # not know; the offset is wanted only for a window without one.
+        tz_offset_h = (None if window_start.utcoffset() is not None
+                       else float(station_meta["timezonecorr"]))
     except (KeyError, TypeError, ValueError) as exc:
         log_failure("tides", "daylight window", exc, fallback="no night shading")
         return [1.0] * graph_w
@@ -86,8 +90,6 @@ def compute_daylight_window(graph_w, window_start, total_hours, station_meta):
         col_dt = window_start + timedelta(hours=frac * total_hours)
         doy = col_dt.timetuple().tm_yday
         hour = col_dt.hour + col_dt.minute / 60
-        # The clock the column is read on: summer time where the station
-        # keeps it, which the metadata's standard offset does not know.
         offset = col_dt.utcoffset()
         tz_h = tz_offset_h if offset is None else offset.total_seconds() / 3600
         col_daylight.append(_solar_daylight_at(hour, doy, lat, lng, tz_h))

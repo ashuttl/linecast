@@ -324,7 +324,10 @@ class TestLookup:
         assert ticon.station_by_id("") is None
 
     def test_metadata_is_in_the_shape_the_noaa_pipeline_reads(self):
-        assert ticon.fetch_station_metadata_ticon(BREST) == {
+        meta = ticon.fetch_station_metadata_ticon(BREST)
+        # the zone's offset when asked, as the other providers give it
+        assert meta.pop("timezonecorr") in (1.0, 2.0)
+        assert meta == {
             "id": BREST, "name": "Brest", "state": "Brittany",
             "lat": 48.383, "lng": -4.5,
             "timezone_abbr": "", "timeZoneCode": "Europe/Paris", "observedst": False,

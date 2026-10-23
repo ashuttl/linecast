@@ -81,6 +81,29 @@ def test_night_shading_follows_summer_time():
     assert abs(lit[-1] - (18 * 60 + 27)) < 25
 
 
+def test_a_window_with_a_zone_needs_no_offset_from_the_metadata():
+    # Brest on 23 October: sunrise about 8:50 and sunset 19:14 CEST.
+    # TICON's gauges name their zone and gave no offset, and a window
+    # in the zone is read on its own clock.
+    from zoneinfo import ZoneInfo
+    meta = {"lat": 48.383, "lng": -4.5}
+    start = datetime(2026, 10, 23, tzinfo=ZoneInfo("Europe/Paris"))
+    daylight = compute_daylight_window(24 * 60, start, 24, meta)
+    assert daylight == compute_daylight_window(24 * 60, start, 24, {**meta, "timezonecorr": 2})
+    lit = [minute for minute, factor in enumerate(daylight) if factor >= 0.5]
+    assert abs(lit[0] - (8 * 60 + 50)) < 30
+    assert abs(lit[-1] - (19 * 60 + 14)) < 30
+
+
+def test_a_ticon_gauge_has_night_shading():
+    from linecast.tides.providers import TICON
+    from linecast.tides.stations import _station_now, _station_tzinfo
+    meta = TICON.station_metadata("ticon:brest-822-fra-uhslc_fd")
+    start = _station_now(meta).replace(hour=0, minute=0, second=0, microsecond=0)
+    assert start.tzinfo == _station_tzinfo(meta)
+    assert min(compute_daylight_window(96, start, 24, meta)) < 0.5
+
+
 def test_aleutian_stations_keep_summer_time():
     from zoneinfo import ZoneInfo
     from linecast.tides.stations import _station_tzinfo
