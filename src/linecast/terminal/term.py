@@ -573,10 +573,15 @@ class LiveTerminal:
 
 
 def _terminal_size():
+    """The tty's own size, or None where it has none to give.  A serial
+    console, or a pty nobody sized (some `docker exec -t` and `ssh -tt`
+    sessions), reports 0x0, and a frame drawn to that would be empty;
+    the caller falls back as for no tty at all."""
     try:
-        return os.get_terminal_size()
+        size = os.get_terminal_size()
     except OSError:
         return None
+    return size if size.columns > 0 and size.lines > 0 else None
 
 
 def nudge():

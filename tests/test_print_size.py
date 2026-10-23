@@ -96,6 +96,19 @@ def test_a_live_view_follows_the_window_not_the_environment(monkeypatch):
     assert framebuffer.get_terminal_size() == (60, 15)
 
 
+def test_a_tty_that_reports_no_size_is_no_size(monkeypatch):
+    """A serial console, or a pty nobody sized, says 0x0; a live view
+    drawn to that size was empty, where it is 80x24 with no tty at all."""
+    from linecast.terminal import term
+    monkeypatch.setattr(term.os, "get_terminal_size", lambda *_: os.terminal_size((0, 0)))
+    assert term._terminal_size() is None
+    monkeypatch.delenv("COLUMNS", raising=False)
+    monkeypatch.delenv("LINES", raising=False)
+    monkeypatch.setattr(term, "_current", object())   # a loop is running
+    _runtime.set_current(runtime_for("moon", []))
+    assert framebuffer.get_terminal_size() == (80, 24)
+
+
 @pytest.mark.parametrize("month", [False, True])
 def test_moon_render_matches_an_equivalent_terminal(monkeypatch, month):
     from linecast.moon.calendar import render_calendar
