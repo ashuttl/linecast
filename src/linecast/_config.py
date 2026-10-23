@@ -5,15 +5,22 @@ the help page, the dispatch, the completions, the flags, the resolvers
 and doctor read it from there.
 """
 
+from __future__ import annotations
+
 import json
 import os
 from collections import namedtuple
 from pathlib import Path
-from typing import Any
 
 from linecast._i18n import LANGUAGE_CODES, VARIANTS, canonical_language, is_language_code
 from linecast._paths import config_root
 from linecast._log import UserError, log_failure
+
+# The annotations are never evaluated, so typing, the costliest import
+# `linecast --help` would make, is left to the type checkers.
+TYPE_CHECKING = False
+if TYPE_CHECKING:
+    from typing import Any
 
 
 def config_file() -> Path:
