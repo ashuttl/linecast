@@ -1,6 +1,6 @@
 """Every command's flags: the argparse parser each command's main() reads.
 
-The view commands' parsers share _base_parser, which lays their help
+The view commands' parsers share base_parser, which lays their help
 pages out in sections; the settings and housekeeping commands build
 their own beside their code, from VersionAction here and _commands'
 formatter.  The shell completions are read from these parsers
@@ -88,9 +88,9 @@ class ViewParser(parser_class()):
         return ns
 
 
-def _base_parser(prog, description, units=None, clock=False, json=False,
-                 temperature_scale=False, wind=False, oneline=True, prose=False,
-                 location_help="location as 'lat,lng' or place name"):
+def base_parser(prog, description, units=None, clock=False, json=False,
+                temperature_scale=False, wind=False, oneline=True, prose=False,
+                location_help="location as 'lat,lng' or place name"):
     """A view command's parser, with its help page in sections.
 
     --location opens the first section, "options", with *location_help*
@@ -209,7 +209,7 @@ TEMP_RANGES = ("auto", "climate", "forecast", "world")
 
 
 def weather_parser():
-    p = _base_parser("linecast weather", BLURB["weather"],
+    p = base_parser("linecast weather", BLURB["weather"],
                       units=("metric units: celsius, km/h (m/s in the languages "
                              "that use it), mm",
                              "imperial units: fahrenheit, mph, inches"),
@@ -241,7 +241,7 @@ def weather_parser():
 
 
 def tides_parser():
-    p = _base_parser("linecast tides", BLURB["tides"],
+    p = base_parser("linecast tides", BLURB["tides"],
                       units=("heights in meters", "heights in feet"),
                       clock=True, json=True,
                       location_help="find the nearest station to 'lat,lng' or a "
@@ -270,7 +270,7 @@ def tides_parser():
 
 
 def sunshine_parser():
-    p = _base_parser("linecast sunshine", BLURB["sunshine"], clock=True, json=True)
+    p = base_parser("linecast sunshine", BLURB["sunshine"], clock=True, json=True)
     p.add_argument("--no-text", action="store_true",
                     help="hide supporting text, keeping the location and clock (t toggles)")
     p.add_argument("--year", action="store_true",
@@ -293,7 +293,7 @@ def sunshine_parser():
 
 
 def moon_parser():
-    p = _base_parser("linecast moon", BLURB["moon"], clock=True, json=True)
+    p = base_parser("linecast moon", BLURB["moon"], clock=True, json=True)
     p.add_argument("--no-text", action="store_true",
                     help="hide the disc view's text (t toggles; calendar unchanged)")
     p.add_argument("--month", action="store_true",
@@ -316,7 +316,7 @@ def moon_parser():
 
 
 def sky_parser():
-    p = _base_parser("linecast sky", BLURB["sky"], clock=True, json=True)
+    p = base_parser("linecast sky", BLURB["sky"], clock=True, json=True)
     p.add_argument("--facing", metavar="DIRECTION", default=None,
                     help="which way to look: a compass point (N, NE, E, …) "
                          "or a bearing in degrees (default: the Moon if it "
@@ -338,7 +338,7 @@ def sky_parser():
 
 
 def radar_parser():
-    p = _base_parser("linecast radar", BLURB["radar"],
+    p = base_parser("linecast radar", BLURB["radar"],
                       units=("metric units: celsius, km/h (m/s in the languages "
                              "that use it), kilometres",
                              "imperial units: fahrenheit, mph, miles"),
@@ -372,7 +372,7 @@ def radar_parser():
 
 
 def maps_parser():
-    p = _base_parser("linecast maps", BLURB["maps"],
+    p = base_parser("linecast maps", BLURB["maps"],
                       units=("metric units: kilometres and metres",
                              "imperial units: miles and feet"),
                       oneline=False)
@@ -403,7 +403,7 @@ def maps_parser():
 
 def doctor_parser():
     """`linecast doctor` has none of the view flags, so it is not a
-    _base_parser; --version is the same action."""
+    base_parser; --version is the same action."""
     p = argparse.ArgumentParser(
         prog="linecast doctor", formatter_class=formatter_class(),
         description="Show where linecast keeps its files, what it sees of "

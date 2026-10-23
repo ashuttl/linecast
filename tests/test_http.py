@@ -653,7 +653,7 @@ class TestVersion:
         assert linecast.USER_AGENT == first
 
     def test_version_action_prints_and_exits(self, capsys):
-        parser = _parsers._base_parser("weather", "test")
+        parser = _parsers.base_parser("weather", "test")
         with pytest.raises(SystemExit) as info:
             parser.parse_args(["--version"])
         assert info.value.code == 0

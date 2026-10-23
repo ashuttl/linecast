@@ -15,7 +15,7 @@ from linecast import _config
 from linecast._config import SETTING, chosen, saved
 from linecast._i18n import LOCALE_CODES
 from linecast._log import UserError, debug_enabled, debug_log, set_debug
-from linecast._parsers import _base_parser, tides_parser, weather_parser
+from linecast._parsers import base_parser, tides_parser, weather_parser
 
 
 def install_banner():
@@ -429,7 +429,7 @@ class RuntimeConfig:
     wind_choice: str | None = None
 
     # the parser whose defaults stand in before a main() has run
-    _parser = staticmethod(lambda: _base_parser("linecast", ""))
+    _parser = staticmethod(lambda: base_parser("linecast", ""))
     # the command's own units env var, before LINECAST_UNITS; the
     # weather and tides runtimes name theirs, the rest have none
     _legacy_units_env = None
