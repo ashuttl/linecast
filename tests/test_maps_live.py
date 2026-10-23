@@ -361,7 +361,7 @@ class TestKeys:
         assert -180 <= app.lon < 0
         app.on_action('w')
         settle(app)
-        assert app.lat == 80
+        assert app.lat == _maps_live.LAT_LIMIT
 
     def test_plus_and_minus_step_the_zoom(self):
         app = make(zoom=1.0)
@@ -502,7 +502,7 @@ class TestDrag:
         assert app.on_drag(0, 0, True) is False  # a click, not a drag
         assert app.on_drag(10, 20, False)
         assert not app._drag_shift and app.camera.dragging()
-        assert app.lat == 80.0  # clamped
+        assert app.lat == _maps_live.LAT_LIMIT  # clamped
         assert app.lon == pytest.approx(
             -(10 * lon_span(70.0, 60.0, GW, HC) / GW))
         assert app.on_drag(10, 20, False) is False  # nothing moved
@@ -1006,7 +1006,7 @@ class TestFlights:
                             lambda *a, **k: asked.append(a))
         app = make(zoom=1.0)
         app.fly_to(Result("Alert", "", 82.5, 190.0, "city"))
-        assert app._destination[:2] == (80.0, -170.0)
+        assert app._destination[:2] == (82.5, -170.0)
         settle(app)
         assert (app.lat, app.lon, app.zoom) == app._destination
 
@@ -1053,7 +1053,17 @@ class TestCamera:
         cam.zoom_to(1.0)
         cam.jump_to(89.0, 200.0, 1e9)
         assert not cam.moving()
-        assert cam.view() == (80.0, -160.0, cam.zoom_max)
+        assert cam.view() == (_maps_live.LAT_LIMIT, -160.0, cam.zoom_max)
+
+    def test_the_far_north_is_in_reach(self):
+        # Alert, Nunavut, and Greenland's north coast: the limit was the
+        # flat map's 80°, and a search landed 2.5° south of the town
+        cam = self._camera()
+        for lat in (82.5, 83.66, -82.5):
+            cam.jump_to(lat, -62.35, 0.05)
+            assert cam.view()[0] == lat
+        # still inside the tiles at street zoom
+        assert _globe.local_tiles(_maps_live.LAT_LIMIT, 0.05, GW, HC)
 
     def test_a_coast_stops_at_the_polar_limit(self):
         cam = self._camera(lat=79.0, zoom=10.0)
@@ -1063,7 +1073,7 @@ class TestCamera:
         cam.drag(0, 40)
         cam.release()
         cam.clock.advance(3.0)
-        assert cam.view()[0] == 80.0
+        assert cam.view()[0] == _maps_live.LAT_LIMIT
         assert not cam.moving()
 
     def _flick(self, cam, dcol, drow):
@@ -1091,7 +1101,7 @@ class TestCamera:
         cam.clock.advance(5.0)
         rest_lat, rest_lon, _zoom = cam.view()
         assert not cam.moving()
-        assert lat == 80.0                # clamped, as the coast clamps
+        assert lat == _maps_live.LAT_LIMIT  # clamped, as the coast clamps
         assert rest_lat == pytest.approx(lat, abs=1e-6)
         assert rest_lon == pytest.approx(lon, abs=1e-6)
 

@@ -53,7 +53,12 @@ COAST_CEILING = 4.0       # screens a second a flick may start at
 COAST_GRACE = 0.12        # how stale the last motion may be and still coast
 TRAIL = 0.25              # seconds of drag the flick's speed is read from
 SPIN_RATE = 1.0           # degrees of longitude a second, r
-LAT_LIMIT = 80.0          # how far toward a pole the centre may go
+# How far toward a pole the centre may go.  The tiles end at 85.05°,
+# so a street view centred here is still drawn from them, and a window
+# that reaches past it is drawn from the planet.  The northernmost land
+# is at 83.7°.  Not the pole itself: a column of the window is
+# 1/cos(lat) degrees of longitude, which has no value there.
+LAT_LIMIT = 85.0
 PAN_STEP = 0.1            # of the map, per w/a/s/d press
 
 
