@@ -89,7 +89,8 @@ _motion_lock = threading.Lock()
 _motion_out = [False]     # a build for a moving view is in flight
 _motion_next = [None]     # the newest (cache, key, load) asked for meanwhile
 _build_passing = [True]   # whether this motion builds what it passes over
-_dest_out = [0]           # destination fetches in flight (maps.prefetch_view)
+_dest_out = [0]           # a destination fetch is in flight (maps.prefetch_view)
+_dest_next = [None]       # the newest destination asked for meanwhile
 
 
 def fetch_destination(work):
@@ -102,18 +103,39 @@ def fetch_destination(work):
     going to is on its way — the one the reader will stop on is worth
     more than any of the ones they will not — and the counting starts
     here, on the caller's thread, so the next frame already sees it.
+
+    The same holds between destinations: one is built at a time, in a
+    single slot like the passing builds' own.  A build already running
+    cannot be stopped, but a flick that follows one still coasting
+    makes the first destination one the view will never reach, so the
+    newest asked for meanwhile waits for the slot and the rest are
+    dropped.  When the slot frees on a camera that has come to rest,
+    the waiting one is dropped too: the frame at rest asks for its own
+    view, which is the destination if the motion got there.
     """
     with _motion_lock:
-        _dest_out[0] += 1
+        if _dest_out[0]:
+            _dest_next[0] = work
+            return
+        _dest_out[0] = 1
+    _start_destination(work)
 
-    def counted():
+
+def _start_destination(work):
+    """Run one destination off the loop, then the newest that waited."""
+
+    def run():
         try:
             work()
         finally:
             with _motion_lock:
-                _dest_out[0] -= 1
+                nxt = _dest_next[0] if _in_motion[0] else None
+                _dest_next[0] = None
+                _dest_out[0] = 1 if nxt is not None else 0
+            if nxt is not None:
+                _start_destination(nxt)
 
-    threading.Thread(target=counted, daemon=True).start()
+    threading.Thread(target=run, daemon=True).start()
 
 
 def _motion_build(cache, key, load):

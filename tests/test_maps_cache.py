@@ -70,6 +70,8 @@ def motion(monkeypatch):
     loaders.hold_motion(False)
     loaders._motion_out[0] = False
     loaders._motion_next[0] = None
+    loaders._dest_out[0] = 0
+    loaders._dest_next[0] = None
 
 
 def _cache():
@@ -318,6 +320,49 @@ class TestDestinationFetches:
         started[0].target()                      # the prefetch lands
         assert loaders._dest_out[0] == 0
         assert seen == [1, "loaded"]
+
+
+    def test_one_destination_at_a_time_and_the_newest_wins(self, motion):
+        # five flicks in a row started five builds at once, each a
+        # second or two of the interpreter, every one but the last for
+        # a view the reader would never stop on
+        started, _woke = motion
+        ran = []
+        for name in "abcde":
+            loaders.fetch_destination(lambda name=name: ran.append(name))
+        assert len(started) == 1 and loaders._dest_out[0] == 1
+        started[0].target()                      # "a" lands
+        assert ran == ["a"] and len(started) == 2
+        assert loaders._dest_out[0] == 1         # "e" holds the slot now
+        started[1].target()
+        assert ran == ["a", "e"]                 # b, c and d never ran
+        assert loaders._dest_out[0] == 0 and loaders._dest_next[0] is None
+
+    def test_a_waiting_destination_is_dropped_when_the_motion_ends(
+            self, motion):
+        started, _woke = motion
+        ran = []
+        loaders.fetch_destination(lambda: ran.append("a"))
+        loaders.fetch_destination(lambda: ran.append("b"))
+        loaders.hold_motion(False)
+        started[0].target()
+        # the frame at rest asks for its own view
+        assert ran == ["a"] and len(started) == 1
+        assert loaders._dest_out[0] == 0 and loaders._dest_next[0] is None
+
+    def test_a_destination_that_fails_frees_the_slot(self, motion):
+        started, _woke = motion
+
+        def boom():
+            raise RuntimeError("offline")
+
+        loaders.fetch_destination(boom)
+        loaders.fetch_destination(lambda: None)
+        with pytest.raises(RuntimeError):
+            started[0].target()
+        assert len(started) == 2
+        started[1].target()
+        assert loaders._dest_out[0] == 0
 
 
 @pytest.fixture
