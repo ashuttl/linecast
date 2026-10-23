@@ -370,8 +370,13 @@ class LocationTzinfoTests(unittest.TestCase):
 
     @unittest.skipUnless(sys.platform == "win32", "Windows' own ICU")
     def test_icu_names_a_zone_zoneinfo_knows(self):
+        # CI's Windows has ICU (1903 and later do), so a None there is
+        # the lookup failing, not an older Windows
         from zoneinfo import ZoneInfo
+        system = os.path.join(os.environ.get("SystemRoot", r"C:\Windows"), "System32")
         name = _location._windows_zone_name()
+        if os.path.exists(os.path.join(system, "icu.dll")):
+            self.assertIsNotNone(name)
         if name is not None:
             ZoneInfo(name)
 
