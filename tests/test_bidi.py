@@ -9,7 +9,8 @@ from pathlib import Path
 import pytest
 
 from linecast.terminal import bidi as _bidi
-from linecast.terminal.bidi import FSI, LRI, PDI, RLI, display, joining_type
+from linecast.terminal.bidi import FSI, LRI, PDI, RLI, display
+from linecast.terminal.shaping import joining_type
 from linecast.terminal.uba import bidi_class, bracket_info, resolve_levels, visual_order
 from linecast.terminal.textwidth import visible_len
 

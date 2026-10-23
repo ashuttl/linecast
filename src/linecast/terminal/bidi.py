@@ -21,14 +21,14 @@ of a map or a radar frame:
 1. The row is split into cells -- a character with the marks and
    joiners that ride on it -- each carrying the SGR state it was drawn
    in.
-2. Arabic-script letters are shaped: each becomes its initial, medial,
-   final or isolated presentation form by whether its neighbours join
-   it.  The forms come from unicodedata alone (every presentation form
-   decomposes as <initial>, <medial>, <final> or <isolated> of its
-   letter), so there is no table to keep.  لا stays two cells, lam and
-   alef, rather than the one-glyph ligature: a frame is laid out in
-   cells before this pass runs, and the pass may move cells but never
-   add or remove one.
+2. Arabic-script letters are shaped (terminal/shaping.py): each becomes
+   its initial, medial, final or isolated presentation form by whether
+   its neighbours join it.  The forms come from unicodedata alone
+   (every presentation form decomposes as <initial>, <medial>, <final>
+   or <isolated> of its letter), so there is no table to keep.  لا
+   stays two cells, lam and alef, rather than the one-glyph ligature: a
+   frame is laid out in cells before this pass runs, and the pass may
+   move cells but never add or remove one.
 3. The row is cut into segments: stretches of text between graphics
    (block elements, braille, box drawing, the icon fonts' private use
    area) and gaps of two or more spaces.  Each segment is its own
@@ -316,90 +316,6 @@ def _is_graphic(ch):
 
 
 # ---------------------------------------------------------------------------
-# Arabic shaping
-# ---------------------------------------------------------------------------
-_FORMS = {}       # letter -> {"isolated": ch, "final": ch, ...}
-
-
-def _build_forms():
-    for block in ((0xFB50, 0xFDFF), (0xFE70, 0xFEFF)):
-        for o in range(block[0], block[1] + 1):
-            ch = chr(o)
-            d = unicodedata.decomposition(ch)
-            if not d.startswith("<"):
-                continue
-            tag, _sep, rest = d.partition(" ")
-            codes = rest.split()
-            if len(codes) != 1 or tag not in ("<isolated>", "<final>",
-                                               "<initial>", "<medial>"):
-                continue
-            base = chr(int(codes[0], 16))
-            # The first form listed for a letter is its own; later ones
-            # are compatibility duplicates.
-            _FORMS.setdefault(base, {}).setdefault(tag[1:-1], ch)
-
-
-_build_forms()
-
-_ZWNJ, _ZWJ, _TATWEEL = "\u200c", "\u200d", "\u0640"
-_HEH_HAMZA = "\u0647\u0654"
-
-
-def joining_type(ch):
-    """D (dual), R (right, to the letter before only), C (join causing),
-    T (transparent), or U (non-joining), from the presentation forms."""
-    forms = _FORMS.get(ch)
-    if forms:
-        if "initial" in forms or "medial" in forms:
-            return "D"
-        if "final" in forms:
-            return "R"
-        return "U"
-    if ch in (_ZWJ, _TATWEEL):
-        return "C"
-    if unicodedata.category(ch) in ("Mn", "Me") or ch == "\u200b":
-        return "T"
-    return "U"
-
-
-def _shape(cells):
-    """Replace each Arabic-script letter's base character in `cells`
-    (lists of [text, ...]) with its contextual presentation form."""
-    n = len(cells)
-    kinds = []
-    for cell in cells:
-        text = cell[0]
-        jt = joining_type(text[0])
-        forward = jt in ("D", "C") or (_ZWJ in text[1:] and jt != "U")
-        if _ZWNJ in text[1:]:
-            forward = False
-        kinds.append((jt, forward))
-    for i in range(n):
-        jt, forward = kinds[i]
-        if jt not in ("D", "R"):
-            continue
-        # The neighbours, skipping transparent cells
-        p = i - 1
-        while p >= 0 and kinds[p][0] == "T":
-            p -= 1
-        q = i + 1
-        while q < n and kinds[q][0] == "T":
-            q += 1
-        joins_prev = p >= 0 and kinds[p][1]
-        joins_next = (forward and jt == "D" and q < n
-                      and kinds[q][0] in ("D", "R", "C"))
-        form = ("medial" if joins_prev and joins_next else
-                "final" if joins_prev else
-                "initial" if joins_next else "isolated")
-        forms = _FORMS.get(cells[i][0][0], {})
-        glyph = (forms.get(form)
-                 or (forms.get("final") if form == "medial" else None)
-                 or (forms.get("isolated") if form in ("initial", "final") else None))
-        if glyph:
-            cells[i][0] = glyph + cells[i][0][1:]
-
-
-# ---------------------------------------------------------------------------
 # The pass
 # ---------------------------------------------------------------------------
 # Escapes: SGR, which is carried with each cell; OSC 8, a hyperlink,
@@ -654,15 +570,12 @@ def _is_digit(c):
     return bool(c) and ("0" <= c[0] <= "9" or "۰" <= c[0] <= "۹")
 
 
-def _is_arabic_letter(ch):
-    return ch in _FORMS or "\u0620" <= ch <= "\u064a" or "\u066e" <= ch <= "\u06d3"
-
-
 def _arabic_commas(cells):
     """A comma between two words in Arabic script is the Arabic comma,
     ، -- "تهران، استان تهران", however the parts were joined -- and in a
     right-to-left interface, one beside a word in Arabic script is too:
     "South Khorasan، ایران" is a Persian list with a Latin name in it."""
+    from linecast.terminal.shaping import is_arabic_letter
     n = len(cells)
     for k in range(n):
         if cells[k][0] != ",":
@@ -675,8 +588,8 @@ def _arabic_commas(cells):
             q += 1
         if p < 0 or q >= n:
             continue
-        before = _is_arabic_letter(cells[p][0][0])
-        after = _is_arabic_letter(cells[q][0][0])
+        before = is_arabic_letter(cells[p][0][0])
+        after = is_arabic_letter(cells[q][0][0])
         if (before and after) or (_ui_rtl and (before or after)):
             cells[k][0] = "\u060c"
 
@@ -715,8 +628,10 @@ def _order_piece(tokens, state, mirror=None, col=None):
                 state = _next_state(state, s)
         return ("".join(_digits_only(s) if kind == "t" else s
                         for kind, s in tokens), state, 0)
-    # The algorithm is needed only once a row holds right-to-left text
-    # or is mirrored, so a run without either never loads it
+    # The algorithm and the shaping are needed only once a row holds
+    # right-to-left text or is mirrored, so a run without either never
+    # loads them
+    from linecast.terminal.shaping import FORM_CHARS, ZWJ, ZWNJ, joining_type, shape
     from linecast.terminal.uba import (
         MIRRORING_GLYPH, STRONG_R, bidi_class, bracket_info, resolve_levels, visual_order,
     )
@@ -746,14 +661,8 @@ def _order_piece(tokens, state, mirror=None, col=None):
         return "".join(s for _kind, s in tokens), final_state, 0
 
     _arabic_commas(cells)
-    for cell in cells if _visual else ():
-        if cell[0].startswith(_HEH_HAMZA):
-            # The ezafe after a silent he, as the Academy spells it, is
-            # drawn as the one letter that has forms of its own: a mark
-            # over a presentation form sits badly in a terminal's cell
-            cell[0] = "\u06c0" + cell[0][2:]
     if _visual:
-        _shape(cells)
+        shape(cells)
     classes = ["S" if _is_graphic(c[0][0]) else bidi_class(c[0][0]) for c in cells]
     _number_classes(cells, classes)
 
@@ -891,8 +800,8 @@ def _order_piece(tokens, state, mirror=None, col=None):
             pass           # the controls and joiners are the terminal's to read
         elif ch in _CONTROLS:
             text = ""
-        elif ch in _FORM_CHARS or joining_type(ch) in ("D", "R"):
-            text = text.replace(_ZWNJ, "").replace(_ZWJ, "")
+        elif ch in FORM_CHARS or joining_type(ch) in ("D", "R"):
+            text = text.replace(ZWNJ, "").replace(ZWJ, "")
         if mirrored[k] and ch in MIRRORING_GLYPH:
             text = MIRRORING_GLYPH[ch] + text[1:]
             if handed[k]:
@@ -941,4 +850,3 @@ def _isolate_numbers(cells, classes, a, b, before, after):
             k = max(j, k + 1)
         else:
             k += 1
-_FORM_CHARS = frozenset(f for forms in _FORMS.values() for f in forms.values())
