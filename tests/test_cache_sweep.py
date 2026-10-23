@@ -129,3 +129,28 @@ def test_a_gauges_holdings_go_after_a_month(tmp_path, monkeypatch):
     gone = _file(tmp_path, "tides/chs_holdings_5cebf1de3d0f4a073c4bbd1e.json", 40)
     assert _cache.sweep(now=NOW) == 1
     assert kept.exists() and not gone.exists()
+
+
+def test_radar_frames_and_the_cloud_tiles_go_after_a_day(tmp_path, monkeypatch):
+    """They are named by the frame's time and never asked for again once
+    it leaves the window.  Maps borrows the cloud tiles from radar/, so
+    the sweep, not radar's own start, is what clears them."""
+    monkeypatch.setenv("LINECAST_CACHE_DIR", str(tmp_path))
+    gone = [_file(tmp_path, name, 1.5) for name in (
+        "radar/-72.000_42.000_-68.000_46.000_40x20_20260928T1100.png",
+        "radar/lwxr/v2_radar_1000_5_1_2_c0_0_1.png",
+        "radar/rv/v2_radar_1000_5_1_2_c2_1_1.png",
+        "radar/lwxr-sat/v2_satellite_1000_3_2_3_c0_0_0.png",
+        "radar/lwxr/v2_radar_1000_5_1_2_c0_0_1.png.123.456.tmp")]
+    kept = [_file(tmp_path, name, 0.5) for name in (
+        "radar/-72.000_42.000_-68.000_46.000_40x20_20260929T1100.png",
+        "radar/lwxr/v2_radar_2000_5_1_2_c0_0_1.png",
+        "radar/lwxr-sat/v2_satellite_2000_3_2_3_c0_0_0.png")]
+    # the indexes are kept fresh by their own TTL, and the basemap grids
+    # are kept to the newest 24 by radar itself
+    kept += [_file(tmp_path, name, 30) for name in (
+        "radar/lwxr/weather-maps.json", "radar/lwxr-sat/weather-maps.json",
+        "radar/basemap_cells_8c614e907cab1120.marshal")]
+    assert _cache.sweep(now=NOW) == len(gone)
+    assert not any(path.exists() for path in gone)
+    assert all(path.exists() for path in kept)

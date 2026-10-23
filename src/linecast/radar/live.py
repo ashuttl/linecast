@@ -177,11 +177,6 @@ def main():
     runtime = RuntimeConfig.from_sources(args)
     set_current(runtime)
 
-    # Sweep day-old frame tiles before fetching new ones — they're keyed by
-    # frame timestamp and will never be asked for again.
-    from linecast.radar.tiles import prune_tile_cache
-    prune_tile_cache()
-
     if args.search:
         from linecast._geocode import print_search
         print_search(args.search, lang=runtime.lang)

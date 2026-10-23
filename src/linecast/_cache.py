@@ -105,9 +105,12 @@ def location_cache_key(lat: float, lng: float) -> str:
 # and what they are, an answer to a search -- goes only after a year
 # unused.  The ten years of climate a place is compared with are kept
 # whatever their age, and go when the span they cover is out of date
-# (_rolled_over).  Maps and radar prune their own tiles, the alert
-# services their CAP files, and the developer's prose/ fixtures are
-# never touched.
+# (_rolled_over).  Radar's frames are named by the frame's time, so
+# they are never asked for again once it has left the rewind window;
+# they go a day after they were fetched, the cloud tiles maps borrows
+# from radar/ with them.  Maps keeps its own tiles under a size, the
+# alert services their CAP files, and the developer's prose/ fixtures
+# are never touched.
 _YEAR = 365
 _SWEEP = (
     ("", "timezone_*.json", _YEAR),
@@ -125,6 +128,9 @@ _SWEEP = (
     ("weather", "location_*.json", 0),
     ("marine", "marine_*.json", 7),
     ("radar", "field_*.json", 7),
+    ("radar", "*.png", 1),        # IEM's frames
+    ("radar", "*/*.png", 1),      # each tile source's, and the clouds
+    ("radar", "*/*.tmp", 1),      # a tile write cut short (see _LEFTOVERS)
     ("maps/search", "*.json", _YEAR),
     ("tides", "pred_*.json", 90),
     ("tides", "hilo_*.json", 90),

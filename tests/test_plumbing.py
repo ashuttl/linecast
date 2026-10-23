@@ -34,33 +34,6 @@ class AtomicWriteTests(unittest.TestCase):
             self.assertEqual(os.listdir(path.parent), ["cache.json"])
 
 
-class RadarPruneTests(unittest.TestCase):
-    def test_prunes_only_old_tiles(self):
-        from linecast.radar import tiles
-        with tempfile.TemporaryDirectory() as tmpdir:
-            pdir = Path(tmpdir) / "radar" / "lwxr"
-            pdir.mkdir(parents=True)
-            old = pdir / "v2_radar_1000_5_1_2_c2.png"
-            fresh = pdir / "v2_radar_2000_5_1_2_c2.png"
-            index = pdir / "weather-maps.json"
-            for f in (old, fresh, index):
-                f.write_bytes(b"x")
-            stale_at = 0  # epoch: comfortably past any cutoff
-            os.utime(old, (stale_at, stale_at))
-            with patch.dict(os.environ, {"LINECAST_CACHE_DIR": tmpdir}):
-                tiles.prune_tile_cache()
-            self.assertFalse(old.exists())
-            self.assertTrue(fresh.exists())
-            self.assertTrue(index.exists())  # index is TTL-managed, not swept
-
-    def test_missing_cache_dir_is_fine(self):
-        from linecast.radar import tiles
-        with tempfile.TemporaryDirectory() as tmpdir:
-            missing = os.path.join(tmpdir, "nope")
-            with patch.dict(os.environ, {"LINECAST_CACHE_DIR": missing}):
-                tiles.prune_tile_cache()  # must not raise
-
-
 class TerminalSizeTests(unittest.TestCase):
     def test_columns_lines_env_overrides_are_honoured(self):
         # Status bars and tmux panes size captures via COLUMNS/LINES;
