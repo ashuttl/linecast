@@ -31,7 +31,7 @@ from linecast.sunshine.i18n import (
     axis_month_labels, clock_label, polar_name, relative_day, sky_event,
     sky_phase,
 )
-from linecast.terminal.glyphs import _icon_set
+from linecast.terminal.glyphs import icon_set
 from linecast.terminal.textwidth import cells as text_cells, char_width
 from linecast.terminal.theme import (
     best_contrast, ensure_contrast, is_light_theme, lerp_rgb,
@@ -244,7 +244,7 @@ def render_year(lat, lng, now, runtime, tz=None, fullscreen=False,
     """Build the year-scale sky field display."""
     from linecast.sunshine import view as sun
 
-    icons = _icon_set(runtime)
+    icons = icon_set(runtime)
     cols, rows = get_terminal_size()
 
     # The field fills the window; the month labels overlay its bottom

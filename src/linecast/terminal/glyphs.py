@@ -66,7 +66,8 @@ _PLAIN_ICONS = {
 }
 
 
-def _icon_set(runtime):
+def icon_set(runtime):
+    """The sun and moon glyphs of the runtime's icon set: nerd, emoji or plain."""
     return {"nerd": _NERD_ICONS, "emoji": _EMOJI_ICONS,
             "plain": _PLAIN_ICONS}[runtime.icons]
 
@@ -83,4 +84,4 @@ def moon_icon(index, runtime, *, bg_color=None):
         from linecast.terminal.theme import is_light_theme
         if is_light_theme(bg_color):
             index = (index + 4) % 8
-    return _icon_set(runtime)["moon_icons"][index]
+    return icon_set(runtime)["moon_icons"][index]

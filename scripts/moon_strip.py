@@ -45,7 +45,7 @@ from linecast._runtime import RuntimeConfig
 from linecast.terminal.textwidth import char_width, visible_len
 from linecast.sunshine.palette import INFO_AMBER_RGB, INFO_DIM_RGB, INFO_TEXT_RGB
 from linecast.moon.phase import SYNODIC_MONTH, moon_cycle_frac
-from linecast.terminal.glyphs import _icon_set
+from linecast.terminal.glyphs import icon_set
 
 AMBER, DIM, TEXT = fg(*INFO_AMBER_RGB), fg(*INFO_DIM_RGB), fg(*INFO_TEXT_RGB)
 
@@ -98,7 +98,7 @@ def _marker_row(width, pos, label):
 # --------------------------------------------------------------------
 def rule(now, rt, width):
     """A: principal phases on a rule, dates beneath the ones that matter."""
-    icons = _icon_set(rt)["moon_icons"]
+    icons = icon_set(rt)["moon_icons"]
     last_new, next_new, full, t = _lunation(now)
     line = ["─"] * width
     for frac_pos, idx in ((0.0, 0), (0.25, 2), (0.5, 4), (0.75, 6), (1.0, 0)):
@@ -116,7 +116,7 @@ def rule(now, rt, width):
 
 def ramp(now, rt, width):
     """B: the phase itself, sampled across the cycle."""
-    icons = _icon_set(rt)["moon_icons"]
+    icons = icon_set(rt)["moon_icons"]
     _last_new, _next_new, _full, t = _lunation(now)
     step = visible_len(icons[0]) or 1
     n = max(4, width // step)
@@ -135,7 +135,7 @@ def curve(now, rt, width):
             for i in range(width * 2)]
     rows = build_braille_curve(vals, width, n_rows=2, value_range=(0.0, 1.0))
     out = [f"{TEXT}{''.join(ch for ch, _v in row)}{RESET}" for row in rows]
-    icons = _icon_set(rt)["moon_icons"]
+    icons = icon_set(rt)["moon_icons"]
     base = [" "] * width
     _place(base, 0, icons[0])
     _place(base, round(0.5 * (width - 1)), icons[4])
@@ -159,7 +159,7 @@ def bars(now, rt, width):
 
 def spare(now, rt, width):
     """E: just the two dates the text lines carried, placed on a rule."""
-    icons = _icon_set(rt)["moon_icons"]
+    icons = icon_set(rt)["moon_icons"]
     last_new, next_new, full, t = _lunation(now)
     line = ["·"] * width
     mid = round(0.5 * (width - 1))

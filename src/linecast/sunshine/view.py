@@ -31,7 +31,7 @@ from linecast._location import (
 )
 from linecast._runtime import RuntimeConfig, current_runtime, install_banner, place_for, set_current
 from linecast._parsers import refuse_view_flag, sunshine_parser
-from linecast.terminal.glyphs import _icon_set
+from linecast.terminal.glyphs import icon_set
 from linecast.sunshine.palette import (
     CURVE_COLOR, HORIZON_COLOR, INFO_AMBER_RGB, INFO_DIM_RGB, INFO_PURPLE_RGB,
     INFO_TEXT_RGB, SKY_FAR_HORIZON, SKY_NEAR_HORIZON, SKY_NIGHT, SKY_ZENITH,
@@ -109,7 +109,7 @@ def render(lat, lng, doy, now_hour, fullscreen=False, offset_minutes=0, runtime=
     """
     if runtime is None:
         runtime = current_runtime(RuntimeConfig)
-    icons = _icon_set(runtime)
+    icons = icon_set(runtime)
     cols, rows = get_terminal_size()
     if now is None or not show_text:
         hours = None
@@ -336,7 +336,7 @@ def _info_line(lat, lng, doy, sunrise, sunset, width, runtime, now_hour=None, of
     longest night, where the dates are Solar Hijri."""
     from linecast.sunshine.i18n import polar_name
 
-    icons = _icon_set(runtime)
+    icons = icon_set(runtime)
     # Truncated, both: the length to the minute, the change to the second.
     day_len, delta_sec = day_length_change(lat, lng, doy, tz_offset_h)
     dl_h = int(day_len)
