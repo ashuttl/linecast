@@ -101,10 +101,18 @@ class CoverageTests(unittest.TestCase):
             sid, name = om.find_nearest_openmeteo(39.0, -98.0)
         self.assertIsNone(sid)
 
-    def test_fetch_failure_yields_none(self):
-        with patch.object(om, "_fetch_raw", return_value=None):
-            sid, name = om.find_nearest_openmeteo(43.677, -70.371)
-        self.assertIsNone(sid)
+    def test_a_model_that_cannot_be_asked_is_not_taken_for_no_coverage(self):
+        # offline, with nothing kept for the place
+        with patch.object(om, "_fetch_year", return_value=None), \
+             patch.object(om, "_fetch_raw", return_value=None):
+            with self.assertRaises(om.Unreachable):
+                om.find_nearest_openmeteo(43.677, -70.371)
+
+    def test_a_year_of_nulls_is_an_answer_without_the_window(self):
+        nulls = _payload(["2025-06-01T00:00", "2025-06-01T01:00"], [None, None])
+        with patch.object(om, "_fetch_year", return_value=nulls), \
+             patch.object(om, "_fetch_raw", return_value=None):
+            self.assertEqual(om.find_nearest_openmeteo(39.0, -98.0), (None, None))
 
     def test_missing_coords_yield_none(self):
         sid, name = om.find_nearest_openmeteo(None, None)

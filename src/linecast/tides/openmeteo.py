@@ -46,8 +46,8 @@ from linecast._http import fetch_json_cached
 from linecast._log import log_failure, log_skipped
 from linecast.tides import harmonic
 from linecast.tides.common import (
-    M_TO_FT, cache_dir, cached_y_range, computed_hilo, computed_range, computed_y_range,
-    local_day_bounds,
+    M_TO_FT, Unreachable, cache_dir, cached_y_range, computed_hilo, computed_range,
+    computed_y_range, local_day_bounds,
 )
 
 # One standard fetch window serves every caller (range, hilo, y-range,
@@ -269,15 +269,23 @@ def fetch_modeled_extremes_openmeteo(station_id: str, year: int,
 def find_nearest_openmeteo(lat: float | None, lng: float | None
                            ) -> tuple[str | None, None]:
     """Return (pseudo_station_id, None) when the tide model covers this
-    location, or (None, None) when it doesn't (far inland / fetch failure).
+    location, or (None, None) when it doesn't (far inland).  Raises
+    Unreachable when neither of the model's answers could be had, so
+    whether it covers the place is not known.
 
     The display name is left to the caller, which knows the location label.
     """
     if lat is None or lng is None:
         return None, None
-    if not _instants(_payload(lat, lng)):
-        return None, None
-    return make_station_id(lat, lng), None
+    # as _payload asks: last year's answer, and the forecast window's
+    # only where that has no heights
+    year = _fetch_year(lat, lng, date.today().year - 1, date.today())
+    window = None if _instants(year) else _fetch_raw(lat, lng)
+    if _instants(year) or _instants(window):
+        return make_station_id(lat, lng), None
+    if year is None and window is None:
+        raise Unreachable("the tide model could not be asked")
+    return None, None
 
 
 # ---------------------------------------------------------------------------

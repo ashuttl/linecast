@@ -563,7 +563,8 @@ class LocationRoutingTests(unittest.TestCase):
              patch.object(_tides_tidecheck, "find_nearest_station_tidecheck",
                           side_effect=answers("tidecheck", tidecheck)), \
              patch.object(_tides_openmeteo, "find_nearest_openmeteo",
-                          return_value=openmeteo), \
+                          **({"side_effect": openmeteo} if isinstance(openmeteo, Exception)
+                             else {"return_value": openmeteo})), \
              patch("linecast.sunshine.json._location_label", return_value="Somewhere"):
             picked = _tides_stations._station_for_location(lat, lng, country)
         return picked, asked
@@ -581,6 +582,17 @@ class LocationRoutingTests(unittest.TestCase):
                           return_value=("om:45.2500,-66.0600", "Saint John")):
             picked = _tides_stations._station_for_location(45.25, -66.06, "CA", label="Saint John")
         self.assertEqual(picked, (OPENMETEO, "om:45.2500,-66.0600", "Saint John"))
+
+    def test_a_model_that_could_not_be_asked_is_not_no_tides(self):
+        # Offline, with nothing kept: nobody found a station, and the
+        # global model, which would have the last word, was never asked
+        from linecast.tides.common import Unreachable
+        with self.assertRaises(Unreachable):
+            self._route(43.68, -70.36, "US", openmeteo=Unreachable("offline"))
+        # a station found first is found all the same
+        picked, _asked = self._route(43.68, -70.36, "US", noaa=("8418150", "PORTLAND"),
+                                     openmeteo=Unreachable("offline"))
+        self.assertEqual(picked, (NOAA, "8418150", "PORTLAND"))
 
     def test_us_goes_straight_to_noaa(self):
         picked, asked = self._route(43.68, -70.36, "US", noaa=("8418150", "PORTLAND"))

@@ -30,6 +30,13 @@ def cache_dir() -> Path:
     return _paths.cache_dir("tides")
 
 
+class Unreachable(Exception):
+    """A provider could not be asked: the request failed, and nothing was
+    kept to answer from.  Not the same as no station: offline, a coast
+    the global model could not be asked about is not taken for one
+    without tides."""
+
+
 # ---------------------------------------------------------------------------
 # Legacy cache files
 # ---------------------------------------------------------------------------

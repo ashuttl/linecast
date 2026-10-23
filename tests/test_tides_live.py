@@ -172,6 +172,18 @@ class TestLocations:
         flash.assert_called_once_with(["No tide predictions for Denver."], seconds=5)
         assert app.station_id == "8418150" and app.provider is provider
 
+    def test_a_place_that_could_not_be_looked_up_is_not_said_to_have_no_tides(self):
+        from linecast.tides.common import Unreachable
+        app, provider = _app()
+        app.runtime = SimpleNamespace(lang="en")
+        with patch("linecast._geocode.reverse_geocode", return_value=("", "US", "")), \
+             patch.object(_tides_live, "_station_for_location",
+                          side_effect=Unreachable("offline")):
+            result = app._load_place(self._place("Portland"), stale=False)
+        assert result == "failed"
+        assert app._place_failed(self._place("Portland"), result) == (
+            "Could not load tides for Portland. Please try again.")
+
     def test_an_expansion_for_the_station_left_behind_is_dropped(self):
         app, provider = _app()
         provider.gate = threading.Event()
@@ -332,6 +344,22 @@ class TestViewFlags:
             _tides_live.main()
         assert exc.value.code == 2
         assert f"--{view} has no {mode} output" in capsys.readouterr().err
+
+    @pytest.mark.parametrize("mode", [[], ["--json"]])
+    def test_offline_says_so_and_not_that_there_are_no_tides(self, monkeypatch, capsys, mode):
+        from linecast.tides.common import Unreachable
+        monkeypatch.setattr("sys.argv", ["tides", "--location", "43.66,-70.25", "--print",
+                                         *mode])
+        monkeypatch.setattr(_tides_live, "resolve_location",
+                            lambda *a, **k: (43.66, -70.25, "US", ""))
+        monkeypatch.setattr(_tides_live, "_station_for_location",
+                            lambda *a, **k: (_ for _ in ()).throw(Unreachable("offline")))
+        with pytest.raises(SystemExit) as exc:
+            _tides_live.main()
+        assert exc.value.code == 1
+        out = capsys.readouterr()
+        assert out.err.strip() == "Could not load tides for 43.66, -70.25. Please try again."
+        assert not out.out
 
     @pytest.mark.parametrize("view", ["year", "makeup"])
     def test_short_range_source_refuses_year_views(self, monkeypatch, capsys, cli_station, view):

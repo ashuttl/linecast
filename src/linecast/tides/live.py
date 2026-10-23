@@ -24,7 +24,7 @@ from linecast._runtime import TidesRuntime, set_current
 from linecast._parsers import refuse_view_flag, tides_parser
 from linecast._log import log_failure
 from linecast.terminal.spinner import Spinner
-from linecast.tides.common import month_after, sweep_legacy_cache
+from linecast.tides.common import Unreachable, month_after, sweep_legacy_cache
 from linecast.tides.i18n import _ts
 from linecast.tides import palette as _palette
 from linecast.terminal.color import RESET, fg
@@ -136,15 +136,19 @@ class TidesApp(LocationMenu, _live.LiveApp):
 
     def _load_place(self, place, stale):
         """The nearest station to *place* and its data, as main() finds
-        them: None when nothing covers it, "failed" when it would not load."""
+        them: None when nothing covers it, "failed" when it would not load,
+        or could not be looked for."""
         from linecast._geocode import reverse_geocode
         try:
             country = reverse_geocode(place.lat, place.lon, lang=self.runtime.lang)[1]
         except Exception as exc:
             log_failure("tides", "place country", exc, fallback="no regional provider")
             country = ""
-        provider, station_id, station_name = _station_for_location(
-            place.lat, place.lon, country, label=place.name)
+        try:
+            provider, station_id, station_name = _station_for_location(
+                place.lat, place.lon, country, label=place.name)
+        except Unreachable:
+            return "failed"
         if station_id is None:
             return None
         station_meta, station_name, station_tz = _station_details(
@@ -586,8 +590,16 @@ def main():
                 runtime = TidesRuntime.from_sources(args, country=own)
                 set_current(runtime)
 
-            provider, station_id, station_name = _station_for_location(
-                lat, lng, country_code, label=resolved_label)
+            try:
+                provider, station_id, station_name = _station_for_location(
+                    lat, lng, country_code, label=resolved_label)
+            except Unreachable:
+                # Offline, and nothing kept for the place: say so, as the
+                # location menu does, rather than that it has no tides
+                spin.stop()
+                print(_ts("load_failed", runtime,
+                          name=resolved_label or f"{lat:.2f}, {lng:.2f}"), file=sys.stderr)
+                sys.exit(1)
             place, country = (lat, lng, resolved_label or ""), country_code or ""
 
             if station_id is None and runtime.json_mode:

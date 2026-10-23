@@ -16,7 +16,7 @@ from linecast._geo import haversine_nm
 from linecast._location import resolve_location
 from linecast._plaintext import plain_text
 from linecast._log import log_failure
-from linecast.tides.common import zone_info
+from linecast.tides.common import Unreachable, zone_info
 from linecast.tides.marine import fetch_marine
 from linecast.tides.tidecheck import budget_line as tidecheck_budget_line
 from linecast.tides.providers import (
@@ -50,7 +50,8 @@ def _station_for_location(lat, lng, country_code, label=""):
     where its stations are few and far apart, a TICON gauge within 30 nm
     does. TideCheck follows when a key is set, and Open-Meteo's global
     model is the last resort. (None, None, None) when nothing covers the
-    spot.
+    spot, and Unreachable raised when the global model, which has the
+    last word on that, could not be asked.
 
     *label* is the name the geocoder gave the place the user asked for.
     A stationless provider names its pseudo-station by reverse-geocoding
@@ -76,6 +77,7 @@ def _station_for_location(lat, lng, country_code, label=""):
         order.append(TIDECHECK)
     order.append(OPENMETEO)
 
+    unreachable = None
     for provider in order:
         # A provider that raises is passed over like one with no station
         # in reach, so the ones after it, down to the global model, still
@@ -85,12 +87,19 @@ def _station_for_location(lat, lng, country_code, label=""):
                 station_id, station_name = provider.nearest(lat, lng, label=label)
             else:
                 station_id, station_name = provider.nearest(lat, lng)
+        except Unreachable as exc:
+            log_failure(_provider_tag(provider), "nearest station", exc,
+                        fallback="next provider")
+            unreachable = exc
+            continue
         except Exception as exc:
             log_failure(_provider_tag(provider), "nearest station", exc,
                         fallback="next provider", trace=True)
             continue
         if station_id is not None:
             return provider, station_id, plain_text(station_name)
+    if unreachable is not None:
+        raise unreachable
     return None, None, None
 
 
