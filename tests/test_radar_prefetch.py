@@ -376,3 +376,117 @@ class TestIncompleteFrames:
         rv.kind = "rv"
         rf.use(rv)
         assert rf._cached_frame(bbox, gw, hc, frames[0]) is None
+
+
+class TestNoData:
+    """A frame that did not load must not read as a clear sky: no echo
+    figure over an empty map, and "unavailable" once its fetch failed
+    rather than "loading" for good."""
+
+    @staticmethod
+    def _src(fail, gate=None):
+        class Src:
+            kind, theme = "lwxr", None
+            attribution = label = "stub"
+            tag = "radar/stub"
+
+            def current_frames(self):
+                return _frames(3)
+
+            def frame_rgba(self, bbox, gw, hc, frame):
+                if gate is not None:
+                    gate.wait(2)  # the fetch is out until the gate opens
+                if frame.token in fail:
+                    raise OSError(101, "Network is unreachable")
+                rgba = bytearray(4 * 4 * 4)
+                rgba[3] = 255  # one pixel of echo
+                return 4, 4, rgba
+        return Src()
+
+    @staticmethod
+    def _render(play_frame=0, block=False):
+        import re
+        from linecast.radar import view as radar
+        text, failed = radar.render_radar(43.7, -70.3, "Westbrook", 10.0,
+                                          play_frame=play_frame, playing=False,
+                                          block=block)
+        lines = re.sub(r"\x1b\[[0-9;]*m", "", text).split("\n")
+        return lines[0], lines[-1], failed
+
+    @pytest.fixture(autouse=True)
+    def _view(self, monkeypatch):
+        from linecast.radar import view as radar
+        monkeypatch.setattr(rf, "_frame_cache", {})
+        monkeypatch.setattr(rf, "_failures", {})
+        monkeypatch.setattr(rf, "_prefetch_key", None)
+        monkeypatch.setattr(rf, "_retry_key", None)
+        monkeypatch.setattr(rf, "_fell_back", True)  # the chain is spent
+        monkeypatch.setattr(rf._warnings, "covers", lambda bbox: False)
+        monkeypatch.setattr(radar, "get_terminal_size", lambda: (40, 12))
+
+    @staticmethod
+    def _settle(n):
+        t0 = time.monotonic()
+        while len(rf._failures) + len(rf._frame_cache) < n and time.monotonic() - t0 < 2:
+            time.sleep(0.01)
+        time.sleep(0.05)
+
+    def test_print_gives_no_echo_figure_for_a_frame_it_lacks(self):
+        rf.use(self._src({0, 1, 2}))
+        header, footer, failed = self._render(block=True)
+        assert failed
+        assert "echo" not in header
+        assert "unavailable" in footer
+
+    def test_live_says_loading_then_unavailable(self):
+        import threading
+        gate = threading.Event()
+        rf.use(self._src({0, 1, 2}, gate))
+        header, footer, failed = self._render()
+        assert "loading" in header and "echo" not in header
+        assert not failed
+        gate.set()
+        self._settle(3)
+        header, footer, failed = self._render()
+        assert "loading" not in header and "echo" not in header
+        assert "unavailable" in footer and "Network is unreachable" in footer
+        assert failed
+
+    def test_a_stand_in_frame_does_not_lend_its_echo(self):
+        """The present frame failed and an older one is cached: the map
+        holds the older one, and the header does not give its echo as
+        the present's."""
+        rf.use(self._src({2}))
+        bbox = _bbox()
+        for f in _frames(3):
+            rf._safe_load(bbox, 40, 10, f)
+        header, footer, _failed = self._render()
+        assert "echo" not in header and "unavailable" in footer
+        header, footer, _failed = self._render(play_frame=-1)
+        assert "% echo" in header and "unavailable" not in footer
+
+    def test_a_frame_that_lands_is_no_longer_unavailable(self):
+        fail = {0, 1, 2}
+        rf.use(self._src(fail))
+        bbox = _bbox()
+        frame = _frames(3)[2]
+        assert not rf._safe_load(bbox, 40, 10, frame)
+        assert rf.failure(bbox, 40, 10, frame)
+        fail.clear()
+        assert rf._safe_load(bbox, 40, 10, frame)
+        assert rf.failure(bbox, 40, 10, frame) is None
+        header, footer, failed = self._render()
+        assert "% echo" in header and not failed
+
+    def test_the_memo_keeps_a_whole_window(self):
+        rf.use(self._src(set()))
+        window = _frames(rf.N_FRAMES)
+        for f in window:
+            rf._safe_load((0, 0, 1, 1), 4, 2, f)
+        assert all(rf._loaded_mask((0, 0, 1, 1), 4, 2, window))
+
+
+def _bbox():
+    """The window render_radar draws for TestNoData's view."""
+    from linecast._xyz import bbox_for
+    return bbox_for(43.7, -70.3, 10.0, 40, 10)

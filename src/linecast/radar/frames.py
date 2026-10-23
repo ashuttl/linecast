@@ -90,7 +90,12 @@ def source_tag():
 
 # in-memory cache of decoded frames: key -> (radar_buffer, echo_pct)
 _frame_cache = {}
-_frame_lock = threading.Lock()
+# why each frame that did not load failed, by the same key, until it
+# lands: a view says so, rather than "loading" for a frame no worker is
+# fetching any more and an empty map that reads as a clear sky
+_failures = {}
+_frame_lock = threading.Lock()  # guards both
+_KEEP = N_FRAMES + 8  # entries each keeps: about the rewind window
 _prefetch_lock = threading.Lock()  # guards the prefetch globals below
 _prefetch_key = None  # (bbox, w, h) currently being prefetched
 _prefetch_gen = 0     # bumped when the view changes; stale workers stand down
@@ -139,7 +144,8 @@ def _load_frame(bbox, gw, hc, frame, layer="radar"):
     A frame that lost tiles raises IncompleteFrame out of the source and
     is never reached by the memo below, so the holes it would have shown
     are neither drawn nor kept: the prefetcher tries it again, and until
-    it lands the view holds the nearest frame it does have.
+    it lands the view holds the nearest frame it does have and says this
+    one is unavailable (failure()), as it does for any fetch that fails.
     """
     # one source for the key and the fetch: a theme swap replaces _source
     # between the two, and the new palette must not land under the old key
@@ -149,18 +155,31 @@ def _load_frame(bbox, gw, hc, frame, layer="radar"):
         hit = _frame_cache.get(key)
     if hit is not None:
         return hit
-    if layer == "sat":
-        pw, ph, rgba = src.satellite_rgba(bbox, gw, hc, frame)
-    else:
-        pw, ph, rgba = src.frame_rgba(bbox, gw, hc, frame)
+    try:
+        if layer == "sat":
+            pw, ph, rgba = src.satellite_rgba(bbox, gw, hc, frame)
+        else:
+            pw, ph, rgba = src.frame_rgba(bbox, gw, hc, frame)
+    except Exception as exc:
+        with _frame_lock:
+            _failures[key] = str(exc) or type(exc).__name__
+            _trim(_failures)
+        raise
     result = build_radar_buffer(rgba, pw, ph, gw, hc)
     with _frame_lock:
         _frame_cache[key] = result
-        if len(_frame_cache) > N_FRAMES + 8:  # bound to the rewind window
-            for old in list(_frame_cache)[:len(_frame_cache) - (N_FRAMES + 8)]:
-                _frame_cache.pop(old, None)
+        _failures.pop(key, None)
+        _trim(_frame_cache)
     _nudge()  # a frame is ready
     return result
+
+
+def _trim(memo):
+    """Drop a memo's oldest entries past _KEEP; called under _frame_lock."""
+    excess = len(memo) - _KEEP
+    if excess > 0:
+        for old in list(memo)[:excess]:
+            memo.pop(old, None)
 
 
 def _cached_frame(bbox, gw, hc, frame, layer="radar"):
@@ -168,6 +187,14 @@ def _cached_frame(bbox, gw, hc, frame, layer="radar"):
     key = _frame_key(bbox, gw, hc, frame, layer)
     with _frame_lock:
         return _frame_cache.get(key)
+
+
+def failure(bbox, gw, hc, frame, layer="radar"):
+    """Why this view's frame did not load the last time it was asked
+    for, or None if it has not failed (it may be on its way)."""
+    key = _frame_key(bbox, gw, hc, frame, layer)
+    with _frame_lock:
+        return _failures.get(key)
 
 
 def _loaded_mask(bbox, gw, hc, frames, layer="radar"):

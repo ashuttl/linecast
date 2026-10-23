@@ -111,10 +111,13 @@ def render_radar(lat, lon, location_name, zoom, play_frame=0, playing=True,
                  layers=frozenset(), alerts=True, **_):
     """One frame of the radar, and whether its image failed to load.
 
-    Returns (text, failed).  Only a blocking render (--print) fetches
-    the displayed frame itself, so only it can fail: main() then falls
-    down the source chain and renders once more.  A live render never
-    waits on the network; it shows the nearest frame it has.
+    Returns (text, failed).  A blocking render (--print) fetches the
+    displayed frame itself, and when it fails main() falls down the
+    source chain and renders once more.  A live render never waits on
+    the network; it shows the nearest frame it has, and says so when
+    the prefetcher could not get the displayed one.  Either way the
+    echo figure is given only for the displayed frame's own image: over
+    an empty map it would read as a clear sky.
     """
     lang = runtime.lang if runtime else "en"
     use_24h = runtime.use_24h if runtime else False
@@ -173,18 +176,20 @@ def render_radar(lat, lon, location_name, zoom, play_frame=0, playing=True,
             log_failure(_frames.source_tag(), "frame load", exc,
                         fallback="blank frame")
             radar = [[None] * graph_w for _ in range(height_cells * 2)]
-            echo, err = 0.0, str(exc)
+            echo, err = None, str(exc)
     else:
         # live mode: never block a render on the network — show the nearest
         # cached frame (radar pops in as the prefetcher lands frames)
         hit = _cached_frame(bbox, graph_w, height_cells, frame, layer)
-        if hit is None:
-            hit = _nearest_cached(bbox, graph_w, height_cells, when, layer)
-            loading = True
         if hit is not None:
             radar, echo = hit
         else:
-            radar, echo = [[None] * graph_w for _ in range(height_cells * 2)], 0.0
+            err = _frames.failure(bbox, graph_w, height_cells, frame, layer)
+            loading = err is None
+            echo = None  # a stand-in's echo is another frame's
+            hit = _nearest_cached(bbox, graph_w, height_cells, when, layer)
+            radar = (hit[0] if hit is not None
+                     else [[None] * graph_w for _ in range(height_cells * 2)])
 
     # condition layers (temperature tint, wind arrows) follow the scrubbed
     # frame's hour, so rewinding shows the field as it was
@@ -293,13 +298,14 @@ def render_radar(lat, lon, location_name, zoom, play_frame=0, playing=True,
     icon = "▶" if playing else "⏸"
     # with the cloud layer in, the coverage figure is cloud, not echo —
     # and its word is what tells the two layers apart up here
-    pct = rs("echo_pct" if layer == "radar" else "cloud_pct",
-             lang, pct=f"{echo:.0f}")
+    if echo is not None:
+        tag += " · " + rs("echo_pct" if layer == "radar" else "cloud_pct",
+                          lang, pct=f"{echo:.0f}")
 
     def _header(place_str):
         return (f"{fg(*MUTED)}{place_str}"
-                f"{RESET}  {fg(*DIM)}{icon} {_fmt_local(when, use_24h)} · {age}{tag} "
-                f"· {pct}{RESET}")
+                f"{RESET}  {fg(*DIM)}{icon} {_fmt_local(when, use_24h)} · {age}{tag}"
+                f"{RESET}")
 
     header = _header(place)
     over = visible_len(header) - cols
