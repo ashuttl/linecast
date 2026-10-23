@@ -638,7 +638,7 @@ def render(report):
     rows = [
         ("TERM", term["term"] or "(unset)"),
         ("COLORTERM", term["colorterm"] or "(unset)"),
-        ("colour", term["color_mode"]
+        ("color", term["color_mode"]
          + ("" if term["stdout_tty"] else " (stdout is not a tty)")),
         ("size", size),
         ("icons", term["icons"]),

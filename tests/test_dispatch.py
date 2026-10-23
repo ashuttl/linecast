@@ -6,6 +6,7 @@ dispatcher must honour the name it was invoked by before it reads a
 single argument.
 """
 
+import importlib
 import sys
 import unittest
 from contextlib import redirect_stderr, redirect_stdout
@@ -172,6 +173,19 @@ class Argv0DispatchTests(unittest.TestCase):
         from linecast import _parsers
         page = re.sub(r"\s+", " ", _parsers.tides_parser().format_help())
         self.assertIn("with no query, the same as --nearby", page)
+
+    def test_english_spells_it_color(self):
+        """The English text had both spellings; color is the one most of
+        it used, and the flags' own (--classic-colors)."""
+        from linecast import _parsers
+        from linecast.locales import en
+        pages = [getattr(_parsers, f"{name}_parser")().format_help()
+                 for name in ("weather", "sunshine", "moon", "sky", "tides", "radar", "maps")]
+        tables = [value for value in vars(en).values() if isinstance(value, (dict, list, str))]
+        doctor = importlib.import_module("linecast.doctor")
+        report = doctor.render(doctor.collect(offline=True))
+        for text in (*pages, repr(tables), report):
+            self.assertNotRegex(text, r"(?i)colour")
 
     def test_zoom_is_degrees_above_zero(self):
         # the views divide by it: 0 was a ZeroDivisionError, nan a ValueError

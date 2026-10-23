@@ -26,7 +26,7 @@ uvx ruff@0.16.9 check src tests scripts
 
 The render tests compare each view against a snapshot in `tests/snapshots`. If your change is meant to alter what a view draws, delete the affected snapshot and run the tests again to write a new one, then read the diff.
 
-The snapshots compare the text alone. For a change that should not alter what linecast draws at all, `uv run python scripts/golden.py check` renders every view before and after it, colours and overlays included, in four languages and three themes, and names any that differ.
+The snapshots compare the text alone. For a change that should not alter what linecast draws at all, `uv run python scripts/golden.py check` renders every view before and after it, colors and overlays included, in four languages and three themes, and names any that differ.
 
 ## Translations
 

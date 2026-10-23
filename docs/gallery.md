@@ -12,7 +12,7 @@ A second desktop in other languages and traditions: Montréal's weather in Canad
 
 ![a second desktop, in Canadian French, Icelandic, Hawaiian, and Japanese](../screenshots/languages.png)
 
-The first desktop again, through ten Omarchy themes. Each app redraws itself in the new colours as the theme changes.
+The first desktop again, through ten Omarchy themes. Each app redraws itself in the new colors as the theme changes.
 
 ![the same desktop through ten Omarchy themes](../screenshots/themes.gif)
 
@@ -148,10 +148,10 @@ Press `v` once more for what moves the tide: a table of the causes and the heigh
 
 ## Radar
 
-The radar wherever the most weather was when the gallery was refreshed, in the terminal's own colours, still and then running through its frames, and then in the four fixed themes: `dusk`, `ember`, `ink`, and `marangai`.
+The radar wherever the most weather was when the gallery was refreshed, in the terminal's own colors, still and then running through its frames, and then in the four fixed themes: `dusk`, `ember`, `ink`, and `marangai`.
 
 <p>
-  <img src="../screenshots/radar.png" width="49%" alt="the radar in the terminal's own colours">
+  <img src="../screenshots/radar.png" width="49%" alt="the radar in the terminal's own colors">
   <img src="../screenshots/radar.gif" width="49%" alt="the same radar, animated">
 </p>
 

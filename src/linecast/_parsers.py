@@ -144,7 +144,7 @@ def _base_parser(prog, description, units=None, clock=False, json=False,
                              f"variant: {', '.join(VARIANTS)}\n"
                              "The language linecast speaks. Default: the terminal's; "
                              "'linecast language' saves one")
-    looks = p.add_argument_group("icons and colours")
+    looks = p.add_argument_group("icons and colors")
     looks.add_argument("--icons", choices=ICON_SETS, default=None,
                        help="Nerd Font glyphs, standard emoji, or plain "
                             "Unicode. Default: what the terminal can show; "
@@ -153,7 +153,7 @@ def _base_parser(prog, description, units=None, clock=False, json=False,
     looks.add_argument("--emoji", action="store_true", help=argparse.SUPPRESS)
     looks.add_argument("--classic-colors", action="store_true",
                        help="a fixed palette, instead of one matched to the "
-                            "terminal's colours")
+                            "terminal's colors")
     # the old name, still taken, not offered
     looks.add_argument("--legacy-colors", action="store_true",
                        help=argparse.SUPPRESS)
