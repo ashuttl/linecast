@@ -2,6 +2,7 @@
 
 import threading
 import time
+import types
 
 import pytest
 
@@ -18,6 +19,17 @@ def _settle(cache, key, timeout=2.0):
                 return
         time.sleep(0.005)
     raise AssertionError("worker never finished")
+
+
+def _clock_in_hand(monkeypatch):
+    """The scenes' monotonic clock turned by hand, and no wakes started."""
+    now = [100.0]
+    monkeypatch.setattr(_scenes, "time", types.SimpleNamespace(
+        monotonic=lambda: now[0], time=time.time, sleep=time.sleep))
+    monkeypatch.setattr(_scenes, "threading", types.SimpleNamespace(
+        Lock=threading.Lock,
+        Thread=lambda **k: types.SimpleNamespace(start=lambda: None)))
+    return now
 
 
 class TestMemo:
@@ -129,7 +141,118 @@ class TestSceneCache:
 
         assert cache.get("k", False, boom) is None
         _settle(cache, "k")
+        assert cache.peek("k") is None
+        # a blocking get is never held: its caller asked to wait
         assert cache.get("k", True, lambda: "ok") == "ok"
+        assert not cache.failed_recently("k")
+
+    def test_a_failed_load_holds_its_key_from_live_frames(self):
+        # a live view repaints on every pointer motion; without the
+        # hold each repaint sent the whole view back to a server that
+        # had just said no (585 requests for 15 tiles in 3 s)
+        cache = SceneCache(empty="empty")
+        calls = []
+
+        def boom():
+            calls.append(1)
+            raise RuntimeError("HTTP 429")
+
+        cache.get("k", False, boom)
+        _settle(cache, "k")
+        for _ in range(50):
+            assert cache.get("k", False, boom) == "empty"
+        assert calls == [1] and not cache._pending
+        assert cache.failed_recently("k")
+        assert not cache.failed_recently("other")
+
+    def test_the_hold_ends_and_the_next_frame_asks_again(self, monkeypatch):
+        monkeypatch.setattr(_scenes, "FAIL_HOLD", 0.05)
+        cache = SceneCache(empty="empty")
+        calls = []
+
+        def boom():
+            calls.append(1)
+            raise RuntimeError("offline")
+
+        cache.get("k", False, boom)
+        _settle(cache, "k")
+        time.sleep(0.07)
+        assert not cache.failed_recently("k")
+        cache.get("k", False, lambda: calls.append(2) or "view")
+        _settle(cache, "k")
+        assert calls == [1, 2]
+        assert cache.get("k", False, boom) == "view"
+        assert "k" not in cache._failed       # a view clears the record
+
+    def test_each_failure_in_a_row_holds_twice_as_long(self, monkeypatch):
+        now = _clock_in_hand(monkeypatch)
+        cache = SceneCache()
+
+        def boom():
+            raise RuntimeError("offline")
+
+        waits = []
+        for _ in range(6):
+            with pytest.raises(RuntimeError):
+                cache.get("k", True, boom)
+            waits.append(cache._failed["k"][0] - now[0])
+            now[0] += 100.0                 # long past each hold
+            cache._failed["k"] = (now[0] - 1.0, cache._failed["k"][1])
+        assert waits == [2.0, 4.0, 8.0, 16.0, 30.0, 30.0]
+
+    def test_a_failure_nobody_asks_about_again_is_forgotten(self, monkeypatch):
+        now = _clock_in_hand(monkeypatch)
+        cache = SceneCache()
+
+        def boom():
+            raise RuntimeError("offline")
+
+        with pytest.raises(RuntimeError):
+            cache.get("old", True, boom)
+        now[0] += _scenes.FAIL_HOLD + _scenes.FAIL_HOLD_MAX + 1
+        with pytest.raises(RuntimeError):
+            cache.get("new", True, boom)
+        assert list(cache._failed) == ["new"]
+
+    def test_the_end_of_a_hold_wakes_the_loop_once(self, monkeypatch):
+        # a view at rest has nothing else to repaint it, so the frame
+        # that asks again has to be woken; a second failure inside the
+        # hold lengthens it rather than arming a second wake
+        monkeypatch.setattr(_scenes, "FAIL_HOLD", 0.05)
+        nudged = []
+        monkeypatch.setattr(_scenes, "nudge", lambda: nudged.append(1))
+        cache = SceneCache()
+
+        def boom():
+            raise RuntimeError("offline")
+
+        for _ in range(2):
+            with pytest.raises(RuntimeError):
+                cache.get("k", True, boom)
+        assert cache._failed["k"][1] == 2
+        time.sleep(0.05)
+        assert nudged == []                  # held for 0.1 s now
+        time.sleep(0.15)
+        assert nudged == [1] and not cache._waking
+
+    def test_a_load_that_brings_nothing_is_a_failure(self):
+        # None is not an answer: it is never kept as the key's view
+        cache = SceneCache(empty="empty")
+        assert cache.get("k", True, lambda: None) is None
+        assert cache.peek("k") is None and "k" not in cache._views
+        assert cache.failed_recently("k")
+        assert cache.get("k", False, lambda: "view") == "empty"
+
+    def test_clear_forgets_the_failures(self):
+        cache = SceneCache()
+
+        def boom():
+            raise RuntimeError("offline")
+
+        with pytest.raises(RuntimeError):
+            cache.get("k", True, boom)
+        cache.clear()
+        assert not cache.failed_recently("k")
 
     def test_a_landed_view_nudges_a_repaint(self, monkeypatch):
         nudged = []

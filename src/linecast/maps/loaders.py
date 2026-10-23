@@ -122,13 +122,15 @@ def _motion_build(cache, key, load):
     Zoom taps keep their hold: a run of them is a view a fetch behind
     at every step, which is what the hold is for.  Nor does anything
     start while the view this motion is heading for is itself being
-    fetched, or while a flight is in the air.
+    fetched, or while a flight is in the air, or for a view whose last
+    load failed a moment ago.
     """
     if not (_in_motion[0] and _build_passing[0]) or _zoom_hold.held():
         return
     if _dest_out[0]:
         return
-    if cache.peek(key) is not None or cache.pending(key):
+    if (cache.peek(key) is not None or cache.pending(key)
+            or cache.failed_recently(key)):
         return
     with _motion_lock:
         if _motion_out[0]:

@@ -3,12 +3,14 @@ tested in test_scenes), and the one slot a moving view builds in.
 """
 
 import threading
+import time
 import types
 
 import pytest
 
 from linecast.maps import view as maps
 from linecast.maps import loaders
+from linecast.terminal import scenes as _scenes
 from linecast.terminal.scenes import FetchHold, SceneCache
 
 
@@ -174,6 +176,53 @@ class TestTheMotionSlot:
         assert loaders._motion_out[0] is False
         loaders._motion_build(cache, "b", lambda: "b")
         assert len(started) == 2
+
+
+    def test_a_view_that_just_failed_is_not_built_in_passing(self, motion):
+        started, _woke = motion
+        cache = _cache()
+
+        def boom():
+            raise RuntimeError("HTTP 429")
+
+        with pytest.raises(RuntimeError):
+            cache.get("a", True, boom)
+        loaders._motion_build(cache, "a", lambda: "a")
+        assert started == []
+
+
+class TestAFailedViewIsHeld:
+    """A view whose every tile failed is not asked for again on the
+    next repaint: a map at rest repaints on every pointer motion."""
+
+    BBOX = (2.30, 48.83, 2.40, 48.88)
+
+    def test_a_storm_of_repaints_asks_once(self, monkeypatch):
+        keys = [(14, x, 5000) for x in range(15)]
+        monkeypatch.setattr(loaders.streets, "view_tiles",
+                            lambda *a, **k: (12, 14, keys))
+        asked = []
+
+        def refused(want):
+            asked.extend(want)            # a 429 for every one of them
+            return dict.fromkeys(want)
+
+        monkeypatch.setattr(loaders.streets, "fetch_tiles", refused)
+        monkeypatch.setattr(_scenes, "nudge", lambda: None)
+        cache = loaders._street_cache
+        cache.clear()
+        try:
+            for _ in range(80):
+                assert loaders._get_street_tiles(self.BBOX, 8, 4, False) == (
+                    None, None, None)
+                deadline = time.monotonic() + 2.0
+                while cache._pending and time.monotonic() < deadline:
+                    time.sleep(0.002)
+            key = loaders._view_key(self.BBOX, 8, 4) + ("en", ())
+            assert len(asked) == 15
+            assert cache.failed_recently(key) and cache.peek(key) is None
+        finally:
+            cache.clear()
 
 
 class TestTheLoadersInMotion:
