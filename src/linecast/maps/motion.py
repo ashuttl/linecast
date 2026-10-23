@@ -80,8 +80,11 @@ class Flight:
             u1 = self.u1
             b0 = (w1 * w1 - w0 * w0 + rho ** 4 * u1 * u1) / (2 * w0 * rho * rho * u1)
             b1 = (w1 * w1 - w0 * w0 - rho ** 4 * u1 * u1) / (2 * w1 * rho * rho * u1)
-            r0 = math.log(-b0 + math.sqrt(b0 * b0 + 1.0))
-            r1 = math.log(-b1 + math.sqrt(b1 * b1 + 1.0))
+            # log(-b + sqrt(b² + 1)) in the paper, which is -asinh(b);
+            # written that way it cancels to log(0) once b is large,
+            # which a big zoom out over a short hop makes it
+            r0 = -math.asinh(b0)
+            r1 = -math.asinh(b1)
             self.r0 = r0
             self.k = None
             self.S = (r1 - r0) / rho
@@ -103,8 +106,11 @@ class Flight:
             w = self.w0 * math.exp(self.k * rho * s)
         else:
             r0 = self.r0
-            u = (self.w0 / (rho * rho) * math.cosh(r0) * math.tanh(rho * s + r0)
-                 - self.w0 / (rho * rho) * math.sinh(r0))
+            # the paper's cosh(r0)·tanh(ρs + r0) - sinh(r0), which is
+            # this; that form subtracts two numbers near cosh(r0), and
+            # r0 is large wherever one end is far wider than the other
+            u = (self.w0 / (rho * rho) * math.sinh(rho * s)
+                 / math.cosh(rho * s + r0))
             w = self.w0 * math.cosh(r0) / math.cosh(rho * s + r0)
             frac = max(0.0, min(1.0, u / self.u1))
         lat = self.lat0 + (self.lat1 - self.lat0) * frac

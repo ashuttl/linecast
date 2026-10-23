@@ -95,6 +95,27 @@ class TestFlight:
         assert zooms[top:] == sorted(zooms[top:], reverse=True)
         assert math.isclose(zooms[0], zooms[-1])
 
+    @pytest.mark.parametrize("w0, w1", [(0.05, 130.0), (130.0, 0.05),
+                                        (0.0012, 170.0), (170.0, 0.0012)])
+    @pytest.mark.parametrize("hop", [0.0005, 2e-6])
+    def test_a_short_hop_across_the_whole_range_of_zoom(self, w0, w1, hop):
+        # 55 m away at street zoom, then `n` home to a `--view now`
+        # start: the paper's log(-b + sqrt(b² + 1)) cancelled to log(0)
+        # and the flight raised before it began.  And the reverse.
+        lat, lon = 43.68, -70.37
+        f = mm.Flight(lat, lon, w0, lat + hop, lon, w1)
+        assert mm.FLIGHT_MIN <= f.duration <= mm.FLIGHT_MAX
+        steps = [f.at(f.duration * k / 400) for k in range(400)]
+        steps.append(f.at(f.duration))
+        assert steps[0] == (lat, lon, w0)
+        assert steps[-1] == (lat + hop, lon, w1)
+        lats = [v[0] for v in steps]
+        zooms = [v[2] for v in steps]
+        assert lats == sorted(lats)
+        # all zoom and next to no pan, so the height never turns back
+        assert zooms == sorted(zooms, reverse=w0 > w1)
+        assert math.isclose(zooms[200], math.sqrt(w0 * w1), rel_tol=0.05)
+
     def test_the_duration_is_bounded_at_both_ends(self):
         for args in ((0.0, 0.0, 1.0, 0.0, 0.0001, 1.0),
                      (0.0, 0.0, 0.01, 60.0, 179.0, 0.01),
