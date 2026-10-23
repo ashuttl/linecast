@@ -24,7 +24,7 @@ Free tier: 50 requests/day (no credit card required).  linecast counts
 
 import os
 import re
-from datetime import date, datetime, timezone, tzinfo
+from datetime import date, datetime, timedelta, timezone, tzinfo
 from typing import Any
 
 from linecast._cache import location_cache_key, read_cache, read_stale, write_cache
@@ -32,8 +32,8 @@ from linecast._config import saved_tidecheck_key
 from linecast._http import fetch_json, fetch_json_cached
 from linecast._log import log_failure, log_skipped
 from linecast.tides.common import (
-    M_TO_FT, NEAREST_STATION_CACHE_MAX_AGE, cache_dir, cached_y_range,
-    iana_to_abbr, parse_cached_dt, parse_utc_iso, tz_offset_hours,
+    M_TO_FT, NEAREST_STATION_CACHE_MAX_AGE, cache_dir, cached_y_range, fetch_lock,
+    iana_to_abbr, local_day_bounds, parse_cached_dt, parse_utc_iso, tz_offset_hours,
     y_range_window,
 )
 
@@ -247,9 +247,9 @@ def fetch_station_metadata_tidecheck(station_id: str) -> dict[str, Any] | None:
         return cached
 
     # TideCheck embeds station info (lat/lng/timezone/country) in the tides
-    # response; reuse the 30-day fetch the y-range needs so metadata never
-    # costs a request of its own (the free tier allows 50/day).
-    data = _fetch_tides_raw(station_id, days=30)
+    # response; reuse the one the predictions are read from, so metadata
+    # never costs a request of its own (the free tier allows 50/day).
+    data = _fetch_tides_raw(station_id)
     if not data:
         return None
 
@@ -285,19 +285,39 @@ def is_tidecheck_station_id(text: str) -> bool:
     return re.fullmatch(r"[a-z0-9]+(-[a-z0-9]+)+", text) is not None
 
 
-def _fetch_tides_raw(station_id, days=7):
-    """Fetch raw TideCheck tides response (cached 24 hours).
+# The days a request asks for: all the free tier serves
+DAYS = 30
 
-    Returns the full JSON dict or None.  Aggressively cached because the
-    free tier allows only 50 requests/day.
+
+def _fetch_tides_raw(station_id):
+    """The station's TideCheck response, its highs and lows and its
+    fifteen-minute heights, as a dict, or None.  Cached 24 hours.
+
+    The window is not the caller's to choose: the API starts it at
+    00:00 UTC the day before the request, whatever is asked, and runs it
+    the days asked for.  So the one request asks for all 30, and every
+    view reads it: the day's chart and its scroll, the month, --json
+    and --oneline, the axis and the station's metadata.  One request a
+    day for a station is the most the free tier's 50 allow for, and
+    offline the response stands in for the days it still covers.
     """
     if not is_available():
         return None
 
-    cache_file = cache_dir() / f"tc_raw_{station_id}_{days}d.json"
-    url = f"{TIDECHECK_BASE}/station/{station_id}/tides?days={days}&datum=MLLW"
-    return fetch_json_cached(cache_file, 86400, url, fetch=_fetch, timeout=15,
-                             fallback=None, provider="tides/tidecheck")
+    cache_file = cache_dir() / f"tc_raw_{station_id}.json"
+    url = f"{TIDECHECK_BASE}/station/{station_id}/tides?days={DAYS}&datum=MLLW"
+    # the day view asks for its curve, its turns and its axis side by
+    # side, and they wait for one request rather than make three
+    with fetch_lock(cache_file.name):
+        return fetch_json_cached(cache_file, 86400, url, fetch=_fetch, timeout=15,
+                                 fallback=None, provider="tides/tidecheck")
+
+
+def _within(points, start_date, end_date, station_tz):
+    """The points from the midnight opening *start_date* to the one
+    closing *end_date*, in the station's zone (UTC without one)."""
+    lo, hi = local_day_bounds(start_date, end_date, station_tz or timezone.utc)
+    return [p for p in points if lo <= p[0] <= hi]
 
 
 def fetch_tides_range_tidecheck(
@@ -316,20 +336,14 @@ def fetch_tides_range_tidecheck(
     """
     if not is_available():
         return []
-    data = _fetch_tides_raw(station_id, days=_fetch_days(start_date, end_date))
-    series = _series_points(data, station_tz)
-    if series:
-        return series
-    from linecast.tides.noaa import synthesize_tides_from_hilo
-    labeled = fetch_hilo_range_tidecheck(station_id, start_date, end_date,
-                                         station_tz)
-    return synthesize_tides_from_hilo(labeled)
-
-
-def _fetch_days(start_date, end_date):
-    """The days to ask for to cover the range: two to spare, and no more
-    than the 30 the API serves."""
-    return min(30, max(1, (end_date - start_date).days + 1) + 2)
+    series = _series_points(_fetch_tides_raw(station_id), station_tz)
+    if not series:
+        # a turn either side anchors the curve at the window's edges
+        from linecast.tides.noaa import synthesize_tides_from_hilo
+        series = synthesize_tides_from_hilo(fetch_hilo_range_tidecheck(
+            station_id, start_date - timedelta(days=1), end_date + timedelta(days=1),
+            station_tz))
+    return _within(series, start_date, end_date, station_tz)
 
 
 def _series_points(data, station_tz):
@@ -374,20 +388,13 @@ def fetch_hilo_range_tidecheck(
 ) -> list[tuple[datetime, float, str]]:
     """Fetch TideCheck high/low extremes across a date range.
 
-    Returns sorted list of (datetime, height_ft, "H"/"L") tuples.
+    Returns sorted list of (datetime, height_ft, "H"/"L") tuples, read
+    from the station's response, which the curve comes from too.
     """
     if not is_available():
         return []
 
-    start_str = start_date.strftime("%Y%m%d")
-    end_str = end_date.strftime("%Y%m%d")
-    cache_file = cache_dir() / f"tc_hilo_{station_id}_{start_str}_{end_str}.json"
-
-    cached = read_cache(cache_file, 86400)
-    if cached is not None:
-        return [(parse_cached_dt(r["dt"], station_tz), r["v"], r["t"]) for r in cached]
-
-    data = _fetch_tides_raw(station_id, days=_fetch_days(start_date, end_date))
+    data = _fetch_tides_raw(station_id)
     if not data or not isinstance(data, dict):
         return []
 
@@ -399,7 +406,11 @@ def fetch_hilo_range_tidecheck(
     bad = None
     for ex in extremes:
         try:
+            # aware in a fixed offset, as the series' samples are, so a
+            # time past a change of clock is placed by the hours that
+            # have passed, not by the wall clock
             dt_local = parse_utc_iso(ex.get("time", ""), station_tz)
+            dt_local = parse_cached_dt(dt_local.isoformat(), station_tz)
             height = float(ex.get("height", 0))
             height_ft = _maybe_convert_height(height, data)
             # TideCheck labels extremes as "high"/"low" (or "H"/"L")
@@ -418,13 +429,7 @@ def fetch_hilo_range_tidecheck(
                 len(extremes) - len(labeled), len(extremes), bad)
 
     labeled.sort(key=lambda p: p[0])
-
-    cache_rows = [{"dt": dt.isoformat(), "v": v, "t": t} for dt, v, t in labeled]
-    write_cache(cache_file, cache_rows)
-    # Read back from the rows, as the next run will read them: aware in
-    # a fixed offset, so a time past a change of clock is placed by the
-    # hours that have passed, not by the wall clock.
-    return [(parse_cached_dt(r["dt"], station_tz), r["v"], r["t"]) for r in cache_rows]
+    return _within(labeled, start_date, end_date, station_tz)
 
 
 def fetch_y_range_tidecheck(station_id: str, center_date: date,
@@ -438,8 +443,8 @@ def fetch_y_range_tidecheck(station_id: str, center_date: date,
     _, _, key = y_range_window(center_date)
 
     def heights():
-        # Fetch a 30-day window (the maximum TideCheck supports)
-        data = _fetch_tides_raw(station_id, days=30)
+        # the response's 30 days, the most TideCheck serves
+        data = _fetch_tides_raw(station_id)
         if not data:
             return None
         found = []

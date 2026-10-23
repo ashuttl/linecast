@@ -276,20 +276,21 @@ class HiloRangeTests(unittest.TestCase):
         self.assertEqual(result[1][2], "L")
         self.assertEqual(result[2][2], "H")
 
-    def test_returns_cached_hilo(self):
-        cached = [
-            {"dt": "2026-03-27T06:30:00+00:00", "v": 1.8, "t": "H"},
-            {"dt": "2026-03-27T12:45:00+00:00", "v": 0.3, "t": "L"},
-        ]
+    def test_the_window_is_cut_from_the_response(self):
+        raw_data = {"extremes": [
+            {"time": "2026-03-26T18:50:00Z", "height": 1.6, "type": "high"},
+            {"time": "2026-03-27T06:30:00Z", "height": 1.8, "type": "high"},
+            {"time": "2026-03-27T12:45:00Z", "height": 0.3, "type": "low"},
+            {"time": "2026-03-28T01:10:00Z", "height": 1.7, "type": "high"},
+        ]}
         with patch.dict("os.environ", {"LINECAST_TIDECHECK_KEY": "k"}), \
-             patch.object(tc, "read_cache", return_value=cached):
+             patch.object(tc, "_fetch_tides_raw", return_value=raw_data):
             result = tc.fetch_hilo_range_tidecheck(
                 "test-id", date(2026, 3, 27), date(2026, 3, 27), timezone.utc)
+        self.assertEqual([t.strftime("%d %H:%M") for t, _h, _k in result],
+                         ["27 06:30", "27 12:45"])
 
-        self.assertEqual(len(result), 2)
-        self.assertEqual(result[0][2], "H")
-
-    def test_fetched_extremes_are_placed_as_cached_ones_are(self):
+    def test_extremes_are_placed_by_the_hours_that_pass(self):
         # Lisbon's clocks go back at 2am on 25 October: 27 hours pass
         # between these two, which the wall clock counts as 26
         from datetime import datetime
@@ -300,19 +301,77 @@ class HiloRangeTests(unittest.TestCase):
             {"time": "2026-10-25T14:00:00Z", "height": 0.3, "type": "low"},
         ]}
         with patch.dict("os.environ", {"LINECAST_TIDECHECK_KEY": "k"}), \
-             patch.object(tc, "read_cache", return_value=None), \
-             patch.object(tc, "_fetch_tides_raw", return_value=raw_data), \
-             patch.object(tc, "write_cache") as write_cache:
+             patch.object(tc, "_fetch_tides_raw", return_value=raw_data):
             fetched = tc.fetch_hilo_range_tidecheck(
                 "fes2022-lisbon", date(2026, 10, 24), date(2026, 10, 25), lisbon)
-        rows = write_cache.call_args.args[1]
-        with patch.dict("os.environ", {"LINECAST_TIDECHECK_KEY": "k"}), \
-             patch.object(tc, "read_cache", return_value=rows):
-            cached = tc.fetch_hilo_range_tidecheck(
-                "fes2022-lisbon", date(2026, 10, 24), date(2026, 10, 25), lisbon)
         start = datetime(2026, 10, 24, 12, 0, tzinfo=lisbon)
-        for points in (fetched, cached):
-            self.assertEqual([(p[0] - start).total_seconds() / 3600 for p in points], [0, 27])
+        self.assertEqual([(p[0] - start).total_seconds() / 3600 for p in fetched], [0, 27])
+
+
+class OneResponseTests(unittest.TestCase):
+    """Every view reads the one response a day the station's request
+    brings, so a key's fifty requests go fifty stations' way."""
+
+    def setUp(self):
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        for env in (patch.dict("os.environ", {"LINECAST_TIDECHECK_KEY": "k",
+                                              "LINECAST_CACHE_DIR": tmp.name}),):
+            env.start()
+            self.addCleanup(env.stop)
+        start = datetime(2026, 10, 22, tzinfo=timezone.utc)
+        self.payload = {
+            "station": {"id": "fes2022-lisbon", "name": "Lisbon", "country": "Portugal",
+                        "lat": 38.71, "lng": -9.14, "timezone": "Europe/Lisbon"},
+            "datum": "MLLW",
+            "extremes": [{"time": (start + timedelta(minutes=372 * k))
+                          .strftime("%Y-%m-%dT%H:%M:%S.000Z"),
+                          "height": 3.0 if k % 2 else 0.5, "type": "high" if k % 2 else "low"}
+                         for k in range(31 * 4)],
+            "timeSeries": _quarter_hours(start, 31 * 96 + 1),
+        }
+
+    def test_every_view_is_one_request(self):
+        lisbon = ZoneInfo("Europe/Lisbon")
+        today, day = date(2026, 10, 23), timedelta(days=1)
+        with patch.object(tc, "fetch_json", return_value=self.payload) as fetch:
+            tc.fetch_station_metadata_tidecheck("fes2022-lisbon")
+            for start, end in ((today - day, today + 2 * day),        # --json
+                               (today - day, today + day),            # --oneline
+                               (today - 7 * day, today + 7 * day),    # the live view
+                               (date(2026, 10, 1), date(2026, 10, 31)),  # the month
+                               (date(2026, 11, 1), date(2026, 11, 30))):
+                self.assertTrue(tc.fetch_tides_range_tidecheck("fes2022-lisbon", start, end,
+                                                               lisbon))
+                tc.fetch_hilo_range_tidecheck("fes2022-lisbon", start, end, lisbon)
+            self.assertIsNotNone(tc.fetch_y_range_tidecheck("fes2022-lisbon", today, lisbon))
+        self.assertEqual(fetch.call_count, 1)
+        self.assertIn("days=30", fetch.call_args.args[0])
+        self.assertEqual(tc.requests_today(), 1)
+
+    def test_tomorrow_reads_todays_response_offline(self):
+        lisbon = ZoneInfo("Europe/Lisbon")
+        today, day = date(2026, 10, 23), timedelta(days=1)
+        with patch.object(tc, "fetch_json", return_value=self.payload):
+            tc.fetch_tides_range_tidecheck("fes2022-lisbon", today - day, today + day, lisbon)
+        later = time.time() + 86400 + 60
+        with patch.object(tc, "fetch_json", side_effect=OSError("offline")), \
+             patch.object(time, "time", return_value=later):
+            curve = tc.fetch_tides_range_tidecheck("fes2022-lisbon", today, today + 2 * day,
+                                                   lisbon)
+            turns = tc.fetch_hilo_range_tidecheck("fes2022-lisbon", today, today + 2 * day,
+                                                  lisbon)
+        self.assertEqual(curve[0][0], datetime(2026, 10, 23, tzinfo=lisbon))
+        self.assertEqual(curve[-1][0], datetime(2026, 10, 26, tzinfo=lisbon))
+        self.assertTrue(turns)
+
+    def test_a_curve_made_from_the_turns_reaches_the_windows_edges(self):
+        del self.payload["timeSeries"]
+        with patch.object(tc, "fetch_json", return_value=self.payload):
+            curve = tc.fetch_tides_range_tidecheck("fes2022-lisbon", date(2026, 10, 24),
+                                                   date(2026, 10, 24), timezone.utc)
+        self.assertLess(curve[0][0], datetime(2026, 10, 24, 0, 7, tzinfo=timezone.utc))
+        self.assertGreater(curve[-1][0], datetime(2026, 10, 24, 23, 53, tzinfo=timezone.utc))
 
 
 class TidesRangeTests(unittest.TestCase):
@@ -774,19 +833,18 @@ class SeriesRequestTests(unittest.TestCase):
         self.fetch.assert_called_once()
         self.assertEqual(tc.requests_today(), 1)
 
-    def test_the_request_covers_the_range_with_two_days_to_spare(self):
-        def days_asked(start, end):
-            self.fetch.reset_mock()
+    def test_the_request_asks_for_the_30_days_whatever_the_range(self):
+        # the API starts its window the day before the request whatever
+        # is asked, so a shorter one would only cost a second request
+        # when a longer range was wanted
+        for start, end in ((date(2026, 3, 27), date(2026, 3, 27)),
+                           (date(2026, 3, 1), date(2026, 3, 31))):
             tc.fetch_tides_range_tidecheck("fes2022-lisbon", start, end, timezone.utc)
-            url = self.fetch.call_args.args[0]
-            self.assertIn("/station/fes2022-lisbon/tides?", url)
-            self.assertIn("datum=MLLW", url)
-            return int(url.split("days=")[1].split("&")[0])
-
-        self.assertEqual(days_asked(date(2026, 3, 27), date(2026, 3, 27)), 3)
-        self.assertEqual(days_asked(date(2026, 3, 27), date(2026, 4, 2)), 9)
-        # a month view's 31 days, and the 30 that are the most the API serves
-        self.assertEqual(days_asked(date(2026, 3, 1), date(2026, 3, 31)), 30)
+        url = self.fetch.call_args.args[0]
+        self.assertIn("/station/fes2022-lisbon/tides?", url)
+        self.assertIn("datum=MLLW", url)
+        self.assertIn("days=30", url)
+        self.fetch.assert_called_once()
 
     def test_without_a_key_nothing_is_asked(self):
         with patch.dict("os.environ", {"LINECAST_TIDECHECK_KEY": ""}):
@@ -799,7 +857,7 @@ class SeriesRequestTests(unittest.TestCase):
         day = date(2026, 3, 27)
         curve = tc.fetch_tides_range_tidecheck("fes2022-lisbon", day, day, timezone.utc)
         # the copy has gone stale and the day's budget is spent
-        raw_file = common.cache_dir() / "tc_raw_fes2022-lisbon_3d.json"
+        raw_file = common.cache_dir() / "tc_raw_fes2022-lisbon.json"
         then = time.time() - 2 * 86400
         os.utime(raw_file, (then, then))
         tc.write_cache(tc._tally_file(), {"count": tc.FREE_TIER_LIMIT})
