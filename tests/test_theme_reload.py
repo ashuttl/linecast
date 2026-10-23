@@ -886,10 +886,12 @@ def test_a_changed_watch_file_is_seen_within_half_a_second(tmp_path, monkeypatch
     to it asks for the whole palette at once, then briskly for a while."""
     watch = tmp_path / "theme.name"
     watch.write_text("tokyo-night")
-    os.utime(watch, ns=(1, 1))
+    # a second apart: NTFS keeps a file's times to 100 ns, so on Windows
+    # one nanosecond and two are the same time
+    os.utime(watch, ns=(10**9, 10**9))
 
     def switch():
-        os.utime(watch, ns=(2, 2))
+        os.utime(watch, ns=(2 * 10**9, 2 * 10**9))
     waits, probes, _clock = _idle_loop(monkeypatch, 12, watch=str(watch), at=(7.2, switch))
     assert max(waits) <= 0.5
     after = [(t, full) for t, full in probes if t > 7.2]
