@@ -24,8 +24,8 @@ from linecast._http import fetch_json, fetch_json_cached
 from linecast._log import log_failure, log_skipped
 from linecast.tides.common import (
     M_TO_FT, NEAREST_STATION_MAX_NM, cache_dir, cached_y_range, dedup_sorted,
-    label_hilo, nearest_station, parse_cached_dt, station_coords,
-    y_range_window,
+    fetch_lock, label_hilo, local_day_bounds, month_after, months_covering,
+    nearest_station, parse_cached_dt, station_coords, y_range_window,
 )
 
 QLD_BASE = "https://www.data.qld.gov.au/api/3/action"
@@ -376,48 +376,50 @@ def _search_datastore(resource_id, dates, fields, limit, timeout=20):
     return (data.get("result") or {}).get("records") or []
 
 
-def _fetch_pred_chunk(station_name, start_date, end_date):
-    """Fetch a chunk of QLD predictions.
+# A month of ten-minute readings is 4,464 records; the room for twice
+# that leaves a month re-uploaded with its old rows in place whole.
+_MONTH_RECORDS = 10000
 
-    Returns list of (datetime_aest, height_ft) tuples.  A chunk that
-    spans New Year takes a request to each year's resource; only the
-    rows parsed from them are cached, and a request that fails leaves
-    the last rows standing.
+
+def _pred_month(station_name, first):
+    """The gauge's predictions for the calendar month from *first*, as
+    (datetime_aest, height_ft), cached a day.
+
+    A month is one request, to its year's resource; only the rows
+    parsed from it are cached, and a request that fails leaves the
+    last rows standing.
     """
-    start_str = start_date.strftime("%Y%m%d")
-    end_str = end_date.strftime("%Y%m%d")
-    cache_file = cache_dir() / f"qld_pred_{_safe_name(station_name)}_{start_str}_{end_str}.json"
+    cache_file = cache_dir() / f"qld_pred_{_safe_name(station_name)}_{first:%Y%m}.json"
 
     def fetch(url, timeout):
-        by_year = _dates_by_year(start_date, end_date)
-        years = _year_resources(station_name, by_year)
+        dates = _dates_by_year(first, month_after(first) - timedelta(days=1))
+        years = _year_resources(station_name, dates)
         if years is None:
             raise LookupError(f"no gauge named {station_name!r}")
+        resource_id = years.get(str(first.year))
+        if not resource_id:
+            # No resource for this year (typically next year's, not yet
+            # published): the range just ends where the data does.
+            return []
+        records = _search_datastore(resource_id, dates[first.year], "Date,Time,Reading",
+                                    limit=_MONTH_RECORDS, timeout=timeout)
         rows = []
-        for year, dates in by_year.items():
-            resource_id = years.get(str(year))
-            if not resource_id:
-                # No resource for this year (typically next year's, not yet
-                # published): the range just ends where the data does.
+        bad = None
+        for rec in records:
+            try:
+                dt_local = _parse_gauge_dt(rec["Date"], rec["Time"])
+                height_ft = float(rec["Reading"]) * M_TO_FT
+            except (KeyError, ValueError, TypeError) as exc:
+                bad = exc
                 continue
-            records = _search_datastore(resource_id, dates, "Date,Time,Reading",
-                                        limit=5000, timeout=timeout)
-            kept = len(rows)
-            bad = None
-            for rec in records:
-                try:
-                    dt_local = _parse_gauge_dt(rec["Date"], rec["Time"])
-                    height_ft = float(rec["Reading"]) * M_TO_FT
-                except (KeyError, ValueError, TypeError) as exc:
-                    bad = exc
-                    continue
-                rows.append({"dt": dt_local.isoformat(), "v": height_ft})
-            log_skipped("tides/qld", f"{year} prediction records",
-                        len(records) - (len(rows) - kept), len(records), bad)
+            rows.append({"dt": dt_local.isoformat(), "v": height_ft})
+        log_skipped("tides/qld", f"{first:%Y-%m} prediction records",
+                    len(records) - len(rows), len(records), bad)
         return rows
 
-    rows = fetch_json_cached(cache_file, 86400, f"{QLD_BASE}/datastore_search",
-                             fetch=fetch, timeout=20, fallback=[], provider="tides/qld")
+    with fetch_lock(cache_file.name):
+        rows = fetch_json_cached(cache_file, 86400, f"{QLD_BASE}/datastore_search",
+                                 fetch=fetch, timeout=20, fallback=[], provider="tides/qld")
     return [(parse_cached_dt(r["dt"], AEST), r["v"]) for r in rows]
 
 
@@ -428,16 +430,16 @@ def fetch_tides_range_qld(station_name: str, start_date: date, end_date: date,
     Returns sorted list of (datetime, height_ft) tuples.
     The station_tz parameter is accepted for API compatibility but QLD
     stations are always AEST.
+
+    They are fetched and kept a calendar month at a time, as NOAA's are,
+    so every window in a month reads the same file: the day's chart and
+    the scroll either side of it, the month view, and tomorrow's window,
+    offline too.  A year is twelve requests.
     """
+    lo, hi = local_day_bounds(start_date, end_date, AEST)
     points = []
-    # Fetch in two-day chunks so scrolling reuses cached days.
-    d = start_date
-    while d <= end_date:
-        chunk_end = min(d + timedelta(days=1), end_date)
-        chunk = _fetch_pred_chunk(station_name, d, chunk_end)
-        if chunk:
-            points.extend(chunk)
-        d = chunk_end + timedelta(days=1)
+    for first in months_covering(start_date, end_date):
+        points += [p for p in _pred_month(station_name, first) if lo <= p[0] < hi]
     return dedup_sorted(points)
 
 

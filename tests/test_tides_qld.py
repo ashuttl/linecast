@@ -7,10 +7,14 @@ API changes format, these tests will catch it.
 """
 
 import json
+import os
+import tempfile
+import time
 import unittest
 from datetime import date, timedelta
 from pathlib import Path
 from unittest.mock import patch
+from urllib.parse import parse_qs, urlsplit
 
 from linecast import _http
 from linecast.tides import common
@@ -134,7 +138,7 @@ class TestPredictionFetch(unittest.TestCase):
              patch.object(_http, "write_cache"), \
              patch.object(qld, "fetch_all_stations_qld", return_value=STATIONS), \
              patch.object(qld, "fetch_json", return_value=data) as fj:
-            points = qld._fetch_pred_chunk("Southport", day, day)
+            points = qld._pred_month("Southport", day.replace(day=1))
         return points, fj
 
     def test_chunk_parses_all_records(self):
@@ -163,8 +167,7 @@ class TestPredictionFetch(unittest.TestCase):
              patch.object(_http, "write_cache"), \
              patch.object(qld, "fetch_all_stations_qld", return_value=STATIONS), \
              patch.object(qld, "fetch_json") as fj:
-            points = qld._fetch_pred_chunk("Southport",
-                                           date(2027, 3, 1), date(2027, 3, 2))
+            points = qld._pred_month("Southport", date(2027, 3, 1))
         self.assertEqual(points, [])
         fj.assert_not_called()
 
@@ -174,8 +177,7 @@ class TestPredictionFetch(unittest.TestCase):
              patch.object(_http, "write_cache") as wc, \
              patch.object(qld, "fetch_all_stations_qld", return_value=[]), \
              patch.object(qld, "fetch_json") as fj:
-            points = qld._fetch_pred_chunk("Southport",
-                                           date(2026, 8, 26), date(2026, 8, 26))
+            points = qld._pred_month("Southport", date(2026, 8, 1))
         self.assertEqual(points, [])
         fj.assert_not_called()
         wc.assert_not_called()
@@ -187,8 +189,7 @@ class TestPredictionFetch(unittest.TestCase):
              patch.object(_http, "write_cache") as wc, \
              patch.object(qld, "fetch_all_stations_qld", return_value=STATIONS), \
              patch.object(qld, "fetch_json", side_effect=OSError("offline")):
-            points = qld._fetch_pred_chunk("Southport",
-                                           date(2026, 8, 26), date(2026, 8, 26))
+            points = qld._pred_month("Southport", date(2026, 8, 1))
         self.assertEqual(len(points), 1)
         self.assertEqual(points[0][1], 1.5)
         self.assertEqual(points[0][0].utcoffset(), timedelta(hours=10))
@@ -211,6 +212,68 @@ class TestPredictionFetch(unittest.TestCase):
         self.assertEqual([dt.strftime("%H:%M") for dt, _ in points],
                          ["00:00", "00:10"])
         self.assertAlmostEqual(points[1][1], 1.100 * common.M_TO_FT)
+
+
+class TestMonthBlocks(unittest.TestCase):
+    """The predictions are kept a calendar month to a file, so every
+    window in the month reads the same one."""
+
+    def setUp(self):
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        env = patch.dict(os.environ, {"LINECAST_CACHE_DIR": tmp.name})
+        env.start()
+        self.addCleanup(env.stop)
+        stations = patch.object(qld, "fetch_all_stations_qld", return_value=STATIONS)
+        stations.start()
+        self.addCleanup(stations.stop)
+
+    @staticmethod
+    def _datastore(url, timeout=None):
+        """Ten-minute readings for each date the request filters on, the
+        newest first, as datastore_search sorts them."""
+        query = parse_qs(urlsplit(url).query)
+        records = []
+        for day in json.loads(query["filters"][0])["Date"]:
+            for k in range(144):
+                records.append({"Date": day, "Time": f"{k // 6:02d}:{k % 6 * 10:02d}",
+                                "Reading": f"{1.2 + (k % 75) / 100:.3f}"})
+        return {"result": {"records": records[::-1]}}
+
+    def _fetching(self):
+        return patch.object(qld, "fetch_json", side_effect=self._datastore)
+
+    def test_the_month_view_asks_once_a_month(self):
+        first, last = date(2026, 11, 1), date(2026, 11, 30)
+        day = timedelta(days=1)
+        with self._fetching() as fetch:
+            curve = qld.fetch_tides_range_qld("Brisbane Bar", first, last)
+            turns = qld.fetch_hilo_range_qld("Brisbane Bar", first - day, last + day)
+        # November for the curve, and October and December for the turns
+        # either side; the turns' November is the curve's file
+        self.assertEqual(fetch.call_count, 3)
+        self.assertEqual(len(curve), 30 * 144)
+        self.assertEqual(curve[0][0].date(), first)
+        self.assertEqual(curve[-1][0].date(), last)
+        self.assertTrue(turns)
+
+    def test_a_year_is_twelve_requests(self):
+        with self._fetching() as fetch:
+            turns = qld.fetch_hilo_range_qld("Brisbane Bar", date(2026, 1, 1), date(2026, 12, 31))
+        self.assertEqual(fetch.call_count, 12)
+        self.assertTrue(turns)
+
+    def test_tomorrows_window_reads_todays_file_offline(self):
+        today, day = date(2026, 11, 12), timedelta(days=1)
+        with self._fetching():
+            before = qld.fetch_tides_range_qld("Brisbane Bar", today - day, today + day)
+        later = time.time() + 86400 + 60
+        with patch.object(qld, "fetch_json", side_effect=OSError("offline")), \
+             patch.object(time, "time", return_value=later):
+            after = qld.fetch_tides_range_qld("Brisbane Bar", today, today + 2 * day)
+        self.assertEqual(len(before), 3 * 144)
+        self.assertEqual(len(after), 3 * 144)
+        self.assertEqual(after[0][0], before[0][0] + day)
 
 
 # ---------------------------------------------------------------------------
