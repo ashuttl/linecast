@@ -132,7 +132,12 @@ def stitch_xyz(fetch_tile: Callable[[int, int, int], tuple[int, int, bytearray] 
     # world-pixel corners of the view (NW = top-left, SE = bottom-right)
     x0f, y0f = lonlat_to_world(minlon, maxlat)
     x1f, y1f = lonlat_to_world(maxlon, minlat)
-    tx0, tx1 = math.floor(x0f * n), math.floor(x1f * n)
+    # the east edge by ceiling, as vtiles.tiles_for_bbox takes it: an
+    # edge on a tile boundary ends there, and the whole world is n
+    # columns rather than n and tile 0 again.  Rows need no such care,
+    # since the poles clamp them.
+    tx0 = math.floor(x0f * n)
+    tx1 = max(tx0, math.ceil(x1f * n) - 1)
     ty0, ty1 = math.floor(y0f * n), math.floor(y1f * n)
     ty0, ty1 = max(0, ty0), min(n - 1, ty1)
 
@@ -194,13 +199,15 @@ def reproject_xyz(fetch_tile: Callable[[int, int, int], tuple[int, int, bytearra
     for ox in range(w):
         lon = minlon + (ox + 0.5) / w * (maxlon - minlon)
         wx, _ = lonlat_to_world(lon, minlat)
-        col_cx.append(int(wx * world) - org_x)
+        # floor, not int: west of the antimeridian world x is negative,
+        # and truncating it would take the pixel east of the line
+        col_cx.append(math.floor(wx * world) - org_x)
 
     out = bytearray(w * h * 4)
     for oy in range(h):
         lat = maxlat - (oy + 0.5) / h * (maxlat - minlat)
         _, wy = lonlat_to_world(minlon, lat)
-        cy = int(wy * world) - org_y
+        cy = math.floor(wy * world) - org_y
         if cy < 0 or cy >= canvas_h:
             continue
         base = cy * canvas_w
