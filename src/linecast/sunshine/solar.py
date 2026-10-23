@@ -5,8 +5,7 @@ and the one-line summaries borrow it.
 """
 
 import math
-import time as _time
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, time, timedelta, timezone
 from functools import lru_cache
 
 from linecast.astro.ephemeris import sun_declination
@@ -22,8 +21,28 @@ from linecast.astro.ephemeris import sun_declination
 # Accuracy: ~1 minute for sunrise/sunset, ~0.3° for elevation.
 # ---------------------------------------------------------------------------
 
-def _tz_offset_hours():
-    return _time.localtime().tm_gmtoff / 3600
+def day_offset(day, tzinfo=None):
+    """The UTC offset, in hours, a day's rise and set are read on: the
+    one its noon keeps, in *tzinfo* or the machine's zone.
+
+    That is the day's own clock. The hours after midnight on the night
+    the clocks change still keep the old offset, and a view that read
+    the day on the offset of the moment would put its sunrise and sunset
+    an hour off until two in the morning.
+    """
+    noon = datetime.combine(day, time(12), tzinfo=tzinfo)
+    return (noon if tzinfo else noon.astimezone()).utcoffset().total_seconds() / 3600
+
+
+def _day_of(doy):
+    """The date of day *doy* of the user's year, which 0 and 367 leave
+    for the neighboring years, as callers' yesterday and tomorrow do."""
+    return date(_local_today().year, 1, 1) + timedelta(days=doy - 1)
+
+
+def _offset(doy, tz_offset_h):
+    """*tz_offset_h*, or without one the machine's offset on day *doy*."""
+    return day_offset(_day_of(doy)) if tz_offset_h is None else tz_offset_h
 
 def _equation_of_time(doy):
     """Equation of time in minutes (Spencer, 1971 / NOAA simplified form).
@@ -56,9 +75,10 @@ def solar_times(lat, lng, doy, tz_offset_h=None):
     account for atmospheric refraction (~0.833° at the horizon).
     Reference: NOAA Solar Calculator, https://gml.noaa.gov/grad/solcalc/
 
-    tz_offset_h is the UTC offset the "local" hours are expressed in;
-    it defaults to the machine's, which is only right when the machine
-    is at the location.
+    tz_offset_h is the UTC offset the "local" hours are expressed in,
+    day_offset's for the day in the place's zone; it defaults to the
+    machine's on that day, which is only right when the machine is at
+    the location.
     """
     decl = _declination(doy)
     lat_r, dec_r = math.radians(lat), math.radians(decl)
@@ -69,7 +89,7 @@ def solar_times(lat, lng, doy, tz_offset_h=None):
     ha = math.degrees(math.acos(cos_ha))
     eot = _equation_of_time(doy)
     noon_utc = 12 - lng / 15 - eot / 60
-    tz = _tz_offset_hours() if tz_offset_h is None else tz_offset_h
+    tz = _offset(doy, tz_offset_h)
     # A zone more than twelve hours from its own solar meridian — the
     # UTC+13 and +14 zones that sit east of the date line, Samoa, Tonga,
     # Kiritimati — puts noon_utc + tz outside the day it belongs to.
@@ -116,7 +136,7 @@ def sun_elevation(lat, lng, local_hour, doy, tz_offset_h=None):
     decl = _declination(doy)
     eot = _equation_of_time(doy)
     noon_utc = 12 - lng / 15 - eot / 60
-    tz = _tz_offset_hours() if tz_offset_h is None else tz_offset_h
+    tz = _offset(doy, tz_offset_h)
     ha = 15 * (local_hour - tz - noon_utc)
     lat_r = math.radians(lat)
     dec_r = math.radians(decl)

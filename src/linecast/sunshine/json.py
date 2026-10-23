@@ -7,7 +7,7 @@ rather than raising.
 """
 
 import time as _time
-from datetime import datetime, time, timedelta
+from datetime import datetime, timedelta
 
 from linecast._timefmt import iso_minutes
 
@@ -178,7 +178,7 @@ def build_payload(lat, lng, now=None, location=None, hours=None):
     in a tradition's hours (an astro.hours.DayHours), for an `hours` block.
     """
     from linecast.sunshine.solar import (
-        day_length_change, polar_state, solar_times, sun_elevation,
+        day_length_change, day_offset, polar_state, solar_times, sun_elevation,
     )
 
     if now is None:
@@ -195,18 +195,16 @@ def build_payload(lat, lng, now=None, location=None, hours=None):
     doy = now.timetuple().tm_yday
     now_hour = now.hour + now.minute / 60 + now.second / 3600
 
-    def day_offset(day):
-        """The UTC offset a day's rise and set are read on: its noon's,
-        so the eve of a clock change gives tomorrow's on the new clock."""
-        noon = datetime.combine(day, time(12), tzinfo=tzinfo)
-        return (noon if tzinfo else noon.astimezone()).utcoffset().total_seconds() / 3600
-
-    rise_h, set_h = solar_times(lat, lng, doy, day_offset(today))
-    t_rise_h, t_set_h = solar_times(lat, lng, doy + 1, day_offset(today + timedelta(days=1)))
+    # Each day is read on its own clock, so the eve of a clock change
+    # gives tomorrow's on the new one.
+    rise_h, set_h = solar_times(lat, lng, doy, day_offset(today, tzinfo))
+    t_rise_h, t_set_h = solar_times(lat, lng, doy + 1,
+                                    day_offset(today + timedelta(days=1), tzinfo))
 
     # Rounded, both, to the second; yesterday on its own offset.
     day_len_h, delta_s = day_length_change(
-        lat, lng, doy, day_offset(today), day_offset(today - timedelta(days=1)))
+        lat, lng, doy, day_offset(today, tzinfo),
+        day_offset(today - timedelta(days=1), tzinfo))
     day_length_seconds = int(round(day_len_h * 3600))
     day_length_delta_seconds = int(round(delta_s))
 

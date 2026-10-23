@@ -7,7 +7,7 @@ from linecast._runtime import RuntimeConfig
 from linecast._parsers import sunshine_parser
 from linecast.sunshine.json import build_payload
 from linecast.sunshine.solar import polar_state
-from linecast.sunshine.solar import _tz_offset_hours, solar_times
+from linecast.sunshine.solar import day_offset, solar_times
 
 
 class TestTzOffsetThreading:
@@ -40,12 +40,12 @@ class TestTzOffsetThreading:
             assert before["next_event"]["time"] == after["sunrise"]
 
 
-# Solar math resolves local clock time through the machine's UTC offset, so
-# pin a longitude whose mean solar noon lands at 12:00 on any machine.
-LAT = 45.0
-LNG = _tz_offset_hours() * 15
-
 FIXED_NOW = datetime(2026, 8, 14, 12, 0)
+
+# A naive moment is read on the machine's zone, so pin a longitude whose
+# mean solar noon lands at 12:00 there on any machine.
+LAT = 45.0
+LNG = day_offset(FIXED_NOW.date()) * 15
 
 EXPECTED_TOP_KEYS = {
     "schema", "location", "timezone", "fetched_at", "sunrise", "sunset",

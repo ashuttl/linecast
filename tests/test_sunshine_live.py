@@ -158,3 +158,75 @@ def test_hidden_text_keeps_only_the_place_and_clock(app, monkeypatch, year):
     assert len(plain.splitlines()) == 32
     # All remaining letters belong to the location and clock in the top row.
     assert not any(ch.isalpha() for ch in "\n".join(plain.splitlines()[1:]))
+
+
+class TestClockChangeNight:
+    """Between midnight and two on the night the clocks change, the day
+    view and --oneline read the day on its own clock, as --json does:
+    in Portland at 00:40 on 1 November the clocks still say EDT, but the
+    day's sunrise is on EST."""
+
+    PORTLAND = (43.66, -70.26)
+
+    @pytest.mark.parametrize("moment, offset", [
+        (datetime(2026, 11, 1, 0, 40), -5),   # still EDT; the day is EST
+        (datetime(2026, 3, 8, 0, 30), -4),    # still EST; the day is EDT
+    ])
+    def test_the_day_view_reads_the_day_on_its_own_clock(self, frames, moment, offset):
+        from zoneinfo import ZoneInfo
+        tz = ZoneInfo("America/New_York")
+        now = moment.replace(tzinfo=tz)
+        runtime = RuntimeConfig(live=True, icons="emoji", lang="en", oneline=False)
+        SunshineApp(lambda: now, *self.PORTLAND, runtime, tz=tz).render()
+        _kind, _args, kw = frames[-1]
+        assert kw["tz_offset_h"] == offset
+
+    def test_the_day_view_prints_the_days_own_sunrise(self, monkeypatch):
+        import re
+        from zoneinfo import ZoneInfo
+        from linecast._timefmt import fmt_time
+        from linecast.sunshine import solar
+        monkeypatch.setattr("linecast.sunshine.view.get_terminal_size", lambda: (80, 24))
+        tz = ZoneInfo("America/New_York")
+        now = datetime(2026, 11, 1, 0, 40, tzinfo=tz)
+        monkeypatch.setattr(solar, "_local_today", lambda: now.date())
+        runtime = RuntimeConfig(live=False, icons="emoji", lang="en", oneline=False)
+        frame = re.sub(r"\x1b\[[0-9;]*m", "",
+                       SunshineApp(lambda: now, *self.PORTLAND, runtime, tz=tz).render())
+        doy = now.timetuple().tm_yday
+        rise, sset = solar.solar_times(*self.PORTLAND, doy, -5)
+        early, _ = solar.solar_times(*self.PORTLAND, doy, -4)
+        info = frame.splitlines()[-1]
+        assert fmt_time(rise, True) in info and fmt_time(sset, True) in info
+        assert fmt_time(early, True) not in info
+
+    def test_the_oneline_gives_the_sunrise_the_json_does(self, monkeypatch):
+        from zoneinfo import ZoneInfo
+        from linecast._timefmt import fmt_time_dt
+        from linecast.sunshine import solar, view
+        from linecast.sunshine.json import build_payload
+        london = ZoneInfo("Europe/London")
+        moment = datetime(2026, 10, 25, 0, 30, tzinfo=london)   # still BST
+
+        class Frozen(datetime):
+            @classmethod
+            def now(cls, tz=None):
+                return moment.astimezone(tz) if tz else moment.replace(tzinfo=None)
+
+        printed = []
+        monkeypatch.setattr(view, "datetime", Frozen)
+        monkeypatch.setattr(solar, "_local_today", lambda: moment.date())
+        monkeypatch.setattr(view, "place_for",
+                            lambda args, runtime: (51.51, -0.13, "GB", "London", runtime))
+        monkeypatch.setattr(view, "location_tzinfo", lambda *a: london)
+        monkeypatch.setattr("linecast.terminal.oneline.emit", printed.append)
+        monkeypatch.setattr("sys.argv", ["sunshine", "--oneline", "--location", "London",
+                                         "--hours", "none", "--lang", "en", "--24h"])
+        view.main()
+        sunrise = build_payload(51.51, -0.13, now=moment, location="London")["sunrise"]
+        assert f"↑{fmt_time_dt(datetime.fromisoformat(sunrise), True)} " in _plain(printed[0])
+
+
+def _plain(text):
+    import re
+    return re.sub(r"\x1b\[[0-9;]*m", "", text)

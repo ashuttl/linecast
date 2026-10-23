@@ -38,7 +38,7 @@ from linecast.sunshine.palette import (
     SUN_DOT_RGB, SUN_GLOW_RGB, SUN_GLOW_TWILIGHT_RGB,
 )
 from linecast.sunshine.solar import (
-    day_length_change, polar_state, solar_times, sun_elevation,
+    day_length_change, day_offset, polar_state, solar_times, sun_elevation,
 )
 
 _theme.track_imports(globals(), "linecast.terminal.color")
@@ -431,12 +431,6 @@ def _sky_name(lat, lng, doy, hour, sunrise, sunset, tz_offset_h, runtime):
                      morning=hour < (sunrise + sunset) / 2)
 
 
-def _offset_hours(dt):
-    """*dt*'s UTC offset in hours, or None for a naive time."""
-    off = dt.utcoffset()
-    return None if off is None else off.total_seconds() / 3600
-
-
 # ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
@@ -498,7 +492,7 @@ def main():
         now = _now()
         doy = now.timetuple().tm_yday
         emit(sunshine_oneline(lat, lng, doy, runtime,
-                              tz_offset_h=_offset_hours(now),
+                              tz_offset_h=day_offset(now.date(), now.tzinfo),
                               hours=_hours(now), now=now))
         return
 

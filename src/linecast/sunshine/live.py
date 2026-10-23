@@ -12,7 +12,8 @@ view, t hides the supporting text but keeps the location and clock.
 from datetime import timedelta
 
 from linecast.terminal.live import LiveApp
-from linecast.sunshine.view import _offset_hours, render
+from linecast.sunshine.solar import day_offset
+from linecast.sunshine.view import render
 
 
 class SunshineApp(LiveApp):
@@ -62,7 +63,7 @@ class SunshineApp(LiveApp):
             fullscreen=fullscreen,
             offset_minutes=self.minutes,
             runtime=self.runtime,
-            tz_offset_h=_offset_hours(now),
+            tz_offset_h=day_offset(now.date(), now.tzinfo),
             location_label=self.location_label,
             now=now,
             hours=self.hours_at(now) if self.hours_at else None,
