@@ -442,7 +442,8 @@ def main():
 
     if args.year:
         refuse_view_flag(parser, "--year", runtime)
-    lat, lng, country, label, runtime = place_for(args, runtime)
+    lat, lng, country, label, runtime = place_for(
+        args, runtime, zone=True, name=not (runtime.json_mode or runtime.oneline))
 
     # A pinned location may sit in another time zone; resolve it so times
     # match the location. None (IP-derived location) means machine-local

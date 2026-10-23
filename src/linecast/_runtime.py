@@ -608,7 +608,8 @@ def set_current(runtime):
     _bidi.configure(getattr(runtime, "lang", "en"))
 
 
-def place_for(args, runtime, unknown="Could not determine location."):
+def place_for(args, runtime, unknown="Could not determine location.", zone=False,
+              name=False):
     """The place a view is for, as (lat, lng, country, label, runtime).
 
     It is the place --location names, else the user's own: the one
@@ -618,13 +619,34 @@ def place_for(args, runtime, unknown="Could not determine location."):
     clock can follow its country: a runtime that a cold cache left
     without one is resolved again for it, and made current, before
     anything is fetched.  A place that cannot be found ends the run with
-    *unknown* on stderr, after any spinner's finally has cleared it."""
+    *unknown* on stderr, after any spinner's finally has cleared it.
+
+    *zone* and *name* say the view will ask next for the place's time
+    zone (location_tzinfo, for a pinned place) and its name in the
+    runtime's language (place_label).  They are looked up here, beside
+    the country lookup a first run waits on and beside each other,
+    rather than one after another, and the view's own asks then find
+    the answers kept: the zone for the run, the name in the reverse
+    geocoder's cache, or its failure's hold.  The name is asked after
+    the country, so that on a network that has stopped answering the
+    hold spares it the same wait."""
     from linecast._location import country_for_defaults, resolve_location
     lat, lng, country, label = resolve_location(
         args.location, lang=runtime.lang, return_label=True)
     if lat is None:
         sys.exit(unknown)
+    from linecast._fanout import Fanout
+    fanout, lookups = Fanout(), []
+    if zone:
+        from linecast._location import location_is_pinned, location_tzinfo
+        if location_is_pinned(args.location):
+            lookups.append(fanout.submit(location_tzinfo, lat, lng))
     own = country_for_defaults(args.location, country, lat, lng)
+    if name:
+        from linecast._geocode import place_label
+        lookups.append(fanout.submit(place_label, lat, lng, label, runtime.lang))
+    for lookup in lookups:
+        fanout.settle(lookup, "place lookup", tag="location", note="asked again by the view")
     if own:
         runtime = type(runtime).from_sources(args, country=own)
         set_current(runtime)

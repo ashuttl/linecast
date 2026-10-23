@@ -217,7 +217,7 @@ class TestClockChangeNight:
         monkeypatch.setattr(view, "datetime", Frozen)
         monkeypatch.setattr(solar, "_local_today", lambda: moment.date())
         monkeypatch.setattr(view, "place_for",
-                            lambda args, runtime: (51.51, -0.13, "GB", "London", runtime))
+                            lambda args, runtime, **_: (51.51, -0.13, "GB", "London", runtime))
         monkeypatch.setattr(view, "location_tzinfo", lambda *a: london)
         monkeypatch.setattr("linecast.terminal.oneline.emit", printed.append)
         monkeypatch.setattr("sys.argv", ["sunshine", "--oneline", "--location", "London",

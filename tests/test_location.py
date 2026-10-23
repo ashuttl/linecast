@@ -351,6 +351,15 @@ class LocationTzinfoTests(unittest.TestCase):
         if name is not None:
             ZoneInfo(name)
 
+    def test_a_place_is_looked_up_once_a_run(self):
+        # place_for asks beside its own wait, and the view asks again:
+        # a lookup that failed is not waited out a second time
+        with patch.object(_location, "fetch_json_cached", return_value=None) as fetched:
+            first = _location.location_tzinfo(38.72, -9.14)
+            again = _location.location_tzinfo(38.72, -9.14)
+        self.assertEqual(fetched.call_count, 1)
+        self.assertEqual(first, again)
+
     def test_falls_back_to_machine_tz_when_offline(self):
         with patch.object(_location, "fetch_json_cached", return_value=None):
             self.assertEqual(_location.location_tzinfo(38.72, -9.14),
@@ -362,6 +371,70 @@ class LocationTzinfoTests(unittest.TestCase):
                     patch.object(_location, "fetch_json_cached", return_value=answer):
                 self.assertEqual(_location.location_tzinfo(38.72, -9.14),
                                  _location.machine_tzinfo())
+
+
+class PlaceForTests(unittest.TestCase):
+    """What a view looks up next is looked up beside the units default's
+    country, not after it: on a network that has stopped answering
+    each was a timeout of its own, one after another."""
+
+    def _place_for(self, flags, country_lookup=None, zone_lookup=None, name_lookup=None,
+                   **kw):
+        from linecast import _geocode, _runtime
+        from linecast._parsers import moon_parser
+        args = moon_parser().parse_args(flags)
+        runtime = _runtime.RuntimeConfig.from_sources(args)
+        with patch.dict(os.environ, {"WEATHER_LOCATION": ""}), \
+             patch.object(_location, "saved_location", return_value=None), \
+             patch.object(_location, "get_location", return_value=(3.0, 4.0, "US")), \
+             patch.object(_location, "country_for_defaults",
+                          side_effect=country_lookup or (lambda *a: None)), \
+             patch.object(_location, "location_tzinfo",
+                          side_effect=zone_lookup or (lambda *a: self.unasked.append("zone"))), \
+             patch.object(_geocode, "place_label",
+                          side_effect=name_lookup or (lambda *a: self.unasked.append("name"))):
+            return _runtime.place_for(args, runtime, **kw)
+
+    def setUp(self):
+        self.unasked = []   # lookups made that the test did not expect
+
+    def test_the_zone_is_looked_up_while_the_country_is(self):
+        started = __import__("threading").Event()
+
+        def country(*args):
+            # a first run's units default, on a network slow to answer
+            self.assertTrue(started.wait(2), "the zone waited for the country")
+            return "US"
+
+        def zone(lat, lng):
+            started.set()
+
+        found = self._place_for(["--location", "43.68,-70.35"], country, zone, zone=True)
+        self.assertEqual(found[:2], (43.68, -70.35))
+
+    def test_the_name_follows_the_country_and_goes_beside_the_zone(self):
+        named, seen, order = __import__("threading").Event(), {}, []
+
+        def zone(lat, lng):
+            seen["the name was asked while the zone was"] = named.wait(2)
+
+        def name(lat, lng, label, lang):
+            seen["the country was asked first"] = order == ["country"]
+            named.set()
+            return "Westbrook"
+
+        self._place_for(["--location", "43.68,-70.35"], lambda *a: order.append("country"),
+                        zone, name, zone=True, name=True)
+        self.assertEqual(seen, {"the name was asked while the zone was": True,
+                                "the country was asked first": True})
+
+    def test_only_what_the_view_asks_for_and_no_zone_for_where_the_machine_is(self):
+        # an IP location is where the machine is, on the machine's clock
+        self._place_for([], zone=True)
+        self._place_for(["--location", "43.68,-70.35"])
+        self.assertEqual(self.unasked, [])
+        self._place_for(["--location", "43.68,-70.35"], zone=True, name=True)
+        self.assertEqual(sorted(self.unasked), ["name", "zone"])
 
 
 class LocationCommandTests(unittest.TestCase):

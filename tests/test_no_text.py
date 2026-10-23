@@ -20,7 +20,7 @@ def test_no_text_launch(monkeypatch, command, live, hidden):
         flags.append("--no-text")
     monkeypatch.setattr(sys, "argv", [command, *flags])
     monkeypatch.setattr(view, "place_for",
-                        lambda args, runtime: (43.68, -70.37, "US", "Westbrook", runtime))
+                        lambda args, runtime, **_: (43.68, -70.37, "US", "Westbrook", runtime))
     monkeypatch.setattr(view, "location_tzinfo", lambda *a: timezone.utc)
     monkeypatch.setattr("linecast._geocode.place_label", lambda *a: "Westbrook")
     seen = []

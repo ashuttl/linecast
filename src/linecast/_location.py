@@ -344,30 +344,39 @@ def _windows_zone_name() -> str | None:
     return buf.value
 
 
+# The zone name each place's lookup found this run (None for none), by
+# its cache file's name.  place_for looks the zone up beside its own
+# wait, and the view asks again when it needs the answer; the second ask
+# takes this one rather than waiting out a failed lookup's timeout again.
+_zones: dict = {}
+
+
 def location_tzinfo(lat: float | None, lng: float | None) -> tzinfo | None:
     """tzinfo for a location, via a cached Open-Meteo timezone lookup.
 
     Falls back to the machine's local timezone when the lookup fails
     (offline with a cold cache) or the zone database lacks the name.
-    Cached for 30 days per location.
+    Cached for 30 days per location, and looked up once a run.
     """
     machine_tz = machine_tzinfo()
     if lat is None or lng is None:
         return machine_tz
 
     cache_file = cache_dir(f"timezone_{location_cache_key(lat, lng)}.json")
-    url = (
-        "https://api.open-meteo.com/v1/forecast"
-        f"?latitude={lat}&longitude={lng}&timezone=auto"
-    )
-    data = fetch_json_cached(
-        cache_file,
-        30 * 86400,
-        url,
-        timeout=5,
-        fallback=None,
-    )
-    tz_name = data.get("timezone") if isinstance(data, dict) else None
+    if cache_file.name not in _zones:
+        url = (
+            "https://api.open-meteo.com/v1/forecast"
+            f"?latitude={lat}&longitude={lng}&timezone=auto"
+        )
+        data = fetch_json_cached(
+            cache_file,
+            30 * 86400,
+            url,
+            timeout=5,
+            fallback=None,
+        )
+        _zones[cache_file.name] = data.get("timezone") if isinstance(data, dict) else None
+    tz_name = _zones[cache_file.name]
     if tz_name and isinstance(tz_name, str):
         try:
             from zoneinfo import ZoneInfo

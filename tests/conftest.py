@@ -146,6 +146,9 @@ def _private_home(monkeypatch, tmp_path):
     # back for a minute; a test must not inherit another's hold.
     from linecast import _geocode
     monkeypatch.setattr(_geocode, "_failed_at", None)
+    # Nor the zone another test's lookup found for a place.
+    from linecast import _location
+    monkeypatch.setattr(_location, "_zones", {})
 
 
 # ---------------------------------------------------------------------------

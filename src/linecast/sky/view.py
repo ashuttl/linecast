@@ -1003,7 +1003,8 @@ def main():
     runtime = RuntimeConfig.from_sources(args)
     set_current(runtime)
 
-    lat, lng, _country, label, runtime = place_for(args, runtime)
+    lat, lng, _country, label, runtime = place_for(
+        args, runtime, zone=True, name=not (runtime.json_mode or runtime.oneline))
 
     tz = location_tzinfo(lat, lng) if location_is_pinned(args.location) else machine_tzinfo()
 

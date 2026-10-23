@@ -45,6 +45,7 @@ Notable changes, by release. Notes for the next release collect under **Unreleas
 - Location: Place names ending in "UK" or "USA", such as `--location "London, UK"`, are found.
 - Location: When the network stops answering, a command waits for the place's name once instead of several times over.
 - Location: When the network stops answering and no location is saved, a command gives up looking for where you are sooner.
+- Moon, sunshine and sky: When the network stops answering, they look up the place's time zone and its name at the same time instead of one after the other, so they start sooner.
 - Weather: When the forecast can't be fetched, weather says so as soon as it knows, instead of first waiting for the climate averages and the alerts.
 - Location: A damaged location cache is fetched again instead of stopping every command with an error.
 - Live views: Resizing the window resizes the view even with `COLUMNS` and `LINES` exported in the shell.

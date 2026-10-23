@@ -778,7 +778,7 @@ def main():
 
     if args.month:
         refuse_view_flag(parser, "--month", runtime, describes="now")
-    lat, lng, country, label, runtime = place_for(args, runtime)
+    lat, lng, country, label, runtime = place_for(args, runtime, zone=True)
 
     # A pinned location may sit in another time zone; resolve it so times
     # match the location instead of the machine.
