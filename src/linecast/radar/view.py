@@ -24,7 +24,8 @@ when you type `radar` — the arguments, the source, the keys and the live
 loop — is in radar.live.
 
 Usage: radar [--location LAT,LNG | PLACE] [--zoom DEG] [--theme NAME]
-             [--layers temp,wind] [--source NAME] [--print] [--search CITY]
+             [--layer radar|satellite] [--layers temp,wind] [--source NAME]
+             [--print] [--search CITY]
 """
 
 import time as _time
