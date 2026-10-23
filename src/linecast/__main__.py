@@ -3,7 +3,7 @@
 import errno
 import os
 import sys
-from linecast._commands import VIEW_NAMES, help_text
+from linecast._commands import SETTINGS, VIEW_NAMES, help_text
 from linecast._completion import available_shells, completion_help, render_completion
 
 
@@ -38,18 +38,8 @@ COMMANDS = {
     "tides": "linecast.tides.view",
     "radar": "linecast.radar.view",
     "maps": "linecast.maps.view",
-    "location": "linecast.settings.location",
-    "language": "linecast.settings.language",
-    "units": "linecast.settings.units",
-    "wind": "linecast.settings.wind",
-    "clock": "linecast.settings.clock",
-    "week": "linecast.settings.week",
-    "dates": "linecast.settings.dates",
-    "digits": "linecast.settings.digits",
-    "icons": "linecast.settings.icons",
-    "calendar": "linecast.settings.calendar",
-    "culture": "linecast.settings.culture",
-    "hours": "linecast.settings.hours",
+    # each setting's command is its module in settings/
+    **{name: f"linecast.settings.{name}" for name, _blurb in SETTINGS},
     "link": "linecast.link",
     "doctor": "linecast.doctor",
 }

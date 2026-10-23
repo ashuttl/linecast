@@ -7,7 +7,7 @@ help page: the names go in as positional metavars, which argparse
 never parses, only prints.
 """
 
-from linecast._i18n import LANGUAGE_CODES
+from linecast import _config
 
 VIEWS = (
     ("weather", "Conditions now, the day's temperature curve, the forecast, and alerts"),
@@ -19,28 +19,9 @@ VIEWS = (
     ("maps", "Street maps, hillshaded terrain, and routes"),
 )
 
-SETTINGS = (
-    ("location", "A fixed place, instead of the one your IP address suggests"),
-    ("language", ", ".join(LANGUAGE_CODES)),
-    ("units", "metric or imperial"),
-    ("wind", "km/h, m/s, mph, or kn: the unit for wind speeds, whatever the "
-             "other units"),
-    ("clock", "12-hour or 24-hour"),
-    ("week", "monday, sunday, or saturday: where the week opens in the moon's "
-             "month view"),
-    ("dates", "gregorian or solar-hijri, for writing dates (solar-hijri is the "
-              "default in Persian)"),
-    ("digits", "latin (0-9) or native, for writing numbers (native, ۰-۹, is "
-               "the default in Persian)"),
-    ("icons", "nerd, emoji, or plain"),
-    ("calendar", "chinese, japanese, korean, vietnamese, thai, hawaiian, samoan, "
-                 "chamorro, refaluwasch, islamic, hebrew, icelandic, almanac, or "
-                 "none: the traditional calendar the moon follows"),
-    ("culture", "chinese, hawaiian, norse, maori, boorong, and seventeen more, or "
-                "none: whose constellations the sky draws"),
-    ("hours", "halachic, halachic-mga, roman, japanese, islamic, swahili, or "
-              "none: the hours sunshine reads the day in"),
-)
+# The settings, in the order the help page lists them; each one's line
+# is declared with the rest of it, in _config.SETTINGS.
+SETTINGS = tuple((setting.name, setting.blurb) for setting in _config.SETTINGS)
 
 HOUSEKEEPING = (
     ("link", "Make weather, moon, … short commands beside linecast"),

@@ -12,15 +12,12 @@ the value lists for flags whose parsers accept free text.
 from __future__ import annotations
 
 from linecast._commands import COMMAND_NAMES, VIEW_NAMES
-from linecast._config import (
-    CALENDAR_CHOICES, CLOCK_CHOICES, CULTURE_CHOICES, DATES_CHOICES, DIGITS_CHOICES,
-    HOURS_CHOICES, ICON_SETS, UNITS_CHOICES, WEEK_STARTS, WIND_UNITS,
-)
-from linecast._i18n import LANGUAGE_CODES, VARIANTS
+from linecast._config import SETTING, SETTINGS
 
 # --lang accepts any code; the parser lists these in its help text but
-# has no `choices`, so the completion offers them from here.
-LANG_CODES = (*LANGUAGE_CODES, *VARIANTS)
+# has no `choices`, so the completion offers them from here: the codes
+# the language setting lists.
+LANG_CODES = SETTING["language"].choices
 
 SHELLS = ("bash", "zsh", "fish", "nu", "nushell")
 
@@ -31,22 +28,13 @@ GLOBAL_FLAGS = ("--help", "-h", "--version", "-v")
 TOP_LEVEL_COMMANDS = COMMAND_NAMES
 # The settings commands, in the order the scripts list them, and the
 # words each takes after its name. Past location, each is show and auto
-# around the choices the setting's flag takes, from _config (and _i18n
-# for the languages) so the two cannot drift. A setting added here
-# reaches all four shells.
+# around the setting's choices, from its declaration in _config.SETTINGS,
+# which its flag reads too, so the two cannot drift. A setting added
+# there reaches all four shells.
 SETTING_SUBCOMMANDS = {
-    "location": ("show", "set", "auto", "search"),
-    "language": ("show", *LANGUAGE_CODES, *VARIANTS, "auto"),
-    "units": ("show", *UNITS_CHOICES, "auto"),
-    "wind": ("show", *WIND_UNITS, "auto"),
-    "clock": ("show", *CLOCK_CHOICES, "auto"),
-    "week": ("show", *WEEK_STARTS, "auto"),
-    "dates": ("show", *DATES_CHOICES, "auto"),
-    "digits": ("show", *DIGITS_CHOICES, "auto"),
-    "icons": ("show", *ICON_SETS, "auto"),
-    "calendar": ("show", *CALENDAR_CHOICES, "auto"),
-    "culture": ("show", *CULTURE_CHOICES, "auto"),
-    "hours": ("show", *HOURS_CHOICES, "auto"),
+    setting.name: (("show", "set", "auto", "search") if setting.name == "location"
+                   else ("show", *setting.choices, "auto"))
+    for setting in SETTINGS
 }
 # Every settings command takes the same flags.
 SETTING_FLAGS = ("--help", "-h", "--version")

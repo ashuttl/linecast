@@ -13,9 +13,8 @@ import argparse
 import re
 import sys
 
-from linecast import _config
 from linecast._commands import BLURB, formatter_class, parser_class
-from linecast._config import HOURS_CHOICES, ICON_SETS, WEEK_STARTS, WIND_UNITS
+from linecast._config import SETTING
 from linecast._i18n import LANGUAGE_CODES, VARIANTS
 
 
@@ -67,7 +66,7 @@ def print_dimension(text):
 def wind_units(text):
     """A --wind-units: km/h, m/s, mph, or kn, or another way of typing
     one (kmh, ms, knots)."""
-    unit = _config.wind_unit_of(text)
+    unit = SETTING["wind"].read(text)
     if unit is None:
         raise argparse.ArgumentTypeError(f"expected km/h, m/s, mph, or kn, got {text!r}")
     return unit
@@ -126,7 +125,7 @@ def _base_parser(prog, description, units=None, clock=False, json=False,
                             help="fahrenheit temperatures, whatever the other units")
     if wind:
         locale.add_argument("--wind-units", metavar="UNIT", type=wind_units,
-                            choices=WIND_UNITS, default=None,
+                            choices=SETTING["wind"].choices, default=None,
                             help="km/h, m/s, mph, or kn (knots)\n"
                                  "Wind speeds in this unit, whatever the other "
                                  "units. Default: mph with imperial units; with "
@@ -145,7 +144,7 @@ def _base_parser(prog, description, units=None, clock=False, json=False,
                              "The language linecast speaks. Default: the terminal's; "
                              "'linecast language' saves one")
     looks = p.add_argument_group("icons and colors")
-    looks.add_argument("--icons", choices=ICON_SETS, default=None,
+    looks.add_argument("--icons", choices=SETTING["icons"].choices, default=None,
                        help="Nerd Font glyphs, standard emoji, or plain "
                             "Unicode. Default: what the terminal can show; "
                             "'linecast icons' saves one")
@@ -282,7 +281,7 @@ def sunshine_parser():
                     help="in the year view, show clock changes as steps, "
                          "each day in its own UTC offset (default: today's "
                          "offset all year)")
-    p.add_argument("--hours", metavar="SYSTEM", choices=HOURS_CHOICES, default=None,
+    p.add_argument("--hours", metavar="SYSTEM", choices=SETTING["hours"].choices, default=None,
                     help="halachic, halachic-mga, roman, japanese, islamic, "
                          "swahili, or none\n"
                          "Reads the day in a tradition's hours. The prayer "
@@ -303,13 +302,13 @@ def moon_parser():
     # the old name, still taken, not offered
     p.add_argument("--grid", dest="month", action="store_true",
                     help=argparse.SUPPRESS)
-    calendars = _config.CALENDAR_CHOICES
+    calendars = SETTING["calendar"].choices
     p.add_argument("--calendar", metavar="NAME", choices=calendars, default=None,
                     help=f"{', '.join(calendars[:-1])}, or {calendars[-1]}\n"
                          "Adds a traditional calendar and its festivals, or "
                          "the Old Farmer's Almanac. Default: your language's "
                          "own calendar, if any; 'linecast calendar' saves one")
-    p.add_argument("--week-start", choices=WEEK_STARTS, default=None,
+    p.add_argument("--week-start", choices=SETTING["week"].choices, default=None,
                     help="the day the month view's week opens on. Default: "
                          "whichever your country's calendars use; "
                          "'linecast week' saves one")
@@ -328,9 +327,9 @@ def sky_parser():
     p.add_argument("--fov", metavar="DEGREES", type=float, default=None,
                     help="how many degrees of sky across the screen, 6 to "
                          "236 (default 110; zoom live with + and -)")
-    p.add_argument("--culture", metavar="NAME", choices=_config.CULTURE_CHOICES, default=None,
-                    help=f"{', '.join(_config.CULTURE_CHOICES[:-1])}, or "
-                         f"{_config.CULTURE_CHOICES[-1]}\n"
+    cultures = SETTING["culture"].choices
+    p.add_argument("--culture", metavar="NAME", choices=cultures, default=None,
+                    help=f"{', '.join(cultures[:-1])}, or {cultures[-1]}\n"
                          "Draws another tradition's constellations and star "
                          "names in place of the IAU's; t steps through them "
                          "live. Default: your language's own sky, if any; "
