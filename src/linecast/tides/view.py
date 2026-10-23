@@ -451,7 +451,7 @@ def render(station_id, station_name, station_meta=None, runtime=None,
         preds_dt = provider.tides_range(station_id, date, date, station_tz)
         hilo_dt = provider.hilo_range(station_id, date, date, station_tz)
         if not preds_dt:
-            raise UserError(f"Could not fetch tide data for station {station_id}.")
+            raise UserError(_ts("load_failed", runtime, name=station_name))
         day_start = datetime(date.year, date.month, date.day)
         day_end = day_start + timedelta(days=1)
         if station_tz is not None:

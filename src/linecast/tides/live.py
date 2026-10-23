@@ -672,7 +672,8 @@ def main():
             provider, station_id, station_meta, station_tz, runtime.live)
 
         if not preds:
-            print(f"Could not fetch tide data for station {station_id}.", file=sys.stderr)
+            spin.stop()
+            print(_ts("load_failed", runtime, name=station_name), file=sys.stderr)
             sys.exit(1)
 
         if runtime.live or args.view != "day":

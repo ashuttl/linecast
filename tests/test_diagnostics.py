@@ -472,7 +472,7 @@ class TestTidesPool:
         code = _run_main(tides, ["tides", "--print", "--station", "8418150"], monkeypatch)
         out, err = capsys.readouterr()
         assert code == 1
-        assert err == "Could not fetch tide data for station 8418150.\n"
+        assert err == "Could not load tides for Station 8418150. Please try again.\n"
         assert "Traceback" not in out + err
 
     def test_debug_names_the_provider_request_and_shows_the_traceback(
