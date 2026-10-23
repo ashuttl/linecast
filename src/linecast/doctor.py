@@ -293,11 +293,7 @@ def _human(n):
 # Collecting the report
 # ---------------------------------------------------------------------------
 def _collect_paths():
-    from linecast._config import (
-        config_file, read_config, saved_clock, saved_dates, saved_digits,
-        saved_icons, saved_language, saved_location, saved_units,
-        saved_week_start, saved_wind_units,
-    )
+    from linecast._config import SETTING, SETTINGS, config_file, read_config
     from linecast._paths import cache_root
     settings = config_file()
     # os.path, not Path.exists/is_dir: before Python 3.14 those raise
@@ -306,30 +302,12 @@ def _collect_paths():
     settings_exists = os.path.exists(settings)
     keys = []
     if settings_exists:
+        # The settings the file holds and a run would use, in the order
+        # the help page lists them, then the keys that are no setting's
         config = read_config()
-        loc = saved_location()
-        if loc is not None:
-            keys.append("location")
-        if saved_language() is not None:
-            keys.append("language")
-        if saved_units() is not None:
-            keys.append("units")
-        if saved_wind_units() is not None:
-            keys.append("wind")
-        if saved_clock() is not None:
-            keys.append("clock")
-        if saved_week_start() is not None:
-            keys.append("week")
-        if saved_dates() is not None:
-            keys.append("dates")
-        if saved_digits() is not None:
-            keys.append("digits")
-        if saved_icons() is not None:
-            keys.append("icons")
-        keys.extend(sorted(k for k in config
-                           if k not in ("location", "language", "units",
-                                        "wind", "clock", "week", "dates",
-                                        "digits", "icons")))
+        keys = [setting.name for setting in SETTINGS
+                if setting.read(config.get(setting.name)) is not None]
+        keys.extend(sorted(key for key in config if key not in SETTING))
     root = cache_root()
     exists = os.path.isdir(root)
     writable, reason = cache_writable(root)

@@ -125,6 +125,80 @@ class TestOffline:
             assert "WEATHER_LOCATION" in report
 
 
+class TestSettingsKeys:
+    """The settings line names the keys config.json holds, from the
+    table every setting is declared in (_config.SETTINGS)."""
+
+    @staticmethod
+    def _valid(setting):
+        if setting.name == "location":
+            return {"lat": 43.68, "lng": -70.37, "label": "Westbrook", "country": "US"}
+        return "fr" if setting.name == "language" else setting.choices[-1]
+
+    def _keys(self, config, monkeypatch):
+        from linecast import _config
+        _config.write_config(config)
+        _, out, _ = _run("--offline", "--json", monkeypatch=monkeypatch)
+        return json.loads(out)["paths"]["settings_keys"]
+
+    def test_every_setting_saved_is_named_in_the_help_pages_order(self, monkeypatch):
+        from linecast._config import SETTINGS
+        config = {setting.name: self._valid(setting) for setting in reversed(SETTINGS)}
+        config.update(tidecheck_key="k", aaa=1)
+        assert self._keys(config, monkeypatch) == [
+            *(setting.name for setting in SETTINGS), "aaa", "tidecheck_key"]
+
+    def test_a_value_no_run_would_use_is_not_named(self, monkeypatch):
+        # the reviewer's case: a bogus calendar was named, a bogus
+        # units hidden; every setting is read the same way now
+        from linecast._config import SETTINGS
+        config = {setting.name: "bogus" for setting in SETTINGS}
+        assert self._keys(config, monkeypatch) == []
+        _, out, _ = _run("--offline", monkeypatch=monkeypatch)
+        assert "(exists; no keys)" in out
+        assert "  calendar  none (auto)" in out
+
+    def test_every_setting_command_is_declared_in_the_table(self):
+        # A new `linecast <setting>` that is not in _config.SETTINGS is
+        # one doctor would not name, the help page would not list and
+        # the completions would not offer
+        from linecast._config import SETTING
+        package = Path(_doctor().__file__).parent / "settings"
+        commands = {path.stem for path in package.glob("*.py")
+                    if not path.stem.startswith("_")}
+        assert commands == set(SETTING)
+
+    def test_every_key_read_or_saved_is_declared_in_the_table(self):
+        # config.json is read through saved() and chosen() and written
+        # through remember() and forget(); a key named anywhere else is
+        # one a new setting reads behind the table's back
+        import ast
+        from linecast._config import SETTING
+        not_settings = {"tidecheck_key"}   # set by hand; no command saves it
+        src = Path(_doctor().__file__).parent
+        found = {}
+        for path in src.rglob("*.py"):
+            for node in ast.walk(ast.parse(path.read_text(encoding="utf-8"))):
+                key = None
+                if isinstance(node, ast.Call) and node.args:
+                    func = node.func
+                    name = getattr(func, "id", None) or getattr(func, "attr", None)
+                    via_config = (name == "get" and isinstance(func, ast.Attribute)
+                                  and isinstance(func.value, ast.Call)
+                                  and getattr(func.value.func, "id", None) == "read_config")
+                    if name in ("saved", "chosen", "remember", "forget") or via_config:
+                        key = node.args[0]
+                elif (isinstance(node, ast.Subscript) and isinstance(node.value, ast.Name)
+                      and node.value.id == "config"):
+                    key = node.slice
+                if isinstance(key, ast.Constant) and isinstance(key.value, str):
+                    found.setdefault(key.value, path.relative_to(src).as_posix())
+        assert "units" in found and "tidecheck_key" in found   # the scan sees them
+        stray = {key: where for key, where in found.items()
+                 if key not in SETTING and key not in not_settings}
+        assert not stray, f"config keys not in _config.SETTINGS: {stray}"
+
+
 class TestTerminalTheme:
     @pytest.mark.parametrize("name", ("tmux 3.5a", "tmux 3.7c", None, "foot(1.28.0)"))
     def test_incomplete_tmux_probe_explains_palette_support(self, monkeypatch, name):
