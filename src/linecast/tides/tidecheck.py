@@ -33,7 +33,7 @@ from linecast._http import fetch_json, fetch_json_cached
 from linecast._log import log_failure, log_skipped
 from linecast.tides.common import (
     M_TO_FT, NEAREST_STATION_CACHE_MAX_AGE, StationMeta, cache_dir, cached_y_range,
-    fetch_lock, iana_to_abbr, local_day_bounds, parse_cached_dt, parse_utc_iso,
+    fetch_once, iana_to_abbr, local_day_bounds, parse_cached_dt, parse_utc_iso,
     tz_offset_hours, y_range_window,
 )
 
@@ -308,9 +308,9 @@ def _fetch_tides_raw(station_id):
     url = f"{TIDECHECK_BASE}/station/{station_id}/tides?days={DAYS}&datum=MLLW"
     # the day view asks for its curve, its turns and its axis side by
     # side, and they wait for one request rather than make three
-    with fetch_lock(cache_file.name):
-        return fetch_json_cached(cache_file, 86400, url, fetch=_fetch, timeout=15,
-                                 fallback=None, provider="tides/tidecheck")
+    return fetch_once(cache_file.name, lambda: fetch_json_cached(
+        cache_file, 86400, url, fetch=_fetch, timeout=15, fallback=None,
+        provider="tides/tidecheck"))
 
 
 def _within(points, start_date, end_date, station_tz):

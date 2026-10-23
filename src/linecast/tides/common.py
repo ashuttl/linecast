@@ -14,6 +14,7 @@ import math
 import re
 import threading
 from collections.abc import Callable
+from concurrent.futures import Future
 from datetime import date, datetime, timedelta, timezone, tzinfo
 from pathlib import Path
 from typing import Any, TypedDict
@@ -158,23 +159,41 @@ def months_covering(start_date: date, end_date: date) -> list[date]:
     return months
 
 
-# cache file name -> lock held while that file fetches
-_fetch_locks: dict[str, threading.Lock] = {}
-_fetch_locks_lock = threading.Lock()
+# cache file name -> the fetch for that file under way
+_fetching: dict[str, Future] = {}
+_fetching_lock = threading.Lock()
 
 
-def fetch_lock(name: str) -> threading.Lock:
-    """The lock a fetch for the cache file *name* holds while it runs.
+def fetch_once(name: str, fetch: Callable[[], Any]) -> Any:
+    """fetch() for the cache file *name*, made once among the threads
+    that want it at the same time.
 
     The providers fetch by fixed blocks, a month or a year, and two
     threads can want the same block at once: the day view asks for its
     curve, its turns and its axis side by side, and a subordinate NOAA
-    station's curve and turns both come from its hi/lo month.  They take
-    turns, and the second reads the file the first wrote instead of
-    making the same request itself.
+    station's curve and turns both come from its hi/lo month.  The first
+    makes the request; the others wait for it and take what it brought
+    back, a stale copy or the fallback included.  When they took turns
+    instead, each read the file the first had written, but where the
+    first had failed each asked again, one timeout after another.
     """
-    with _fetch_locks_lock:
-        return _fetch_locks.setdefault(name, threading.Lock())
+    with _fetching_lock:
+        running = _fetching.get(name)
+        mine = running is None
+        if mine:
+            running = _fetching[name] = Future()
+    if not mine:
+        return running.result()
+    try:
+        result = fetch()
+    except BaseException as exc:
+        running.set_exception(exc)
+        raise
+    finally:
+        with _fetching_lock:
+            _fetching.pop(name, None)
+    running.set_result(result)
+    return result
 
 
 def y_range_window(center_date: date) -> tuple[date, date, str]:

@@ -24,7 +24,7 @@ from linecast._http import fetch_json, fetch_json_cached
 from linecast._log import log_failure, log_skipped
 from linecast.tides.common import (
     M_TO_FT, NEAREST_STATION_MAX_NM, StationMeta, cache_dir, cached_y_range, dedup_sorted,
-    fetch_lock, label_hilo, local_day_bounds, month_after, months_covering, nearest_station,
+    fetch_once, label_hilo, local_day_bounds, month_after, months_covering, nearest_station,
     parse_cached_dt, station_coords, y_range_window,
 )
 
@@ -417,9 +417,9 @@ def _pred_month(station_name, first):
                     len(records) - len(rows), len(records), bad)
         return rows
 
-    with fetch_lock(cache_file.name):
-        rows = fetch_json_cached(cache_file, 86400, f"{QLD_BASE}/datastore_search",
-                                 fetch=fetch, timeout=20, fallback=[], provider="tides/qld")
+    rows = fetch_once(cache_file.name, lambda: fetch_json_cached(
+        cache_file, 86400, f"{QLD_BASE}/datastore_search", fetch=fetch, timeout=20,
+        fallback=[], provider="tides/qld"))
     return [(parse_cached_dt(r["dt"], AEST), r["v"]) for r in rows]
 
 

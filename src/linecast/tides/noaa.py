@@ -14,7 +14,7 @@ from linecast._cache import location_cache_key
 from linecast._http import fetch_json_cached
 from linecast._log import log_skipped
 from linecast.tides.common import (
-    StationMeta, cache_dir, cached_y_range, fetch_lock, measured_turns, month_after,
+    StationMeta, cache_dir, cached_y_range, fetch_once, measured_turns, month_after,
     months_covering, nearest_station, station_coords, y_range_window,
 )
 
@@ -213,8 +213,8 @@ def fetch_month(station_id: str, first: date, interval: str) -> list[list[Any]] 
     weeks, and the expansion when the user scrolls all share it, and the
     file stays valid from one day to the next.
 
-    Two threads asking for the same month at once take turns (see
-    common.fetch_lock).
+    Two threads asking for the same month at once share one request (see
+    common.fetch_once).
     """
     kind = "hilo" if interval == "hilo" else "pred"
     cache_file = cache_dir() / f"{kind}_{station_id}_{first:%Y%m}.json"
@@ -222,8 +222,8 @@ def fetch_month(station_id: str, first: date, interval: str) -> list[list[Any]] 
     url = _prediction_url(station_id, first.strftime("%Y%m%d"),
                           last.strftime("%Y%m%d"), interval)
     builder = _build_hilo_row if kind == "hilo" else _build_tide_row
-    with fetch_lock(cache_file.name):
-        return _fetch_prediction_rows(cache_file, url, builder)
+    return fetch_once(cache_file.name,
+                      lambda: _fetch_prediction_rows(cache_file, url, builder))
 
 
 def _rows_in_range(station_id, start_date, end_date, interval, whole=False):

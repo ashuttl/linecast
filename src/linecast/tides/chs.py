@@ -15,7 +15,7 @@ from linecast._cache import location_cache_key
 from linecast._http import fetch_json, fetch_json_cached
 from linecast._log import debug_log, log_failure, log_skipped
 from linecast.tides.common import (
-    M_TO_FT, StationMeta, cache_dir, cached_y_range, dedup_sorted, fetch_lock, iana_to_abbr,
+    M_TO_FT, StationMeta, cache_dir, cached_y_range, dedup_sorted, fetch_once, iana_to_abbr,
     label_hilo, local_day_bounds, measured_turns, month_after, months_covering,
     nearest_station, parse_cached_dt, parse_utc_iso, station_coords, tz_offset_hours,
     y_range_window, zone_info,
@@ -202,10 +202,9 @@ def _pred_month(station_id, first, station_tz):
         f"?time-series-code=wlp&from={utc_from}&to={utc_to}"
         f"&resolution=FIVE_MINUTES"
     )
-    with fetch_lock(cache_file.name):
-        rows = fetch_json_cached(cache_file, 86400, url, timeout=20, fallback=[],
-                                 provider="tides/chs",
-                                 transform=lambda data: _level_rows(data, station_tz))
+    rows = fetch_once(cache_file.name, lambda: fetch_json_cached(
+        cache_file, 86400, url, timeout=20, fallback=[], provider="tides/chs",
+        transform=lambda data: _level_rows(data, station_tz)))
     return [(parse_cached_dt(r["dt"], station_tz), r["v"]) for r in rows]
 
 
@@ -236,10 +235,9 @@ def _hilo_year(station_id, year, station_tz):
         f"{CHS_BASE}/stations/{station_id}/data"
         f"?time-series-code=wlp-hilo&from={utc_from}&to={utc_to}"
     )
-    with fetch_lock(cache_file.name):
-        rows = fetch_json_cached(cache_file, 86400, url, timeout=15, fallback=[],
-                                 provider="tides/chs",
-                                 transform=lambda data: _extreme_rows(data, station_tz))
+    rows = fetch_once(cache_file.name, lambda: fetch_json_cached(
+        cache_file, 86400, url, timeout=15, fallback=[], provider="tides/chs",
+        transform=lambda data: _extreme_rows(data, station_tz)))
     return [(parse_cached_dt(r["dt"], station_tz), r["v"], r["t"]) for r in rows]
 
 

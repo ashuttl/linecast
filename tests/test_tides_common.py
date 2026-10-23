@@ -1,6 +1,8 @@
 """Tests for the helpers the tide providers share."""
 
 import tempfile
+import threading
+import time
 import unittest
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
@@ -70,6 +72,63 @@ class LegacyCacheSweepTests(unittest.TestCase):
     def test_missing_directory_is_fine(self):
         with tempfile.TemporaryDirectory() as tmp:
             self._sweep(Path(tmp) / "not-there")
+
+
+class FetchOnceTests(unittest.TestCase):
+    """Threads wanting the same block at once share one request, and
+    when it fails they share the failure instead of each asking again."""
+
+    def _together(self, fetch, n=3):
+        results = []
+        started = threading.Barrier(n)
+
+        def want():
+            started.wait()
+            results.append(common.fetch_once("chs_hilo_x_2026.json", fetch))
+
+        threads = [threading.Thread(target=want) for _ in range(n)]
+        for thread in threads:
+            thread.start()
+        for thread in threads:
+            thread.join(5)
+        return results
+
+    def test_a_failed_fetch_is_not_made_again_by_those_waiting(self):
+        calls = []
+
+        def stalled():
+            calls.append(1)
+            time.sleep(0.3)   # the timeout, and the fallback after it
+            return []
+
+        self.assertEqual(self._together(stalled), [[], [], []])
+        self.assertEqual(len(calls), 1)
+
+    def test_an_exception_reaches_every_waiter(self):
+        def broken():
+            time.sleep(0.2)
+            raise LookupError("no rows")
+
+        errors = []
+
+        def want():
+            try:
+                common.fetch_once("x", broken)
+            except LookupError as exc:
+                errors.append(exc)
+
+        threads = [threading.Thread(target=want) for _ in range(2)]
+        for thread in threads:
+            thread.start()
+        for thread in threads:
+            thread.join(5)
+        self.assertEqual(len(errors), 2)
+
+    def test_the_next_fetch_after_one_ends_is_made(self):
+        calls = []
+        common.fetch_once("x", lambda: calls.append(1))
+        common.fetch_once("x", lambda: calls.append(1))
+        self.assertEqual(len(calls), 2)
 
 
 class YRangeWindowTests(unittest.TestCase):
