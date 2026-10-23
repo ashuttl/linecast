@@ -398,6 +398,27 @@ class TestProviders:
         assert status.startswith("unreachable (")
 
 
+    @pytest.mark.parametrize("url,code,expected", [
+        # a host's root is no page of its own, and many answer it with an
+        # error code: the host is up, and the status must not read as
+        # though it were not
+        ("https://api.open-meteo.com/", 400, (True, "ok (reachable; HTTP 400 at the root)")),
+        ("https://api.tidesandcurrents.noaa.gov/", 403,
+         (True, "ok (reachable; HTTP 403 at the root)")),
+        ("https://nominatim.openstreetmap.org/status", 404, (True, "ok (reachable; HTTP 404)")),
+        ("https://nominatim.openstreetmap.org/status", 429,
+         (False, "rate limited (HTTP 429)")),
+        ("https://api.open-meteo.com/", 503, (False, "server error (HTTP 503)")),
+    ])
+    def test_an_http_status_says_what_it_means(self, monkeypatch, url, code, expected):
+        from linecast import _http
+
+        def fetch_bytes(url, **_kw):
+            raise _http.HTTPError(url, code, "nope")
+        monkeypatch.setattr(_http, "fetch_bytes", fetch_bytes)
+        assert _doctor().probe(url, timeout=1) == expected
+
+
 class TestCacheDirectory:
     def test_the_writable_check_leaves_the_directory_clean(self, tmp_path):
         root = tmp_path / "cache"

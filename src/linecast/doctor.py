@@ -127,9 +127,14 @@ def _tidecheck_budget():
 
 
 def probe(url, timeout=PROBE_TIMEOUT):
-    """(ok, status) for one host: "ok", "ok (HTTP 404)", or the failure
-    in a word or two. An FTP host answers by letting an anonymous user
-    log in."""
+    """(ok, status) for one host: "ok", or the failure in a word or two.
+    An FTP host answers by letting an anonymous user log in.
+
+    Most hosts are asked for their root, which is no page of theirs, and
+    many answer it with an error code (Open-Meteo's 400, NOAA's 403):
+    the host is reachable, and the status says so, so that the code does
+    not read as the trouble.  A host refusing requests (429) or failing
+    (5xx) is not ok."""
     import socket
     import ssl
     from linecast._http import HTTPError, fetch_bytes
@@ -140,7 +145,13 @@ def probe(url, timeout=PROBE_TIMEOUT):
             fetch_bytes(url, timeout=timeout, limit=1024 * 1024)
         return True, "ok"
     except HTTPError as exc:
-        return True, f"ok (HTTP {exc.code})"
+        if exc.code == 429:
+            return False, "rate limited (HTTP 429)"
+        if exc.code >= 500:
+            return False, f"server error (HTTP {exc.code})"
+        from urllib.parse import urlsplit
+        where = " at the root" if urlsplit(url).path in ("", "/") else ""
+        return True, f"ok (reachable; HTTP {exc.code}{where})"
     except socket.gaierror:
         return False, "dns failed"
     except (socket.timeout, TimeoutError):

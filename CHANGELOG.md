@@ -42,6 +42,7 @@ Notable changes, by release. Notes for the next release collect under **Unreleas
 - Windows: Moon and sky times for where you are follow your computer's clock changes, instead of keeping today's offset for dates across a change.
 - Live views: A view left open wakes the computer far less often, and asks the terminal for fewer colors while it watches for a theme change.
 - Weather and tides: The help panel lists the location menu's keys in lower case, like the rows around them.
+- Doctor: A provider that answers with an error code at its root is reported as reachable, and one that is limiting requests or failing is no longer reported as ok.
 
 ## 2.10.3 — 2026-10-20
 
