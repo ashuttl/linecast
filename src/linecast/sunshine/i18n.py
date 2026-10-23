@@ -66,9 +66,10 @@ def sky_event(key, runtime):
 def polar_name(state, runtime):
     """'midnight sun' or 'polar night' for a polar_state(), else "".
 
-    On a day with no horizon crossing solar_times() returns solar noon
-    for both the rise and the set. The phrase goes where those clock
-    times would, there being none to give.
+    On a day with no horizon crossing solar_times() returns noon for
+    the rise and the set, or noon less and plus twelve hours. The
+    phrase goes where those clock times would, there being none to
+    give.
     """
     if state == "day":
         return _ss("midnight_sun", runtime)

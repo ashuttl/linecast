@@ -78,8 +78,7 @@ Everything here is computed on the device. Sunrise and sunset are the Sun's uppe
 
 Computed from:
 
-- **NOAA Solar Calculator**, the [simplified equations](https://gml.noaa.gov/grad/solcalc/solareqns.PDF), with Spencer's three-term equation of time. The `sunshine` day and year views, good to about a minute for sunrise and sunset and a third of a degree for the Sun's elevation.
-- **Paul Schlyter's [low-precision ephemeris](https://stjarnhimlen.se/comp/ppcomp.html)**, itself a simplification of Meeus. The Moon, the sky, the traditional hours, and the calendars: the Sun to about a hundredth of a degree, the Moon to a couple of arcminutes, and the Moon's distance within a percent. There is no nutation, no aberration, no ΔT, and no observer height.
+- **Paul Schlyter's [low-precision ephemeris](https://stjarnhimlen.se/comp/ppcomp.html)**, itself a simplification of Meeus. Sunshine, the Moon, the sky, the traditional hours, and the calendars: the Sun to about a hundredth of a degree, the Moon to a couple of arcminutes, and the Moon's distance within a percent. There is no nutation, no aberration, no ΔT, and no observer height.
 - **Meeus, J., *Astronomical Algorithms* (2nd ed.)**. The equinoxes and solstices (chapter 27), valid from 1000 to 3000 and good to a minute or so, with ΔT taken off so the instants are UTC, and the bright limb's angle on the Moon's disc (equation 48.5).
 - **The Old Farmer's Almanac**. The full moons' names: the Harvest Moon nearest the September equinox, the Hunter's Moon after it, and a Blue Moon the second in a month.
 
@@ -93,6 +92,7 @@ Checked against:
 
 - **Published instants.** The eight principal phases of January to April 2026, within a quarter of an hour; the equinoxes and solstices of 2000 and 2024, within a quarter of an hour of the almanac; and the full-moon names of 2020, 2023, and 2026.
 - **PyEphem's ELP2000.** The Moon's position at four moments of 2026, within a tenth of a degree, and its bright limb's bearing at four places, within 3°.
+- **PyEphem's VSOP87.** Sunrise and sunset at five places on dates of 2026, from the equator to the edge of the polar night, within a quarter of a minute. Over twelve places on nine dates the worst is 41 seconds, at Tromsø in January, where the Sun is up for 49 minutes and grazes the horizon.
 - **Hebcal.** The ephemeris's sunrise and sunset, within half a minute at four places on four dates of 2026 ([hours.md](hours.md)).
 - The sunshine view's own rise and set, by the NOAA equations, are not in the tests. On 20 September 2026 they were compared with the ephemeris's at six places on the same four dates and agreed within two minutes, most within one.
 - Moonrise and moonset are checked for shape, not against a table.

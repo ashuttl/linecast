@@ -449,9 +449,9 @@ def _hover_tooltip(chart, hover_x, mouse_row, cols, rows, runtime, icons):
     tip_dim = fg(*TIP_DIM_RGB)
 
     # Through a polar season the rise and set line has nothing to say —
-    # solar_times() gives solar noon twice — so the phrase stands in its
-    # place. The length and its delta from today stay: they are what
-    # makes a polar day worth pointing at.
+    # solar_times() gives noon, not a rise and a set — so the phrase
+    # stands in its place. The length and its delta from today stay:
+    # they are what makes a polar day worth pointing at.
     polar = solar.polar_state(day_len)
     if polar:
         times = f"{tip_bg}{tip_fg} {polar_name(polar, runtime)} "

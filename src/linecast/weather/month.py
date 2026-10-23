@@ -4,11 +4,11 @@ import calendar
 import math
 from dataclasses import dataclass, field, replace
 from datetime import date, datetime, timedelta, timezone
-from functools import lru_cache
 from zoneinfo import ZoneInfo
 
 from linecast._i18n import DAY_NAMES, fmt_decimal, table_for
 from linecast._timefmt import fmt_time_dt
+from linecast.astro.ephemeris import sunrise_sunset
 from linecast.moon.calendar import _month_title
 from linecast.terminal import live, theme
 from linecast.terminal.braille import DOT_BITS
@@ -19,7 +19,7 @@ from linecast.terminal.help import footer, wrap
 from linecast.terminal.month_layout import month_layout
 from linecast.terminal.textwidth import clip_styled, fit, pad, visible_len
 from linecast.tides.chart import render_tide_ticks
-from linecast.tides.month import _sun_times, sun_legend
+from linecast.tides.month import sun_legend
 from linecast.weather import style
 from linecast.weather.header import location_chip, location_control
 from linecast.weather.historical import history_span
@@ -185,11 +185,6 @@ def clear_ink(ink, background):
                                background, minimum=2.5)
 
 
-@lru_cache(maxsize=4096)
-def sun_times(day, lat, lng, tz):
-    return _sun_times(day, lat, lng, tz)
-
-
 def day_label(day, runtime):
     number = _s("day_of_month", runtime, d=day.day)
     return f"{table_for(DAY_NAMES, runtime.lang)[day.weekday()]} {number:>2}"
@@ -273,7 +268,7 @@ def render_month(series, first, runtime, lat, lng, label, *, difference=False,
                     value = value - normal if value is not None and normal is not None else None
                 for sy in subpixels:
                     field.set_pixel(x, sy, field_color(value, runtime, difference))
-            for moment in sun_times(day, lat, lng, series.tz) if series.days else ():
+            for moment in sunrise_sunset(day, lat, lng, series.tz) if series.days else ():
                 if moment is None or moment.date() != day:
                     continue
                 hour = moment.hour + moment.minute / 60 + moment.second / 3600

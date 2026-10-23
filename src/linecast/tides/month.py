@@ -31,11 +31,11 @@ the row.
 import calendar
 import math
 from bisect import bisect_left
-from datetime import date, datetime, timedelta, timezone
+from datetime import date, datetime, timedelta
 
 from linecast._i18n import DAY_NAMES, fmt_decimal, lang_of, table_for
 from linecast._timefmt import fmt_time_dt
-from linecast.astro.ephemeris import sun_alt_az_deg, sun_depression_utc
+from linecast.astro.ephemeris import sunrise_sunset
 from linecast.moon.calendar import _month_title
 from linecast.terminal import live as _live
 from linecast.terminal import theme as _theme
@@ -92,20 +92,6 @@ def month_of(today, offset):
     """The first of the month *offset* months from *today*'s."""
     k = today.year * 12 + today.month - 1 + offset
     return date(k // 12, k % 12 + 1, 1)
-
-
-def _sun_times(day, lat, lng, tz):
-    """(sunrise, sunset) as local datetimes; (None, None) for a day the
-    Sun never rises, and midnight to midnight for one it never sets."""
-    rise = sun_depression_utc(day, lat, lng, 0.833, evening=False, tzinfo=tz)
-    set_ = sun_depression_utc(day, lat, lng, 0.833, evening=True, tzinfo=tz)
-    if rise is None or set_ is None:
-        noon = datetime(day.year, day.month, day.day, 12, tzinfo=tz).astimezone(timezone.utc)
-        if sun_alt_az_deg(noon, lat, lng)[0] <= 0:
-            return None, None
-        start = datetime(day.year, day.month, day.day, tzinfo=tz)
-        return start, start + timedelta(days=1)
-    return rise.astimezone(tz), set_.astimezone(tz)
 
 
 def _on_clock(moment, tz):
@@ -248,7 +234,7 @@ def render_month(first, predictions, hilo, runtime, *, header, footer, station_m
     row_days = [shown[r * per_row:(r + 1) * per_row] for r in range(n_rows)]
 
     # --- the columns: the day labels, the field, the daylight lows ---
-    sun = {d: _sun_times(d, lat, lng, tz) if lat is not None else (None, None)
+    sun = {d: sunrise_sunset(d, lat, lng, tz) if lat is not None else (None, None)
            for d in shown}
     lows = {d: _daylight_lows(hilo, d, sun[d]) for d in shown}
     unit = runtime.height_unit

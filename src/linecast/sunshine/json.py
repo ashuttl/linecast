@@ -1,7 +1,7 @@
 """Machine-readable JSON payload for `sunshine --json`.
 
 Builds a plain-dict snapshot of the solar arc data for external consumers
-(e.g. a desktop widget). Reuses sunshine's NOAA-derived solar math; times
+(e.g. a desktop widget). Reuses sunshine's solar math; times
 are minute-precision local ISO strings and missing values become None
 rather than raising.
 """

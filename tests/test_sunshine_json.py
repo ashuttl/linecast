@@ -14,8 +14,9 @@ class TestTzOffsetThreading:
     def test_explicit_offset_shifts_local_times_by_offset_delta(self):
         r1, s1 = solar_times(43.68, -70.35, 200, tz_offset_h=-4)
         r2, s2 = solar_times(43.68, -70.35, 200, tz_offset_h=-5)
-        assert abs((r1 - r2) - 1.0) < 1e-9
-        assert abs((s1 - s2) - 1.0) < 1e-9
+        # to the second the bisection finds them to
+        assert abs((r1 - r2) - 1.0) < 1 / 3600
+        assert abs((s1 - s2) - 1.0) < 1 / 3600
 
     def test_aware_now_pins_payload_to_its_zone(self):
         from zoneinfo import ZoneInfo
@@ -264,10 +265,13 @@ class TestFarEasternZones:
     def test_the_clock_time_of_noon_ignores_which_side_of_the_line(self):
         # One point, put in the zone Kiritimati keeps and in the one
         # Hawai'i keeps on the same meridian: the two are a day apart on
-        # the calendar and see the same sun at the same clock time.
+        # the calendar and see the sun at the same clock time, give or
+        # take the seconds noon moves from one day to the next.
         east = self._at(self.KIRITIMATI, 14)
         west = self._at(self.KIRITIMATI, -10)
-        assert east["solar_noon"][11:] == west["solar_noon"][11:]
+        assert east["solar_noon"][:10] == west["solar_noon"][:10] == "2026-09-06"
+        gap = _dt(east["solar_noon"]) - _dt(west["solar_noon"])
+        assert abs(gap) <= timedelta(minutes=1)
 
     def test_samoa_and_tonga_keep_their_own_date(self):
         for place, offset in ((dict(lat=-13.83, lng=-171.77), 13),
@@ -324,3 +328,50 @@ class TestHoursBlock:
         assert block["now"]["label"] == "7:52"
         assert block["next"]["key"] == "mincha_ketana"
         assert block["next"]["in"] == "1h 41m"
+
+
+class TestOneSunrise:
+    """Sunshine's sunrise is the one the rest of the app reads: the
+    traditional hours' edges and the tides' and the weather's month
+    views (astro.ephemeris.sunrise_sunset). With a formula of its own,
+    Hobart on 23 October 2026 printed a sunrise of 06:06 above a hora
+    prima of 06:07."""
+
+    HOBART = (-42.88, 147.33)
+
+    def test_the_json_and_its_hours_block_agree(self):
+        from zoneinfo import ZoneInfo
+        from linecast.astro.hours import hours_now
+        hobart = ZoneInfo("Australia/Hobart")
+        now = datetime(2026, 10, 23, 9, 0, tzinfo=hobart)
+        hours = hours_now("roman", now, *self.HOBART, hobart)[0]
+        p = build_payload(*self.HOBART, now=now, location="Hobart", hours=hours)
+        assert p["sunrise"] == p["hours"]["day_start"]
+        assert p["sunset"] == p["hours"]["day_end"]
+
+    def test_the_views_hours_are_the_ephemeris_sunrise(self, monkeypatch):
+        from datetime import date
+        from zoneinfo import ZoneInfo
+        from linecast.astro.ephemeris import sunrise_sunset
+        from linecast.sunshine import solar
+        places = [(43.66, -70.26, "America/New_York"), (-42.88, 147.33, "Australia/Hobart"),
+                  (64.15, -21.94, "Atlantic/Reykjavik"), (1.87, -157.40, "Pacific/Kiritimati"),
+                  (78.22, 15.65, "Arctic/Longyearbyen")]
+        for day in (date(2026, 3, 20), date(2026, 6, 21), date(2026, 10, 23), date(2026, 12, 21)):
+            monkeypatch.setattr(solar, "_local_today", lambda day=day: day)
+            doy = day.timetuple().tm_yday
+            for lat, lng, zone in places:
+                tz = ZoneInfo(zone)
+                offset = day_offset(day, tz)
+                rise_h, set_h = solar_times(lat, lng, doy, offset)
+                rise, sset = sunrise_sunset(day, lat, lng, tz)
+                if rise is None or sset - rise >= timedelta(days=1):
+                    assert polar_state(set_h - rise_h), (zone, day)
+                    continue
+                midnight = datetime(day.year, day.month, day.day,
+                                    tzinfo=timezone(timedelta(hours=offset)))
+                for hours, moment in ((rise_h, rise), (set_h, sset)):
+                    assert abs(midnight + timedelta(hours=hours) - moment) < timedelta(seconds=1)
+                    # and the arc crosses the sunrise's depression there
+                    elev = solar.sun_elevation(lat, lng, hours, doy, offset)
+                    assert abs(elev + 0.833) < 0.002, (zone, day, elev)

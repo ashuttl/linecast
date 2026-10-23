@@ -761,3 +761,43 @@ def sun_depression_utc(local_date, lat_deg, lng_deg, depression_deg,
         else:
             hi = mid
     return lo + (hi - lo) / 2
+
+
+# The sunrise and sunset the published tables give: the Sun's upper
+# limb on a sea-level horizon, refracted, which puts its centre 0.833°
+# below it (34′ of refraction and 16′ of semi-diameter).
+SUNRISE_DEPRESSION_DEG = 0.833
+
+
+@lru_cache(maxsize=1024)
+def sunrise_sunset(local_date, lat_deg, lng_deg, tzinfo=None):
+    """(sunrise, sunset) on the local date, as aware datetimes in
+    *tzinfo*, or the machine's zone without one.
+
+    This is the app's one sunrise: the sunshine views, the month views
+    of the tides and the weather, and the traditional hours all read
+    the Sun's crossing of the horizon from sun_depression_utc. A day
+    the Sun does not rise is (None, None), and a day it does not set
+    runs from its midnight to the next. So does a day at the edge of
+    the midnight sun on which it only rises, or only sets, since the
+    Sun is up the rest of that day round. Cached, since a view that
+    repaints by the second asks for the same day again and again.
+    """
+    rise = sun_depression_utc(local_date, lat_deg, lng_deg, SUNRISE_DEPRESSION_DEG,
+                              False, tzinfo)
+    sset = sun_depression_utc(local_date, lat_deg, lng_deg, SUNRISE_DEPRESSION_DEG,
+                              True, tzinfo)
+
+    def local(dt):
+        return dt.astimezone(tzinfo) if tzinfo else dt.astimezone()
+
+    if rise is None or sset is None:
+        # Both edges are missing when the Sun stays down, and one or
+        # both when it stays up; its height at transit says which.
+        noon = sun_transit_utc(local_date, lng_deg, tzinfo)
+        if sun_alt_az_deg(noon, lat_deg, lng_deg)[0] < -SUNRISE_DEPRESSION_DEG:
+            return None, None
+        start = datetime(local_date.year, local_date.month, local_date.day, tzinfo=tzinfo)
+        end = start + timedelta(days=1)
+        return (start, end) if tzinfo else (start.astimezone(), end.astimezone())
+    return local(rise), local(sset)

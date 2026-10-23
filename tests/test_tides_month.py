@@ -17,7 +17,7 @@ from linecast.tides import harmonic, month
 from linecast.tides import palette as _palette
 from linecast.tides.common import computed_hilo, computed_range
 from linecast.tides.month import (
-    _daylight_lows, _Heights, _sun_times, month_of, reach, render_month,
+    _daylight_lows, _Heights, month_of, reach, render_month,
 )
 
 TZ = ZoneInfo("America/New_York")
@@ -151,24 +151,6 @@ class TestTheClocksChanging:
         drawn = [heights.at(midnight + timedelta(minutes=m)) for m in range(10, 290, 10)]
         assert drawn == sorted(drawn)               # never back down the hour
         assert 1.9 <= heights.at(midnight + timedelta(minutes=150)) <= 2.0
-
-
-class TestTheSun:
-    def test_an_ordinary_day_has_a_sunrise_and_a_sunset_on_the_stations_clock(self):
-        rise, set_ = _sun_times(date(2026, 10, 1), 43.66, -70.25, TZ)
-        # Portland, 1 October: up about 6:38 and down about 6:22
-        assert (rise.hour, set_.hour) == (6, 18)
-        assert rise.tzinfo is not None and rise.utcoffset() == timedelta(hours=-4)
-
-    def test_the_polar_night_has_no_daylight(self):
-        tromso = ZoneInfo("Europe/Oslo")
-        assert _sun_times(date(2026, 12, 21), 69.65, 18.96, tromso) == (None, None)
-
-    def test_the_midnight_sun_is_up_from_midnight_to_midnight(self):
-        tromso = ZoneInfo("Europe/Oslo")
-        rise, set_ = _sun_times(date(2026, 6, 21), 69.65, 18.96, tromso)
-        assert set_ - rise == timedelta(days=1)
-        assert (rise.hour, rise.minute) == (0, 0)
 
 
 class TestDaylightLows:

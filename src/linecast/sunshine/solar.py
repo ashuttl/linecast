@@ -1,25 +1,19 @@
-"""Where the sun is, and when it rises and sets.
+"""Where the sun is, and when it rises and sets, in the decimal hours
+the sunshine views plot a day by.
 
-The sunshine view is drawn from this, and the tides chart, the globe
-and the one-line summaries borrow it.
+Both come from the ephemeris: the sunrise and sunset are
+astro.ephemeris.sunrise_sunset, the one the tides' and the weather's
+month views and the traditional hours read too, and the height is the
+same ephemeris's. The tides chart, the globe and the one-line summaries
+borrow from here as well.
 """
 
 import math
 from datetime import date, datetime, time, timedelta, timezone
 from functools import lru_cache
 
-from linecast.astro.ephemeris import sun_declination
+from linecast.astro.ephemeris import sun_declination, sun_transit_utc, sunrise_sunset
 
-
-# ---------------------------------------------------------------------------
-# Solar math
-#
-# Based on the simplified NOAA Solar Calculator equations, which are
-# themselves derived from Meeus, "Astronomical Algorithms" (2nd ed.).
-# See: https://gml.noaa.gov/grad/solcalc/solareqns.PDF
-#
-# Accuracy: ~1 minute for sunrise/sunset, ~0.3° for elevation.
-# ---------------------------------------------------------------------------
 
 def day_offset(day, tzinfo=None):
     """The UTC offset, in hours, a day's rise and set are read on: the
@@ -36,7 +30,8 @@ def day_offset(day, tzinfo=None):
 
 def _day_of(doy):
     """The date of day *doy* of the user's year, which 0 and 367 leave
-    for the neighboring years, as callers' yesterday and tomorrow do."""
+    for the neighboring years, as callers' yesterday and tomorrow do.
+    The year is read through _local_today so a test can pin it."""
     return date(_local_today().year, 1, 1) + timedelta(days=doy - 1)
 
 
@@ -44,13 +39,16 @@ def _offset(doy, tz_offset_h):
     """*tz_offset_h*, or without one the machine's offset on day *doy*."""
     return day_offset(_day_of(doy)) if tz_offset_h is None else tz_offset_h
 
-def _equation_of_time(doy):
-    """Equation of time in minutes (Spencer, 1971 / NOAA simplified form).
 
-    B is the fractional year angle offset from the vernal equinox.
-    """
-    B = math.radians(360 / 365 * (doy - 81))
-    return 9.87 * math.sin(2*B) - 7.53 * math.cos(B) - 1.5 * math.sin(B)
+def _clock(day, offset_h):
+    """The fixed zone a day's decimal hours are read in, and its midnight."""
+    tz = timezone(timedelta(hours=offset_h))
+    return tz, datetime(day.year, day.month, day.day, tzinfo=tz)
+
+
+def _hours_since(midnight, moment):
+    return (moment - midnight).total_seconds() / 3600
+
 
 @lru_cache(maxsize=1024)
 def _declination_on(year, doy):
@@ -60,49 +58,40 @@ def _declination_on(year, doy):
 
 
 def _declination(doy):
-    """Solar declination in degrees, from the ephemeris.
-
-    doy is a day of the user's current year; 0 and 367 reach into the
-    neighboring years, as callers' yesterday and tomorrow do. The year
-    is read through _local_today so a test can pin it.
-    """
+    """Solar declination in degrees at UTC noon on day *doy* of the
+    user's year (_day_of), from the ephemeris."""
     return _declination_on(_local_today().year, doy)
 
-def solar_times(lat, lng, doy, tz_offset_h=None):
-    """Sunrise/sunset as local decimal hours.
 
-    Uses the standard hour angle formula with a zenith of 90.833° to
-    account for atmospheric refraction (~0.833° at the horizon).
-    Reference: NOAA Solar Calculator, https://gml.noaa.gov/grad/solcalc/
+def solar_times(lat, lng, doy, tz_offset_h=None):
+    """Sunrise and sunset on day *doy*, as local decimal hours.
+
+    They are astro.ephemeris.sunrise_sunset's: the upper limb on the
+    horizon, refracted, to the second. A rise or set the other side of
+    midnight is real, and lands below 0 or past 24. On a day the Sun
+    does not rise both are its transit, and on a day it does not set
+    they are the transit less and plus twelve hours, so the length of
+    the day says which (polar_state).
 
     tz_offset_h is the UTC offset the "local" hours are expressed in,
     day_offset's for the day in the place's zone; it defaults to the
     machine's on that day, which is only right when the machine is at
     the location.
     """
-    decl = _declination(doy)
-    lat_r, dec_r = math.radians(lat), math.radians(decl)
-    cos_ha = ((math.cos(math.radians(90.833)) -
-               math.sin(lat_r) * math.sin(dec_r)) /
-              (math.cos(lat_r) * math.cos(dec_r)))
-    cos_ha = max(-1.0, min(1.0, cos_ha))
-    ha = math.degrees(math.acos(cos_ha))
-    eot = _equation_of_time(doy)
-    noon_utc = 12 - lng / 15 - eot / 60
-    tz = _offset(doy, tz_offset_h)
-    # A zone more than twelve hours from its own solar meridian — the
-    # UTC+13 and +14 zones that sit east of the date line, Samoa, Tonga,
-    # Kiritimati — puts noon_utc + tz outside the day it belongs to.
-    # Solar noon is in the local date by definition, so bring it back.
-    # A rise or set that falls the other side of midnight is real, and
-    # is left where it lands.
-    noon_local = (noon_utc + tz) % 24
-    return noon_local - ha/15, noon_local + ha/15
+    day = _day_of(doy)
+    tz, midnight = _clock(day, _offset(doy, tz_offset_h))
+    rise, sset = sunrise_sunset(day, lat, lng, tz)
+    if rise is not None and sset - rise < timedelta(days=1):
+        return _hours_since(midnight, rise), _hours_since(midnight, sset)
+    noon = _hours_since(midnight, sun_transit_utc(day, lng, tz))
+    if rise is None:
+        return noon, noon
+    return noon - 12, noon + 12
 
 
-# A day length this close to 0h or 24h means the hour angle above was
-# clamped: the sun does not cross the horizon at this latitude today, and
-# solar_times() returned noon twice rather than a rise and a set.
+# A day length this close to 0h or 24h is one solar_times() gave for a
+# day the sun does not cross the horizon: noon twice, or noon less and
+# plus twelve hours, rather than a rise and a set.
 POLAR_EPSILON_HOURS = 0.01
 
 
@@ -131,18 +120,38 @@ def day_length_change(lat, lng, doy, tz_offset_h=None, yesterday_offset_h=None):
     return day_len, (day_len - (y_set - y_rise)) * 3600
 
 
+@lru_cache(maxsize=1024)
+def _transits(year, doy, lng, offset_h):
+    """The Sun's transits before, on and after day *doy*, as decimal
+    hours from its midnight, each with the declination then."""
+    day = date(year, 1, 1) + timedelta(days=doy - 1)
+    tz, midnight = _clock(day, offset_h)
+    track = []
+    for k in (-1, 0, 1):
+        t = sun_transit_utc(day + timedelta(days=k), lng, tz)
+        track.append((_hours_since(midnight, t), math.radians(sun_declination(t))))
+    return tuple(track)
+
+
 def sun_elevation(lat, lng, local_hour, doy, tz_offset_h=None):
-    """Sun elevation angle in degrees at a given local hour."""
-    decl = _declination(doy)
-    eot = _equation_of_time(doy)
-    noon_utc = 12 - lng / 15 - eot / 60
-    tz = _offset(doy, tz_offset_h)
-    ha = 15 * (local_hour - tz - noon_utc)
+    """The Sun's elevation in degrees at a local decimal hour of day
+    *doy*: geometric, the centre against the true horizon.
+
+    The hour angle turns once from one transit to the next, and the
+    declination moves less than half a degree a day, so between the two
+    transits either side of the hour both are a straight line. That is
+    the ephemeris's own place to within an arcsecond or two, at the cost
+    of a little trigonometry, which a frame that asks thousands of times
+    needs.
+    """
+    track = _transits(_local_today().year, doy, lng, _offset(doy, tz_offset_h))
+    (t0, d0), (t1, d1) = track[:2] if local_hour < track[1][0] else track[1:]
+    frac = (local_hour - t0) / (t1 - t0)
+    hour_angle = 2 * math.pi * frac
+    dec = d0 + (d1 - d0) * frac
     lat_r = math.radians(lat)
-    dec_r = math.radians(decl)
-    ha_r  = math.radians(ha)
-    sin_e = (math.sin(lat_r) * math.sin(dec_r) +
-             math.cos(lat_r) * math.cos(dec_r) * math.cos(ha_r))
+    sin_e = (math.sin(lat_r) * math.sin(dec) +
+             math.cos(lat_r) * math.cos(dec) * math.cos(hour_angle))
     return math.degrees(math.asin(max(-1.0, min(1.0, sin_e))))
 
 
