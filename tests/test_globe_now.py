@@ -1,5 +1,9 @@
 """Tests for the sky overlays: subsolar point, daylight, clouds, lights."""
 
+import types
+
+import pytest
+
 from linecast.maps import globe_now
 from linecast.terminal.scenes import Memo
 
@@ -174,6 +178,52 @@ class TestRefresh:
                             lambda prov, timeout=15: {"host": "h"})
         assert globe_now.refresh(130.0, 208) is False
         assert globe_now.peek() is None
+
+
+    def test_an_unreadable_index_is_asked_again_later_each_time(
+            self, monkeypatch):
+        # with no copy on disk the globe asked on every frame it drew:
+        # 53 index requests in 2 s of a spinning `--view now`
+        tiles = globe_now.tiles
+        monkeypatch.setattr(globe_now, "_cloud",
+                            {"stamp": None, "canvas": None, "checked": 0.0,
+                             "failures": 0})
+        now = [1000.0]
+        monkeypatch.setattr(globe_now, "time",
+                            types.SimpleNamespace(time=lambda: now[0]))
+        asked = []
+
+        def down(prov, timeout=15):
+            asked.append(1)
+            raise OSError("HTTP 503")
+
+        monkeypatch.setattr(tiles, "fetch_index", down)
+        for wait in (2.0, 4.0, 8.0):
+            assert globe_now.stale()
+            with pytest.raises(OSError):
+                globe_now.refresh(130.0, 208)
+            now[0] += wait - 0.1
+            assert not globe_now.stale()
+            now[0] += 0.2
+        assert asked == [1, 1, 1]
+        monkeypatch.setattr(tiles, "fetch_index",
+                            lambda prov, timeout=15: self._index([]))
+        assert globe_now.refresh(130.0, 208) is False
+        now[0] += 60.0
+        assert not globe_now.stale()      # a read index is trusted again
+
+    def test_the_loader_waits_out_the_hold(self, monkeypatch):
+        from linecast.maps import loaders
+        monkeypatch.setattr(globe_now, "_cloud",
+                            {"stamp": None, "canvas": None,
+                             "checked": globe_now.time.time(), "failures": 1})
+        monkeypatch.setattr(loaders._live, "_running", True)
+        started = []
+        monkeypatch.setattr(loaders, "threading", types.SimpleNamespace(
+            Thread=lambda **k: started.append(k)))
+        for _ in range(30):
+            assert loaders._get_clouds(130.0, 40, True) is None
+        assert started == []
 
 
 class TestPolarCap:

@@ -37,7 +37,7 @@ from linecast._xyz import stitch_xyz
 from linecast.maps.globe import _aspect, _source_zoom, bilinear_taps, geometry
 from linecast._png import decode_rgba
 from linecast._log import log_failure
-from linecast.terminal.scenes import Memo
+from linecast.terminal.scenes import FAIL_HOLD, FAIL_HOLD_MAX, Memo
 from linecast.terminal.theme import themed
 from linecast.sunshine.solar import _declination
 
@@ -291,7 +291,7 @@ def flat_lls(bbox, w, h):
 
 _cloud_lock = threading.Lock()
 _cloud = {"stamp": None, "canvas": None, "checked": 0.0, "white": None,
-          "cover": None}
+          "cover": None, "failures": 0}
 
 
 def _mosaic_white(canvas):
@@ -370,8 +370,17 @@ def peek():
 
 
 def stale():
-    """True when the index deserves another look."""
-    return time.time() - _cloud["checked"] > _REFRESH_S
+    """True when the index deserves another look.
+
+    An index that could not be read at all is looked for again sooner
+    than a read one is trusted, and later for each failure in a row, on
+    the schedule a failed scene keeps (terminal.scenes.FAIL_HOLD): a
+    globe asks on every frame it draws.
+    """
+    failures = _cloud["failures"]
+    wait = (min(FAIL_HOLD_MAX, FAIL_HOLD * 2 ** (failures - 1)) if failures
+            else _REFRESH_S)
+    return time.time() - _cloud["checked"] > wait
 
 
 def refresh(zoom, h, timeout=15):
@@ -383,10 +392,17 @@ def refresh(zoom, h, timeout=15):
     """
     _noise_grid()  # warmed here, off the paint path
     prov = _provider()
-    idx = tiles.fetch_index(prov, timeout)
+    try:
+        idx = tiles.fetch_index(prov, timeout)
+    except Exception:
+        with _cloud_lock:
+            _cloud["checked"] = time.time()
+            _cloud["failures"] += 1
+        raise
     frames = (idx.get("satellite") or {}).get("infrared") or []
     with _cloud_lock:
         _cloud["checked"] = time.time()
+        _cloud["failures"] = 0
     if not frames:
         return False
     z = _source_zoom(zoom, h)

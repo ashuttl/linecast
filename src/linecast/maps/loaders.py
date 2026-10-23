@@ -804,7 +804,9 @@ def _get_clouds(zoom, hc, block):
     layer that is only the weather over it.  A stale canvas is still
     this hour's, and a missing one is a planet without cloud for a few
     frames.  Live, freshening happens in the background and nudges a
-    repaint when it lands.
+    repaint when it lands.  Without a canvas the index is asked only as
+    often as `globe_now.stale` allows, which after a failure is the
+    hold a failed scene keeps, not every frame.
     """
     canvas = globe_now.peek()
     if block and canvas is None and not _live._running:
@@ -813,7 +815,7 @@ def _get_clouds(zoom, hc, block):
         except Exception as exc:
             log_failure("maps/clouds", "refresh", exc, fallback="no cloud layer")
         return globe_now.peek()
-    if canvas is not None and not globe_now.stale():
+    if not globe_now.stale():
         return canvas
     with _clouds_lock:
         if _clouds_pending[0]:
