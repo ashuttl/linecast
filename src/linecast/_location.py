@@ -287,7 +287,9 @@ def _windows_zone_name() -> str | None:
     """
     try:
         import ctypes
-        icu = ctypes.WinDLL("icu.dll")
+        # ICU exports cdecl functions (U_EXPORT2): CDLL, not WinDLL, or a
+        # 32-bit Python unbalances the stack on every call
+        icu = ctypes.CDLL("icu.dll")
         ask = icu.ucal_getDefaultTimeZone
         ask.restype = ctypes.c_int32
         ask.argtypes = (ctypes.c_wchar_p, ctypes.c_int32, ctypes.POINTER(ctypes.c_int))
