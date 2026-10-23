@@ -42,10 +42,22 @@ jobs:
           LINECAST_LIVE_TIDECHECK_KEY: ${{ secrets.LINECAST_LIVE_TIDECHECK_KEY }}
         run: |
           set +e
-          pytest tests/test_live_providers.py -m integration \
-              -q -p no:cacheprovider -rfEs --tb=short \
-              2>&1 | tee "$RUNNER_TEMP/report.txt"
-          echo "status=${PIPESTATUS[0]}" >> "$GITHUB_OUTPUT"
+          probe() {
+              pytest tests/test_live_providers.py -m integration \
+                  -q -o cache_dir="$RUNNER_TEMP/pytest-cache" -rfEs --tb=short \
+                  "$@" 2>&1 | tee "$RUNNER_TEMP/report.txt"
+              return "${PIPESTATUS[0]}"
+          }
+          probe
+          status=$?
+          if [ "$status" -ne 0 ]; then
+              # Most failures are a provider's passing hiccup: ask the
+              # failed ones again a few minutes later before reporting.
+              sleep 300
+              probe --last-failed
+              status=$?
+          fi
+          echo "status=$status" >> "$GITHUB_OUTPUT"
 
       - name: Open, update, or close the issue
         env:
