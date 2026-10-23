@@ -32,9 +32,9 @@ from linecast._config import saved_tidecheck_key
 from linecast._http import fetch_json, fetch_json_cached
 from linecast._log import log_failure, log_skipped
 from linecast.tides.common import (
-    M_TO_FT, NEAREST_STATION_CACHE_MAX_AGE, cache_dir, cached_y_range, fetch_lock,
-    iana_to_abbr, local_day_bounds, parse_cached_dt, parse_utc_iso, tz_offset_hours,
-    y_range_window,
+    M_TO_FT, NEAREST_STATION_CACHE_MAX_AGE, StationMeta, cache_dir, cached_y_range,
+    fetch_lock, iana_to_abbr, local_day_bounds, parse_cached_dt, parse_utc_iso,
+    tz_offset_hours, y_range_window,
 )
 
 TIDECHECK_BASE = "https://tidecheck.com/api"
@@ -232,7 +232,7 @@ def search_stations_tidecheck(query: str) -> list[dict[str, Any]]:
 # ---------------------------------------------------------------------------
 # Station metadata
 # ---------------------------------------------------------------------------
-def fetch_station_metadata_tidecheck(station_id: str) -> dict[str, Any] | None:
+def fetch_station_metadata_tidecheck(station_id: str) -> StationMeta | None:
     """Fetch TideCheck station metadata, normalized to match NOAA shape.
 
     Returns dict with: id, name, lat, lng, timezone_abbr, timezonecorr,

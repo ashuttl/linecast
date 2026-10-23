@@ -23,9 +23,9 @@ from linecast._geo import haversine_nm
 from linecast._http import fetch_json, fetch_json_cached
 from linecast._log import log_failure, log_skipped
 from linecast.tides.common import (
-    M_TO_FT, NEAREST_STATION_MAX_NM, cache_dir, cached_y_range, dedup_sorted,
-    fetch_lock, label_hilo, local_day_bounds, month_after, months_covering,
-    nearest_station, parse_cached_dt, station_coords, y_range_window,
+    M_TO_FT, NEAREST_STATION_MAX_NM, StationMeta, cache_dir, cached_y_range, dedup_sorted,
+    fetch_lock, label_hilo, local_day_bounds, month_after, months_covering, nearest_station,
+    parse_cached_dt, station_coords, y_range_window,
 )
 
 QLD_BASE = "https://www.data.qld.gov.au/api/3/action"
@@ -253,7 +253,7 @@ def legacy_station_for_slug(text: str) -> dict[str, Any] | None:
 # ---------------------------------------------------------------------------
 # Station metadata
 # ---------------------------------------------------------------------------
-def fetch_station_metadata_qld(station_name: str) -> dict[str, Any]:
+def fetch_station_metadata_qld(station_name: str) -> StationMeta:
     """Build QLD station metadata, normalized to match NOAA/CHS shape.
 
     Returns dict with: id, name, state, lat, lng, timezone_abbr,

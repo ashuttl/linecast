@@ -36,7 +36,7 @@ from linecast._geo import haversine_nm
 from linecast._http import fetch_bytes, fetch_json_cached
 from linecast._log import log_failure, log_skipped
 from linecast.tides.common import (
-    M_TO_FT, cache_dir, cached_y_range, iana_to_abbr, local_day_bounds,
+    M_TO_FT, StationMeta, cache_dir, cached_y_range, iana_to_abbr, local_day_bounds,
     month_after, month_start, tz_offset_hours, y_range_window,
 )
 
@@ -326,7 +326,7 @@ def find_point_kartverket(lat: float | None, lng: float | None) -> str | None:
 # ---------------------------------------------------------------------------
 # Station metadata
 # ---------------------------------------------------------------------------
-def fetch_station_metadata_kartverket(station_id: str) -> dict[str, Any] | None:
+def fetch_station_metadata_kartverket(station_id: str) -> StationMeta | None:
     """NOAA-shaped metadata for the point, which needs no request. The
     name is left empty: the place's own name, which the caller holds,
     is a better one than any this could make up."""

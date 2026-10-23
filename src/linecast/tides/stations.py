@@ -298,12 +298,11 @@ def _search_stations(query, metric=False, limit=20, cli_location=None):
     nearby = not query.strip()
     matches = _find_matching_stations(query, cli_location=cli_location)
 
-    if not matches:
-        if nearby:
-            print("Could not fetch any station lists (offline?).")
-        else:
-            print(f"No stations matching \"{query}\". "
-                  "Try `linecast tides --nearby` to list the nearest stations.")
+    # The bundled gauges always answer an empty query, so only a search
+    # finds nothing
+    if not matches and not nearby:
+        print(f"No stations matching \"{query}\". "
+              "Try `linecast tides --nearby` to list the nearest stations.")
         sys.exit(0)
 
     if nearby:

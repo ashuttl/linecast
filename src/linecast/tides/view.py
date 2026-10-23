@@ -1,23 +1,24 @@
 #!/usr/bin/env python3
 """Tides — terminal visualization of tide predictions.
 
-Renders a multi-line graphical display of the tide curve with an
-ocean-themed color palette. Shows water level as a braille line graph
-with height-colored curve, high/low labels, and current position indicator.
+Renders the day's chart: the tide curve as a braille line with an
+ocean-themed color palette, its high and low waters labelled, the night
+shaded, and the current position marked.  The month, year and makeup
+views are tides.month, tides.year and tides.makeup; tides.live runs
+them all.
 
-Uses Unicode braille characters with ANSI color for smooth line rendering
-(true color when available). Station is auto-detected from IP geolocation
-or overridden with TIDE_STATION env var.
+The station is the one --station names (or TIDE_STATION), else the one
+nearest the place: --location, the saved location, or the network's
+guess.  tides.stations picks it by the place's country: NOAA (the US),
+CHS (Canada), Queensland's open data, the Hong Kong Observatory, the
+Japan Meteorological Agency, Kartverket (Norway), the TICON-4 gauges
+bundled for about 1,200 places elsewhere, TideCheck with a key
+(LINECAST_TIDECHECK_KEY), and Open-Meteo's global tide model, keyless,
+for any coast.  --search and --nearby list stations.
 
-Data sources: NOAA (US), CHS/IWLS (Canada), QLD Open Data (Queensland,
-Australia), TideCheck (global, optional), and Open-Meteo's global tide
-model (keyless fallback for any coastline), selected automatically based
-on geolocation. Use --station with a station ID or name to override, and
---nearby to list the closest stations.
-For extra station coverage set LINECAST_TIDECHECK_KEY (free at tidecheck.com).
-
-Usage: tides [--print] [--oneline] [--json] [--location PLACE] [--station ID | NAME]
-             [--search QUERY] [--nearby] [--metric] [--lang LANG] [--classic-colors]
+Usage: tides [--print] [--oneline] [--json] [--month | --year | --makeup]
+             [--location PLACE] [--station ID | NAME] [--search QUERY] [--nearby]
+             [--metric] [--lang LANG] [--classic-colors]
 """
 
 import math
@@ -57,7 +58,7 @@ from linecast.moon.phase import moon_phase
 
 from linecast.tides.palette import (
     CURVE_COLOR, DIM, DIM_RGB, HOVER_COLOR, MUTED_RGB, NIGHT_DIM, NOW_LINE_COLOR,
-    NOW_PILL_RGB, NOW_PILL_TEXT_RGB, PILL_BG_RGB, PILL_FG_RGB, TEXT_RGB,
+    PILL_BG_RGB, PILL_FG_RGB,
 )
 
 _theme.track_imports(globals(), "linecast.tides.palette")
@@ -403,100 +404,6 @@ def _render_header_line(cols, station_name, runtime, offset_minutes=0, location_
 
     padding = max(1, cols - pill_w - moon_w)
     return f"{pill}{' ' * padding}{moon_str}"
-
-
-# ---------------------------------------------------------------------------
-# Info line
-# ---------------------------------------------------------------------------
-def _info_line(window, now_height, now_dt, width, offset_minutes, rising, runtime):
-    """Iconic pill-shaped tide info bar."""
-    text = fg(*TEXT_RGB)
-    dim = fg(*DIM_RGB)
-    sep = "  "
-
-    pill_rgb = PILL_BG_RGB
-    now_rgb = NOW_PILL_RGB
-    now_text = fg(*NOW_PILL_TEXT_RGB)
-
-    arrow = "↗" if rising else "↘"
-    if runtime.icons == "nerd":
-        icon_hi = "\U000F0799"   # 󰞙
-        icon_lo = "\U000F0796"   # 󰞖
-    else:
-        icon_hi = "▲"
-        icon_lo = "▼"
-
-    h_display = runtime.convert_height(now_height)
-    unit = runtime.height_unit
-
-    # --- Current stat ---
-    if offset_minutes:
-        time_str = fmt_time_dt(now_dt, use_24h=runtime.use_24h)
-        now_content = f"{now_text}{arrow} {time_str} {fmt_decimal(h_display, 1, runtime)}{unit}"
-    else:
-        now_content = f"{now_text}{arrow} {fmt_decimal(h_display, 1, runtime)}{unit}"
-
-    # --- High/low/range parts ---
-    rest_parts = []
-    hilo = window["hilo"]
-    if hilo:
-        highs = [(dt, v) for dt, v, t in hilo if t == "H"]
-        lows = [(dt, v) for dt, v, t in hilo if t == "L"]
-
-        if highs:
-            dt, v = highs[0]
-            v_d = runtime.convert_height(v)
-            t_str = fmt_time_dt(dt, use_24h=runtime.use_24h)
-            rest_parts.append(f"{text}{icon_hi}{fmt_decimal(v_d, 1, runtime)}{unit} {dim}{t_str}")
-        if lows:
-            dt, v = lows[0]
-            v_d = runtime.convert_height(v)
-            t_str = fmt_time_dt(dt, use_24h=runtime.use_24h)
-            rest_parts.append(f"{text}{icon_lo}{fmt_decimal(v_d, 1, runtime)}{unit} {dim}{t_str}")
-
-        # The range is the highest high less the lowest low, so it needs
-        # one of each.  A diurnal station's 24 hours can hold a single
-        # extreme, and measuring that against zero would print a range
-        # that is really a height, or a negative one for a lone low.
-        if highs and lows:
-            h_max = max(v for _, v in highs)
-            h_min = min(v for _, v in lows)
-            tide_range = runtime.convert_height(h_max - h_min)
-            rest_parts.append(f"{text}Δ{fmt_decimal(tide_range, 1, runtime)}{unit}")
-
-    # --- "Space to return" hint ---
-    if offset_minutes:
-        hint = _ts("space_to_now", runtime)
-        rest_parts.append(f"{dim}{hint}")
-
-    # --- Assemble pill ---
-    now_fg = fg(*now_rgb)
-    now_bg = bg(*now_rgb)
-    pill_fg_esc = fg(*pill_rgb)
-    pill_bg_esc = bg(*pill_rgb)
-
-    if not now_bg:
-        # no color: the stats alone, without the half blocks round them
-        line = sep.join([now_content, *rest_parts]) + RESET
-    elif rest_parts:
-        rest_content = sep.join(rest_parts)
-        line = (
-            f"{now_fg}\u2590"
-            f"{now_bg} {now_content} "
-            f"{now_fg}{pill_bg_esc}\u258c"
-            f" {rest_content} "
-            f"{RESET}{pill_fg_esc}\u258c{RESET}"
-        )
-    else:
-        line = (
-            f"{now_fg}\u2590"
-            f"{now_bg} {now_content} "
-            f"{RESET}{now_fg}\u258c{RESET}"
-        )
-
-    pill_w = visible_len(line)
-    pad = max(0, width - pill_w)
-    return f"{' ' * (pad // 2)}{line}"
 
 
 # ---------------------------------------------------------------------------

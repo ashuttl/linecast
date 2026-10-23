@@ -1,7 +1,7 @@
 """The tide view's inks: the curve, the lines for now and the pointer,
-the station and time pills, the moon's rising and setting, and the
-tooltips.  Rebuilt when the theme changes; the view and the chart
-helpers both take them from here.
+the station pill, the moon's rising and setting, and the tooltips.
+Rebuilt when the theme changes; the view and the chart helpers both
+take them from here.
 """
 
 from linecast.terminal import theme as _theme
@@ -19,7 +19,7 @@ from linecast.terminal.theme import (
 def _rebuild():
     global CURVE_COLOR, NOW_LINE_COLOR, HOVER_COLOR, DIM_RGB, MUTED_RGB
     global TIP_DIM_RGB
-    global TEXT_RGB, PILL_BG_RGB, PILL_FG_RGB, NOW_PILL_RGB, NOW_PILL_TEXT_RGB
+    global TEXT_RGB, PILL_BG_RGB, PILL_FG_RGB
     global DIM, NIGHT_DIM, MOON_RISE_RGB, MOON_SET_RGB, TIP_BG_RGB, TIP_TEXT_RGB
     CURVE_COLOR = ensure_contrast(
         best_contrast((_theme.theme_ansi[6], _theme.theme_ansi[14], _theme.theme_fg), minimum=2.0),
@@ -35,11 +35,6 @@ def _rebuild():
     TEXT_RGB = ensure_contrast(_theme.theme_fg, _theme.theme_bg, minimum=4.5)
     PILL_BG_RGB = surface_bg(0.08)
     PILL_FG_RGB = ensure_contrast(TEXT_RGB, PILL_BG_RGB, minimum=4.5)
-    NOW_PILL_RGB = ensure_contrast(
-        best_contrast((_theme.theme_ansi[6], _theme.theme_ansi[14]), minimum=2.0),
-        _theme.theme_bg, minimum=2.0)
-    NOW_PILL_TEXT_RGB = best_contrast(((12, 20, 30), _theme.theme_bg, _theme.theme_fg),
-                                      background=NOW_PILL_RGB, minimum=4.5)
     MOON_RISE_RGB = ensure_contrast(
         best_contrast((_theme.theme_ansi[5], _theme.theme_ansi[13]), minimum=2.0),
         _theme.theme_bg, minimum=2.0)

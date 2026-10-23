@@ -19,6 +19,7 @@ from linecast.tides import openmeteo
 from linecast.tides import qld
 from linecast.tides import ticon
 from linecast.tides import tidecheck
+from linecast.tides.common import StationMeta
 from linecast._log import log_failure
 
 # Full names for the state/territory abbreviations NOAA stations carry, so
@@ -88,7 +89,8 @@ class TideProvider:
     names, TideCheck's slugs, Open-Meteo's "om:lat,lng", Kartverket's
     "kv:lat,lng". Every method takes and returns the shapes the NOAA
     pipeline was built on: (datetime, height_ft) points, (datetime,
-    height_ft, "H"/"L") extremes, and NOAA-shaped metadata dicts.
+    height_ft, "H"/"L") extremes, and NOAA-shaped metadata dicts, whose
+    keys common.StationMeta lists.
     """
 
     name: str = ""   # the source key: cache names and the --json payload
@@ -141,7 +143,7 @@ class TideProvider:
         """Stations matching a text query as {source, id, name, lat, lng} dicts."""
         return []
 
-    def station_metadata(self, station_id: str) -> dict[str, Any] | None:
+    def station_metadata(self, station_id: str) -> StationMeta | None:
         raise NotImplementedError
 
     def tides_range(self, station_id: str, start_date: date, end_date: date,

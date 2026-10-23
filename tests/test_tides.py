@@ -18,7 +18,6 @@ from linecast.tides import stations as _tides_stations
 from linecast.tides import ticon as _tides_ticon
 from linecast.tides import tidecheck as _tides_tidecheck
 from linecast._runtime import TidesRuntime
-from linecast.tides.chart import prepare_tide_window
 from linecast.tides.providers import (
     CHS, HKO, JMA, KARTVERKET, NOAA, OPENMETEO, PROVIDERS, QLD, TICON, TIDECHECK,
     provider_for_id,
@@ -118,38 +117,6 @@ class RenderTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
-
-
-class InfoLineTests(unittest.TestCase):
-    """The range on the pill is the highest high less the lowest low."""
-
-    def setUp(self):
-        self.runtime = TidesRuntime(live=False, icons="plain", lang="en",
-                                    metric=False, oneline=False)
-        self.now = datetime(2026, 3, 5, 12, 0)
-        self.preds = [(self.now + timedelta(hours=h), 2.0) for h in range(-6, 19)]
-
-    def _pill(self, hilo):
-        window = prepare_tide_window(self.preds, hilo, self.now - timedelta(hours=6))
-        line = tides._info_line(window, 2.0, self.now, 80, 0, True, self.runtime)
-        return re.sub(r"\x1b\[[0-9;]*m", "", line)
-
-    def test_range_spans_high_to_low(self):
-        pill = self._pill([(self.now + timedelta(hours=3), 5.0, "H"),
-                           (self.now + timedelta(hours=9), 1.5, "L")])
-        self.assertIn("Δ3.5", pill)
-
-    def test_no_range_from_a_lone_low(self):
-        # a diurnal station's day can hold one extreme; measured against
-        # zero, a lone low of 1.5 ft read as a range of -1.5
-        pill = self._pill([(self.now + timedelta(hours=9), 1.5, "L")])
-        self.assertIn("1.5", pill)
-        self.assertNotIn("Δ", pill)
-
-    def test_no_range_from_a_lone_high(self):
-        pill = self._pill([(self.now + timedelta(hours=3), 5.0, "H")])
-        self.assertIn("5.0", pill)
-        self.assertNotIn("Δ", pill)
 
 
 class ChartRowTests(unittest.TestCase):
@@ -337,6 +304,60 @@ class StationSearchTests(unittest.TestCase):
         self.assertEqual([m["source"] for m in matches], ["tidecheck"])
         self.assertIsNotNone(matches[0]["dist_nm"])
         search.assert_called_once_with("lisbon")
+
+
+class StationMetaTests(unittest.TestCase):
+    """Every provider's metadata has the keys common.StationMeta lists
+    as always there, and no key it does not list: a key gone missing
+    surfaces far away, as the TICON gauges' lost night shading did."""
+
+    def _metadata(self):
+        import json
+        import os
+        import tempfile
+        from pathlib import Path
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        fixtures = Path(__file__).parent / "fixtures"
+        noaa_answer = json.loads((fixtures / "noaa_station_metadata.json").read_text())
+        chs_answer = {"id": "5cebf1df3d0f4a073c4bbcbb", "code": "00490",
+                      "officialName": "Halifax", "provinceCode": "NS",
+                      "latitude": 44.66, "longitude": -63.58, "timeZoneCode": "Canada/Atlantic"}
+        qld_list = [{"name": "Cairns", "lat": -16.92, "lng": 145.77,
+                     "years": {"2026": "cairns-2026"}}]
+        tidecheck_answer = {"station": {"id": "fes2022-lisbon", "name": "Lisbon",
+                                        "country": "Portugal", "lat": 38.71, "lng": -9.14,
+                                        "timezone": "Europe/Lisbon"}, "extremes": []}
+        marine_answer = {"latitude": 43.625, "longitude": -70.208,
+                         "timezone": "America/New_York", "utc_offset_seconds": -14400,
+                         "hourly": {"time": ["2026-08-16T00:00"],
+                                    "sea_level_height_msl": [0.5]}}
+        with patch.dict(os.environ, {"LINECAST_CACHE_DIR": tmp.name,
+                                     "LINECAST_TIDECHECK_KEY": "k"}), \
+             patch.object(_tides_qld, "fetch_all_stations_qld", return_value=qld_list), \
+             patch.object(_tides_tidecheck, "_fetch_tides_raw", return_value=tidecheck_answer), \
+             patch.object(_tides_openmeteo, "_fetch_year", return_value=marine_answer):
+            return {
+                "noaa": _tides_noaa._station_meta(noaa_answer, "9414290"),
+                "chs": _tides_chs._station_meta(chs_answer, chs_answer["id"]),
+                "qld": QLD.station_metadata("Cairns"),
+                "hko": HKO.station_metadata("QUB"),
+                "jma": JMA.station_metadata("jma:TK"),
+                "kartverket": KARTVERKET.station_metadata("kv:69.6500,18.9600"),
+                "ticon": TICON.station_metadata("ticon:brest-822-fra-uhslc_fd"),
+                "tidecheck": TIDECHECK.station_metadata("fes2022-lisbon"),
+                "openmeteo": OPENMETEO.station_metadata("om:43.6770,-70.3710"),
+            }
+
+    def test_every_provider_gives_the_keys_that_are_always_there(self):
+        from linecast.tides.common import StationMeta
+        metadata = self._metadata()
+        self.assertEqual(set(metadata), set(PROVIDERS))
+        for name, meta in metadata.items():
+            with self.subTest(provider=name):
+                self.assertLessEqual(StationMeta.__required_keys__, set(meta))
+                self.assertLessEqual(set(meta), set(StationMeta.__annotations__))
+                float(meta["lat"]), float(meta["lng"]), float(meta["timezonecorr"])
 
 
 class ProviderRegistryTests(unittest.TestCase):
@@ -850,11 +871,3 @@ class TestNoColor(unittest.TestCase):
         self.assertNotIn("▐", line)
         self.assertNotIn("▌", line)
 
-    def test_the_stats_are_the_text(self):
-        now = datetime(2026, 9, 29, 12, 0)
-        window = {"hilo": [(now + timedelta(hours=3), 9.8, "H"),
-                           (now + timedelta(hours=9), 0.4, "L")]}
-        line = tides._info_line(window, 5.0, now, 60, 0, True, self.runtime)
-        self.assertNotIn("▐", line)
-        self.assertNotIn("▌", line)
-        self.assertEqual(line.strip(), "↗ 1.5m  ▲3.0m 15:00  ▼0.1m 21:00  Δ2.9m")

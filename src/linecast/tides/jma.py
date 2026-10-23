@@ -40,7 +40,7 @@ from linecast._cache import location_cache_key
 from linecast._http import HTTPError, fetch_bytes, fetch_json_cached
 from linecast._log import log_skipped
 from linecast.tides.common import (
-    M_TO_FT, cache_dir, cached_y_range, local_day_bounds, month_after,
+    M_TO_FT, StationMeta, cache_dir, cached_y_range, local_day_bounds, month_after,
     nearest_station, station_coords, y_range_window,
 )
 
@@ -360,7 +360,7 @@ def find_nearest_station_jma(lat: float, lng: float) -> tuple[str | None, str | 
     return station_id, display_name(STATION_BY_CODE[code])
 
 
-def fetch_station_metadata_jma(station_id: str) -> dict[str, Any] | None:
+def fetch_station_metadata_jma(station_id: str) -> StationMeta | None:
     """Station metadata in the shape the NOAA pipeline reads."""
     code = station_code(station_id)
     if code is None:

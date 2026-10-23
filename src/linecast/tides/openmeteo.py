@@ -2,8 +2,9 @@
 
 Serves hourly `sea_level_height_msl` from Open-Meteo's marine API — a
 model-based tide curve available on nearly any coastline worldwide, with
-no API key.  Used when no station provider (NOAA, CHS, QLD, TideCheck)
-has a station near the current location.
+no API key.  Used when no station provider (NOAA, CHS, QLD, HKO, JMA,
+Kartverket, the TICON-4 gauges, TideCheck) has a station near the
+current location.
 
 Unlike the station providers there are no stations here: the "station"
 is the user's coordinates, encoded as `om:<lat>,<lng>`.  The marine API
@@ -39,15 +40,14 @@ with the highs and lows found by a parabola through each turn.
 import threading
 import time
 from datetime import date, datetime, timedelta, timezone, tzinfo
-from typing import Any
 
 from linecast._cache import location_cache_key, read_cache, write_cache
 from linecast._http import fetch_json_cached
 from linecast._log import log_failure, log_skipped
 from linecast.tides import harmonic
 from linecast.tides.common import (
-    M_TO_FT, Unreachable, cache_dir, cached_y_range, computed_hilo, computed_range,
-    computed_y_range, local_day_bounds,
+    M_TO_FT, StationMeta, Unreachable, cache_dir, cached_y_range, computed_hilo,
+    computed_range, computed_y_range, local_day_bounds,
 )
 
 # One standard fetch window serves every caller (range, hilo, y-range,
@@ -291,7 +291,7 @@ def find_nearest_openmeteo(lat: float | None, lng: float | None
 # ---------------------------------------------------------------------------
 # Station metadata
 # ---------------------------------------------------------------------------
-def fetch_station_metadata_openmeteo(station_id: str) -> dict[str, Any] | None:
+def fetch_station_metadata_openmeteo(station_id: str) -> StationMeta | None:
     """Build NOAA-shaped metadata from the model response for this location."""
     coords = parse_station_id(station_id)
     if coords is None:

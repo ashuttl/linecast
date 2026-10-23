@@ -40,7 +40,7 @@ from linecast._log import log_failure
 from linecast._paths import data_path
 from linecast.tides import harmonic
 from linecast.tides.common import (
-    computed_hilo, computed_range, computed_y_range, tz_offset_hours,
+    StationMeta, computed_hilo, computed_range, computed_y_range, tz_offset_hours,
 )
 
 PREFIX = "ticon:"
@@ -115,7 +115,7 @@ def find_nearest_station_ticon(lat: float, lng: float) -> tuple[str | None, str 
     return PREFIX + best["id"], display_name(best)
 
 
-def fetch_station_metadata_ticon(station_id: str) -> dict[str, Any] | None:
+def fetch_station_metadata_ticon(station_id: str) -> StationMeta | None:
     """Station metadata in the shape the NOAA pipeline reads."""
     s = station_by_id(station_id)
     if s is None:

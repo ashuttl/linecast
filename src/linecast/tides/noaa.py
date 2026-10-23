@@ -12,7 +12,7 @@ from linecast._cache import location_cache_key
 from linecast._http import fetch_json, fetch_json_cached
 from linecast._log import log_failure, log_skipped
 from linecast.tides.common import (
-    cache_dir, cached_y_range, fetch_lock, measured_turns, month_after,
+    StationMeta, cache_dir, cached_y_range, fetch_lock, measured_turns, month_after,
     months_covering, nearest_station, station_coords, y_range_window,
 )
 
@@ -46,7 +46,7 @@ def find_nearest_station(lat: float, lng: float) -> tuple[str | None, str | None
     )
 
 
-def fetch_station_metadata_noaa(station_id: str) -> dict[str, Any] | None:
+def fetch_station_metadata_noaa(station_id: str) -> StationMeta | None:
     """Fetch NOAA station metadata needed for timezone handling."""
     url = (
         "https://api.tidesandcurrents.noaa.gov/mdapi/prod/webapi/"

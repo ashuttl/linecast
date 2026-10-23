@@ -1,9 +1,13 @@
 """Helpers shared by the tide providers.
 
-Every provider caches under the same directory, works in feet, picks the
-nearest station the same way, and measures its y-axis range the same way;
-this module holds those pieces once. The provider modules keep what is
-genuinely theirs: URLs, payload shapes, and unit or timezone quirks.
+Every provider caches under the same directory, works in feet,
+describes its stations in the same metadata (StationMeta), and measures
+its y-axis range over the same window; this module holds those pieces
+once.  So too the nearest-station search NOAA, CHS, QLD, HKO and JMA
+share (TICON, Kartverket, TideCheck and Open-Meteo find theirs their own
+way), the locks the fixed blocks are fetched under, and the reading of
+a gauge's record at the predicted turns.  The provider modules keep what
+is genuinely theirs: URLs, payload shapes, and unit or timezone quirks.
 """
 
 import math
@@ -12,7 +16,7 @@ import threading
 from collections.abc import Callable
 from datetime import date, datetime, timedelta, timezone, tzinfo
 from pathlib import Path
-from typing import Any
+from typing import Any, TypedDict
 
 from linecast import _paths
 from linecast._cache import read_cache, read_stale, write_cache
@@ -28,6 +32,53 @@ Y_RANGE_CACHE_MAX_AGE = 7 * 86400
 def cache_dir() -> Path:
     """The directory every tide provider caches under."""
     return _paths.cache_dir("tides")
+
+
+class _StationMetaRequired(TypedDict):
+    id: str
+    name: str
+    state: str
+    lat: float | str
+    lng: float | str
+    timezone_abbr: str
+    timezonecorr: float
+    observedst: bool
+
+
+class StationMeta(_StationMetaRequired, total=False):
+    """A station's metadata, in the shape NOAA's mdapi gave it first and
+    every provider's station_metadata returns.  The view reads it, and
+    it is cached as JSON, so a key it does not find shows up far away:
+    a missing timezonecorr cost the TICON gauges their night shading.
+
+    id: the station's id, as --station takes it.
+    name: its name as the header shows it, with state after a comma;
+        "" for a stationless provider, whose caller holds a better one.
+    state: what follows the name: the state or province ("ME", "NS"),
+        a region, or a country; "" for none.
+    lat, lng: where it is, in degrees, a number or a string of one: the
+        daylight shading, the Moon's rises and sets, the sea forecast,
+        the makeup view's latitude.
+    timezone_abbr: NOAA's abbreviation for the station's clock ("EST",
+        "AKST"), which _station_tzinfo maps to a zone when there is no
+        IANA name; the others give a UTC offset ("UTC-3") or "".  NOAA's
+        and CHS's cached files without it are read as unparsed.
+    timezonecorr: the clock's offset from UTC in hours, a number: NOAA's
+        standard time, and the others' offset when the metadata was
+        made.  The zone of last resort, for a clock without a zone.
+    observedst: whether the clock keeps summer time, which settles an
+        abbreviation's zone ("AST" is Halifax with it, Puerto Rico
+        without).
+    timeZoneCode: the IANA zone ("America/Halifax"; CHS's legacy names
+        go through zone_info), the station's clock wherever it is given.
+    source: the provider's name; TideCheck's cache checks it.
+    datum: the chart datum the heights are above, where the provider
+        says ("LAT", "MSL"): TICON's gauges.
+    """
+
+    timeZoneCode: str
+    source: str
+    datum: str
 
 
 class Unreachable(Exception):
@@ -357,46 +408,12 @@ def tz_offset_hours(tz_code: str) -> float:
         return 0
 
 
-IANA_ABBR = {
-    "Canada/Pacific": "PST", "America/Vancouver": "PST",
-    "Canada/Mountain": "MST", "America/Edmonton": "MST",
-    "Canada/Central": "CST", "America/Winnipeg": "CST",
-    "Canada/Eastern": "EST", "America/Toronto": "EST",
-    "Canada/Atlantic": "AST", "America/Halifax": "AST",
-    "Canada/Newfoundland": "NST", "America/St_Johns": "NST",
-    "Europe/London": "GMT", "Europe/Paris": "CET", "Europe/Berlin": "CET",
-    "Europe/Rome": "CET", "Europe/Madrid": "CET", "Europe/Amsterdam": "CET",
-    "Europe/Brussels": "CET", "Europe/Vienna": "CET",
-    "Europe/Athens": "EET", "Europe/Helsinki": "EET",
-    "Europe/Istanbul": "TRT", "Europe/Moscow": "MSK",
-    "Asia/Tokyo": "JST", "Asia/Shanghai": "CST", "Asia/Hong_Kong": "HKT",
-    "Asia/Seoul": "KST", "Asia/Kolkata": "IST", "Asia/Bangkok": "ICT",
-    "Asia/Singapore": "SGT", "Asia/Dubai": "GST",
-    "Australia/Sydney": "AEST", "Australia/Perth": "AWST",
-    "Australia/Adelaide": "ACST", "Australia/Brisbane": "AEST",
-    "Pacific/Auckland": "NZST", "Pacific/Fiji": "FJT",
-    "Pacific/Honolulu": "HST", "Pacific/Guam": "ChST",
-    "America/New_York": "EST", "America/Chicago": "CST",
-    "America/Denver": "MST", "America/Los_Angeles": "PST",
-    "America/Anchorage": "AKST", "America/Phoenix": "MST",
-    "America/Sao_Paulo": "BRT", "America/Argentina/Buenos_Aires": "ART",
-    "America/Mexico_City": "CST", "America/Lima": "PET",
-    "America/Bogota": "COT", "America/Santiago": "CLT",
-    "Africa/Cairo": "EET", "Africa/Lagos": "WAT",
-    "Africa/Johannesburg": "SAST", "Africa/Nairobi": "EAT",
-}
-
-
 def iana_to_abbr(tz_code: str) -> str:
-    """Display label for an IANA timezone.
-
-    Zones with a familiar abbreviation get it ("AST"); the rest fall back
-    to their current numeric offset ("UTC+9", "UTC+5:30"), which is at
-    least honest.  Unknown or empty zones read "UTC".
-    """
-    abbr = IANA_ABBR.get(tz_code)
-    if abbr:
-        return abbr
+    """The timezone_abbr a provider that names its zone gives it: the
+    zone's offset from UTC now ("UTC+9", "UTC+5:30"), or "UTC" for an
+    unknown or empty one.  Only NOAA's abbreviations are read for a
+    zone (StationMeta), and the IANA name is what any other is read
+    by, so a familiar abbreviation here would say nothing."""
     return format_utc_offset(tz_offset_hours(tz_code))
 
 

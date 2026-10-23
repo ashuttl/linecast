@@ -220,11 +220,12 @@ class TimestampTests(unittest.TestCase):
 
 class TimezoneTests(unittest.TestCase):
     def test_iana_to_abbr(self):
-        self.assertEqual(common.iana_to_abbr("America/Halifax"), "AST")
-        self.assertEqual(common.iana_to_abbr("Canada/Atlantic"), "AST")
+        # the zone's offset now, summer time or not; legacy names too
+        self.assertIn(common.iana_to_abbr("America/Halifax"), ("UTC-4", "UTC-3"))
+        self.assertEqual(common.iana_to_abbr("Canada/Atlantic"),
+                         common.iana_to_abbr("America/Halifax"))
         self.assertEqual(common.iana_to_abbr(""), "UTC")
         self.assertEqual(common.iana_to_abbr("Not/AZone"), "UTC")
-        # Zones without a mapped abbreviation show their offset instead
         self.assertEqual(common.iana_to_abbr("Asia/Tashkent"), "UTC+5")
         self.assertEqual(common.iana_to_abbr("Asia/Kathmandu"), "UTC+5:45")
         self.assertEqual(common.iana_to_abbr("Pacific/Tahiti"), "UTC-10")

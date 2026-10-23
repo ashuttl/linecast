@@ -15,10 +15,10 @@ from linecast._cache import location_cache_key
 from linecast._http import fetch_json, fetch_json_cached
 from linecast._log import debug_log, log_failure, log_skipped
 from linecast.tides.common import (
-    M_TO_FT, cache_dir, cached_y_range, dedup_sorted, fetch_lock, iana_to_abbr,
+    M_TO_FT, StationMeta, cache_dir, cached_y_range, dedup_sorted, fetch_lock, iana_to_abbr,
     label_hilo, local_day_bounds, measured_turns, month_after, months_covering,
     nearest_station, parse_cached_dt, parse_utc_iso, station_coords, tz_offset_hours,
-    zone_info, y_range_window,
+    y_range_window, zone_info,
 )
 
 CHS_BASE = "https://api-iwls.dfo-mpo.gc.ca/api/v1"
@@ -83,7 +83,7 @@ def find_nearest_station_chs(lat: float, lng: float) -> tuple[str | None, str | 
 # ---------------------------------------------------------------------------
 # Station metadata
 # ---------------------------------------------------------------------------
-def fetch_station_metadata_chs(station_id: str) -> dict[str, Any] | None:
+def fetch_station_metadata_chs(station_id: str) -> StationMeta | None:
     """Fetch CHS station metadata, normalized to match NOAA shape.
 
     Returns dict with: id, name, state, lat, lng, timezone_abbr,
