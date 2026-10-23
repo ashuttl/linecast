@@ -27,6 +27,10 @@ jobs:
 
   test:
     runs-on: ${{ matrix.os }}
+    # The slowest leg, Windows, takes about nine minutes. A test that
+    # hangs ends the job here instead of at GitHub's six hours, and
+    # faulthandler_timeout (pyproject.toml) has already printed where.
+    timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
@@ -81,6 +85,7 @@ jobs:
     # carries settings that would change every rendered snapshot if a
     # test read them, plus a proxy that would reroute every fetch.
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
@@ -152,6 +157,7 @@ jobs:
   smoke:
     needs: build
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
     strategy:
       fail-fast: false
       matrix:

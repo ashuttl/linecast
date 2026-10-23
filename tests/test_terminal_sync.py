@@ -185,13 +185,20 @@ def pty():
 
 
 def _unread(fd):
-    """Whatever is waiting on fd right now: what a shell would read next."""
+    """Whatever is waiting on fd right now: what a shell would read next.
+
+    A pty's master whose slave has closed stays readable: Linux raises
+    EIO on the read, and macOS returns b"" every time, so either one
+    ends it."""
     out = b""
     while select.select([fd], [], [], 0.2)[0]:
         try:
-            out += os.read(fd, 4096)
+            chunk = os.read(fd, 4096)
         except OSError:
             break
+        if not chunk:
+            break
+        out += chunk
     return out
 
 

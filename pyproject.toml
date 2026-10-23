@@ -68,6 +68,10 @@ addopts = "-m 'not integration'"
 # The checkout's own src comes first, ahead of any installed linecast.
 pythonpath = ["src"]
 markers = ["integration: may reach the network or the real home directory"]
+# A test still running after two minutes has every thread's stack
+# printed, so a hang in CI says where it is. The slowest test takes
+# about five seconds.
+faulthandler_timeout = 120
 
 [tool.ruff]
 # The house lint: ruff's defaults (pyflakes and the pycodestyle errors)
