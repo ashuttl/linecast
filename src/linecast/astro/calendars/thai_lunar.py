@@ -221,7 +221,7 @@ def next_wan_phra(local_date):
     raise AssertionError("no wan phra within nine days")
 
 
-def _festival_key(local_date):
+def festival_key(local_date):
     """The lunar-dated festival falling on a date, or None.
 
     Day 15 is the full moon, 16 the first waning day. In a year of two
@@ -257,7 +257,7 @@ def next_thai_festival(local_date):
     """(gregorian_date, key) of the next festival at or after the date."""
     day = local_date
     for _ in range(400):
-        key = _festival_key(day)
+        key = festival_key(day)
         if key is not None:
             return day, key
         day += timedelta(days=1)

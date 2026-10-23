@@ -9,7 +9,7 @@ phases. In Thai it reads in Thai; in any other language, in English.
 """
 
 from linecast.astro.calendars.thai_lunar import (
-    _festival_key as festival_key, cs_year, is_wan_phra, next_thai_festival,
+    festival_key, cs_year, is_wan_phra, next_thai_festival,
     next_wan_phra, thai_lunar_date, year_animal_index,
 )
 from linecast.moon.i18n import (

@@ -13,7 +13,7 @@ from linecast.moon.i18n import (
     thai_festival_name, thai_lunar_label, thai_year_label, wan_phra_label,
 )
 from linecast.astro.calendars.thai_lunar import (
-    _festival_key, cs_year, is_wan_phra, next_thai_festival, next_wan_phra,
+    festival_key, cs_year, is_wan_phra, next_thai_festival, next_wan_phra,
     thai_lunar_date, year_animal_index,
 )
 
@@ -94,13 +94,13 @@ class TestFestivals:
 
     def test_published_dates(self):
         for day, key in self.ANCHORS.items():
-            assert _festival_key(day) == key, day
+            assert festival_key(day) == key, day
 
     def test_a_deferred_makha_leaves_month_three_bare(self):
         # 2569's month-3 full moon (February 2nd) holds no festival;
         # Makha waits for month 4.
         assert thai_lunar_date(date(2026, 2, 2))[1:] == (15, False)
-        assert _festival_key(date(2026, 2, 2)) is None
+        assert festival_key(date(2026, 2, 2)) is None
 
     def test_next_festival_walks_to_the_right_day(self):
         assert next_thai_festival(date(2026, 9, 1)) == \
