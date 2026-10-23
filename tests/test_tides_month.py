@@ -1,7 +1,7 @@
 """The tides' month view: a day to a row, the hours across, the water a field."""
 
 import re
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, timedelta, timezone
 from unittest.mock import patch
 from zoneinfo import ZoneInfo
 
@@ -110,6 +110,47 @@ class TestTheWaterBetweenSamples:
     def test_a_gap_in_the_series_is_not_drawn_across(self):
         heights = _Heights([(self.T0, 2.0), (self.T0 + timedelta(hours=7), 3.0)])
         assert heights.at(self.T0 + timedelta(hours=3)) is None
+
+
+class TestTheClocksChanging:
+    """A row is a day on the station's clock, whichever way a provider
+    keeps its times: in the station's zone, or in fixed offsets."""
+
+    @staticmethod
+    def _rising(start, tz, fixed=False):
+        """Five hours of water rising a foot an hour, every six minutes
+        from *start* (UTC), on *tz*'s clock or in its fixed offsets."""
+        points = []
+        for k in range(51):
+            t = (start + timedelta(minutes=6 * k)).astimezone(tz)
+            if fixed:
+                t = datetime.fromisoformat(t.isoformat())
+            points.append((t, k / 10))
+        return points
+
+    @pytest.mark.parametrize("fixed", [False, True])
+    def test_the_hour_that_comes_twice_is_drawn_once_and_the_step_is_at_its_end(self, fixed):
+        # Brest, 25 October 2026: the clocks go back at 03:00 CEST
+        paris = ZoneInfo("Europe/Paris")
+        heights = _Heights(self._rising(datetime(2026, 10, 24, 22, tzinfo=timezone.utc),
+                                        paris, fixed), paris)
+        midnight = datetime(2026, 10, 25, tzinfo=paris)
+        for m in range(10, 240, 10):
+            # a foot an hour on the clock, and a step of the hour the
+            # clocks gave back where they gave it back
+            wanted = m / 60 + (1 if m >= 180 else 0)
+            assert heights.at(midnight + timedelta(minutes=m)) == pytest.approx(wanted), m
+
+    @pytest.mark.parametrize("fixed", [False, True])
+    def test_the_hour_the_clocks_skip_is_drawn_across(self, fixed):
+        # Halifax, 8 March 2026: the clocks go on from 02:00 AST to 03:00
+        halifax = ZoneInfo("America/Halifax")
+        heights = _Heights(self._rising(datetime(2026, 3, 8, 4, tzinfo=timezone.utc),
+                                        halifax, fixed), halifax)
+        midnight = datetime(2026, 3, 8, tzinfo=halifax)
+        drawn = [heights.at(midnight + timedelta(minutes=m)) for m in range(10, 290, 10)]
+        assert drawn == sorted(drawn)               # never back down the hour
+        assert 1.9 <= heights.at(midnight + timedelta(minutes=150)) <= 2.0
 
 
 class TestTheSun:

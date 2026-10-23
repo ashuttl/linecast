@@ -108,14 +108,43 @@ def _sun_times(day, lat, lng, tz):
     return rise.astimezone(tz), set_.astimezone(tz)
 
 
-class _Heights:
-    """The water's height at any moment, from the samples by bisection."""
+def _on_clock(moment, tz):
+    """*moment* as the clock in *tz* shows it, without a zone: its own
+    clock's where *tz* is None, and a moment without a zone as it is."""
+    if moment.tzinfo is None:
+        return moment
+    if tz is not None and moment.tzinfo is not tz:
+        moment = moment.astimezone(tz)
+    return moment.replace(tzinfo=None)
 
-    def __init__(self, predictions):
-        self.times = [t for t, _ in predictions]
-        self.values = [h for _, h in predictions]
+
+class _Heights:
+    """The water's height at any time on the station's clock, from the
+    samples by bisection.
+
+    A row is a day on the clock, so the samples are read on the clock
+    too, in *tz*.  Where the clocks go back and an hour comes round
+    twice, its second pass is left out, as NOAA's own tables leave it,
+    so that the times only go forward: the row draws the water's first
+    pass through the hour, and the step where the clocks went back
+    falls at its end, where they go back.  Compared as instants, the
+    times in that hour are not in order, and the bisection found the
+    second pass partway through it.  An hour the clocks skip in spring
+    is drawn across, from the water before it to the water after.
+    """
+
+    def __init__(self, predictions, tz=None):
+        self.tz = tz
+        self.times, self.values = [], []
+        for t, h in predictions:
+            t = _on_clock(t, tz)
+            if self.times and t <= self.times[-1]:
+                continue
+            self.times.append(t)
+            self.values.append(h)
 
     def at(self, moment):
+        moment = _on_clock(moment, self.tz)
         i = bisect_left(self.times, moment)
         if i <= 0 or i >= len(self.times):
             return None   # outside what was fetched: no water drawn
@@ -260,7 +289,7 @@ def render_month(first, predictions, hilo, runtime, *, header, footer, station_m
     width = max(8, cols - gutter - right_w)
 
     # --- the field: the water's height, a half-block to a day or a row ---
-    heights = _Heights(predictions)
+    heights = _Heights(predictions, tz)
     values = [h for _, h in predictions] or [0.0, 1.0]
     lo, hi = min(values), max(values)
     top = reach(hi - lo) if predictions else 1.0
