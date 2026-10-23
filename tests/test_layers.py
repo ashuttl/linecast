@@ -57,10 +57,6 @@ INTO_A_VIEW = {
 
 # (importer, home module.name): a private name used outside its package.
 PRIVATE_ACROSS = {
-    ("maps.globe_texture", "terminal.live._running"):
-        "kept: terminal.live has no public way to ask whether a live view is on screen",
-    ("maps.loaders", "terminal.live._running"):
-        "kept: terminal.live has no public way to ask whether a live view is on screen",
 }
 
 

@@ -363,6 +363,13 @@ def toast_box(text, cols, rows, icon=""):
 _running = False  # a live loop is on screen with the terminal taken over
 
 
+def running():
+    """Whether a live loop is on screen with the terminal taken over:
+    work that would hold up a frame (a bake, a blocking fetch) can then
+    wait for a repaint instead."""
+    return _running
+
+
 class WorkerWatch:
     """threading.excepthook for the length of a live loop.
 

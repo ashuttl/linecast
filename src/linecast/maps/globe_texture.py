@@ -113,7 +113,7 @@ def _breathe(y):
     treats worst.  Off the live loop the bake runs flat out; on it, it
     stops for long enough, often enough, that a drag still turns.
     """
-    if _live._running and not y % _BREATHE_ROWS:
+    if _live.running() and not y % _BREATHE_ROWS:
         time.sleep(_BREATHE_S)
 
 
@@ -855,7 +855,7 @@ def for_view(zoom, h, register, block):
             return None
         _pending.add(key)
 
-    if block and not _live._running:
+    if block and not _live.running():
         try:
             return _finish(key, _build(z, register, key))
         except Exception as exc:

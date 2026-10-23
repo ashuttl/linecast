@@ -241,7 +241,7 @@ def _mend(cache, key, load, newest, short, before=None):
     newest[0] = key
     with _motion_lock:
         tries = _mends.pop(key, 0)
-        if not short or not _live._running or tries >= len(MEND_AFTER):
+        if not short or not _live.running() or tries >= len(MEND_AFTER):
             return
         _mends[key] = tries + 1
 
@@ -847,7 +847,7 @@ def _get_clouds(zoom, hc, block):
     hold a failed scene keeps, not every frame.
     """
     canvas = globe_now.peek()
-    if block and canvas is None and not _live._running:
+    if block and canvas is None and not _live.running():
         try:
             globe_now.refresh(zoom, hc * 4)
         except Exception as exc:
