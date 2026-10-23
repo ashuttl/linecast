@@ -556,29 +556,29 @@ class TestCommand:
     def test_set_show_and_auto(self, tmp_path, monkeypatch):
         monkeypatch.setenv("LINECAST_CONFIG_DIR", str(tmp_path))
         from linecast.settings import hours
-        from linecast._config import saved_hours
+        from linecast._config import saved
         out = io.StringIO()
         with redirect_stdout(out):
             hours._cmd_set("halachic")
             hours._cmd_show()
-        assert saved_hours() == "halachic"
+        assert saved("hours") == "halachic"
         assert "halachic  [fixed]" in out.getvalue()
         with redirect_stdout(io.StringIO()):
             hours._cmd_set("none")
-        assert saved_hours() == "none"
+        assert saved("hours") == "none"
         out = io.StringIO()
         with redirect_stdout(out):
             hours._cmd_auto()
             hours._cmd_show()
-        assert saved_hours() is None
+        assert saved("hours") is None
         assert out.getvalue().startswith("Hours set to auto")
         assert "auto  [swahili with --lang sw, else none]" in out.getvalue()
 
     def test_every_choice_has_a_confirmation(self, tmp_path, monkeypatch):
         monkeypatch.setenv("LINECAST_CONFIG_DIR", str(tmp_path))
         from linecast.settings import hours
-        from linecast._config import HOURS_CHOICES
-        for choice in HOURS_CHOICES:
+        from linecast._config import SETTING
+        for choice in SETTING["hours"].choices:
             out = io.StringIO()
             with redirect_stdout(out):
                 hours._cmd_set(choice)
@@ -1403,9 +1403,9 @@ class TestPrayerTimes:
         assert before.marks[-1].at.date() == date(2026, 6, 22)
 
     def test_every_named_convention_is_a_choice(self):
-        from linecast._config import HOURS_CHOICES
+        from linecast._config import SETTING
         for key in METHODS:
-            assert f"islamic-{key}" in HOURS_CHOICES
+            assert f"islamic-{key}" in SETTING["hours"].choices
         assert default_method("KW") == "kuwait" and default_method("AE") == "dubai"
         assert default_method("QA") == "qatar" and default_method("JO") == "jordan"
         assert default_method("MA") == "morocco" and default_method("OM") == "oman"

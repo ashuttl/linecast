@@ -4,7 +4,7 @@ from datetime import date, datetime, timedelta, timezone
 
 import pytest
 
-from linecast._config import CALENDAR_CHOICES
+from linecast._config import SETTING
 from linecast._runtime import RuntimeConfig
 from linecast.moon.readings import (
     Day, Now, Panel, Reading, begun_at_sunset, context, kept_or_coming, month_span, reading,
@@ -23,7 +23,7 @@ class TestRegistry:
     def test_no_calendar_has_no_reading(self):
         assert reading(None) is None
 
-    @pytest.mark.parametrize("cal", [c for c in CALENDAR_CHOICES if c != "none"])
+    @pytest.mark.parametrize("cal", [c for c in SETTING["calendar"].choices if c != "none"])
     def test_every_calendar_has_its_own(self, cal):
         found = reading(cal)
         assert isinstance(found, Reading) and type(found) is not Reading
@@ -40,11 +40,12 @@ class TestRegistry:
         assert type(reading(cal)).__name__ == family
 
     def test_only_the_almanac_names_the_full_moons(self):
-        named = [c for c in CALENDAR_CHOICES if c != "none" and reading(c).full_moon_names]
+        named = [c for c in SETTING["calendar"].choices
+                 if c != "none" and reading(c).full_moon_names]
         assert named == ["almanac"]
 
     def test_the_night_naming_calendars_give_the_age_plainly(self):
-        plain = {c for c in CALENDAR_CHOICES if c != "none" and reading(c).plain_age}
+        plain = {c for c in SETTING["calendar"].choices if c != "none" and reading(c).plain_age}
         assert plain == {"hawaiian", "samoan", "chamorro", "refaluwasch"}
 
 

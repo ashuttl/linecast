@@ -57,10 +57,10 @@ def resolve_calendar(flag, lang):
     `linecast calendar` setting > the calendar native to the UI
     language > none. 'none' anywhere in that chain stops it.
     """
-    from linecast._config import saved_calendar
+    from linecast._config import saved
     choice, source = flag, "flag"
     if not choice:
-        choice, source = saved_calendar(), "config"
+        choice, source = saved("calendar"), "config"
     if not choice:
         choice, source = setting(lang, "calendar"), "auto"
     return (None if choice in (None, "none") else choice), source

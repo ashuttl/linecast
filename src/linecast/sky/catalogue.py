@@ -175,10 +175,10 @@ def resolve_culture(flag, lang):
     flag > the `linecast culture` setting > the culture native to the
     UI language > none. 'none' anywhere in that chain stops it.
     """
-    from linecast._config import saved_culture
+    from linecast._config import saved
     choice, source = flag, "flag"
     if not choice:
-        choice, source = saved_culture(), "config"
+        choice, source = saved("culture"), "config"
     if not choice:
         # The culture a language brings with it, as the moon's calendars do.
         choice, source = setting(lang, "sky_culture"), "auto"

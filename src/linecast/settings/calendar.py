@@ -13,7 +13,7 @@ native to the UI language (--lang zh, ja, ko, vi, th, fa, or is) >
 none.
 """
 
-from linecast._config import saved_calendar
+from linecast._config import saved
 from linecast.settings._command import forget, remember, run, show
 
 _NATURAL = ("chinese with --lang zh, japanese with ja, "
@@ -49,14 +49,14 @@ _LUNISOLAR = ("the moon shows its lunar date, solar term, and next festival "
 
 
 def _cmd_show():
-    saved = saved_calendar()
-    show(saved or "auto", "config" if saved else "auto",
+    kept = saved("calendar")
+    show(kept or "auto", "config" if kept else "auto",
          (_NATURAL,
           "Run 'linecast calendar chinese', 'japanese', 'korean', "
           "'vietnamese', 'thai', 'hawaiian', 'samoan', 'chamorro', "
           "'refaluwasch', "
           "'islamic', 'hebrew', 'icelandic', or 'almanac' to fix one."),
-         "Run 'linecast calendar auto' to follow the language again." if saved == "none"
+         "Run 'linecast calendar auto' to follow the language again." if kept == "none"
          else "Run 'linecast calendar auto' to follow the language instead.")
 
 

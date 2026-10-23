@@ -9,7 +9,7 @@ scrolls, keeping the highlight in view.
 """
 
 from linecast.terminal import live as _live
-from linecast._config import CULTURE_CHOICES
+from linecast._config import SETTING
 from linecast.terminal.color import bg, fg
 from linecast.terminal.theme import surface_bg
 
@@ -20,7 +20,7 @@ def choices(lang):
     """The rows, as (culture, title): the IAU sky first, then the cultures
     in the order their titles sort in the display language."""
     from linecast.sky.catalogue import culture_title
-    titled = [(culture_title(c, lang), c) for c in CULTURE_CHOICES if c != "none"]
+    titled = [(culture_title(c, lang), c) for c in SETTING["culture"].choices if c != "none"]
     titled.sort(key=lambda row: row[0].casefold())
     return [(IAU, "IAU")] + [(c, t) for t, c in titled]
 

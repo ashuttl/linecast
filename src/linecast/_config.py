@@ -243,24 +243,6 @@ def chosen(name, environ=None, before=None):
     return (value, "config") if value is not None else (None, None)
 
 
-# The names the settings had before the table, until each is read from it
-CALENDAR_CHOICES = SETTING["calendar"].choices
-CULTURE_CHOICES = SETTING["culture"].choices
-HOURS_CHOICES = SETTING["hours"].choices
-
-
-def saved_calendar() -> str | None:
-    return saved("calendar")
-
-
-def saved_hours() -> str | None:
-    return saved("hours")
-
-
-def saved_culture() -> str | None:
-    return saved("culture")
-
-
 def saved_tidecheck_key() -> str | None:
     """Return the TideCheck API key under `tidecheck_key`, or None.
 

@@ -11,7 +11,7 @@ class CalendarCommandTests(ConfigDirMixin):
     def test_set_saves_and_show_reports_it(self):
         with redirect_stdout(io.StringIO()):
             calendar_cmd._cmd_set("hebrew")
-        self.assertEqual(_config.saved_calendar(), "hebrew")
+        self.assertEqual(_config.saved("calendar"), "hebrew")
 
         out = io.StringIO()
         with redirect_stdout(out):
@@ -22,14 +22,14 @@ class CalendarCommandTests(ConfigDirMixin):
         out = io.StringIO()
         with redirect_stdout(out):
             calendar_cmd._cmd_set("icelandic")
-        self.assertEqual(_config.saved_calendar(), "icelandic")
+        self.assertEqual(_config.saved("calendar"), "icelandic")
         self.assertIn("week of summer or winter", out.getvalue())
 
     def test_none_is_saved_as_a_choice_of_its_own(self):
         """'none' pins the calendar off; it is not the same as auto."""
         with redirect_stdout(io.StringIO()):
             calendar_cmd._cmd_set("none")
-        self.assertEqual(_config.saved_calendar(), "none")
+        self.assertEqual(_config.saved("calendar"), "none")
 
         out = io.StringIO()
         with redirect_stdout(out):
@@ -40,7 +40,7 @@ class CalendarCommandTests(ConfigDirMixin):
         with redirect_stdout(io.StringIO()):
             calendar_cmd._cmd_set("islamic")
             calendar_cmd._cmd_auto()
-        self.assertIsNone(_config.saved_calendar())
+        self.assertIsNone(_config.saved("calendar"))
 
         out = io.StringIO()
         with redirect_stdout(out):
@@ -51,17 +51,17 @@ class CalendarCommandTests(ConfigDirMixin):
         _config.write_config({"units": "metric", "calendar": "thai"})
         with redirect_stdout(io.StringIO()):
             calendar_cmd._cmd_auto()
-        self.assertIsNone(_config.saved_calendar())
+        self.assertIsNone(_config.saved("calendar"))
         self.assertEqual(_config.saved("units"), "metric")
 
     def test_saved_calendar_ignores_junk_values(self):
         _config.write_config({"calendar": "mayan"})
-        self.assertIsNone(_config.saved_calendar())
+        self.assertIsNone(_config.saved("calendar"))
 
     def test_every_choice_has_a_confirmation(self):
         """Each name is echoed back in its confirmation, and 'none' says
         the calendar is off."""
-        for choice in _config.CALENDAR_CHOICES:
+        for choice in _config.SETTING["calendar"].choices:
             out = io.StringIO()
             with redirect_stdout(out), self.subTest(choice=choice):
                 calendar_cmd._cmd_set(choice)

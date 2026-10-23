@@ -97,8 +97,8 @@ def resolve_hours(flag, lang=None):
     """
     name, source = flag, "flag"
     if name is None:
-        from linecast._config import saved_hours
-        name, source = saved_hours(), "config"
+        from linecast._config import saved
+        name, source = saved("hours"), "config"
     if name is None:
         from linecast._i18n import setting
         # The system the language tells the time in: Swahili says the

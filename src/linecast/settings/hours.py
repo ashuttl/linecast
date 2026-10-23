@@ -13,7 +13,7 @@ Precedence: sunshine's --hours flag > this setting > the language's
 own (swahili with --lang sw) > none.
 """
 
-from linecast._config import saved_hours
+from linecast._config import saved
 from linecast.settings._command import forget, remember, run, show
 
 _SET = {
@@ -46,8 +46,8 @@ def _islamic_set(choice):
 
 
 def _cmd_show():
-    saved = saved_hours()
-    show(saved or "auto", "config" if saved else "auto",
+    kept = saved("hours")
+    show(kept or "auto", "config" if kept else "auto",
          ("swahili with --lang sw, else none",
           "Run 'linecast hours halachic', 'halachic-mga', 'roman', "
           "'japanese', 'islamic', or 'swahili' to read the day in one."),

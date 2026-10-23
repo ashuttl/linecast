@@ -121,9 +121,9 @@ class Argv0DispatchTests(unittest.TestCase):
                 self.assertRegex(out, rf"\b{code}\b")
 
     def test_help_names_every_calendar(self):
-        from linecast._config import CALENDAR_CHOICES
+        from linecast._config import SETTING
         out = self._help_output("/usr/bin/linecast")
-        for name in CALENDAR_CHOICES:
+        for name in SETTING["calendar"].choices:
             with self.subTest(name=name):
                 self.assertRegex(out, rf"\b{name}\b")
 

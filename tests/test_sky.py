@@ -1141,9 +1141,9 @@ class TestSearch:
 # ---------------------------------------------------------------------------
 class TestCultures:
     def test_every_choice_has_data_with_a_licence_and_credits(self):
-        from linecast._config import CULTURE_CHOICES
+        from linecast._config import SETTING
         from linecast.sky.catalogue import culture
-        for short in CULTURE_CHOICES:
+        for short in SETTING["culture"].choices:
             if short == "none":
                 continue
             record = culture(short)
@@ -1414,16 +1414,16 @@ class TestCultures:
         from linecast.settings import culture as culture_cmd
         with redirect_stdout(io.StringIO()):
             culture_cmd._cmd_set("norse")
-        assert _config.saved_culture() == "norse"
+        assert _config.saved("culture") == "norse"
         out = io.StringIO()
         with redirect_stdout(out):
             culture_cmd._cmd_show()
         assert "norse  [fixed]" in out.getvalue()
         with redirect_stdout(io.StringIO()):
             culture_cmd._cmd_auto()
-        assert _config.saved_culture() is None
+        assert _config.saved("culture") is None
         _config.write_config({"culture": "klingon"})
-        assert _config.saved_culture() is None
+        assert _config.saved("culture") is None
 
 
 # ---------------------------------------------------------------------------

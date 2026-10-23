@@ -9,19 +9,19 @@ Precedence: sky's --culture flag > this setting > the culture native to
 the UI language (--lang zh) > the IAU sky.
 """
 
-from linecast._config import CULTURE_CHOICES, saved_culture
+from linecast._config import SETTING, saved
 from linecast.settings._command import forget, remember, run, show
 
 _NATURAL = "chinese with --lang zh; the IAU sky otherwise"
 
 
 def _cmd_show():
-    saved = saved_culture()
-    show(saved or "auto", "config" if saved else "auto",
+    kept = saved("culture")
+    show(kept or "auto", "config" if kept else "auto",
          (_NATURAL,
           "Run 'linecast culture NAME' to fix one; 'linecast culture --help' "
           "lists them."),
-         "Run 'linecast culture auto' to follow the language again." if saved == "none"
+         "Run 'linecast culture auto' to follow the language again." if kept == "none"
          else "Run 'linecast culture auto' to follow the language instead.")
 
 
@@ -51,7 +51,7 @@ def main():
         "constellations and star names it uses",
         (("show", "show the current culture setting (default)"),
          *((choice, culture_title(choice, lang))
-           for choice in CULTURE_CHOICES if choice != "none"),
+           for choice in SETTING["culture"].choices if choice != "none"),
          ("none", "the IAU sky, whatever the language"),
          ("auto", "clear the saved culture and follow the language")),
         _cmd_set, _cmd_auto, _cmd_show, metavar="<culture>")
