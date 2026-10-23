@@ -226,12 +226,22 @@ def fetch_month(station_id: str, first: date, interval: str) -> list[list[Any]] 
         return _fetch_prediction_rows(cache_file, url, builder)
 
 
-def _rows_in_range(station_id, start_date, end_date, interval):
-    """Cache rows for every month the range touches, trimmed to the range."""
+def _rows_in_range(station_id, start_date, end_date, interval, whole=False):
+    """Cache rows for every month the range touches, trimmed to the range.
+
+    A month that could not be fetched, with no copy kept, is left out,
+    and the rest still serve a day's window; with *whole*, it raises
+    instead.  After one month goes unanswered the hold refuses the
+    rest, so a year asked for while the network faltered would come
+    back as its first few months.
+    """
     lo, hi = start_date.isoformat(), end_date.isoformat()
     rows = []
     for first in months_covering(start_date, end_date):
-        for row in fetch_month(station_id, first, interval) or []:
+        month = fetch_month(station_id, first, interval)
+        if month is None and whole:
+            raise LookupError(f"no predictions for {first:%Y-%m}")
+        for row in month or []:
             if lo <= row[0][:10] <= hi:
                 rows.append(row)
     return rows
@@ -320,10 +330,13 @@ def fetch_tides_range(station_id: str, start_date: date, end_date: date,
 
 
 def fetch_hilo_range(station_id: str, start_date: date, end_date: date,
-                     station_tz: tzinfo | None) -> list[tuple[datetime, float, str]]:
-    """High/low extremes across a date range as sorted [(datetime, height_ft, type)]."""
+                     station_tz: tzinfo | None,
+                     whole: bool = False) -> list[tuple[datetime, float, str]]:
+    """High/low extremes across a date range as sorted [(datetime, height_ft, type)].
+    With *whole*, a month that could not be had raises (_rows_in_range)."""
     points = []
-    for time_str, height, typ in _rows_in_range(station_id, start_date, end_date, "hilo"):
+    for time_str, height, typ in _rows_in_range(station_id, start_date, end_date, "hilo",
+                                                whole):
         dt = _row_dt(time_str, station_tz)
         if dt is not None:
             points.append((dt, height, typ))

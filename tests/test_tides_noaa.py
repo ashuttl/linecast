@@ -407,6 +407,20 @@ class UnansweredHoldTests(_PrivateCache):
         self.assertEqual(rows, [["2026-11-01 07:00", 0.5, "L"]])
         self.assertEqual(len(self.asked), 2)
 
+    def test_a_year_cut_short_by_the_hold_is_no_year(self):
+        # January goes unanswered, the hold would refuse February to
+        # September, and only October and November have copies.  A day's
+        # window still takes what there is, but the year raises rather
+        # than come back as two months, which the year view would keep
+        # all session.
+        from linecast.tides.providers import NOAA
+        with self._network(OSError("timed out")):
+            with self.assertRaises(LookupError):
+                NOAA.year_turns("8418150", 2026, None)
+        self.assertEqual(len(self.asked), 1)
+        rows = noaa.fetch_hilo_range("8418150", date(2026, 10, 1), date(2026, 11, 30), None)
+        self.assertEqual(len(rows), 2)
+
     def test_every_request_to_noaa_is_held(self):
         # the station list and the metadata were one wait after another
         with self._network(OSError("timed out")):

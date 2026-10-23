@@ -14,7 +14,7 @@ import os
 import sys
 import threading
 import time as _t
-from datetime import date, datetime, timedelta
+from datetime import datetime, timedelta
 
 from linecast.terminal.framebuffer import get_terminal_size
 from linecast.terminal import live as _live
@@ -301,8 +301,7 @@ class TidesApp(LocationMenu, _live.LiveApp):
                     data = self._make_up(provider, station_id, tz, today, when)
                 else:
                     from linecast.tides.year import daily_ranges
-                    hilo = provider.hilo_range(station_id, date(when, 1, 1),
-                                               date(when, 12, 31), tz)
+                    hilo = provider.year_turns(station_id, when, tz)
                     # without the turns there is no year, and the gauge
                     # is read at them, so it is not asked
                     data = ((daily_ranges(hilo),
@@ -355,8 +354,7 @@ class TidesApp(LocationMenu, _live.LiveApp):
         fit_key = ("makeup fit", station_id)
         made = self._long.get(fit_key)
         if made is None:
-            turns = provider.hilo_range(station_id, date(today.year, 1, 1),
-                                        date(today.year, 12, 31), tz)
+            turns = provider.year_turns(station_id, today.year, tz)
             try:
                 lat = float((self.station_meta or {}).get("lat"))
             except (TypeError, ValueError):

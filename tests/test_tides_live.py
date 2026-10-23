@@ -14,12 +14,13 @@ from linecast.tides import live as _tides_live
 from linecast.tides import view as tides
 from linecast.tides.common import computed_hilo, computed_range
 from linecast.tides.live import TidesApp
+from linecast.tides.providers import TideProvider
 
 NOW = datetime(2026, 3, 5, 12, 0, 0)
 TODAY = NOW.date()
 
 
-class FakeProvider:
+class FakeProvider(TideProvider):
     year_view = True
 
     def __init__(self):

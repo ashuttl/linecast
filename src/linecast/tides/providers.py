@@ -155,6 +155,14 @@ class TideProvider:
                    station_tz: tzinfo | None) -> list[tuple[datetime, float, str]]:
         raise NotImplementedError
 
+    def year_turns(self, station_id: str, year: int,
+                   station_tz: tzinfo | None) -> list[tuple[datetime, float, str]]:
+        """The high and low waters of the calendar *year*: what the year
+        view draws and the makeup view is fitted to.  A source that asks
+        for them a month at a time raises when a month did not come, so
+        a year cut short is asked for again instead of drawn."""
+        return self.hilo_range(station_id, date(year, 1, 1), date(year, 12, 31), station_tz)
+
     def y_range(self, station_id: str, center_date: date,
                 station_tz: tzinfo | None) -> tuple[float, float] | None:
         raise NotImplementedError
@@ -230,6 +238,10 @@ class _NOAA(TideProvider):
 
     def hilo_range(self, station_id, start_date, end_date, station_tz):
         return noaa.fetch_hilo_range(station_id, start_date, end_date, station_tz)
+
+    def year_turns(self, station_id, year, station_tz):
+        return noaa.fetch_hilo_range(station_id, date(year, 1, 1), date(year, 12, 31),
+                                     station_tz, whole=True)
 
     def y_range(self, station_id, center_date, station_tz):
         # NOAA serves its predictions in station local time already.
