@@ -1021,18 +1021,14 @@ class _LiveLoop:
                 and self.intercept(action)):
             return 'repaint'
         if action == 'quit':
+            # q closes the alert modal before it quits.  Esc does not:
+            # the modal opens only with mouse tracking on, and then a bare
+            # ESC is almost always a mouse report split in two.
             if self.active_alert is not None:
                 self.active_alert = None
                 self.modal_scroll = 0
                 return 'repaint'
             return 'quit'
-        elif action == 'escape':
-            # With mouse tracking, bare ESC is almost always a split mouse
-            # sequence (release bytes arriving late).  Only honour ESC to
-            # dismiss when mouse is off.
-            if not self.mouse and self.active_alert is not None:
-                self.active_alert = None
-                return 'repaint'
         elif action == 'open':
             if self.active_alert is not None and self.on_open:
                 self.on_open(self.active_alert)
