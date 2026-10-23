@@ -490,3 +490,30 @@ def _bbox():
     """The window render_radar draws for TestNoData's view."""
     from linecast._xyz import bbox_for
     return bbox_for(43.7, -70.3, 10.0, 40, 10)
+
+
+class TestNearestCached:
+    """While a frame loads, the view holds the cached one nearest it."""
+
+    BOX, GW, HC = (0, 0, 1, 1), 4, 2
+
+    def _cache(self, monkeypatch, stamps):
+        key = rf._view_key(self.BOX, self.GW, self.HC) + ("radar",)
+        monkeypatch.setattr(rf, "_frame_cache", {key + (stamp,): stamp for stamp in stamps})
+
+    def _nearest(self, *when):
+        moment = datetime.datetime(*when, tzinfo=datetime.timezone.utc)
+        return rf._nearest_cached(self.BOX, self.GW, self.HC, moment)
+
+    def test_nearest_in_minutes(self, monkeypatch):
+        # read as numbers, 12:55 is 45 from 13:00 and 13:10 only 10
+        self._cache(monkeypatch, ["20261023T1255", "20261023T1310"])
+        assert self._nearest(2026, 10, 23, 13, 0) == "20261023T1255"
+
+    def test_nearest_across_midnight(self, monkeypatch):
+        self._cache(monkeypatch, ["20261031T2355", "20261101T0015"])
+        assert self._nearest(2026, 11, 1, 0, 0) == "20261031T2355"
+
+    def test_a_nowcast_frame_is_measured_by_its_minute(self, monkeypatch):
+        self._cache(monkeypatch, ["20261023T1300:1a2b3c4d", "20261023T1400"])
+        assert self._nearest(2026, 10, 23, 13, 20) == "20261023T1300:1a2b3c4d"

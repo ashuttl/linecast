@@ -17,6 +17,7 @@ import math
 import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
+from datetime import date
 
 from linecast.terminal import theme as _theme
 from linecast.radar import sources as _sources
@@ -204,16 +205,25 @@ def _loaded_mask(bbox, gw, hc, frames, layer="radar"):
         return [k in _frame_cache for k in keys]
 
 
+def _minutes(stamp):
+    """A frame key's YYYYmmddTHHMM stamp as a count of minutes, so that
+    two can be measured apart."""
+    day = date(int(stamp[0:4]), int(stamp[4:6]), int(stamp[6:8]))
+    return day.toordinal() * 1440 + int(stamp[9:11]) * 60 + int(stamp[11:13])
+
+
 def _nearest_cached(bbox, gw, hc, when, layer="radar"):
-    """The cached frame for this view closest in time to `when`, or None."""
+    """The cached frame for this view closest in time to `when`, or None.
+
+    Closest in minutes: the stamps read as numbers put 12:55 45 away
+    from 13:00, and 13:10 only 10."""
     prefix = _view_key(bbox, gw, hc) + (layer,)
-    want = int(when.strftime("%Y%m%d%H%M"))
+    want = _minutes(when.strftime("%Y%m%dT%H%M"))
     with _frame_lock:
         keys = [k for k in _frame_cache if k[:len(prefix)] == prefix]
         if not keys:
             return None
-        best = min(keys, key=lambda k: abs(
-            int(k[len(prefix)].split(":")[0].replace("T", "")) - want))
+        best = min(keys, key=lambda k: abs(_minutes(k[len(prefix)]) - want))
         return _frame_cache.get(best)
 
 
