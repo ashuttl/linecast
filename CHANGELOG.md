@@ -4,38 +4,40 @@ Notable changes, by release. Notes for the next release collect under **Unreleas
 
 ## Unreleased
 
-- Tides: When a station's tides cannot be fetched, the message is in your language, as the others are.
-- Weather and tides: The month views no longer draw a sunrise at midnight on days of the midnight sun.
+- Weather: When the forecast can't be fetched, weather says so as soon as it knows, instead of first waiting for the climate averages and the alerts.
 - Weather: Changing the precipitation units no longer shows the last forecast's millimetres as inches, or its inches as millimetres.
 - Weather: During polar night the chart no longer marks a sunset at midnight, or at 11 p.m. after the clocks go back, and `--json` gives those days no sunrise or sunset.
 - Weather: Under the midnight sun the chart no longer darkens or marks a sunrise at midnight, and `--json` gives those days no sunrise or sunset, as `sunshine --json` does.
+- Weather and tides: The month views no longer draw a sunrise at midnight on days of the midnight sun.
 - Weather: On 29 February the comparison with the ten-year average takes in the days either side, so it draws on all ten years rather than the two or three leap days.
 - Weather: The chart, the forecast in words, and `--json` give the same sunrise and sunset as the sunshine view, where they could differ by a minute.
 - Weather and tides: The help panel lists the location menu's keys in lower case, like the rows around them.
 - Sunshine: Fixed the day view's and `--oneline`'s sunrise and sunset being an hour off between midnight and 2 a.m. on the night the clocks change.
 - Sunshine: Sunrise, sunset, and the Sun's height are more accurate, within seconds of published tables rather than a minute or two, and agree with the traditional hours shown beside them.
+- Moon, sunshine and sky: When the network stops answering, they look up the place's time zone and its name at the same time instead of one after the other, so they start sooner.
 - Moon and sky: Both say the Moon is up from the moment it rises, and give it the same altitude, as seen from where you stand. In `sky --json` the Sun is up from sunrise.
 - Sky: Stars and planets count as up from the moment they rise, as the Sun and the Moon do, in the view, the search, `--json`, and `--oneline`.
 - Moon: In a small month grid, each new, quarter, and full moon shows its phase on the day it falls, and no other day shows one.
 - Tides: The day's chart no longer jumps at the hour the clocks change. It runs on through the night they go back, with the repeated hour shown twice on its time axis.
 - Tides: The month view no longer jumps partway through the hour the clocks repeat in autumn, and at Canadian stations it no longer runs an hour ahead through the hour they skip in spring.
+- Tides: Fixed the missing night shading on the chart at stations from TICON-4.
+- Tides: The chart's night shading begins and ends at sunset and sunrise, where it could be up to half an hour off.
 - Tides: Offline, with nothing saved for the place, tides says it could not load the tides instead of that there is no tide station nearby.
+- Tides: When a station's tides cannot be fetched, the message is in your language, as the others are.
 - Tides: When the network stops answering, tides says sooner that it could not load the tides.
 - Tides: When the network stops answering, the NOAA predictions kept from an earlier run are shown sooner, instead of after a wait for each month in turn.
+- Tides: A month or year view that fails to load, as when the network drops, is tried again after a short wait instead of staying empty until linecast is restarted.
+- Tides: `--print` with `--month`, `--year` or `--makeup` says when the tides could not be loaded, and exits with an error, instead of printing the view empty.
 - Tides: With a TideCheck key, a station costs one request a day whichever views are opened, instead of up to four.
 - Tides: Queensland's year view loads with 12 requests instead of 183, and Queensland predictions still show offline the day after they were last fetched.
 - Tides: Predictions for Canadian stations still show offline the day after they were last fetched.
-- Tides: A month or year view that fails to load, as when the network drops, is tried again after a short wait instead of staying empty until linecast is restarted.
-- Tides: `--print` with `--month`, `--year` or `--makeup` says when the tides could not be loaded, and exits with an error, instead of printing the view empty.
-- Tides: Fixed the missing night shading on the chart at stations from TICON-4.
-- Tides: The chart's night shading begins and ends at sunset and sunrise, where it could be up to half an hour off.
 - Tides: `--station` accepts the five-digit codes the Canadian Hydrographic Service gives its stations, such as 00490 for Halifax.
 - Tides: `--station` finds the NOAA stations whose IDs begin with letters, such as TEC1603 for Troy, New York, and `--search` finds any NOAA station by its ID.
 - Radar: When a frame can't be fetched, offline or when a source fails, radar says it is unavailable instead of showing an empty map with "0% echo", which read as clear skies.
+- Radar: When the network stops answering, radar says sooner that it is unavailable.
 - Radar: The newest NEXRAD frame no longer stays empty when the Iowa Environmental Mesonet is late to publish it.
 - Radar: Dragging the map across the edge of the lower 48 no longer freezes the view while radar picks a source for the new area, and a source that stops sending radar there is replaced, as it is when radar starts.
 - Radar: While a frame loads, the frame shown in its place is the one nearest it in time.
-- Radar: When the network stops answering, radar says sooner that it is unavailable.
 - Radar: `--help` says plainly that `--layer` picks radar or satellite, `--layers` adds the temperature and wind, and `--theme` is the color scale for rain and snow.
 - Maps: Downloaded cloud cover is cleared from the cache after a day, as radar's frames are, even if radar is never opened.
 - Maps: Clouds that fail to download over part of the globe are filled in shortly afterwards, instead of leaving a gap until the next satellite image.
@@ -48,12 +50,10 @@ Notable changes, by release. Notes for the next release collect under **Unreleas
 - Maps: When a tile server refuses or the network is down, the map waits a moment before asking again, rather than asking on every mouse movement. Radar's temperature and wind layers wait the same way.
 - Maps: Day and night on the map follow the same Sun as the sunshine and sky views.
 - Location: Place names ending in "UK" or "USA", such as `--location "London, UK"`, are found.
-- Location: When the network stops answering, a command waits for the place's name once instead of several times over.
-- Location: Weather, sunshine, sky, radar and maps call a saved location by the name it was saved under, without looking a name up for it first.
-- Location: When the network stops answering and no location is saved, a command gives up looking for where you are sooner.
-- Moon, sunshine and sky: When the network stops answering, they look up the place's time zone and its name at the same time instead of one after the other, so they start sooner.
-- Weather: When the forecast can't be fetched, weather says so as soon as it knows, instead of first waiting for the climate averages and the alerts.
 - Location: A damaged location cache is fetched again instead of stopping every command with an error.
+- Location: Weather, sunshine, sky, radar and maps call a saved location by the name it was saved under, without looking a name up for it first.
+- Location: When the network stops answering, a command waits for the place's name once instead of several times over.
+- Location: When the network stops answering and no location is saved, a command gives up looking for where you are sooner.
 - Live views: Resizing the window resizes the view even with `COLUMNS` and `LINES` exported in the shell.
 - Live views: Quitting with Ctrl-C while a frame is drawing no longer leaves some terminals frozen for a moment afterwards.
 - Live views: A view left open does far less while it waits, and asks the terminal for fewer colors while it watches for a theme change.
