@@ -48,7 +48,7 @@ def _ten_years(**kw):
 
 
 def _slot(month, day):
-    return year._slot(date(2000, month, day))
+    return hist.day_slot(date(2000, month, day))
 
 
 # ---------------------------------------------------------------------------

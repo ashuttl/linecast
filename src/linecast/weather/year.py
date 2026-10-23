@@ -46,6 +46,7 @@ from linecast.terminal.theme import ensure_contrast, lerp_rgb, surface_bg
 from linecast.weather import style as _style
 from linecast.weather.daily import mostly_snow
 from linecast.weather.forecast import _at
+from linecast.weather.historical import day_slot
 from linecast.weather.i18n import _s, _wmo_icons, precip_unit_label
 
 # Days either side of a date that its average is taken over.
@@ -92,14 +93,9 @@ _rebuild()
 _theme.on_reload(_rebuild)
 
 
-def _slot(d):
-    """The date's place in a leap year, 0-365: Feb 29 has its own."""
-    return date(_LEAP, d.month, d.day).timetuple().tm_yday - 1
-
-
 @dataclass(frozen=True)
 class Climate:
-    """Ten years of the date, by slot (see _slot)."""
+    """Ten years of the date, by slot (see historical.day_slot)."""
     span: tuple          # (first year, last year)
     normal_high: tuple   # smoothed mean high; None where no year had one
     normal_low: tuple
@@ -137,7 +133,7 @@ def climate_from_archive(data, span):
             d = date.fromisoformat(t)
         except (TypeError, ValueError):
             continue
-        s = _slot(d)
+        s = day_slot(d)
         hi, lo, pr = _at(highs, i), _at(lows, i), _at(precips, i)
         if hi is not None:
             sum_hi[s] += hi
@@ -155,7 +151,7 @@ def climate_from_archive(data, span):
         return None
     # Feb 29 comes round two or three times in ten years: its extremes
     # take in the days either side, so the band does not pinch there.
-    feb29 = _slot(date(_LEAP, 2, 29))
+    feb29 = day_slot(date(_LEAP, 2, 29))
     for band, pick in ((top, max), (bottom, min)):
         near = [v for v in band[feb29 - 1:feb29 + 2] if v is not None]
         band[feb29] = pick(near) if near else None
@@ -379,7 +375,7 @@ def _header(climate, days, runtime, cols, location_name, location_menu):
         whole = days.today - 2
         felt, usual = [], []
         for k in range(days.today):
-            s = _slot(date(days.year, 1, 1) + timedelta(days=k))
+            s = day_slot(date(days.year, 1, 1) + timedelta(days=k))
             nh, nl = climate.normal_high[s], climate.normal_low[s]
             if None not in (days.highs[k], days.lows[k], nh, nl):
                 felt.append((days.highs[k] + days.lows[k]) / 2)
@@ -488,7 +484,7 @@ def render_year(climate, days, runtime, *, location_name="", location_menu=False
     starts, n = month_starts(year)
     ends = starts[1:] + [n]
     jan1 = date(year, 1, 1)
-    slots = [_slot(jan1 + timedelta(days=k)) for k in range(n)]
+    slots = [day_slot(jan1 + timedelta(days=k)) for k in range(n)]
     today = days.today if days else None
 
     # --- the rows ---

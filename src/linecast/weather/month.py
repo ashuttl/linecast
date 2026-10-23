@@ -3,7 +3,7 @@
 import calendar
 import math
 from dataclasses import dataclass, field, replace
-from datetime import date, datetime, timedelta, timezone
+from datetime import datetime, timedelta, timezone
 from zoneinfo import ZoneInfo
 
 from linecast._i18n import DAY_NAMES, fmt_decimal, table_for
@@ -22,12 +22,8 @@ from linecast.tides.chart import render_tide_ticks
 from linecast.tides.month import sun_legend
 from linecast.weather import style
 from linecast.weather.header import location_chip, location_control
-from linecast.weather.historical import history_span
+from linecast.weather.historical import day_slot, history_span
 from linecast.weather.i18n import _s
-
-
-def _slot(day):
-    return date(2000, day.month, day.day).timetuple().tm_yday - 1
 
 
 def _samples(payloads, tz, now=None):
@@ -86,8 +82,8 @@ class Temperatures:
                 if len(readings) > 1:
                     repeated.add((day, hour))
                 if span[0] <= day.year <= span[1]:
-                    sums[_slot(day)][hour] += values[hour]
-                    counts[_slot(day)][hour] += 1
+                    sums[day_slot(day)][hour] += values[hour]
+                    counts[day_slot(day)][hour] += 1
             days[day] = tuple(values)
         normals = []
         for slot in range(366):
@@ -139,7 +135,7 @@ class Temperatures:
         h = int(hour)
         if not 0 <= h < 24 or (not normal and not self._visible(day, hour)):
             return None
-        values = self.normals[_slot(day)] if normal else self.days.get(day, ())
+        values = self.normals[day_slot(day)] if normal else self.days.get(day, ())
         a = values[h] if values else None
         fraction = hour - h
         if fraction < 1e-9:
@@ -148,7 +144,7 @@ class Temperatures:
             b = values[h + 1] if values else None
         else:
             tomorrow = day + timedelta(days=1)
-            after = self.normals[_slot(tomorrow)] if normal else self.days.get(tomorrow, ())
+            after = self.normals[day_slot(tomorrow)] if normal else self.days.get(tomorrow, ())
             b = after[0] if after else None
         return None if a is None or b is None else a + (b - a) * fraction
 

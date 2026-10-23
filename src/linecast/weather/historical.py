@@ -143,6 +143,14 @@ def _archive_url(lat, lng, start_date, end_date, celsius, metric, extra=""):
     )
 
 
+def day_slot(d):
+    """The date's place in a leap year, from 0 to 365, so that 29
+    February has one of its own: the index a span of years is averaged
+    by, date by date, in the year view's band and the month view's
+    normal."""
+    return date(2000, d.month, d.day).timetuple().tm_yday - 1
+
+
 def _units_tag(celsius, metric):
     return ("C" if celsius else "F") + ("mm" if metric else "in")
 
