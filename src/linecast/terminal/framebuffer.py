@@ -1,8 +1,8 @@
 """Framebuffer and rendering utilities for half-block terminal graphics.
 
 Provides a Framebuffer class that renders at 2x vertical sub-pixel resolution
-using Unicode half-block characters (▄), plus text measurement and time
-formatting helpers used across the UI.
+using Unicode half-block characters (▄), plus the terminal's size and the
+shape of its cells.
 """
 
 import math

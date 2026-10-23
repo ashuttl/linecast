@@ -16,8 +16,8 @@ sunshine.solar -- but never its view or live app, which would bring the
 whole command with it.  Nothing imports another module at module level
 in a cycle.
 
-UPWARD lists the imports that break the rule today, each with the step
-of SNOW-LEOPARD.md that removes it.  A new one fails here, and so does
+UPWARD lists the imports that break the rule today, each with the
+reason it stands.  A new one fails here, and so does
 an entry that no longer occurs, so the list only shrinks.
 """
 
