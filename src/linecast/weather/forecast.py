@@ -169,6 +169,21 @@ def sun_of_day(daily, i):
     return rise, sset
 
 
+def sun_crossings(daily, i):
+    """Day *i*'s sunrise and sunset as crossings of the horizon, for
+    the chart's labels and --json: sun_of_day's, but neither on a day
+    the Sun does not set. Its midnight to midnight is the daylight it
+    has, not a rise and a set, and sunshine --json gives it none too."""
+    rise, sset = sun_of_day(daily, i)
+    try:
+        if rise and sset and (datetime.fromisoformat(sset) - datetime.fromisoformat(rise)
+                              >= timedelta(days=1)):
+            return None, None
+    except (TypeError, ValueError):
+        pass
+    return rise, sset
+
+
 def fetch_forecast(lat: float, lng: float,
                    runtime: WeatherRuntime | None = None) -> dict[str, Any] | None:
     """Fetch hourly + daily forecast from Open-Meteo. Cached 1h, and

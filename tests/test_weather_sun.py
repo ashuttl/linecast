@@ -97,3 +97,58 @@ def test_a_zone_the_machine_does_not_know_is_read_on_the_stamped_offset(monkeypa
            "daily": {"time": ["2026-03-05"]}}
     daily = _fetched(monkeypatch, raw)["daily"]
     assert daily["sunrise"] == ["2026-03-05T06:47"]
+
+
+class TestTheMidnightSun:
+    """A day the Sun does not set has daylight from midnight to
+    midnight, and no sunrise or sunset: the chart shades it all day,
+    marks no ↑12:00a at its midnight, and --json gives it none, as
+    sunshine --json does (Longyearbyen, June 2026)."""
+
+    PLACE = (78.22, 15.65)
+
+    def _data(self, monkeypatch):
+        first = datetime(2026, 6, 20)
+        n = 24 * 8
+        times = [(first + timedelta(hours=i)).isoformat(timespec="minutes")
+                 for i in range(n)]
+        raw = {"timezone": "Arctic/Longyearbyen", "utc_offset_seconds": 7200,
+               "hourly": {"time": times, "temperature_2m": [5.0 + i % 24 / 4 for i in range(n)],
+                          "precipitation_probability": [0] * n,
+                          "precipitation": [0.0] * n, "weather_code": [1] * n},
+               "daily": {"time": [(first + timedelta(days=k)).date().isoformat()
+                                  for k in range(8)]}}
+        return _fetched(monkeypatch, raw, self.PLACE)
+
+    def test_the_json_gives_no_sunrise_or_sunset(self, monkeypatch):
+        from linecast.weather.json import build_payload
+        from linecast.sunshine.json import build_payload as sunshine_payload
+        now = datetime(2026, 6, 21, 12)
+        payload = build_payload(self._data(monkeypatch), "", "NO", _runtime(), now=now)
+        assert (payload["today"]["sunrise"], payload["today"]["sunset"]) == (None, None)
+        assert {(d["sunrise"], d["sunset"]) for d in payload["daily"]} == {(None, None)}
+        sunshine = sunshine_payload(*self.PLACE, now=now.replace(
+            tzinfo=ZoneInfo("Arctic/Longyearbyen")), location="")
+        assert (sunshine["sunrise"], sunshine["sunset"], sunshine["polar"]) == (None, None, "day")
+
+    def test_the_chart_marks_no_sunrise_at_midnight(self, monkeypatch):
+        import re
+        from linecast.weather.hourly import render_hourly
+        data = self._data(monkeypatch)
+        runtime = _runtime()
+        seen = set()
+        # Narrow, the day names do not fit, and the midnight's ↑12:00a
+        # used to take their place.
+        for width in (30, 36, 39, 45, 60, 97):
+            for hours in range(0, 72, 7):
+                lines = render_hourly(data, width, now=datetime(2026, 6, 20, 1),
+                                      runtime=runtime, offset_minutes=hours * 60)
+                seen.update(re.findall(r"[↑↓]\S*", re.sub(r"\x1b\[[0-9;]*m", "", lines[0])))
+        assert seen == set()
+
+    def test_the_chart_is_daylight_throughout(self, monkeypatch):
+        from linecast.weather.hourly import _compute_daylight_columns, _parse_sun_events
+        data = self._data(monkeypatch)
+        # A day in, as the forecast's yesterday puts a chart's start.
+        dts = [datetime.fromisoformat(t) for t in data["hourly"]["time"][24:72]]
+        assert set(_compute_daylight_columns(dts, _parse_sun_events(data["daily"]), 97)) == {1.0}

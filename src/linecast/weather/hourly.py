@@ -15,7 +15,7 @@ from linecast._i18n import is_rtl, lang_of, table_for
 from linecast.weather.historical import temperature_scale
 from linecast.weather.i18n import _s
 from linecast._i18n import FULL_DAY_NAMES
-from linecast.weather.forecast import local_now, sun_of_day
+from linecast.weather.forecast import local_now, sun_crossings, sun_of_day
 from linecast.weather.style import (
     CHART_BG_DAY_RGB,
     CHART_BG_NIGHT_RGB,
@@ -86,16 +86,17 @@ def _daylight_factor(col_dt, sun_events):
     return best
 
 
-def _parse_sun_events(daily):
+def _parse_sun_events(daily, read=sun_of_day):
     """Parse sunrise/sunset ISO strings from daily data into datetime
-    pairs, (None, None) for a day the Sun does not rise (sun_of_day)."""
+    pairs, (None, None) for a day the Sun does not rise (sun_of_day),
+    or with *read* sun_crossings, for one it does not set either."""
     events = []
     total = max(len(daily.get("sunrise") or []), len(daily.get("sunset") or []))
     dropped = 0
     bad = None
     for i in range(total):
         parsed = []
-        for text in sun_of_day(daily, i):
+        for text in read(daily, i):
             moment = None
             try:
                 if text:
@@ -506,9 +507,25 @@ def _compute_sun_labels(window_dts, sun_events, graph_w, runtime):
     return sun_labels
 
 
+def _joined(sun_events):
+    """The days' (sunrise, sunset), each day the Sun does not set joined
+    to the days it runs into, so the midnights of the midnight sun are
+    neither a dusk nor a dawn."""
+    spans = []
+    for rise, sset in sun_events:
+        if rise is None or sset is None:
+            continue
+        if spans and rise <= spans[-1][1]:
+            spans[-1] = (spans[-1][0], max(sset, spans[-1][1]))
+        else:
+            spans.append((rise, sset))
+    return spans
+
+
 def _compute_daylight_columns(window_dts, sun_events, graph_w):
     """Compute per-column daylight factor for day/night tinting."""
     if window_dts and sun_events:
+        sun_events = _joined(sun_events)
         col_daylight = []
         for x in range(graph_w):
             t_frac = x / max(1, graph_w - 1) * max(0, len(window_dts) - 1)
@@ -1225,7 +1242,7 @@ def render_hourly(data, width, n_braille_rows=2, n_precip_rows=0, now=None, runt
     if runtime is None:
         runtime = current_runtime(WeatherRuntime)
     daily = data.get("daily", {})
-    sun_events = _parse_sun_events(daily)
+    daylight = _parse_sun_events(daily)
     if now is None:
         now = local_now(data)
 
@@ -1259,8 +1276,9 @@ def render_hourly(data, width, n_braille_rows=2, n_precip_rows=0, now=None, runt
         col = _column_of(now, window_dts, graph_w)
         if col is not None:
             now_col = int(col)
-    sun_labels = _compute_sun_labels(window_dts, sun_events, graph_w, runtime)
-    col_daylight = _compute_daylight_columns(window_dts, sun_events, graph_w)
+    sun_labels = _compute_sun_labels(window_dts, _parse_sun_events(daily, sun_crossings),
+                                     graph_w, runtime)
+    col_daylight = _compute_daylight_columns(window_dts, daylight, graph_w)
     col_temps = _interpolate_columns(window_temps, graph_w)
 
     # Full-data virtual canvas for stable label placement while scrolling.

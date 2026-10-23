@@ -12,7 +12,7 @@ from datetime import datetime
 from linecast.weather.cover import sky_condition
 from linecast.weather.i18n import _wmo_icons, wmo_label
 from linecast.weather.narrative import comparative_sentence, narrative_text
-from linecast.weather.forecast import FORECAST_SOURCE, _at, forecast_date, local_now, sun_of_day
+from linecast.weather.forecast import FORECAST_SOURCE, _at, forecast_date, local_now, sun_crossings
 from linecast.weather.alert_feeds import alert_source, alerts_status
 
 SCHEMA_VERSION = 1
@@ -93,11 +93,11 @@ def build_payload(data, location_name, country_code, runtime,
     today = now.date().isoformat()
     start = next((i for i, day in enumerate(d_times) if day >= today), len(d_times))
     today_index = start if _at(d_times, start) == today else -1
-    today_sun = sun_of_day(daily, today_index)
+    today_sun = sun_crossings(daily, today_index)
     daily_out = []
     for i in range(start, min(start + 7, len(d_times))):
         code = _at(daily.get("weather_code"), i)
-        sunrise, sunset = sun_of_day(daily, i)
+        sunrise, sunset = sun_crossings(daily, i)
         condition = sky_condition(code, _at(daily.get("cloud_cover_mean"), i))
         daily_out.append({
             "date": _at(d_times, i),

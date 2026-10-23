@@ -6,6 +6,7 @@ Notable changes, by release. Notes for the next release collect under **Unreleas
 
 - Weather: Changing the precipitation units no longer shows the last forecast's millimetres as inches, or its inches as millimetres.
 - Weather: During polar night the chart no longer marks a sunset at midnight, or at 11 p.m. after the clocks go back, and `--json` gives those days no sunrise or sunset.
+- Weather: Under the midnight sun the chart no longer darkens or marks a sunrise at midnight, and `--json` gives those days no sunrise or sunset, as `sunshine --json` does.
 - Weather: On 29 February the comparison with the ten-year average takes in the days either side, so it draws on all ten years rather than the two or three leap days.
 - Weather: The chart, the forecast in words, and `--json` give the same sunrise and sunset as the sunshine view, where they could differ by a minute.
 - Weather and tides: The help panel lists the location menu's keys in lower case, like the rows around them.
