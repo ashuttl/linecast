@@ -383,6 +383,122 @@ def test_no_module_keeps_a_copy_of_the_old_theme():
         _theme.theme_available = saved[3]
 
 
+# The package imported in a child under one palette, as {"module.NAME":
+# its colours} for every module-level value holding any: an (r, g, b), an
+# escape string, or a container or class or function default with one in
+# it.  The child is given two palettes. It imports everything under the
+# first, lists the colours, changes to the second and lists them again;
+# given one, it imports under it and lists once.  The modules the theme
+# brings in with it are named too, since they are imported before any
+# palette is set: the settings, the strings and the parsers.
+_PALETTE_CHILD = textwrap.dedent("""
+    import importlib, json, pkgutil, sys, types
+    before = set(sys.modules)
+    from linecast.terminal import theme
+    early = sorted(name for name in set(sys.modules) - before
+                   if name.startswith("linecast") and name != theme.__name__)
+    palettes = json.loads(sys.argv[1])
+    theme._apply(*palettes[0])
+    import linecast
+    names = sorted(info.name for info in pkgutil.walk_packages(linecast.__path__, "linecast.")
+                   if not info.name.endswith(".__main__"))
+    for name in names:
+        importlib.import_module(name)
+
+    def colours(value, depth=0):
+        if depth > 6:
+            return None
+        if isinstance(value, str):
+            return value if "\\x1b[" in value else None
+        if (isinstance(value, tuple) and len(value) == 3
+                and all(type(c) is int and 0 <= c <= 255 for c in value)):
+            return list(value)
+        if isinstance(value, dict):
+            found = {repr(k): colours(v, depth + 1) for k, v in value.items()}
+            return {k: c for k, c in found.items() if c is not None} or None
+        if isinstance(value, (tuple, list)):
+            found = [colours(v, depth + 1) for v in value]
+            return found if any(c is not None for c in found) else None
+        if isinstance(value, (set, frozenset)):
+            found = (colours(v, depth + 1) for v in value)
+            return sorted(json.dumps(c) for c in found if c is not None) or None
+        if isinstance(value, types.FunctionType):
+            defaults = (*(value.__defaults__ or ()), *(value.__kwdefaults__ or {}).values())
+            return colours(defaults, depth + 1)
+        if isinstance(value, type) and value.__module__.startswith("linecast"):
+            return colours({k: v for k, v in vars(value).items()
+                            if not k.startswith("__")}, depth + 1)
+        return None
+
+    def listing():
+        out = {}
+        for name in names:
+            for attr, value in vars(sys.modules[name]).items():
+                if not attr.startswith("__") and not isinstance(value, types.ModuleType):
+                    found = colours(value)
+                    if found is not None:
+                        out[name + "." + attr] = found
+        return out
+
+    lists = [listing()]
+    for palette in palettes[1:]:
+        theme._apply(*palette)
+        lists.append(listing())
+    json.dump({"early": early, "lists": lists}, sys.stdout)
+""")
+
+# What terminal.color has memoised: the escape for each colour asked for
+# so far.  Keyed by the colour, it cannot hold a wrong one, but what was
+# asked differs with the palette.
+_MEMOS = {"linecast.terminal.color._FG_MEMO", "linecast.terminal.color._BG_MEMO"}
+
+# The two palettes differ in the text, the background and every ANSI hue,
+# and each from the fallback the theme starts on.
+_WARM = ((40, 30, 20), (245, 240, 225), tuple(
+    [(245, 240, 225)] + [(170, 60, 30), (60, 150, 40), (180, 140, 0), (40, 80, 190),
+                         (150, 50, 160), (20, 140, 150)] + [(40, 30, 20), (110, 110, 110)]
+    + [(200, 80, 40), (80, 180, 60), (210, 170, 20), (60, 110, 220), (180, 80, 190),
+       (40, 170, 180)] + [(20, 15, 10)]))
+
+
+def test_every_colour_built_at_import_follows_a_theme_change():
+    """A module that builds colours from the theme when it is imported
+    builds them again when the theme changes, with theme.on_reload, and
+    one that copies them out of another follows with theme.track_imports;
+    a module that does neither keeps the old colours on screen until the
+    view is restarted.  Imported under a dark palette and changed to a
+    warm light one, every colour in the package must be what a fresh
+    import under the light one makes.  Unlike the copied-names test
+    above, this catches a module whose own palette never rebuilds."""
+    import json
+    env = dict(os.environ, PYTHONPATH=SRC, LINECAST_COLOR="truecolor", LINECAST_THEME="auto")
+    children = [subprocess.Popen([sys.executable, "-c", _PALETTE_CHILD, json.dumps(palettes)],
+                                 stdin=subprocess.DEVNULL, stdout=subprocess.PIPE,
+                                 stderr=subprocess.PIPE, env=env, text=True)
+                for palettes in ([DARK, _WARM], [_WARM])]
+    results = []
+    for child in children:
+        out, err = child.communicate(timeout=120)
+        assert child.returncode == 0, err
+        results.append(json.loads(out))
+    (dark, changed), (fresh,) = results[0]["lists"], results[1]["lists"]
+    stale = sorted(name for name in set(changed) | set(fresh)
+                   if changed.get(name) != fresh.get(name) and name not in _MEMOS)
+    assert not stale, (
+        "kept a colour from the palette before a theme change: " + ", ".join(stale)
+        + ". A module that builds colours from the theme at import registers a"
+          " rebuild with theme.on_reload; one that copies them from another calls"
+          " theme.track_imports(globals(), that module) at its end.")
+    # and the check saw the palette: hundreds of colours move with it,
+    # none of them in a module imported before the first palette was set
+    moved = {name for name in fresh if dark.get(name) != fresh[name]} - _MEMOS
+    assert len(moved) > 100, sorted(moved)
+    assert {"linecast.terminal.color.BG_PRIMARY", "linecast.weather.style.TEXT",
+            "linecast.tides.year.BAND_FLOOD_RGB"} <= moved
+    early = set(results[1]["early"])
+    assert early and not [name for name in fresh if name.rsplit(".", 1)[0] in early]
+
+
 @pytest.mark.skipif(_theme.theme_legacy_mode, reason="legacy palette is fixed")
 class TestExtremeColors:
     """Below freezing the temperature colors deepen from the theme's
