@@ -211,6 +211,30 @@ def test_a_one_shot_run_waits_the_deadline_for_the_archive():
     assert took >= 0.9
 
 
+def test_without_a_forecast_nothing_else_is_waited_for():
+    # A stalled network: the forecast has failed, and the archive, the
+    # air and the alerts would each have sat out the deadline for a run
+    # that can only say it has no weather
+    from linecast.weather.alert_feeds import ALERTS_UNAVAILABLE
+
+    def stuck(*args, **kwargs):
+        threading.Event().wait()
+
+    with patch.object(_weather_live, "reverse_geocode", return_value=("", "", {})), \
+         patch.object(_weather_live, "fetch_forecast", return_value=None), \
+         patch.object(_weather_live, "fetch_aqi", side_effect=stuck), \
+         patch.object(_weather_live, "fetch_observation", side_effect=stuck), \
+         patch.object(_weather_live, "fetch_alerts", side_effect=stuck), \
+         patch.object(_weather_live, "fetch_historical", side_effect=stuck), \
+         patch.object(_weather_live, "_FETCH_CEILING", 1.0):
+        began = datetime.now()
+        result = _weather_live.gather(35.68, 139.69, "JP", WeatherRuntime.defaults())
+    assert (datetime.now() - began).total_seconds() < 0.5
+    assert result["data"] is None and result["historical"] is None
+    assert result["alerts"].status == ALERTS_UNAVAILABLE
+    assert result["name"] == "35.68, 139.69"
+
+
 # ---------------------------------------------------------------------------
 # WeatherApp
 # ---------------------------------------------------------------------------

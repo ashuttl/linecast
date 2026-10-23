@@ -48,17 +48,21 @@ def _run(code):
     ("reverse_geocode", "geocode"),
 ])
 def test_deadline_preserves_completed_results_and_exits(provider, missing):
+    # Without the forecast there is no dashboard, so nothing else is kept
+    no_data = missing == "data"
     proc = _run(f"""
         live.{provider} = stuck
         result = live.gather(28.61, 77.21, "IN",
                              live.WeatherRuntime.defaults(), geo_label="Delhi")
         assert started.is_set()
-        assert result["data"] == {None if missing == 'data' else {'v': 1}!r}
-        assert result["aqi"] == {None if missing == 'aqi' else {'aqi': 1}!r}
-        assert result["historical"] == {None if missing == 'historical' else 'history'!r}
+        assert result["data"] == {None if no_data else {'v': 1}!r}
+        assert result["aqi"] == {None if missing in ('aqi', 'data') else {'aqi': 1}!r}
+        assert result["historical"] == {None if missing in ('historical', 'data')
+                                        else 'history'!r}
         assert result["name"] == "Delhi"
         assert result["country_code"] == "IN"
-        assert result["alerts"] == []
+        assert {no_data!r} or result["alerts"] == []
+        assert not {no_data!r} or result["alerts"].status == "unavailable"
     """)
     assert proc.returncode == 0, proc.stderr
     assert proc.stdout == proc.stderr == ""

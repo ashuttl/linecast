@@ -591,9 +591,21 @@ def gather(lat, lng, country_code, runtime, geo_label="", stale=None):
     fut_aqhi = _submit(fetch_canada_aqhi, lat, lng) if (cc or country_code) == "CA" else None
 
     localized = _settle(fut_name, "place name", ("", "", {}))[0] if fut_name else ""
-    result["name"] = localized or without_country(geo_label) or name
+    # A place no geocoder can name shows its coordinates, as radar and
+    # maps do — never the timezone city, which can be a continent away
+    # (issue #50).
+    result["name"] = localized or without_country(geo_label) or name or f"{lat:.2f}, {lng:.2f}"
     result["country_code"] = cc or country_code
     forecast = _settle(fut_forecast, "forecast", None)
+    if forecast is None:
+        # Nothing is drawn without a forecast, not even from a stale
+        # copy, so the rest is not waited for: a one-shot run would sit
+        # out the archive's deadline only to say it has no weather
+        log_failure("weather", "dashboard", LookupError("no forecast"),
+                    fallback="the rest not waited for")
+        result.update(data=None, aqi=None, aqhi=None, historical=None,
+                      alerts=AlertList(status=ALERTS_UNAVAILABLE))
+        return result
     observation = _settle(fut_observed, "station observation", None, _OBSERVATION_PATIENCE)
     gauge = (_settle(fut_gauge, "station precipitation", None, _OBSERVATION_PATIENCE)
              if observation else None)
@@ -624,12 +636,6 @@ def gather(lat, lng, country_code, runtime, geo_label="", stale=None):
                 result["historical"] = again
     # A feed that raised or ran out the deadline was not heard from.
     result["alerts"] = _settle(fut_alerts, "alerts", AlertList(status=ALERTS_UNAVAILABLE))
-
-    # A place no geocoder can name shows its coordinates, as radar and
-    # maps do — never the timezone city, which can be a continent away
-    # (issue #50).
-    if not result["name"]:
-        result["name"] = f"{lat:.2f}, {lng:.2f}"
     return result
 
 
