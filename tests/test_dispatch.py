@@ -167,6 +167,12 @@ class Argv0DispatchTests(unittest.TestCase):
         self.assertIn("--layers LAYERS temp, wind, or temp,wind Added to it", page)
         self.assertIn("The color scale rain and snow are drawn in", page)
 
+    def test_tides_help_says_a_bare_search_is_nearby(self):
+        import re
+        from linecast import _parsers
+        page = re.sub(r"\s+", " ", _parsers.tides_parser().format_help())
+        self.assertIn("with no query, the same as --nearby", page)
+
     def test_zoom_is_degrees_above_zero(self):
         # the views divide by it: 0 was a ZeroDivisionError, nan a ValueError
         from linecast._parsers import maps_parser, radar_parser

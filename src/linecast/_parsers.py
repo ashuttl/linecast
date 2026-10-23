@@ -250,8 +250,8 @@ def tides_parser():
     p.add_argument("--station", default=None,
                     help="station ID or name (any provider)")
     p.add_argument("--search", metavar="QUERY", nargs="?", const="", default=None,
-                    help="search for a station and exit "
-                         "(no query: list nearest stations)")
+                    help="search for a station and exit; with no query, "
+                         "the same as --nearby")
     p.add_argument("--nearby", action="store_true",
                     help="list the nearest tide stations and exit")
     views = p.add_mutually_exclusive_group()
