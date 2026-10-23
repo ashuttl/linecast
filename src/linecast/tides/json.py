@@ -26,7 +26,7 @@ def build_payload(station_name, runtime, now_local, predictions, hilo,
     predictions: [(dt, height_ft)] sorted; hilo: [(dt, height_ft, "H"|"L")].
     Either may be None/empty — the payload degrades to nulls and [].
     """
-    from linecast.tides.chart import interp_height
+    from linecast.tides.chart import as_instant, interp_height
 
     predictions = predictions or []
     hilo = hilo or []
@@ -41,6 +41,10 @@ def build_payload(station_name, runtime, now_local, predictions, hilo,
             if dt.tzinfo is not None:
                 now_local = now_local.astimezone(dt.tzinfo)
                 break
+
+    # as instants in time order, once, as the chart's window keeps them:
+    # each step's height is then read by the hours that pass, and quickly
+    predictions = sorted(((as_instant(t), h) for t, h in predictions), key=lambda p: p[0])
 
     events = []
     for dt, height, typ in sorted(hilo):
