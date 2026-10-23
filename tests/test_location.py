@@ -254,12 +254,6 @@ class ResolveLocationTests(unittest.TestCase):
             _location.resolve_location("43.68,-70.35", return_label=True),
             (43.68, -70.35, "", ""))
 
-    def test_need_country_reverse_geocodes_override(self):
-        with patch("linecast._geocode.reverse_geocode",
-                   return_value=("Saint John", "CA", {})):
-            self.assertEqual(
-                _location.resolve_location("45.25,-66.06", need_country=True),
-                (45.25, -66.06, "CA"))
 
 
 class CountryForDefaultsTests(unittest.TestCase):

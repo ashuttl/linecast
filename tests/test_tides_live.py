@@ -378,6 +378,38 @@ class TestViewFlags:
         assert out.err.strip() == "Could not load tides for 43.66, -70.25. Please try again."
         assert not out.out
 
+    def test_an_override_is_routed_by_its_country_with_the_model_asked_ahead(
+            self, monkeypatch, capsys):
+        # A first run's country lookup waits on the network too, so the
+        # global model is armed before it, not only before the stations
+        from linecast.tides.common import Unreachable
+        order = []
+
+        class Armed:
+            def __init__(self, lat, lng, after):
+                order.append(("armed", lat, lng))
+
+            def cancel(self):
+                order.append("cancelled")
+
+        def reverse_geocode(lat, lng, lang=None):
+            order.append("country")
+            return "Saint John", "CA", {}
+
+        def chain(lat, lng, country, label="", model=None):
+            order.append(("chain", country, isinstance(model, Armed)))
+            raise Unreachable("offline")
+        monkeypatch.setattr("sys.argv", ["tides", "--location", "45.25,-66.06", "--print"])
+        monkeypatch.setattr(_tides_live, "_Ahead", Armed)
+        monkeypatch.setattr("linecast._geocode.reverse_geocode", reverse_geocode)
+        monkeypatch.setattr(_tides_live, "_station_for_location", chain)
+        with pytest.raises(SystemExit):
+            _tides_live.main()
+        assert order[0] == ("armed", 45.25, -66.06)
+        assert order[1] == "country"
+        assert ("chain", "CA", True) in order
+        assert order[-1] == "cancelled"
+
     @pytest.mark.parametrize("view", ["year", "makeup"])
     def test_short_range_source_refuses_year_views(self, monkeypatch, capsys, cli_station, view):
         cli_station.year_view = False

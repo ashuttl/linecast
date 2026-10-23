@@ -39,7 +39,7 @@ def _is_qld_lat_lng(lat, lng):
     return -30 <= lat <= -9 and 137 <= lng <= 155
 
 
-def _station_for_location(lat, lng, country_code, label=""):
+def _station_for_location(lat, lng, country_code, label="", model=None):
     """Pick a provider and station for a location: (provider, id, name).
 
     The regional provider for the country goes first (CHS for Canada, QLD
@@ -58,7 +58,8 @@ def _station_for_location(lat, lng, country_code, label=""):
     *label* is the name the geocoder gave the place the user asked for.
     A stationless provider names its pseudo-station by reverse-geocoding
     the point, which is a slower way of getting a worse answer, so the
-    label stands in when there is one.
+    label stands in when there is one.  *model* is an _Ahead the caller
+    armed for the place before its own lookups, the country's.
     """
     order = []
     if country_code == "CA":
@@ -80,7 +81,8 @@ def _station_for_location(lat, lng, country_code, label=""):
     order.append(OPENMETEO)
 
     unreachable = None
-    model = _Ahead(lat, lng, _AHEAD_S)
+    if model is None:
+        model = _Ahead(lat, lng, _AHEAD_S)
     try:
         for provider in order:
             # A provider that raises is passed over like one with no

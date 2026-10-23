@@ -197,8 +197,7 @@ def location_overridden(cli_location: str | None = None) -> bool:
 
 
 def resolve_location(
-    cli_location: str | None = None, lang: str = "en", need_country: bool = False,
-    return_label: bool = False,
+    cli_location: str | None = None, lang: str = "en", return_label: bool = False,
 ) -> (tuple[float | None, float | None, str | None]
       | tuple[float | None, float | None, str | None, str]):
     """Resolve the working location for a command.
@@ -208,8 +207,8 @@ def resolve_location(
     (None, None, None) when no location can be determined. An explicit
     override that can't be geocoded raises a UserError instead.
 
-    country_code is "" for overrides unless *need_country* is set, in which
-    case it is filled in via the (cached) reverse geocoder.
+    country_code is "" for overrides; a caller that needs one asks the
+    (cached) reverse geocoder, as tides does to route a place.
 
     With *return_label*, a fourth element carries the geocoder's label for
     a place-name override ("" otherwise); radar and maps show it as the
@@ -220,7 +219,6 @@ def resolve_location(
         lat, lng, country = get_location()
         return (lat, lng, country, "") if return_label else (lat, lng, country)
 
-    country = ""
     label = ""
     latlng = parse_latlng(override)
     if latlng is not None:
@@ -237,10 +235,7 @@ def resolve_location(
             # cleared before the message lands.
             raise UserError(f'No locations matching "{override}".')
         lat, lng, label = hit
-    if need_country:
-        from linecast._geocode import reverse_geocode
-        _name, country, _addr = reverse_geocode(lat, lng)
-    return (lat, lng, country, label) if return_label else (lat, lng, country)
+    return (lat, lng, "", label) if return_label else (lat, lng, "")
 
 
 def same_place(a, b) -> bool:

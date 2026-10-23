@@ -18,7 +18,7 @@ from datetime import date, datetime, timedelta
 
 from linecast.terminal.framebuffer import get_terminal_size
 from linecast.terminal import live as _live
-from linecast._location import country_for_defaults, resolve_location
+from linecast._location import country_for_defaults, location_overridden, resolve_location
 from linecast._plaintext import plain_text
 from linecast._runtime import TidesRuntime, set_current
 from linecast._parsers import refuse_view_flag, tides_parser
@@ -32,8 +32,8 @@ from linecast.weather.location_menu import LocationMenu
 from linecast.weather.locations_i18n import ls
 from linecast.tides.providers import NOAA, PROVIDERS, TIDECHECK, provider_for_id
 from linecast.tides.stations import (
-    _fetch_station, _find_matching_stations, _search_stations, _station_details,
-    _station_for_location, _station_now,
+    _AHEAD_S, _Ahead, _fetch_station, _find_matching_stations, _search_stations,
+    _station_details, _station_for_location, _station_now,
 )
 from linecast.tides.view import (
     _live_window_hours, _live_window_start, _render_header_line, pill_width, render,
@@ -139,16 +139,20 @@ class TidesApp(LocationMenu, _live.LiveApp):
         them: None when nothing covers it, "failed" when it would not load,
         or could not be looked for."""
         from linecast._geocode import reverse_geocode
+        # the global model asked ahead beside the country, as main() does
+        model = _Ahead(place.lat, place.lon, _AHEAD_S)
         try:
-            country = reverse_geocode(place.lat, place.lon, lang=self.runtime.lang)[1]
-        except Exception as exc:
-            log_failure("tides", "place country", exc, fallback="no regional provider")
-            country = ""
-        try:
+            try:
+                country = reverse_geocode(place.lat, place.lon, lang=self.runtime.lang)[1]
+            except Exception as exc:
+                log_failure("tides", "place country", exc, fallback="no regional provider")
+                country = ""
             provider, station_id, station_name = _station_for_location(
-                place.lat, place.lon, country, label=place.name)
+                place.lat, place.lon, country, label=place.name, model=model)
         except Unreachable:
             return "failed"
+        finally:
+            model.cancel()
         if station_id is None:
             return None
         station_meta, station_name, station_tz = _station_details(
@@ -539,6 +543,7 @@ def main():
         # Station: --station flag > TIDE_STATION env var > geolocation
         override = args.station or os.environ.get("TIDE_STATION", "").strip()
         place, country = None, ""  # what the station was found for
+        model = None  # the global model's lookup, once asked ahead
 
         if override:
             provider = provider_for_id(override)
@@ -568,18 +573,25 @@ def main():
                 runtime = TidesRuntime.from_sources(args, country=own)
                 set_current(runtime)
         else:
-            # need_country: provider routing (CHS for Canada, QLD for
-            # Queensland) hinges on the country of the target location.
             # return_label: the forward geocoder already named the place
             # the user asked for. Keeping it spares a reverse-geocode
             # round trip and, more to the point, keeps the header able to
             # show that "Leith" was read as the one in Tasmania.
             lat, lng, country_code, resolved_label = resolve_location(
-                args.location, lang=runtime.lang, need_country=True,
-                return_label=True)
+                args.location, lang=runtime.lang, return_label=True)
             if lat is None:
                 print("Could not determine location for tide station lookup.", file=sys.stderr)
                 sys.exit(1)
+            # The lookups from here to the station's may all wait on the
+            # network, so the global model is asked ahead beside them
+            # (stations._Ahead), the country's as well as the stations'.
+            model = _Ahead(lat, lng, _AHEAD_S)
+            if location_overridden(args.location):
+                # Provider routing (CHS for Canada, QLD for Queensland)
+                # hinges on the country of the target location, which an
+                # override leaves blank.
+                from linecast._geocode import reverse_geocode
+                country_code = reverse_geocode(lat, lng)[1]
             if resolved_label:
                 from linecast._geocode import place_label
                 resolved_label = place_label(lat, lng, resolved_label, runtime.lang)
@@ -592,7 +604,7 @@ def main():
 
             try:
                 provider, station_id, station_name = _station_for_location(
-                    lat, lng, country_code, label=resolved_label)
+                    lat, lng, country_code, label=resolved_label, model=model)
             except Unreachable:
                 # Offline, and nothing kept for the place: say so, as the
                 # location menu does, rather than that it has no tides
@@ -730,3 +742,5 @@ def main():
             _live.print_frame(out)
     finally:
         spin.stop()
+        if model is not None:
+            model.cancel()
