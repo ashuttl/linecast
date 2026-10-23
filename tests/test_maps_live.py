@@ -1237,6 +1237,36 @@ class TestStartupPrune:
 
         assert calls == ["prune", "resolve"]
 
+    def test_live_the_sweep_does_not_hold_up_the_first_frame(
+            self, monkeypatch):
+        # the sweep asks for the tilejson, and on a network that hangs
+        # that was ten seconds a source before the map appeared
+        from linecast.maps import tile_cache
+
+        calls = []
+
+        class Bail(Exception):
+            pass
+
+        def prune(*a, **k):
+            calls.append("prune")
+
+        def bail(*a, **k):
+            calls.append("resolve")
+            raise Bail
+
+        self._argv(monkeypatch, "--live")
+        monkeypatch.setattr(tile_cache, "prune_maps_cache", prune)
+        monkeypatch.setattr(_location, "resolve_location", bail)
+
+        with pytest.raises(Bail):
+            _maps_live.main()
+        assert calls == ["resolve"]
+        sweeps = [t for t in FakeThread.started if t.target is prune]
+        assert len(sweeps) == 1
+        sweeps[0].target()
+        assert calls == ["resolve", "prune"]
+
     def test_search_adds_no_tiles_so_it_does_not_wait(self, monkeypatch):
         from linecast.maps import tile_cache
         from linecast import _geocode

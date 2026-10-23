@@ -986,8 +986,16 @@ def main():
     # vector-tile versions first, then back under the size cap. Map tiles
     # never go stale, so nothing here goes by age alone. After --search,
     # which adds no tiles and should not wait on a tilejson fetch.
+    # Live, beside the first frame rather than ahead of it: the sweep
+    # asks for the tilejson, which on a network that hangs is ten
+    # seconds a source, and the frame's own tiles wait for the same
+    # answer and share it (vtiles.tilejson). A printed frame has
+    # nothing to show before its tiles arrive.
     from linecast.maps.tile_cache import prune_maps_cache
-    prune_maps_cache()
+    if runtime.live:
+        threading.Thread(target=prune_maps_cache, daemon=True).start()
+    else:
+        prune_maps_cache()
 
     lat, lon, _country, location_name, runtime = place_for(args, runtime)
 
