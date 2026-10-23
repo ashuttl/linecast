@@ -160,6 +160,20 @@ def render_radar(lat, lon, location_name, zoom, play_frame=0, playing=True,
         _ensure_prefetch(bbox, graph_w, height_cells, frames, start_idx=idx,
                          layer=layer)
 
+    # whether the frame is drawn with warning outlines (see below)
+    warned = alerts and _warnings.covers(bbox) and not frame.future
+    beside = {}
+    if block:
+        # A printed frame waits on its image, and on its warnings and
+        # condition field as well: they are fetched beside the image
+        # rather than after it.
+        from linecast._fanout import Fanout
+        fanout = Fanout()
+        if layers:
+            beside["field"] = fanout.submit(_get_field, bbox, True)
+        if warned:
+            beside["warnings"] = fanout.submit(_warnings.warnings_at, when)
+
     err = None
     loading = False
     buffering = False
@@ -197,7 +211,7 @@ def render_radar(lat, lon, location_name, zoom, play_frame=0, playing=True,
     field = t_idx = under = wind_ov = None
     if layers:
         units = runtime or current_runtime()  # what the readings are given in
-        field = _get_field(bbox, block)
+        field = beside["field"].result() if block else _get_field(bbox, block)
         if field is None:
             loading = loading or not block
         else:
@@ -214,10 +228,10 @@ def render_radar(lat, lon, location_name, zoom, play_frame=0, playing=True,
     # A hides them, and the prefetch goes on so they return at once)
     warn_layer = None
     warns = None
-    if alerts and _warnings.covers(bbox) and not frame.future:
+    if warned:
         if block:
             try:
-                warns = _warnings.warnings_at(when)
+                warns = beside["warnings"].result()
             except Exception as exc:
                 log_failure("radar/warnings", "fetch", exc, url=_warnings._URL,
                             fallback="no warning outlines")

@@ -237,3 +237,55 @@ class TestHeaderPlace:
         # counted in characters, the overflow was more than the name had,
         # and the line ran past the edge uncut
         assert cols - 1 <= visible_len(header.rstrip()) <= cols
+
+
+class TestPrintedFrameFetches:
+    """A printed frame's warnings and condition field are fetched beside
+    its image: on a stalled network each was a timeout of its own, one
+    after another."""
+
+    def test_the_warnings_and_the_field_are_asked_while_the_image_is(self, monkeypatch):
+        import threading
+        from datetime import datetime, timezone
+        from types import SimpleNamespace
+        from linecast._runtime import RuntimeConfig
+        from linecast.radar import frames
+        from linecast.radar import view as radar
+
+        before = frames.source()
+        now = datetime(2026, 10, 23, 14, 0, tzinfo=timezone.utc)
+        asked = {"warnings": threading.Event(), "field": threading.Event()}
+        seen = {}
+
+        def load_frame(*_args):
+            # the image is on its way: the others must be out already
+            seen.update({k: e.wait(2) for k, e in asked.items()})
+            raise OSError("timed out")
+
+        def warnings_at(when):
+            asked["warnings"].set()
+            return []
+
+        def get_field(bbox, block):
+            asked["field"].set()
+            return None
+
+        runtime = RuntimeConfig(live=False, icons='plain', lang='en', oneline=False)
+        frames.use(SimpleNamespace(attribution='IEM', current_frames=lambda: [
+            SimpleNamespace(time=now, future=False)]))
+        try:
+            monkeypatch.setattr(radar, 'get_terminal_size', lambda: (60, 20))
+            monkeypatch.setattr(radar, '_get_basemap', lambda *a: SimpleNamespace(
+                city_overlays=lambda **kw: {}))
+            monkeypatch.setattr(radar, '_load_frame', load_frame)
+            monkeypatch.setattr(radar, '_get_field', get_field)
+            monkeypatch.setattr(radar._warnings, 'covers', lambda *a: True)
+            monkeypatch.setattr(radar._warnings, 'warnings_at', warnings_at)
+            monkeypatch.setattr(radar, 'compose', lambda *a, **kw: [''] * 18)
+            monkeypatch.setattr(radar, 'has_radar', lambda *a: True)
+            _out, failed = radar.render_radar(43.66, -70.25, "Portland", 6, runtime=runtime,
+                                              layers=frozenset({"temp"}))
+        finally:
+            frames.use(before)
+        assert failed
+        assert seen == {"warnings": True, "field": True}

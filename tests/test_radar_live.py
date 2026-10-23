@@ -364,3 +364,43 @@ class TestPrinted:
         monkeypatch.setattr(_radar_live, "print_frame", calls.append)
         _radar_live.main()
         assert calls == ["measure", "spin", "draw", "frame"]
+
+    def test_the_name_is_looked_up_while_the_source_is(self, monkeypatch):
+        """The header's place name and the source's index are both waits
+        before the frame; on a stalled network they were one after the
+        other."""
+        import sys
+        import threading
+        from linecast import _geocode
+        from linecast.terminal import textwidth
+
+        source_asked, seen = threading.Event(), {}
+
+        def place_label(lat, lon, name, lang):
+            seen["the source was asked meanwhile"] = source_asked.wait(2)
+            return "Westbrook"
+
+        def get_source(*_args):
+            source_asked.set()
+            return FakeSource()
+
+        class QuietSpinner:
+            def __init__(self, *a, **k):
+                pass
+
+            start = stop = lambda self: None
+
+        drawn = []
+        monkeypatch.setattr(sys, "argv", ["linecast-radar", "--print"])
+        monkeypatch.setattr(textwidth, "calibrate_from_terminal", lambda: None)
+        monkeypatch.setattr(_radar_live, "Spinner", QuietSpinner)
+        monkeypatch.setattr(_location, "get_location", lambda: (43.68, -70.35, "US"))
+        monkeypatch.setattr(_geocode, "place_label", place_label)
+        monkeypatch.setattr(_radar_live, "get_source", get_source)
+        monkeypatch.setattr(rf, "use", lambda source: None)
+        monkeypatch.setattr(_radar_live, "render_radar",
+                            lambda lat, lon, name, *a, **k: drawn.append(name) or ("", False))
+        monkeypatch.setattr(_radar_live, "print_frame", lambda out: None)
+        _radar_live.main()
+        assert seen == {"the source was asked meanwhile": True}
+        assert drawn == ["Westbrook"]

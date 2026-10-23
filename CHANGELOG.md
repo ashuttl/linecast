@@ -34,6 +34,7 @@ Notable changes, by release. Notes for the next release collect under **Unreleas
 - Radar: The newest NEXRAD frame no longer stays empty when the Iowa Environmental Mesonet is late to publish it.
 - Radar: Dragging the map across the edge of the lower 48 no longer freezes the view while radar picks a source for the new area, and a source that stops sending radar there is replaced, as it is when radar starts.
 - Radar: While a frame loads, the frame shown in its place is the one nearest it in time.
+- Radar: When the network stops answering, `--print` gives up sooner: it looks up the place's name, the frame and the warnings at the same time instead of one after another.
 - Radar: `--help` says plainly that `--layer` picks radar or satellite, `--layers` adds the temperature and wind, and `--theme` is the color scale for rain and snow.
 - Maps: Downloaded cloud cover is cleared from the cache after a day, as radar's frames are, even if radar is never opened.
 - Maps: Clouds that fail to download over part of the globe are filled in shortly afterwards, instead of leaving a gap until the next satellite image.

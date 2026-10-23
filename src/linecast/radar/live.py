@@ -228,10 +228,15 @@ def main():
     try:
         lat, lon, _country, location_name, runtime = place_for(args, runtime)
 
+        # The place's name is for the header, and the source's index is
+        # what the first frame waits on: neither waits for the other.
+        from linecast._fanout import Fanout
         from linecast._geocode import place_label
-        location_name = place_label(lat, lon, location_name, runtime.lang)
-
+        fanout = Fanout()
+        name = fanout.submit(place_label, lat, lon, location_name, runtime.lang)
         _frames.use(get_source(lat, lon, N_FRAMES, theme))
+        location_name = fanout.settle(name, "place name", location_name, tag="radar",
+                                      note="the typed label or the coordinates")
 
         if not runtime.live:
             # static: play_frame 0 is the present (newest observed) frame
