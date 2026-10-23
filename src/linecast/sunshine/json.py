@@ -54,7 +54,7 @@ def _address_label(address):
     return ", ".join(parts)
 
 
-def _location_label(lat, lng):
+def location_label(lat, lng):
     """Best available display name for the current coordinates.
 
     Prefers the label saved via `linecast location set`, then the cached
@@ -91,7 +91,7 @@ def _location_label(lat, lng):
     return f"{lat:.4f},{lng:.4f}"
 
 
-def _local_timezone_name():
+def local_timezone_name():
     """IANA zone name when resolvable, else the C-library abbreviation."""
     try:
         import os
@@ -235,8 +235,8 @@ def build_payload(lat, lng, now=None, location=None, hours=None):
 
     return {
         "schema": SCHEMA_VERSION,
-        "location": location if location is not None else _location_label(lat, lng),
-        "timezone": tz_name or _local_timezone_name(),
+        "location": location if location is not None else location_label(lat, lng),
+        "timezone": tz_name or local_timezone_name(),
         "fetched_at": iso_minutes(now),
         "sunrise": iso_minutes(sunrise),
         "sunset": iso_minutes(sunset),

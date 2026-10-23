@@ -547,7 +547,7 @@ class ProviderRegistryTests(unittest.TestCase):
     def test_openmeteo_nearest_is_labelled_with_the_place(self):
         with patch.object(_tides_openmeteo, "find_nearest_openmeteo",
                           return_value=("om:43.6770,-70.3710", None)), \
-             patch("linecast.sunshine.json._location_label", return_value="Portland, ME"):
+             patch("linecast.sunshine.json.location_label", return_value="Portland, ME"):
             self.assertEqual(OPENMETEO.nearest(43.677, -70.371),
                              ("om:43.6770,-70.3710", "Portland, ME"))
         with patch.object(_tides_openmeteo, "find_nearest_openmeteo",
@@ -557,7 +557,7 @@ class ProviderRegistryTests(unittest.TestCase):
     def test_kartverket_nearest_is_the_point_named_for_the_place(self):
         with patch.object(_tides_kartverket, "find_point_kartverket",
                           return_value="kv:69.6500,18.9600"), \
-             patch("linecast.sunshine.json._location_label", return_value="Tromsø, Troms"):
+             patch("linecast.sunshine.json.location_label", return_value="Tromsø, Troms"):
             self.assertEqual(KARTVERKET.nearest(69.65, 18.96),
                              ("kv:69.6500,18.9600", "Tromsø, Troms"))
             # the geocoder's own name for the place stands in where there is one
@@ -601,7 +601,7 @@ class LocationRoutingTests(unittest.TestCase):
              patch.object(_tides_openmeteo, "find_nearest_openmeteo",
                           **({"side_effect": openmeteo} if isinstance(openmeteo, Exception)
                              else {"return_value": openmeteo})), \
-             patch("linecast.sunshine.json._location_label", return_value="Somewhere"):
+             patch("linecast.sunshine.json.location_label", return_value="Somewhere"):
             picked = _tides_stations._station_for_location(lat, lng, country)
         return picked, asked
 
@@ -719,7 +719,7 @@ class LocationRoutingTests(unittest.TestCase):
                           return_value=(None, None)), \
              patch.object(_tides_openmeteo, "find_nearest_openmeteo",
                           return_value=("om:38.7200,-9.1400", None)), \
-             patch("linecast.sunshine.json._location_label",
+             patch("linecast.sunshine.json.location_label",
                    return_value="Lisbon"):
             picked = _tides_stations._station_for_location(38.72, -9.14, "PT")
 
@@ -731,11 +731,11 @@ class LocationLabelTests(unittest.TestCase):
     """Coordinates are the last resort, not the second."""
 
     def _label(self, name, address, saved=None):
-        from linecast.sunshine.json import _location_label
+        from linecast.sunshine.json import location_label
         with patch("linecast._config.saved_location", return_value=saved), \
              patch("linecast._geocode.reverse_geocode",
                    return_value=(name, "AU", address)):
-            return _location_label(-41.1576, 146.2589)
+            return location_label(-41.1576, 146.2589)
 
     def test_an_empty_name_falls_through_to_the_address(self):
         # Nominatim gives a hamlet on a Tasmanian river an empty name and
@@ -798,7 +798,7 @@ class StationLabelTests(unittest.TestCase):
              patch.object(_tides_tidecheck, "is_available", return_value=False), \
              patch.object(_tides_openmeteo, "find_nearest_openmeteo",
                           return_value=("om:-41.1576,146.2589", None)), \
-             patch("linecast.sunshine.json._location_label") as reverse:
+             patch("linecast.sunshine.json.location_label") as reverse:
             picked = _tides_stations._station_for_location(
                 -41.1576, 146.2589, "AU", label="Leith, Tasmania, Australia")
         self.assertEqual(picked[0], OPENMETEO)
@@ -824,7 +824,7 @@ class StationLabelTests(unittest.TestCase):
              patch.object(_tides_tidecheck, "is_available", return_value=False), \
              patch.object(_tides_openmeteo, "find_nearest_openmeteo",
                           return_value=("om:-41.1576,146.2589", None)), \
-             patch("linecast.sunshine.json._location_label",
+             patch("linecast.sunshine.json.location_label",
                    return_value="Tasmania, Australia"):
             picked = _tides_stations._station_for_location(-41.1576, 146.2589, "AU")
         self.assertEqual(picked[2], "Tasmania, Australia")

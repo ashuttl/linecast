@@ -69,8 +69,8 @@ def _place_name(lat, lng, label, tag, fallback):
         # into a worse version of it helps nobody.
         return label
     try:
-        from linecast.sunshine.json import _location_label
-        return _location_label(lat, lng)
+        from linecast.sunshine.json import location_label
+        return location_label(lat, lng)
     except Exception as exc:
         log_failure(tag, "location label", exc, fallback=f'"{fallback}"')
         return fallback

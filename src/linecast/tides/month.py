@@ -192,11 +192,11 @@ def _day_label(day, runtime):
 def sun_legend(runtime, width, *, now=False, sun_rgb=None, now_rgb=None, text_rgb=None):
     """The key to a month's Sun lines and, when shown, its now marker."""
     from linecast.radar.i18n import rs
-    from linecast.sunshine.i18n import _ss
+    from linecast.sunshine.i18n import ss
     from linecast.terminal.textwidth import clip_styled
     dim = fg(*(text_rgb or _palette.DIM_RGB))
     legend = (f"{fg(*(sun_rgb or SUN_RGB))}{SUN_KEY}{RESET} {dim}"
-              f"{_ss('sunrise', runtime)} / {_ss('sunset', runtime)}{RESET}")
+              f"{ss('sunrise', runtime)} / {ss('sunset', runtime)}{RESET}")
     if now:
         mark = (f"   {fg(*(now_rgb or NOW_RGB))}{NOW_MARK}{RESET} "
                 f"{dim}{rs('now', lang_of(runtime))}{RESET}")

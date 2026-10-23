@@ -26,7 +26,7 @@ def _axis_months(lang):
             or table_for(MONTHS, lang))
 
 
-def _ss(key, runtime, **kwargs):
+def ss(key, runtime, **kwargs):
     """Look up a sunshine-specific localized string."""
     return lookup(_SUNSHINE_STRINGS, key, lang_of(runtime), **kwargs)
 
@@ -55,12 +55,12 @@ def sky_phase(elev, runtime, morning=None):
         variant = key + ("_dawn" if morning else "_dusk")
         if has_text(_SUNSHINE_STRINGS, variant, lang_of(runtime)):
             key = variant
-    return _ss(key, runtime)
+    return ss(key, runtime)
 
 
 def sky_event(key, runtime):
     """'solar noon', 'sunrise', 'sunset'."""
-    return _ss(key, runtime)
+    return ss(key, runtime)
 
 
 def polar_name(state, runtime):
@@ -72,9 +72,9 @@ def polar_name(state, runtime):
     give.
     """
     if state == "day":
-        return _ss("midnight_sun", runtime)
+        return ss("midnight_sun", runtime)
     if state == "night":
-        return _ss("polar_night", runtime)
+        return ss("polar_night", runtime)
     return ""
 
 
@@ -86,15 +86,15 @@ def relative_day(diff, runtime):
     count picks the form by the language's plural rule.
     """
     if diff == 0:
-        return _ss("today", runtime)
+        return ss("today", runtime)
     n = abs(diff)
     lang = lang_of(runtime)
     one, many = ("in_day", "in_days") if diff > 0 else ("day_ago", "days_ago")
     form = plural_category(lang, n)
     variant = many + "_" + form
     if has_text(_SUNSHINE_STRINGS, variant, lang):
-        return _ss(variant, runtime, n=n)
-    return _ss(one if form == "one" else many, runtime, n=n)
+        return ss(variant, runtime, n=n)
+    return ss(one if form == "one" else many, runtime, n=n)
 
 
 def axis_month_labels(runtime, narrow=False):

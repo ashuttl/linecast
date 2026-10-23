@@ -13,7 +13,7 @@ from datetime import timezone
 
 from linecast.astro.seasons import full_moon_name, next_season_event
 from linecast._timefmt import iso_minutes
-from linecast.sunshine.json import _local_timezone_name, _location_label
+from linecast.sunshine.json import local_timezone_name, location_label
 
 SCHEMA_VERSION = 1
 
@@ -75,9 +75,9 @@ def build_payload(now_local, lat, lng, runtime, location=None, calendar=None,
 
     return {
         "schema": SCHEMA_VERSION,
-        "location": location if location is not None else _location_label(lat, lng),
+        "location": location if location is not None else location_label(lat, lng),
         "timezone": (getattr(now_local.tzinfo, "key", None)
-                     or _local_timezone_name()),
+                     or local_timezone_name()),
         "fetched_at": iso_minutes(now_local),
         "phase": moon_name(idx, runtime),
         "icon": icon,

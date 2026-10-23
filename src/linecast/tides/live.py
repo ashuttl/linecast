@@ -606,11 +606,11 @@ def main():
                 # No station in range: emit the payload shape anyway, with
                 # station/events/series empty-or-null, and exit cleanly.
                 import json as _json
-                from linecast.sunshine.json import _location_label
+                from linecast.sunshine.json import location_label
                 from linecast.tides.json import build_payload
                 payload = build_payload(
                     None, runtime, datetime.now().astimezone(), [], [],
-                    location=resolved_label or _location_label(lat, lng),
+                    location=resolved_label or location_label(lat, lng),
                 )
                 print(_json.dumps(payload, ensure_ascii=False))
                 return

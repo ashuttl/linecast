@@ -121,11 +121,11 @@ class TestLocationLabel:
 
     def _label(self, lat, lng):
         from unittest.mock import patch
-        from linecast.sunshine.json import _location_label
+        from linecast.sunshine.json import location_label
         with patch("linecast._config.saved_location", return_value=self.SAVED), \
              patch("linecast._geocode.reverse_geocode",
                    return_value=("Elsewhere", "US", {})):
-            return _location_label(lat, lng)
+            return location_label(lat, lng)
 
     def test_the_saved_place_is_named_by_its_label(self):
         assert self._label(43.6770356, -70.3711617) == "Westbrook"
