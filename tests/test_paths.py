@@ -14,7 +14,7 @@ import sys
 from pathlib import Path
 
 import pytest
-from conftest import SESSION_ROOT, readonly
+from conftest import SESSION_ROOT, SRC, readonly
 
 from linecast import _cache, _config, _http, _location, _paths, _runtime
 from linecast import _geocode
@@ -252,6 +252,7 @@ class TestUnwritableConfig:
         proc = subprocess.run(
             [sys.executable, "-m", "linecast.settings.units", "metric"],
             capture_output=True, text=True, timeout=30,
+            env=dict(os.environ, PYTHONPATH=SRC),
         )
         assert proc.returncode == 1
         assert "Traceback" not in proc.stderr
