@@ -1,8 +1,10 @@
 # Keeps the commit pins in the workflows current: each action is pinned
 # to a full SHA with the version as a comment, and Dependabot bumps both.
+# Its pull requests go to next, where the work is, not main.
 version: 2
 updates:
   - package-ecosystem: github-actions
     directory: /
+    target-branch: next
     schedule:
       interval: weekly
