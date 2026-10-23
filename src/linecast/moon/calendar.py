@@ -47,7 +47,7 @@ from linecast.moon.phase import (
 )
 from linecast.moon.readings import context, reading
 from linecast.terminal.textwidth import char_width
-from linecast.tides.i18n import _ts
+from linecast.tides.i18n import ts
 from linecast._i18n import DAY_NAMES
 
 _theme.track_imports(globals(), "linecast.terminal.color")
@@ -275,7 +275,7 @@ def render_calendar(now_local, lat, lng, runtime, month_offset=0,
     spans = [_gregorian_span(first, last, lang)] if civil == SOLAR_HIJRI else []
     spans.append(found.span(first, last, ctx) if found else None)
     spans = [sp for sp in spans if sp]
-    aside = f" · {_ts('space_to_now', runtime)}" if month_offset else ""
+    aside = f" · {ts('space_to_now', runtime)}" if month_offset else ""
     a_w = visible_len(aside)
     # The month is spelled out where the row holds the longest of them
     # with everything else on it

@@ -521,8 +521,8 @@ class _OpenMeteo(TideProvider):
 
     def footer_label(self, runtime):
         # Not a name but a description, so it is translated.
-        from linecast.tides.i18n import _ts
-        return _ts("tide_model", runtime)
+        from linecast.tides.i18n import ts
+        return ts("tide_model", runtime)
 
     def name_for_id(self, station_id):
         return "Tide model"

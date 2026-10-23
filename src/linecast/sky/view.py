@@ -75,7 +75,7 @@ from linecast.sky.scene import (
 from linecast.sky.i18n import _sk, body_name
 from linecast.sunshine.i18n import clock_label, sky_phase
 from linecast.terminal.textwidth import cells as text_cells
-from linecast.tides.i18n import _ts  # shared "space to return to now" hint
+from linecast.tides.i18n import ts  # shared "space to return to now" hint
 from linecast.moon.disc import draw_moon_disc
 from linecast.sunshine.palette import (
     SKY_FAR_HORIZON, SKY_NEAR_HORIZON, SKY_ZENITH, SUN_DOT_RGB, SUN_GLOW_RGB,
@@ -861,7 +861,7 @@ def _status_line(scene, now_local, runtime, view, width, location_label,
         rate = "1h/s" if speed < 20000 else ("1d/s" if speed < 200000 else "1w/s")
         center += f"  {amber}▶ {rate}"
     elif offset_minutes:
-        center += f"  {dim}{_ts('space_to_now', runtime)}"
+        center += f"  {dim}{ts('space_to_now', runtime)}"
     sky = sky_phase(scene.sun_alt, runtime, morning=scene.morning())
     up = _whats_up(scene, runtime, view.culture,
                    bg_color=None if layout else _theme.theme_bg)

@@ -56,7 +56,7 @@ from linecast.astro.calendars.civil import (
     SOLAR_HIJRI, civil_calendar, solar_hijri_day_of_year,
 )
 from linecast.astro.seasons import full_moon_name, next_season_event
-from linecast.tides.i18n import _ts  # shared "space to return to now" hint
+from linecast.tides.i18n import ts  # shared "space to return to now" hint
 from linecast._runtime import RuntimeConfig, install_banner, place_for, set_current
 from linecast._parsers import moon_parser, refuse_view_flag
 from linecast.terminal import theme as _theme
@@ -698,7 +698,7 @@ def _corners(moon, found, ctx, offset_minutes):
         year_head=[heading((_ms('year_day', runtime, n=year_n, total=year_len), M, False),
                            year_now)],
         year_rows=year_rows,
-        back=_ts('space_to_now', runtime) if offset_minutes else None,
+        back=ts('space_to_now', runtime) if offset_minutes else None,
     )
 
 

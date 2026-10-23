@@ -35,7 +35,7 @@ from linecast.terminal.textwidth import cells as text_cells, visible_len
 from linecast.terminal.theme import ensure_contrast, lerp_rgb, surface_bg
 from linecast.tides import palette as _palette
 from linecast.sunshine.i18n import gregorian_axis_labels
-from linecast.tides.i18n import _ts
+from linecast.tides.i18n import ts
 
 BAND_RGB = BAND_FLOOD_RGB = PEN_RGB = WARM_RGB = COOL_RGB = FLOOD_RGB = GUIDE_RGB = None
 
@@ -235,7 +235,7 @@ def render_year(year, predicted, observed, flood, runtime, *, header, footer, to
 
     # The flood stage's name, at the line's right end where it is clear
     if flood_y is not None and 0 <= flood_y < dots:
-        label = _ts("flood_stage", runtime)
+        label = ts("flood_stage", runtime)
         row, x0 = flood_y // 4, width - visible_len(label) - 1
         cells = range(x0 - 1, width)
         if x0 > 0 and not any((c, row) in data for c in cells):
@@ -275,9 +275,9 @@ def summary(year, predicted, observed, runtime, today):
     if not source:
         return ""
     day, (_lo, high) = max(source.items(), key=lambda kv: kv[1][1])
-    return _ts("highest_on", runtime,
-               h=f"{fmt_decimal(runtime.convert_height(high), 1, runtime)}{runtime.height_unit}",
-               date=fmt_month_day(day, runtime))
+    return ts("highest_on", runtime,
+              h=f"{fmt_decimal(runtime.convert_height(high), 1, runtime)}{runtime.height_unit}",
+              date=fmt_month_day(day, runtime))
 
 
 @lru_cache(maxsize=8)
@@ -329,6 +329,6 @@ def _tooltip(span, predicted, observed, observed_name, runtime, col, mouse_row, 
             continue
         high = max(v[1] for v in known)
         low = min(v[0] for v in known)
-        lines.append(f"{tbg}{tdim} {_ts(name, runtime)} {tfg}▲ {fmt(high)}  ▼ {fmt(low)} ")
+        lines.append(f"{tbg}{tdim} {ts(name, runtime)} {tfg}▲ {fmt(high)}  ▼ {fmt(low)} ")
     return _live.pointer_chip(lines, col + 3, mouse_row, cols, rows, pad_bg=tbg,
                               flip_at=col + 2)

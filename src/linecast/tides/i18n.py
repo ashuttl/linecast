@@ -6,6 +6,6 @@ _TIDES_STRINGS = LocaleTable("TIDES")
 
 
 
-def _ts(key, runtime, **kwargs):
+def ts(key, runtime, **kwargs):
     """Look up a tides-specific localized string."""
     return lookup(_TIDES_STRINGS, key, lang_of(runtime), **kwargs)

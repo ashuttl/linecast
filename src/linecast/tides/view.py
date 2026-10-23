@@ -35,7 +35,7 @@ from linecast._i18n import fmt_decimal
 from linecast._runtime import TidesRuntime, current_runtime, install_banner
 from linecast._log import UserError, exits_on_user_error, log_failure
 from linecast.tides.marine import parse_marine_current, format_marine_line
-from linecast.tides.i18n import _ts
+from linecast.tides.i18n import ts
 from linecast._i18n import moon_name
 from linecast.tides.providers import NOAA
 from linecast.tides.stations import _station_now, _station_tzinfo
@@ -377,7 +377,7 @@ def _render_header_line(cols, station_name, runtime, offset_minutes=0, location_
         pill, pill_w = _pill(name)
         _pill_width = pill_w
         if offset_minutes:
-            hint = f"{DIM}{_ts('space_to_now', runtime)}{RESET}   "
+            hint = f"{DIM}{ts('space_to_now', runtime)}{RESET}   "
             if pill_w + visible_len(hint) + keep + 2 <= cols:
                 right = hint + right
         padding = max(1, cols - pill_w - visible_len(right))
@@ -395,7 +395,7 @@ def _render_header_line(cols, station_name, runtime, offset_minutes=0, location_
 
     # "Space to return" hint (right, only when scrolled)
     if offset_minutes:
-        hint_text = _ts("space_to_now", runtime)
+        hint_text = ts("space_to_now", runtime)
         hint = f"{DIM}{hint_text}{RESET}"
         right_w = visible_len(hint_text)
         padding = max(1, cols - pill_w - right_w)
@@ -451,7 +451,7 @@ def render(station_id, station_name, station_meta=None, runtime=None,
         preds_dt = provider.tides_range(station_id, date, date, station_tz)
         hilo_dt = provider.hilo_range(station_id, date, date, station_tz)
         if not preds_dt:
-            raise UserError(_ts("load_failed", runtime, name=station_name))
+            raise UserError(ts("load_failed", runtime, name=station_name))
         day_start = datetime(date.year, date.month, date.day)
         day_end = day_start + timedelta(days=1)
         if station_tz is not None:

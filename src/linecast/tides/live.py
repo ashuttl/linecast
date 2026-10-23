@@ -25,7 +25,7 @@ from linecast._parsers import refuse_view_flag, tides_parser
 from linecast._log import log_failure
 from linecast.terminal.spinner import Spinner
 from linecast.tides.common import Unreachable, month_after, sweep_legacy_cache
-from linecast.tides.i18n import _ts
+from linecast.tides.i18n import ts
 from linecast.tides import palette as _palette
 from linecast.terminal.color import RESET, fg
 from linecast.weather.location_menu import LocationMenu
@@ -164,7 +164,7 @@ class TidesApp(LocationMenu, _live.LiveApp):
         if isinstance(result, dict):
             return None
         key = "no_tides" if result is None else "load_failed"
-        return _ts(key, self.runtime, name=place.name)
+        return ts(key, self.runtime, name=place.name)
 
     def _commit_place(self, place, result):
         (self.fetched_start, self.fetched_end, self.y_range, self.marine_data,
@@ -413,8 +413,8 @@ class TidesApp(LocationMenu, _live.LiveApp):
         pen_name = self.provider.observed_label
         if observed:
             pen, band = fg(*_year.PEN_RGB), fg(*_year.BAND_RGB)
-            legend += (f"   {pen}⠤⠒⠉{RESET} {dim}{_ts(pen_name, self.runtime)}{RESET}"
-                       f"   {band}██{RESET} {dim}{_ts('predicted', self.runtime)}{RESET}")
+            legend += (f"   {pen}⠤⠒⠉{RESET} {dim}{ts(pen_name, self.runtime)}{RESET}"
+                       f"   {band}██{RESET} {dim}{ts('predicted', self.runtime)}{RESET}")
         footer = _help.footer(legend, cols, lang)
         return _year.render_year(year, predicted, observed, flood, self.runtime,
                                  header=header, footer=footer, today=now_local.date(),
@@ -597,8 +597,8 @@ def main():
                 # Offline, and nothing kept for the place: say so, as the
                 # location menu does, rather than that it has no tides
                 spin.stop()
-                print(_ts("load_failed", runtime,
-                          name=resolved_label or f"{lat:.2f}, {lng:.2f}"), file=sys.stderr)
+                print(ts("load_failed", runtime,
+                         name=resolved_label or f"{lat:.2f}, {lng:.2f}"), file=sys.stderr)
                 sys.exit(1)
             place, country = (lat, lng, resolved_label or ""), country_code or ""
 
@@ -673,7 +673,7 @@ def main():
 
         if not preds:
             spin.stop()
-            print(_ts("load_failed", runtime, name=station_name), file=sys.stderr)
+            print(ts("load_failed", runtime, name=station_name), file=sys.stderr)
             sys.exit(1)
 
         if runtime.live or args.view != "day":
@@ -696,7 +696,7 @@ def main():
                     # The fetch failed, and the frame would be the view
                     # with no water in it; say so, as when no station
                     # could be looked for
-                    print(_ts("load_failed", runtime, name=station_name), file=sys.stderr)
+                    print(ts("load_failed", runtime, name=station_name), file=sys.stderr)
                     sys.exit(1)
                 _live.print_frame(app._render_long(None))
         elif provider is NOAA:

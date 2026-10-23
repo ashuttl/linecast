@@ -153,7 +153,7 @@ def format_marine_line(marine: dict[str, Any] | None, runtime: TidesRuntime,
         return ""
 
     from linecast._i18n import lang_of
-    from linecast.tides.i18n import _ts
+    from linecast.tides.i18n import ts
 
     lang = lang_of(runtime)
     parts = []
@@ -164,9 +164,9 @@ def format_marine_line(marine: dict[str, Any] | None, runtime: TidesRuntime,
     wd = marine.get("wave_direction")
     if wh is not None:
         h_str = _format_height(wh, runtime)
-        segment = f"{_ts('waves', runtime)} {h_str}"
+        segment = f"{ts('waves', runtime)} {h_str}"
         if wp is not None:
-            segment += _ts("period", runtime, s=f"{wp:.0f}")
+            segment += ts("period", runtime, s=f"{wp:.0f}")
         if wd is not None:
             segment += f" {_compass_direction(wd, lang)}"
         parts.append(segment)
@@ -177,9 +177,9 @@ def format_marine_line(marine: dict[str, Any] | None, runtime: TidesRuntime,
     sd = marine.get("swell_direction")
     if sh is not None and sh > 0:
         h_str = _format_height(sh, runtime)
-        segment = f"{_ts('swell', runtime)} {h_str}"
+        segment = f"{ts('swell', runtime)} {h_str}"
         if sp is not None:
-            segment += _ts("period", runtime, s=f"{sp:.0f}")
+            segment += ts("period", runtime, s=f"{sp:.0f}")
         if sd is not None:
             segment += f" {_compass_direction(sd, lang)}"
         parts.append(segment)

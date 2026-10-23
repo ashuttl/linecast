@@ -42,7 +42,7 @@ from linecast.terminal.heading import render_heading
 from linecast.terminal.textwidth import cells as text_cells, visible_len, wrap_display_width
 from linecast.tides import harmonic
 from linecast.tides import palette as _palette
-from linecast.tides.i18n import _ts
+from linecast.tides.i18n import ts
 
 UTC = timezone.utc
 M_PER_FT = 0.3048
@@ -409,7 +409,7 @@ def render_makeup(first, made, runtime, *, header, footer, station_tz, now_local
     def factor(gain):
         return "" if gain is None else f"×{fmt_decimal(gain, 0 if gain >= 3 else 1, runtime)}"
     if makeup:
-        tables = [(title, [(_ts(key, runtime), _height(a, runtime), factor(makeup.gain.get(source)))
+        tables = [(title, [(ts(key, runtime), _height(a, runtime), factor(makeup.gain.get(source)))
                            for key, a, source in rows_of])
                   for title, rows_of in (("makeup_twice", makeup.twice),
                                          ("makeup_once", makeup.once))]
@@ -417,7 +417,7 @@ def render_makeup(first, made, runtime, *, header, footer, station_tz, now_local
         # Until the tide is fitted the table is its names alone, set in
         # the room the figures will want, so that nothing moves when
         # they come
-        tables = [(title, [(_ts(key, runtime), "", "") for key, _name in rows_of])
+        tables = [(title, [(ts(key, runtime), "", "") for key, _name in rows_of])
                   for title, rows_of in (("makeup_twice", TWICE), ("makeup_once", ONCE))]
     # The two tables are one set of columns, so the eye runs down the
     # heights and the gains of both
@@ -427,7 +427,7 @@ def render_makeup(first, made, runtime, *, header, footer, station_tz, now_local
     gain_w = max(visible_len(g) for _n, _h, g in cells_of) if makeup else visible_len(factor(1.0))
     groups = []
     for title, table in tables:
-        lines = [f"{text}{_ts(title, runtime)}{RESET}"]
+        lines = [f"{text}{ts(title, runtime)}{RESET}"]
         for name, size, gain in table:
             line = (f"{muted}{name}{' ' * (name_w - visible_len(name))}  "
                     f"{' ' * (size_w - visible_len(size))}{size}")
@@ -455,18 +455,18 @@ def render_makeup(first, made, runtime, *, header, footer, station_tz, now_local
     # sentence has a line to itself where the longest fits; where it
     # does not they are wrapped together as one paragraph, so that none
     # is left with a word on a line of its own.
-    says = [_ts(k, runtime) for k in ("makeup_key_size", "makeup_key_gain", "makeup_key_sea")]
+    says = [ts(k, runtime) for k in ("makeup_key_size", "makeup_key_gain", "makeup_key_sea")]
     if max(visible_len(line) for line in says) > cols - 2:
         says = wrap_display_width(" ".join(says), cols - 2)
     marks = _flowed([
-        f"{new_moon} {full_moon} {_ts('makeup_key_phases', runtime)}",
-        f"{_ts('makeup_mark_near', runtime)} {_ts('makeup_key_near', runtime)}",
-        f"{north} {south} {_ts('makeup_key_far', runtime)}",
-        f"0 {_ts('makeup_key_equator', runtime)}"], cols - 2)
+        f"{new_moon} {full_moon} {ts('makeup_key_phases', runtime)}",
+        f"{ts('makeup_mark_near', runtime)} {ts('makeup_key_near', runtime)}",
+        f"{north} {south} {ts('makeup_key_far', runtime)}",
+        f"0 {ts('makeup_key_equator', runtime)}"], cols - 2)
     key_lines = [f" {dim}{line}{RESET}" for line in says + marks]
     # The headline is the one line set in full ink over a rule, which
     # is what puts it above the parts' own titles
-    title = _ts("makeup_headline", runtime)
+    title = ts("makeup_headline", runtime)
     headline = [" " + line for line in render_heading(
         title, cols - 2, text_rgb=_palette.TEXT_RGB, dim_rgb=_palette.DIM_RGB)]
     n_footer = footer.count("\n") + 1
@@ -538,7 +538,7 @@ def render_makeup(first, made, runtime, *, header, footer, station_tz, now_local
             if part == 0:
                 moon = [(f, moon_phase(when, runtime, bg_color=_theme.theme_bg)[2])
                         for f, when in sky["phases"]]
-                near = [(f, _ts("makeup_mark_near", runtime)) for f in sky["near"]]
+                near = [(f, ts("makeup_mark_near", runtime)) for f in sky["near"]]
             else:
                 letters = {"N": north, "S": south, "0": "0"}
                 moon, near = [(f, letters[m]) for f, m in sky["moon"]], []
@@ -620,7 +620,7 @@ def _hover_chip(mouse_pos, strips, spans, left_w, cell_w, gap, strip_rows, strip
         value = _sample(values, frac)
     tip_bg, tip_fg, dim = (bg(*_palette.TIP_BG_RGB), fg(*_palette.TIP_TEXT_RGB),
                            fg(*_palette.TIP_DIM_RGB))
-    name = _ts("makeup_twice" if part == 0 else "makeup_once", runtime)
+    name = ts("makeup_twice" if part == 0 else "makeup_once", runtime)
     lines = [f"{tip_bg}{dim} {when} ",
              f"{tip_bg}{tip_fg} {name}  {_height(value, runtime)} "]
     return _live.pointer_chip(lines, mcol, mrow, cols, rows, pad_bg=tip_bg)

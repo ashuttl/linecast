@@ -1,4 +1,4 @@
-"""The shared string-table lookup behind _s, _ts, _ms, rs and ms."""
+"""The shared string-table lookup behind _s, ts, _ms, rs and ms."""
 
 import ast
 import re
@@ -12,7 +12,7 @@ from linecast._i18n import LOCALE_CODES, LocaleTable, lang_of, lookup, tr_dative
 from linecast.maps.i18n import ms
 from linecast.moon.i18n import _ms
 from linecast.radar.i18n import rs
-from linecast.tides.i18n import _ts
+from linecast.tides.i18n import ts
 from linecast.weather.i18n import WMO_NAMES_I18N, _s, precip_unit_label, wind_unit_label
 from linecast._i18n import DAY_NAMES
 from linecast.weather.narrative import _past_precip_line, _precipitation_line, comparative_sentence
@@ -124,7 +124,7 @@ class TestWrappers:
     def test_each_command_helper_reads_its_own_table(self):
         fr = SimpleNamespace(lang="fr")
         assert _s("feels", fr) != _s("feels", None)
-        assert _ts("space_to_now", fr) != _ts("space_to_now", None)
+        assert ts("space_to_now", fr) != ts("space_to_now", None)
         assert _ms("up_now", fr) != _ms("up_now", None)
         assert rs("loading", "fr") != rs("loading", "en")
         assert ms("hint", "fr") != ms("hint", "en")
