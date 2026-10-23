@@ -9,10 +9,8 @@ from pathlib import Path
 import pytest
 
 from linecast.terminal import bidi as _bidi
-from linecast.terminal.bidi import (
-    FSI, LRI, PDI, RLI, bidi_class, bracket_info, display, joining_type,
-    resolve_levels, visual_order,
-)
+from linecast.terminal.bidi import FSI, LRI, PDI, RLI, display, joining_type
+from linecast.terminal.uba import bidi_class, bracket_info, resolve_levels, visual_order
 from linecast.terminal.textwidth import visible_len
 
 FIXTURE = Path(__file__).parent / "fixtures" / "bidi_character_test.txt"
