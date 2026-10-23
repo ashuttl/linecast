@@ -46,6 +46,7 @@ Notable changes, by release. Notes for the next release collect under **Unreleas
 - Maps: Day and night on the map follow the same Sun as the sunshine and sky views.
 - Location: Place names ending in "UK" or "USA", such as `--location "London, UK"`, are found.
 - Location: When the network stops answering, a command waits for the place's name once instead of several times over.
+- Location: Weather, sunshine, sky, radar and maps call a saved location by the name it was saved under, without looking a name up for it first.
 - Location: When the network stops answering and no location is saved, a command gives up looking for where you are sooner.
 - Moon, sunshine and sky: When the network stops answering, they look up the place's time zone and its name at the same time instead of one after the other, so they start sooner.
 - Weather: When the forecast can't be fetched, weather says so as soon as it knows, instead of first waiting for the climate averages and the alerts.

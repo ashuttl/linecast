@@ -41,10 +41,8 @@ from linecast._timefmt import fmt_time_dt
 from linecast.terminal.textwidth import cells, pad, visible_len, wrap_display_width
 from linecast.terminal.framebuffer import get_terminal_size, cell_aspect, Framebuffer
 from linecast._i18n import GEOCODER_UNTRANSLATED, fmt_decimal, fmt_duration_parts, lang_of
-from linecast._config import saved_location
 from linecast._location import (
-    location_is_pinned, location_overridden,
-    location_tzinfo, machine_tzinfo,
+    location_is_pinned, location_tzinfo, machine_tzinfo,
 )
 from linecast.astro.calendars.lunisolar import resolve_calendar
 from linecast.moon.i18n import (
@@ -831,8 +829,6 @@ def main():
     # so opening help never waits on the network; until it answers, the
     # label or the coordinates stand alone.
     app.place = label
-    if not app.place and not location_overridden(args.location):
-        app.place = (saved_location() or {}).get("label", "")
     if not app.place or runtime.lang in GEOCODER_UNTRANSLATED:
         threading.Thread(target=app.name_the_place, daemon=True).start()
     app.run()

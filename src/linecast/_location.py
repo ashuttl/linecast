@@ -238,6 +238,21 @@ def resolve_location(
     return (lat, lng, "", label) if return_label else (lat, lng, "")
 
 
+def saved_label(lat: float, lng: float) -> str:
+    """The name the saved location was saved under, when (lat, lng) is
+    that place: "" for another place, and for one saved as coordinates
+    the geocoder could not name."""
+    saved = saved_location()
+    try:
+        label = saved["label"]
+        here = same_place((saved["lat"], saved["lng"]), (lat, lng))
+    except (KeyError, TypeError):
+        return ""
+    if not here or not isinstance(label, str) or parse_latlng(label) is not None:
+        return ""
+    return plain_text(label).strip()
+
+
 def same_place(a, b) -> bool:
     """Whether two (lat, lng) pairs are the same place: equal to four
     decimal places, about ten metres."""

@@ -596,7 +596,8 @@ def place_for(args, runtime, unknown="Could not determine location.", zone=False
 
     It is the place --location names, else the user's own: the one
     saved, WEATHER_LOCATION, or the network's guess.  *label* is the
-    geocoder's name for a place named with --location, else "".  With
+    geocoder's name for a place named with --location, else the name
+    the saved location was saved under, else "".  With
     no --location the place is the user's own, so the units and the
     clock can follow its country: a runtime that a cold cache left
     without one is resolved again for it, and made current, before
@@ -613,11 +614,14 @@ def place_for(args, runtime, unknown="Could not determine location.", zone=False
     geocoder's cache, or its failure's hold.  The name is asked after
     the country, so that on a network that has stopped answering the
     hold spares it the same wait."""
-    from linecast._location import country_for_defaults, resolve_location
+    from linecast._location import country_for_defaults, resolve_location, saved_label
     lat, lng, country, label = resolve_location(
         args.location, lang=runtime.lang, return_label=True)
     if lat is None:
         raise UserError(unknown)
+    # A saved place has the name it was saved under, which the views show
+    # as they show a typed place's, rather than asking the geocoder for one
+    label = label or saved_label(lat, lng)
     from linecast._fanout import Fanout
     fanout, lookups = Fanout(), []
     if zone:

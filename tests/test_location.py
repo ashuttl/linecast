@@ -256,6 +256,35 @@ class ResolveLocationTests(unittest.TestCase):
 
 
 
+class SavedLabelTests(unittest.TestCase):
+    SAVED = {"lat": 43.6591, "lng": -70.2568, "label": "Portland, Maine", "country": "US"}
+
+    def _label(self, saved, lat=43.6591, lng=-70.2568):
+        with patch.object(_location, "saved_location", return_value=saved):
+            return _location.saved_label(lat, lng)
+
+    def test_the_saved_place_has_its_saved_name(self):
+        self.assertEqual(self._label(self.SAVED), "Portland, Maine")
+        # to four places, about ten metres, as same_place has it
+        self.assertEqual(self._label(self.SAVED, 43.65912, -70.25681), "Portland, Maine")
+
+    def test_another_place_has_none(self):
+        self.assertEqual(self._label(self.SAVED, 43.68, -70.35), "")
+        self.assertEqual(self._label(None), "")
+
+    def test_coordinates_saved_for_want_of_a_name_are_no_name(self):
+        # `linecast location set` saves the coordinates as the label
+        # when the geocoder has no name, and a view would show "43.6591"
+        unnamed = dict(self.SAVED, label="43.6591,-70.2568")
+        self.assertEqual(self._label(unnamed), "")
+
+    def test_a_label_of_the_wrong_shape_is_no_name(self):
+        for label in (None, 7, ["Portland"]):
+            with self.subTest(label=label):
+                self.assertEqual(self._label(dict(self.SAVED, label=label)), "")
+        self.assertEqual(self._label({"label": "Portland"}), "")
+
+
 class CountryForDefaultsTests(unittest.TestCase):
     def test_own_location_uses_the_resolved_country(self):
         self.assertEqual(
@@ -374,13 +403,13 @@ class PlaceForTests(unittest.TestCase):
     each was a timeout of its own, one after another."""
 
     def _place_for(self, flags, country_lookup=None, zone_lookup=None, name_lookup=None,
-                   **kw):
+                   saved=None, **kw):
         from linecast import _geocode, _runtime
         from linecast._parsers import moon_parser
         args = moon_parser().parse_args(flags)
         runtime = _runtime.RuntimeConfig.from_sources(args)
         with patch.dict(os.environ, {"WEATHER_LOCATION": ""}), \
-             patch.object(_location, "saved_location", return_value=None), \
+             patch.object(_location, "saved_location", return_value=saved), \
              patch.object(_location, "get_location", return_value=(3.0, 4.0, "US")), \
              patch.object(_location, "country_for_defaults",
                           side_effect=country_lookup or (lambda *a: None)), \
@@ -422,6 +451,21 @@ class PlaceForTests(unittest.TestCase):
                         zone, name, zone=True, name=True)
         self.assertEqual(seen, {"the name was asked while the zone was": True,
                                 "the country was asked first": True})
+
+    def test_a_saved_place_comes_with_the_name_it_was_saved_under(self):
+        # sunshine, sky, radar and maps asked the geocoder for a name the
+        # user had already given the place: on a stalled network, a wait
+        saved = {"lat": 3.0, "lng": 4.0, "label": "Portland, Maine", "country": "US"}
+        asked = []
+
+        def name(lat, lng, label, lang):
+            asked.append(label)
+            return label
+        found = self._place_for([], name_lookup=name, saved=saved, name=True)
+        self.assertEqual(found[3], "Portland, Maine")
+        self.assertEqual(asked, ["Portland, Maine"])
+        # somewhere else is not the saved place, whatever was saved
+        self.assertEqual(self._place_for(["--location", "43.68,-70.35"], saved=saved)[3], "")
 
     def test_only_what_the_view_asks_for_and_no_zone_for_where_the_machine_is(self):
         # an IP location is where the machine is, on the machine's clock
