@@ -43,6 +43,21 @@ def _cache_file():
     return cache_dir("location.json")
 
 
+def _cached_place(data):
+    """(lat, lng, country) from the IP-geolocation cache, or None unless
+    it holds a place on the planet.  Only linecast writes the file, but
+    a crash or a hand edit can leave anything there, and `[]` or a
+    latitude of "x" ended the command in a traceback."""
+    if not isinstance(data, dict):
+        return None
+    lat, lng, country = data.get("lat"), data.get("lng"), data.get("country", "")
+    if not all(isinstance(v, (int, float)) and not isinstance(v, bool) for v in (lat, lng)):
+        return None
+    if not (-90 <= lat <= 90 and -180 <= lng <= 180):
+        return None
+    return float(lat), float(lng), country if isinstance(country, str) else ""
+
+
 def get_location() -> tuple[float | None, float | None, str | None]:
     """Get (lat, lng, country_code) from cache or IP geolocation.
 
@@ -58,12 +73,9 @@ def get_location() -> tuple[float | None, float | None, str | None]:
     if saved is not None:
         return saved["lat"], saved["lng"], saved.get("country", "")
 
-    cached = read_cache(_cache_file(), _MAX_AGE)
+    cached = _cached_place(read_cache(_cache_file(), _MAX_AGE))
     if cached is not None:
-        try:
-            return cached["lat"], cached["lng"], cached.get("country", "")
-        except KeyError:
-            pass
+        return cached
 
     for i, (name, url, parse) in enumerate(PROVIDERS):
         try:
@@ -81,11 +93,8 @@ def get_location() -> tuple[float | None, float | None, str | None]:
         # Offline, the place the machine was last found is a better
         # guess than none, and the moon, the sky and the sun need
         # nothing else from the network.
-        stale = read_stale(_cache_file())
-        try:
-            return float(stale["lat"]), float(stale["lng"]), stale.get("country", "")
-        except (TypeError, KeyError, ValueError, AttributeError):
-            return None, None, None
+        stale = _cached_place(read_stale(_cache_file()))
+        return stale if stale is not None else (None, None, None)
 
     # the answer is in hand; keeping it is a separate, best-effort matter
     write_cache(_cache_file(), {"lat": lat, "lng": lng, "country": country})
@@ -103,9 +112,9 @@ def own_country() -> str | None:
     saved = saved_location()
     if saved is not None and saved.get("country"):
         return saved["country"]
-    cached = read_cache(_cache_file(), 30 * 86400)
-    if cached is not None and cached.get("country"):
-        return cached["country"]
+    cached = _cached_place(read_cache(_cache_file(), 30 * 86400))
+    if cached is not None and cached[2]:
+        return cached[2]
     return None
 
 
@@ -288,8 +297,8 @@ def location_tzinfo(lat: float | None, lng: float | None) -> tzinfo | None:
         timeout=5,
         fallback=None,
     )
-    tz_name = (data or {}).get("timezone")
-    if tz_name:
+    tz_name = data.get("timezone") if isinstance(data, dict) else None
+    if tz_name and isinstance(tz_name, str):
         try:
             from zoneinfo import ZoneInfo
             return ZoneInfo(tz_name)

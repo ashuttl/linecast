@@ -38,6 +38,7 @@ Notable changes, by release. Notes for the next release collect under **Unreleas
 - Live views: Quitting with Ctrl-C while a frame is drawing no longer leaves some terminals frozen for a moment afterwards.
 - Location: When the network stops answering, a command waits for the place's name once instead of several times over.
 - Print: Output is UTF-8 even where the locale or `PYTHONIOENCODING` asks for another encoding, instead of ending in an error.
+- Location: A damaged location cache is fetched again instead of stopping every command with an error.
 
 ## 2.10.3 — 2026-10-20
 

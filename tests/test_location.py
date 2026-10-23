@@ -97,6 +97,44 @@ class GeolocationProviderChainTests(unittest.TestCase):
             self.assertEqual(_location.get_location(), (1.0, 2.0, "US"))
 
 
+class MalformedLocationCacheTests(unittest.TestCase):
+    """Only linecast writes location.json, but a crash or a hand edit
+    can leave anything there: `[]` and a latitude of "x" ended every
+    command in a traceback. Anything but a place on the planet is no
+    answer, as a missing file is."""
+
+    BAD = ("[]", "null", '"Portland"', '{"lat": "x", "lng": 2}', '{"lat": 1.0}',
+           '{"lat": true, "lng": 2}', '{"lat": 1e999, "lng": 0}', '{"lat": 91, "lng": 0}')
+
+    def _with_cache(self, text, fetch):
+        with tempfile.TemporaryDirectory() as tmpdir, \
+             patch.dict(os.environ, {"LINECAST_CACHE_DIR": tmpdir}), \
+             patch.object(_location, "saved_location", return_value=None), \
+             patch.object(_location, "fetch_json", side_effect=fetch):
+            (Path(tmpdir) / "location.json").write_text(text)
+            return _location.get_location(), _location.own_country()
+
+    def test_a_fresh_copy_is_fetched_in_its_place(self):
+        def fetch(url, headers=None, timeout=0):
+            return {"loc": "3.0,4.0", "country": "CA"}
+        for text in self.BAD:
+            with self.subTest(text=text):
+                self.assertEqual(self._with_cache(text, fetch), ((3.0, 4.0, "CA"), "CA"))
+
+    def test_offline_it_is_no_location(self):
+        def fetch(url, headers=None, timeout=0):
+            raise OSError("Network is unreachable")
+        for text in self.BAD:
+            with self.subTest(text=text):
+                self.assertEqual(self._with_cache(text, fetch), ((None, None, None), None))
+
+    def test_a_country_that_is_not_a_code_is_no_country(self):
+        def fetch(url, headers=None, timeout=0):
+            raise AssertionError("the cached place stands")
+        self.assertEqual(self._with_cache('{"lat": 1, "lng": 2, "country": 7}', fetch),
+                         ((1.0, 2.0, ""), None))
+
+
 class GeocoderFallbackTests(unittest.TestCase):
     def test_photon_answers_when_open_meteo_fails(self):
         from linecast import _geocode
@@ -256,6 +294,13 @@ class LocationTzinfoTests(unittest.TestCase):
         with patch.object(_location, "fetch_json_cached", return_value=None):
             self.assertEqual(_location.location_tzinfo(38.72, -9.14),
                              _location.machine_tzinfo())
+
+    def test_a_cached_answer_of_the_wrong_shape_is_no_answer(self):
+        for answer in ([1], {"timezone": 7}, "Europe/Lisbon"):
+            with self.subTest(answer=answer), \
+                    patch.object(_location, "fetch_json_cached", return_value=answer):
+                self.assertEqual(_location.location_tzinfo(38.72, -9.14),
+                                 _location.machine_tzinfo())
 
 
 class LocationCommandTests(unittest.TestCase):
