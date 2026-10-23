@@ -125,6 +125,43 @@ class TestThemeId:
             and False in kinds
 
 
+class TestTheChainAskedAhead:
+    """A source slow to send its index has the next one's asked beside
+    it: on a stalled network outside the lower 48, LibreWXR's fifteen
+    seconds and then RainViewer's came one after the other."""
+
+    def _route(self, monkeypatch, lwxr_wait, lwxr):
+        monkeypatch.setattr(sources, "_HEDGE_S", 0.05)
+        events = []
+
+        def fetch_index(provider, *a, **k):
+            events.append(("asked", provider.name))
+            if provider.name == "lwxr":
+                time.sleep(lwxr_wait)
+                if isinstance(lwxr, Exception):
+                    events.append(("failed", "lwxr"))
+                    raise lwxr
+                return lwxr
+            return _INDEX
+
+        monkeypatch.setattr(tiles, "fetch_index", fetch_index)
+        return get_source(51.5, -0.12, 4), events
+
+    def test_a_slow_index_has_the_next_asked_beside_it(self, monkeypatch):
+        src, events = self._route(monkeypatch, 0.3, OSError("timed out"))
+        assert isinstance(src, RainViewerSource)
+        assert events == [("asked", "lwxr"), ("asked", "rv"), ("failed", "lwxr")]
+
+    def test_the_first_source_is_still_taken_when_it_answers_late(self, monkeypatch):
+        src, _events = self._route(monkeypatch, 0.3, _INDEX)
+        assert isinstance(src, LibreWXRSource)
+
+    def test_a_quick_first_source_asks_no_other(self, monkeypatch):
+        src, events = self._route(monkeypatch, 0.0, _INDEX)
+        assert isinstance(src, LibreWXRSource)
+        assert events == [("asked", "lwxr")]
+
+
 class TestGetSource:
     def _patch(self, by_provider):
         original = tiles.fetch_index

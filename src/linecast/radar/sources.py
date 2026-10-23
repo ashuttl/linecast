@@ -355,18 +355,42 @@ def _chain(lat: float, lon: float) -> list[str]:
     return kinds
 
 
+# LibreWXR's and RainViewer's indexes come back in well under a second.
+# A source that has kept us this long gets the next one's index asked
+# beside its own, so a network that has stopped answering costs one
+# index's timeout rather than one for each source in turn; the chain's
+# order still decides which answer is taken.
+_HEDGE_S = 2.0
+
+
+def _tile_class(kind):
+    return LibreWXRSource if kind == "lwxr" else RainViewerSource
+
+
 def _first_answering(kinds, n_frames, theme):
     """The first source in `kinds` that hands back a frame list."""
+    from concurrent.futures import wait
+
+    from linecast._fanout import Fanout
+
+    tiled = []
     for kind in kinds:
         if kind == "iem":
-            return IEMSource(n_frames)   # no index to fail on
-        cls = LibreWXRSource if kind == "lwxr" else RainViewerSource
+            break   # no index to fail on: it answers wherever it stands
+        tiled.append(kind)
+    fanout = Fanout()
+    asked = {}
+    for i, kind in enumerate(tiled):
+        if kind not in asked:
+            asked[kind] = fanout.submit(_tile_class(kind), theme)
+        if i + 1 < len(tiled) and not wait([asked[kind]], _HEDGE_S).done:
+            asked[tiled[i + 1]] = fanout.submit(_tile_class(tiled[i + 1]), theme)
         try:
-            src = cls(theme)
+            src = asked[kind].result()
             if src.current_frames():
                 return src
         except Exception as exc:
-            log_failure(cls.tag, "source", exc, fallback="next source")
+            log_failure(_tile_class(kind).tag, "source", exc, fallback="next source")
     return IEMSource(n_frames)
 
 
