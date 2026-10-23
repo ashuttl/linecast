@@ -1,4 +1,9 @@
-"""Persistent user settings (config.json under the config root)."""
+"""Persistent user settings (config.json under the config root).
+
+SETTINGS declares each setting a `linecast <name>` command saves, once:
+the help page, the dispatch, the completions, the flags, the resolvers
+and doctor read it from there.
+"""
 
 import json
 import os

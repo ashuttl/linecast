@@ -437,7 +437,7 @@ def _is_tty(stream):
 
 
 def _collect_preferences():
-    from linecast._config import saved_location
+    from linecast._config import SETTING, saved_location
     from linecast._location import own_country
     from linecast._runtime import resolve_clock, resolve_units, resolve_week_start
     env = os.environ
@@ -455,10 +455,11 @@ def _collect_preferences():
     week, week_source = resolve_week_start(None, env, country)
     if week_source == "auto" and country:
         week_source = f"auto: {country}"
-    override = env.get("WEATHER_LOCATION", "").strip()
+    var = SETTING["location"].env
+    override = env.get(var, "").strip()
     loc = saved_location()
     if override:
-        location, location_source = "(set)", "WEATHER_LOCATION"
+        location, location_source = "(set)", var
     elif loc is not None:
         location, location_source = "(set)", "config"
     else:

@@ -6,7 +6,7 @@ import sys
 from datetime import tzinfo
 
 from linecast._cache import location_cache_key, read_cache, read_stale, write_cache
-from linecast._config import saved_location
+from linecast._config import SETTING, saved_location
 from linecast._http import fetch_json, fetch_json_cached
 from linecast._paths import cache_dir
 from linecast._plaintext import plain_text
@@ -193,7 +193,7 @@ def location_overridden(cli_location: str | None = None) -> bool:
     """True when a --location flag or WEATHER_LOCATION points the view
     somewhere explicit -- a place that need not be the user's own, so
     its country must not feed the units default."""
-    return bool((cli_location or os.environ.get("WEATHER_LOCATION", "")).strip())
+    return bool((cli_location or os.environ.get(SETTING["location"].env, "")).strip())
 
 
 def resolve_location(
@@ -215,7 +215,7 @@ def resolve_location(
     a place-name override ("" otherwise); radar and maps show it as the
     place name instead of reverse-geocoding the coordinates again.
     """
-    override = (cli_location or os.environ.get("WEATHER_LOCATION", "")).strip()
+    override = (cli_location or os.environ.get(SETTING["location"].env, "")).strip()
     if not override:
         lat, lng, country = get_location()
         return (lat, lng, country, "") if return_label else (lat, lng, country)
@@ -279,7 +279,7 @@ def location_is_pinned(cli_location: str | None = None) -> bool:
     one is where the machine is, so machine-local time already matches it.
     """
     return bool(cli_location
-                or os.environ.get("WEATHER_LOCATION", "").strip()
+                or os.environ.get(SETTING["location"].env, "").strip()
                 or saved_location() is not None)
 
 

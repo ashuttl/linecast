@@ -127,6 +127,23 @@ class Argv0DispatchTests(unittest.TestCase):
             with self.subTest(name=name):
                 self.assertRegex(out, rf"\b{name}\b")
 
+    def test_each_setting_command_takes_its_settings_choices(self):
+        # A command lists its choices with its own words for each, so the
+        # list is written out there; it must be the setting's, which the
+        # flag and the completions offer too
+        from linecast._config import SETTINGS
+        for setting in SETTINGS:
+            if setting.name in ("location", "language"):
+                continue   # a place, and any language code: no list to keep
+            with self.subTest(setting=setting.name):
+                module = importlib.import_module(f"linecast.settings.{setting.name}")
+                with mock.patch.object(module, "run") as run:
+                    module.main()
+                commands = run.call_args.args[3]
+                taken = [name for name, _help in commands]
+                self.assertEqual(sorted(taken), sorted(("show", *setting.choices, "auto")))
+                self.assertEqual(len(taken), len(set(taken)))
+
     def test_help_shares_the_commands_own_blurbs(self):
         # `linecast --help` and `linecast weather --help` open with the
         # same line, so the two pages cannot drift
