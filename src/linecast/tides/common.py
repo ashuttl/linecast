@@ -8,6 +8,7 @@ genuinely theirs: URLs, payload shapes, and unit or timezone quirks.
 
 import math
 import re
+import threading
 from collections.abc import Callable
 from datetime import date, datetime, timedelta, timezone, tzinfo
 from pathlib import Path
@@ -85,6 +86,35 @@ def month_start(day: date) -> date:
 def month_after(first: date) -> date:
     """First day of the month following *first* (itself a first-of-month)."""
     return (first + timedelta(days=32)).replace(day=1)
+
+
+def months_covering(start_date: date, end_date: date) -> list[date]:
+    """First-of-month dates for every calendar month the range touches."""
+    first = month_start(start_date)
+    months = []
+    while first <= end_date:
+        months.append(first)
+        first = month_after(first)
+    return months
+
+
+# cache file name -> lock held while that file fetches
+_fetch_locks: dict[str, threading.Lock] = {}
+_fetch_locks_lock = threading.Lock()
+
+
+def fetch_lock(name: str) -> threading.Lock:
+    """The lock a fetch for the cache file *name* holds while it runs.
+
+    The providers fetch by fixed blocks, a month or a year, and two
+    threads can want the same block at once: the day view asks for its
+    curve, its turns and its axis side by side, and a subordinate NOAA
+    station's curve and turns both come from its hi/lo month.  They take
+    turns, and the second reads the file the first wrote instead of
+    making the same request itself.
+    """
+    with _fetch_locks_lock:
+        return _fetch_locks.setdefault(name, threading.Lock())
 
 
 def y_range_window(center_date: date) -> tuple[date, date, str]:

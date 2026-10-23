@@ -24,20 +24,40 @@ class YRangeTests(unittest.TestCase):
             seen.append(path.name)
             return None
 
-        data = [{"eventDate": "2026-08-01T05:00:00Z", "value": "3.0"},
-                {"eventDate": "2026-08-01T11:00:00Z", "value": "0.5"}]
+        turns = [(datetime(2026, 6, 30, 23, tzinfo=timezone.utc), 9.0, "H"),
+                 (datetime(2026, 7, 1, 5, tzinfo=timezone.utc), 3.0, "H"),
+                 (datetime(2026, 9, 30, 11, tzinfo=timezone.utc), 0.5, "L"),
+                 (datetime(2026, 10, 1, 1, tzinfo=timezone.utc), -2.0, "L")]
         with patch.object(common, "read_cache", side_effect=fake_read_cache), \
-             patch.object(chs, "fetch_json", return_value=data) as fj, \
+             patch.object(chs, "_hilo_year", return_value=turns) as year, \
              patch.object(common, "write_cache"):
             for day in (date(2026, 8, 23), date(2026, 8, 24)):
                 lo, hi = chs.fetch_y_range_chs("05320", day, None)
 
-        self.assertAlmostEqual(lo, 0.5 * chs.M_TO_FT)
-        self.assertAlmostEqual(hi, 3.0 * chs.M_TO_FT)
-        self.assertEqual(seen, ["chs_yrange_05320_202608.json"] * 2)
         # July 1 through September 30, in UTC because no station tz was given
-        self.assertIn("from=2026-07-01T00:00:00Z&to=2026-10-01T00:00:00Z",
-                      fj.call_args.args[0])
+        self.assertEqual((lo, hi), (0.5, 3.0))
+        self.assertEqual(seen, ["chs_yrange_05320_202608.json"] * 2)
+        # read from the year's turns, the file the day view fetches
+        self.assertEqual(year.call_args.args, ("05320", 2026, None))
+
+    def test_the_axis_makes_no_request_of_its_own(self):
+        # the day view asks for its turns and its axis side by side;
+        # between them they make the one request for the year's turns
+        answer = [{"eventDate": "2026-08-01T05:00:00Z", "value": "3.0"},
+                  {"eventDate": "2026-08-01T11:00:00Z", "value": "0.5"}]
+        with patch.dict(os.environ, {"LINECAST_CACHE_DIR": self.id_dir()}), \
+             patch.object(_http, "fetch_json", return_value=answer) as fetch:
+            chs.fetch_hilo_range_chs("05320", date(2026, 8, 16), date(2026, 8, 30), timezone.utc)
+            chs.fetch_y_range_chs("05320", date(2026, 8, 23), timezone.utc)
+        self.assertEqual(fetch.call_count, 1)
+        self.assertIn("from=2026-01-01T00:00:00Z&to=2027-01-01T00:00:00Z",
+                      fetch.call_args.args[0])
+
+    def id_dir(self):
+        import tempfile
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        return tmp.name
 
     def test_returns_cached_y_range(self):
         with patch.object(common, "read_cache", return_value={"min": -0.5, "max": 3.0}):
@@ -77,8 +97,8 @@ class TestOffline:
         with patch.dict(os.environ, {"LINECAST_CACHE_DIR": str(tmp_path)}):
             yield tmp_path
 
-    def _expired(self, kind):
-        path = common.cache_dir() / f"chs_{kind}_X_20260901_20260902.json"
+    def _expired(self, name):
+        path = common.cache_dir() / f"chs_{name}.json"
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(json.dumps(self.ROWS))
         then = time.time() - 3 * 86400
@@ -86,8 +106,8 @@ class TestOffline:
         return path
 
     def test_predictions_keep_the_last_rows(self):
-        path = self._expired("pred")
-        points = chs._fetch_pred_chunk("X", date(2026, 9, 1), date(2026, 9, 2), timezone.utc)
+        path = self._expired("pred_X_202609")
+        points = chs.fetch_tides_range_chs("X", date(2026, 9, 1), date(2026, 9, 2), timezone.utc)
         assert points == [(datetime(2026, 9, 1, 0, 0, tzinfo=timezone.utc), 1.0),
                           (datetime(2026, 9, 1, 6, 5, tzinfo=timezone.utc), 0.1)]
         # and the stale copy is left as it was, not written over as fresh
@@ -95,14 +115,78 @@ class TestOffline:
         assert time.time() - path.stat().st_mtime > 86400
 
     def test_extremes_keep_the_last_rows(self):
-        path = self._expired("hilo")
+        path = self._expired("hilo_X_2026")
         points = chs.fetch_hilo_range_chs("X", date(2026, 9, 1), date(2026, 9, 2), timezone.utc)
         assert points == [(datetime(2026, 9, 1, 0, 0, tzinfo=timezone.utc), 1.0, "H"),
                           (datetime(2026, 9, 1, 6, 5, tzinfo=timezone.utc), 0.1, "L")]
         assert json.loads(path.read_text()) == self.ROWS
 
     def test_nothing_cached_is_nothing(self):
-        assert chs._fetch_pred_chunk("X", date(2026, 9, 1), date(2026, 9, 2), timezone.utc) == []
+        assert chs.fetch_tides_range_chs("X", date(2026, 9, 1), date(2026, 9, 2),
+                                         timezone.utc) == []
+
+
+class TestFixedBlocks:
+    """The predictions are kept a calendar month to a file and the turns a
+    calendar year, so any window in them reads the same files: the next
+    day's, whatever the network is doing."""
+
+    @pytest.fixture(autouse=True)
+    def cache(self, tmp_path):
+        with patch.dict(os.environ, {"LINECAST_CACHE_DIR": str(tmp_path)}):
+            yield tmp_path
+
+    @staticmethod
+    def _iwls(url, headers=None, timeout=None):
+        """Five-minute levels, or a turn every 6 h 12 min, for the
+        request's own span, as IWLS answers."""
+        query = parse_qs(urlsplit(url).query)
+        start = datetime.fromisoformat(query["from"][0].replace("Z", "+00:00"))
+        end = datetime.fromisoformat(query["to"][0].replace("Z", "+00:00"))
+        step = timedelta(minutes=5 if "resolution" in query else 372)
+        rows, t, k = [], start, 0
+        while t <= end:
+            rows.append({"eventDate": t.strftime("%Y-%m-%dT%H:%M:%SZ"),
+                         "value": str(1.0 + 0.8 * (-1) ** k)})
+            t, k = t + step, k + 1
+        return rows
+
+    def test_tomorrows_window_reads_todays_files_offline(self):
+        today = date(2026, 10, 22)
+        day = timedelta(days=1)
+        with patch.object(_http, "fetch_json", side_effect=self._iwls) as fetch:
+            preds = chs.fetch_tides_range_chs("X", today - day, today + day, HALIFAX)
+            turns = chs.fetch_hilo_range_chs("X", today - day, today + day, HALIFAX)
+        assert fetch.call_count == 2
+        # tomorrow, with the network gone, the window has moved a day
+        later = today + day
+        with patch.object(_http, "fetch_json", side_effect=OSError("offline")), \
+             patch.object(time, "time", return_value=time.time() + 86400 + 60):
+            preds_after = chs.fetch_tides_range_chs("X", later - day, later + day, HALIFAX)
+            turns_after = chs.fetch_hilo_range_chs("X", later - day, later + day, HALIFAX)
+        assert preds_after and turns_after
+        assert preds_after[0][0] == preds[0][0] + timedelta(days=1)
+        assert len(preds_after) == len(preds) == 3 * 288 + 1
+        assert len(turns_after) >= len(turns) - 1
+        assert sorted(p.name for p in common.cache_dir().iterdir()) == [
+            "chs_hilo_X_2026.json", "chs_pred_X_202610.json"]
+
+    def test_a_window_is_cut_from_its_months_at_its_own_midnights(self):
+        with patch.object(_http, "fetch_json", side_effect=self._iwls) as fetch:
+            preds = chs.fetch_tides_range_chs("X", date(2026, 9, 29), date(2026, 10, 2), HALIFAX)
+        assert fetch.call_count == 2                      # September and October
+        assert preds[0][0] == datetime(2026, 9, 29, tzinfo=HALIFAX)
+        assert preds[-1][0] == datetime(2026, 10, 3, tzinfo=HALIFAX)
+        steps = {b[0] - a[0] for a, b in zip(preds, preds[1:])}
+        assert steps == {timedelta(minutes=5)}            # one of each, across the seam
+
+    def test_a_year_of_turns_is_one_request(self):
+        with patch.object(_http, "fetch_json", side_effect=self._iwls) as fetch:
+            turns = chs.fetch_hilo_range_chs("X", date(2026, 1, 1), date(2026, 12, 31), HALIFAX)
+            chs.fetch_hilo_range_chs("X", date(2026, 3, 1), date(2026, 3, 31), HALIFAX)
+        assert fetch.call_count == 1
+        assert turns[0][0] == datetime(2026, 1, 1, tzinfo=HALIFAX)
+        assert {k for _t, _h, k in turns} == {"H", "L"}
 
 
 class TestFetchedAsCached:
@@ -118,7 +202,7 @@ class TestFetchedAsCached:
         with patch.dict(os.environ, {"LINECAST_CACHE_DIR": str(tmp_path)}):
             yield tmp_path
 
-    @pytest.mark.parametrize("fetch", [chs._fetch_pred_chunk, chs.fetch_hilo_range_chs])
+    @pytest.mark.parametrize("fetch", [chs.fetch_tides_range_chs, chs.fetch_hilo_range_chs])
     def test_the_same_points_either_way(self, fetch):
         from zoneinfo import ZoneInfo
         from linecast import _http

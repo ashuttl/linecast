@@ -5,7 +5,6 @@ for NOAA's CO-OPS APIs.
 """
 
 import math
-import threading
 from datetime import date, datetime, timedelta, timezone, tzinfo
 from typing import Any
 
@@ -13,8 +12,8 @@ from linecast._cache import location_cache_key
 from linecast._http import fetch_json, fetch_json_cached
 from linecast._log import log_failure, log_skipped
 from linecast.tides.common import (
-    cache_dir, cached_y_range, measured_turns, month_after, month_start,
-    nearest_station, station_coords, y_range_window,
+    cache_dir, cached_y_range, fetch_lock, measured_turns, month_after,
+    months_covering, nearest_station, station_coords, y_range_window,
 )
 
 PREDICTION_CACHE_MAX_AGE = 86400
@@ -177,26 +176,6 @@ def _prediction_rows(data, row_builder):
     return rows
 
 
-def _months_covering(start_date, end_date):
-    """First-of-month dates for every calendar month the range touches."""
-    first = month_start(start_date)
-    months = []
-    while first <= end_date:
-        months.append(first)
-        first = month_after(first)
-    return months
-
-
-# cache file name -> lock held while that month fetches
-_month_locks: dict[str, threading.Lock] = {}
-_month_locks_lock = threading.Lock()
-
-
-def _month_lock(name):
-    with _month_locks_lock:
-        return _month_locks.setdefault(name, threading.Lock())
-
-
 def fetch_month(station_id: str, first: date, interval: str) -> list[list[Any]] | None:
     """Fetch one calendar month of predictions, cached per station and month.
 
@@ -207,10 +186,8 @@ def fetch_month(station_id: str, first: date, interval: str) -> list[list[Any]] 
     weeks, and the expansion when the user scrolls all share it, and the
     file stays valid from one day to the next.
 
-    Two threads asking for the same month at once (a subordinate
-    station's curve and its extremes both come from the hi/lo month)
-    take turns: the second waits on the month's lock and then reads the
-    file the first wrote, instead of making the same request itself.
+    Two threads asking for the same month at once take turns (see
+    common.fetch_lock).
     """
     kind = "hilo" if interval == "hilo" else "pred"
     cache_file = cache_dir() / f"{kind}_{station_id}_{first:%Y%m}.json"
@@ -218,7 +195,7 @@ def fetch_month(station_id: str, first: date, interval: str) -> list[list[Any]] 
     url = _prediction_url(station_id, first.strftime("%Y%m%d"),
                           last.strftime("%Y%m%d"), interval)
     builder = _build_hilo_row if kind == "hilo" else _build_tide_row
-    with _month_lock(cache_file.name):
+    with fetch_lock(cache_file.name):
         return _fetch_prediction_rows(cache_file, url, builder)
 
 
@@ -226,7 +203,7 @@ def _rows_in_range(station_id, start_date, end_date, interval):
     """Cache rows for every month the range touches, trimmed to the range."""
     lo, hi = start_date.isoformat(), end_date.isoformat()
     rows = []
-    for first in _months_covering(start_date, end_date):
+    for first in months_covering(start_date, end_date):
         for row in fetch_month(station_id, first, interval) or []:
             if lo <= row[0][:10] <= hi:
                 rows.append(row)
