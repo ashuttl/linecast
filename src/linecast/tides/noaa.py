@@ -9,8 +9,8 @@ from datetime import date, datetime, timedelta, timezone, tzinfo
 from typing import Any
 
 from linecast._cache import location_cache_key
-from linecast._http import fetch_json, fetch_json_cached
-from linecast._log import log_failure, log_skipped
+from linecast._http import fetch_json_cached
+from linecast._log import log_skipped
 from linecast.tides.common import (
     StationMeta, cache_dir, cached_y_range, fetch_lock, measured_turns, month_after,
     months_covering, nearest_station, station_coords, y_range_window,
@@ -482,31 +482,31 @@ def fetch_tides_range_with_fallback(
 
 
 def fetch_y_range(station_id: str, center_date: date) -> tuple[float, float] | None:
-    """Compute the y-axis range from hilo data around the date. Cached 7 days.
+    """The y-axis range from the high and low waters around the date,
+    the month before through the month after (see y_range_window),
+    cached 7 days.
 
-    The window and cache key are month-anchored (see y_range_window) so
-    consecutive days share one request and one file.
+    They are read from the hi/lo month files the day and month views
+    keep, so the axis costs no request of its own once those are on
+    disk, and offline their stale copies still give it.  The three
+    months are asked side by side.  If one could not be had there is
+    no range: one from part of the window would stand for a week.
     """
+    from linecast._fanout import Fanout
+
     start, end, key = y_range_window(center_date)
 
     def heights():
-        url = _prediction_url(station_id, start.strftime("%Y%m%d"),
-                              end.strftime("%Y%m%d"), "hilo")
-        try:
-            data = fetch_json(url, timeout=15)
-        except Exception as exc:
-            log_failure("tides/noaa", "y-range fetch", exc, url=url,
-                        fallback="auto-scaled axis")
-            return None
+        fanout = Fanout()
+        months = [fanout.submit(fetch_month, station_id, first, "hilo")
+                  for first in months_covering(start, end)]
         found = []
-        rows = (data.get("predictions") or []) if data else []
-        bad = None
-        for prediction in rows:
-            try:
-                found.append(float(prediction["v"]))
-            except (KeyError, ValueError) as exc:
-                bad = exc
-        log_skipped("tides/noaa", "y-range heights", len(rows) - len(found), len(rows), bad)
+        for month in months:
+            rows = fanout.settle(month, "y-range month", tag="tides/noaa",
+                                 note="auto-scaled axis")
+            if not rows:
+                return None
+            found += [row[1] for row in rows]
         return found
 
     return cached_y_range(cache_dir() / f"yrange_{station_id}_{key}.json", heights)

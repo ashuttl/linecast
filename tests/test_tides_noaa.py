@@ -359,10 +359,14 @@ class PredictionErrorTests(_PrivateCache):
         self.assertEqual(json.loads(cache_file.read_text()), cached)
 
 
-class YRangeTests(unittest.TestCase):
+class YRangeTests(_PrivateCache):
+    MONTHS = {
+        date(2026, 7, 1): [["2026-07-01 00:30", 9.7, "H"], ["2026-07-01 06:40", -0.4, "L"]],
+        date(2026, 8, 1): [["2026-08-12 01:00", 9.1, "H"], ["2026-08-12 07:10", 0.2, "L"]],
+        date(2026, 9, 1): [["2026-09-30 22:00", 10.2, "H"]],
+    }
+
     def test_consecutive_days_share_one_cache_file(self):
-        payload = {"predictions": [{"t": "2026-07-01 00:30", "v": "9.7", "type": "H"},
-                                   {"t": "2026-07-01 06:40", "v": "-0.4", "type": "L"}]}
         seen = []
 
         def fake_read_cache(path, max_age):
@@ -370,13 +374,44 @@ class YRangeTests(unittest.TestCase):
             return None
 
         with patch.object(common, "read_cache", side_effect=fake_read_cache), \
-             patch.object(noaa, "fetch_json", return_value=payload) as fj, \
+             patch.object(noaa, "fetch_month",
+                          side_effect=lambda sid, first, interval: self.MONTHS[first]), \
              patch.object(common, "write_cache"):
             for day in (date(2026, 8, 23), date(2026, 8, 24)):
-                self.assertEqual(noaa.fetch_y_range("8418150", day), (-0.4, 9.7))
+                self.assertEqual(noaa.fetch_y_range("8418150", day), (-0.4, 10.2))
 
         self.assertEqual(seen, ["yrange_8418150_202608.json"] * 2)
-        self.assertIn("begin_date=20260701&end_date=20260930", fj.call_args.args[0])
+
+    def test_the_axis_is_read_from_the_hilo_month_files(self):
+        # The month before through the month after, the files the day and
+        # month views read: no request of the axis's own
+        asked = []
+
+        def fake_month(station_id, first, interval):
+            asked.append((station_id, first, interval))
+            return self.MONTHS[first]
+
+        with patch.object(noaa, "fetch_month", side_effect=fake_month), \
+             patch.object(_http, "fetch_json", side_effect=AssertionError("network")):
+            self.assertEqual(noaa.fetch_y_range("8418150", date(2026, 8, 23)), (-0.4, 10.2))
+        self.assertEqual(sorted(asked),
+                         [("8418150", first, "hilo") for first in sorted(self.MONTHS)])
+
+    def test_cached_month_files_answer_without_the_network(self):
+        for first, rows in self.MONTHS.items():
+            path = common.cache_dir() / f"hilo_8418150_{first:%Y%m}.json"
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(json.dumps(rows))
+        with patch.object(_http, "fetch_json", side_effect=AssertionError("network")):
+            self.assertEqual(noaa.fetch_y_range("8418150", date(2026, 8, 23)), (-0.4, 10.2))
+
+    def test_a_missing_month_gives_no_range_and_keeps_none(self):
+        # An axis from two months of three would stand for a week
+        months = {**self.MONTHS, date(2026, 9, 1): None}
+        with patch.object(noaa, "fetch_month",
+                          side_effect=lambda sid, first, interval: months[first]):
+            self.assertIsNone(noaa.fetch_y_range("8418150", date(2026, 8, 23)))
+        self.assertFalse((common.cache_dir() / "yrange_8418150_202608.json").exists())
 
 
 class MetadataTests(unittest.TestCase):
