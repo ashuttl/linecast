@@ -39,6 +39,7 @@ Notable changes, by release. Notes for the next release collect under **Unreleas
 - Maps: Downloaded cloud cover is cleared from the cache after a day, as radar's frames are, even if radar is never opened.
 - Maps: Clouds that fail to download over part of the globe are filled in shortly afterwards, instead of leaving a gap until the next satellite image.
 - Maps: On a network that hangs, the live map opens at once instead of after a wait of ten seconds or more.
+- Maps: When the network stops answering, `--print` says sooner that the street map could not be loaded.
 - Maps: Flicking the map several times in a row loads one view at a time rather than one for every flick, so the motion stays smooth.
 - Maps: Panning east across the 180th meridian keeps the map on screen, as panning west always did, rather than blanking it while the view reloads.
 - Maps: Fixed the live map stopping short of places beyond 80 degrees of latitude, such as Alert, Nunavut.

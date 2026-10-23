@@ -501,3 +501,44 @@ class TestAViewShortOfATileIsBuiltAgain:
             loaders._elev_cache.clear()
             loaders._terrain_built[0] = None
             loaders._terrain_landed[0] = None
+
+
+class TestTheRasterWithoutTiles:
+    """The settlement raster is asked beside the street tiles, but not
+    when no TileJSON could be had: then there is no tile to fetch, the
+    view fails without it, and on a stalled network it was a further
+    fifteen seconds."""
+
+    BBOX = (-70.3, 43.6, -70.2, 43.7)
+
+    def _load(self, monkeypatch, info, tiles, asked):
+        keys = list(tiles)
+        monkeypatch.setattr(loaders.streets, "view_tiles",
+                            lambda *a, **k: (loaders._style.FILL_DEBUT["builtup"], 14, keys))
+        monkeypatch.setattr(loaders.streets, "tile_info", lambda: info)
+        monkeypatch.setattr(loaders.streets, "fetch_tiles", lambda want: dict(tiles))
+        monkeypatch.setattr(loaders, "_builtup_layer",
+                            lambda *a: asked.append("builtup") or [[0]])
+        monkeypatch.setattr(loaders.streets, "build_street_view",
+                            lambda bbox, gw, hc, tiles, band, lang, reserved, bu, *a:
+                            (dict(tiles), bu, {}))
+        loaders._street_cache.clear()
+        try:
+            return loaders._get_street_tiles(self.BBOX, 8, 4, True)
+        finally:
+            loaders._street_cache.clear()
+            loaders._street_built[0] = None
+            loaders._street_landed[0] = None
+            loaders._mends.clear()
+
+    def test_no_tilejson_asks_no_raster(self, monkeypatch):
+        asked = []
+        with pytest.raises(RuntimeError):
+            self._load(monkeypatch, None, {(14, 1, 1): None}, asked)
+        assert asked == []
+
+    def test_a_tilejson_asks_it_beside_the_tiles(self, monkeypatch):
+        asked = []
+        view = self._load(monkeypatch, ("t", "v", 14), {(14, 1, 1): b"a"}, asked)
+        assert asked == ["builtup"]
+        assert view[1] == [[0]]

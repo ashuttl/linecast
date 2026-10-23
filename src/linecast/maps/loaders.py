@@ -593,10 +593,14 @@ def _get_street_tiles(bbox, gw, hc, block, lang="en", reserved=(),
         # the layer is never asked for, so a deep view pays nothing
         band, _z_src, keys = streets.view_tiles(
             bbox, hc, window, None if camera is None else camera.footprint)
+        # With no TileJSON from any source, nor one kept, there is no
+        # tile to fetch and the view fails below whatever the raster
+        # says: on a network that has stopped answering, it is not
+        # kept waiting on as well.
+        builtup = band >= _style.FILL_DEBUT["builtup"] and streets.tile_info() is not None
         with ThreadPoolExecutor(max_workers=1) as pool:
             bu_job = (pool.submit(_builtup_layer, bbox, gw, hc, camera)
-                      if band >= _style.FILL_DEBUT["builtup"]
-                      else None)
+                      if builtup else None)
             tiles = streets.fetch_tiles(keys)
         if not any(tiles.values()):
             raise RuntimeError(ms('offline', 'en'))
