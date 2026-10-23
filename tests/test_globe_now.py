@@ -171,17 +171,90 @@ class TestRefresh:
                 "satellite": {"infrared": [{"time": 0, "path": p}
                                            for p in paths]}}
 
+    TILE = (256, 256, bytearray((255, 255, 255, 200) * (256 * 256)))
+
+    def _serve(self, monkeypatch, down=()):
+        """Tiles from a fake server, those in `down` failing; what was asked."""
+        asked = []
+
+        def fetch_tile(prov, host, path, z, x, y, timeout=15):
+            asked.append((z, x, y))
+            return None if (z, x, y) in down else b"png"
+
+        monkeypatch.setattr(globe_now.tiles, "fetch_tile", fetch_tile)
+        monkeypatch.setattr(globe_now, "decode_rgba", lambda data: self.TILE)
+        return asked
+
     def test_new_frame_stitches_and_repeat_is_free(self, monkeypatch):
         tiles = globe_now.tiles
         monkeypatch.setattr(globe_now, "_cloud",
                             {"stamp": None, "canvas": None, "checked": 0.0})
         monkeypatch.setattr(tiles, "fetch_index",
                             lambda prov, timeout=15: self._index(["/v2/s/1"]))
-        monkeypatch.setattr(tiles, "fetch_tile", lambda *a, **k: None)
+        asked = self._serve(monkeypatch)
         assert globe_now.refresh(130.0, 208) is True
         assert globe_now.peek() is not None
         assert not globe_now.stale()
+        del asked[:]
         assert globe_now.refresh(130.0, 208) is False
+        assert asked == []
+
+    def test_a_missing_tile_is_asked_for_again_alone_and_pasted_in(self, monkeypatch):
+        # the canvas kept its hole under the frame's stamp until the
+        # mosaic's next frame: a tile that timed out was never asked again
+        tiles = globe_now.tiles
+        monkeypatch.setattr(globe_now, "_cloud",
+                            {"stamp": None, "canvas": None, "checked": 0.0, "failures": 0})
+        now = [1000.0]
+        monkeypatch.setattr(globe_now, "time", types.SimpleNamespace(time=lambda: now[0]))
+        monkeypatch.setattr(tiles, "fetch_index",
+                            lambda prov, timeout=15: self._index(["/v2/s/1"]))
+        down = {(1, 1, 0)}
+        asked = self._serve(monkeypatch, down)
+        assert globe_now.refresh(130.0, 208) is True
+        first = globe_now.peek()
+        buf, cw = first[0], first[1]
+        assert buf[(10 * cw + 300) * 4 + 3] == 0        # the hole, in tile (1, 0)
+        # asked again on the failed scene's schedule while it stays away
+        for wait in (2.0, 4.0, 8.0):
+            now[0] += wait - 0.1
+            assert not globe_now.stale()
+            now[0] += 0.2
+            assert globe_now.stale()
+            del asked[:]
+            assert globe_now.refresh(130.0, 208) is False
+            assert asked == [(1, 1, 0)]
+            assert globe_now.peek() is first
+        down.clear()
+        now[0] += 16.1
+        assert globe_now.stale()
+        del asked[:]
+        assert globe_now.refresh(130.0, 208) is True
+        assert asked == [(1, 1, 0)]
+        mended = globe_now.peek()
+        assert mended is not first and first[0][(10 * cw + 300) * 4 + 3] == 0
+        assert mended[0][(10 * cw + 300) * 4 + 3] == 200
+        # whole now, so trusted as a read index is
+        now[0] += 60.0
+        assert not globe_now.stale()
+        del asked[:]
+        assert globe_now.refresh(130.0, 208) is False
+        assert asked == []
+
+    def test_a_torn_tile_is_dropped_so_the_mend_can_fetch_it(self, monkeypatch):
+        tiles = globe_now.tiles
+        monkeypatch.setattr(globe_now, "_cloud",
+                            {"stamp": None, "canvas": None, "checked": 0.0, "failures": 0})
+        monkeypatch.setattr(tiles, "fetch_index",
+                            lambda prov, timeout=15: self._index(["/v2/s/1"]))
+        self._serve(monkeypatch)
+        monkeypatch.setattr(globe_now, "decode_rgba",
+                            lambda data: (_ for _ in ()).throw(ValueError("torn")))
+        dropped = []
+        monkeypatch.setattr(tiles, "discard_tile", lambda prov, path, z, x, y:
+                            dropped.append((path, z, x, y)))
+        globe_now.refresh(130.0, 208)
+        assert sorted(dropped) == [("/v2/s/1", 1, x, y) for x in (0, 1) for y in (0, 1)]
 
     def test_no_satellite_section_keeps_calm(self, monkeypatch):
         tiles = globe_now.tiles

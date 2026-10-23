@@ -33,7 +33,7 @@ from datetime import datetime, timezone
 
 from linecast.maps import night_lights as _night_lights
 from linecast.radar import tiles
-from linecast._xyz import stitch_xyz
+from linecast._xyz import mend_xyz, stitch_xyz
 from linecast.maps.globe import _aspect, _source_zoom, bilinear_taps, geometry
 from linecast._png import decode_rgba
 from linecast._log import log_failure
@@ -283,8 +283,10 @@ def flat_lls(bbox, w, h):
 
 
 _cloud_lock = threading.Lock()
+# "missing": the tiles the canvas under "stamp" is still without, and
+# "short": how many stitches and mends in a row have left it so
 _cloud = {"stamp": None, "canvas": None, "checked": 0.0, "white": None,
-          "cover": None, "failures": 0}
+          "cover": None, "failures": 0, "missing": [], "short": 0}
 
 
 def _mosaic_white(canvas):
@@ -368,9 +370,10 @@ def stale():
     An index that could not be read at all is looked for again sooner
     than a read one is trusted, and later for each failure in a row, on
     the schedule a failed scene keeps (terminal.scenes.FAIL_HOLD): a
-    globe asks on every frame it draws.
+    globe asks on every frame it draws.  A canvas still missing tiles
+    is looked at again on the same schedule, for refresh to mend.
     """
-    failures = _cloud["failures"]
+    failures = _cloud["failures"] or _cloud.get("short", 0)
     wait = (min(FAIL_HOLD_MAX, FAIL_HOLD * 2 ** (failures - 1)) if failures
             else _REFRESH_S)
     return time.time() - _cloud["checked"] > wait
@@ -381,7 +384,9 @@ def refresh(zoom, h, timeout=15):
 
     Returns True when the canvas changed.  A canvas, once stitched, is
     never dropped on failure — stale clouds over a live terminator beat
-    no clouds at all.
+    no clouds at all.  One stitched with tiles missing is mended under
+    the same frame: those tiles alone are asked for again, as often as
+    stale() allows, and pasted in as they come.
     """
     _noise_grid()  # warmed here, off the paint path
     prov = _provider()
@@ -402,8 +407,10 @@ def refresh(zoom, h, timeout=15):
     path = frames[-1]["path"]
     host = idx["host"]
     with _cloud_lock:
-        if _cloud["stamp"] == (path, z) and _cloud["canvas"] is not None:
-            return False
+        held = _cloud["canvas"] if _cloud["stamp"] == (path, z) else None
+        wanted = list(_cloud.get("missing") or ()) if held is not None else []
+    if held is not None and not wanted:
+        return False
 
     def fetch(z_, x, y):
         data = tiles.fetch_tile(prov, host, path, z_, x, y, timeout)
@@ -412,19 +419,39 @@ def refresh(zoom, h, timeout=15):
         try:
             return decode_rgba(data)
         except Exception as exc:
+            # a frame's tiles are kept for good, so a torn one would
+            # never be asked for again
+            tiles.discard_tile(prov, path, z_, x, y)
             log_failure("maps/clouds", f"satellite tile {z_}/{x}/{y} decode", exc,
                         fallback="tile left transparent")
             return None
 
-    canvas = stitch_xyz(fetch, _CLOUD_BBOX, z)
-    white = _mosaic_white(canvas)
-    cover = _ring_cover(canvas, white or _CAP_WHITE)
+    if held is None:
+        missing = []
+        canvas = stitch_xyz(fetch, _CLOUD_BBOX, z, missing)
+    else:
+        canvas, missing = mend_xyz(fetch, held, wanted)
+    changed = canvas is not held
+    if changed:
+        white = _mosaic_white(canvas)
+        cover = _ring_cover(canvas, white or _CAP_WHITE)
     with _cloud_lock:
-        _cloud["stamp"] = (path, z)
-        _cloud["canvas"] = canvas
-        _cloud["white"] = white
-        _cloud["cover"] = cover
-    return True
+        if held is not None and _cloud["canvas"] is not held:
+            return False   # another refresh got there first
+        if changed:
+            _cloud.update(stamp=(path, z), canvas=canvas, white=white, cover=cover)
+        _cloud["missing"] = missing
+        if missing:
+            _cloud["short"] = _cloud.get("short", 0) + 1 if held is not None else 1
+            # the hold runs from now: on a stalled network the stitch
+            # takes longer than the first few holds do
+            _cloud["checked"] = time.time()
+        else:
+            _cloud["short"] = 0
+    if missing:
+        log_failure("maps/clouds", "satellite tiles", LookupError(f"{len(missing)} missing"),
+                    url=host, fallback="left transparent, asked for again later")
+    return changed
 
 
 def clouds(lls, canvas):

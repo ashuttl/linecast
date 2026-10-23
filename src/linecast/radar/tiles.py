@@ -171,7 +171,7 @@ def fetch_tile(provider, host, path, z, x, y, timeout=15, mutable=False):
                               timeout=timeout)
 
 
-def _discard_tile(provider, path, z, x, y):
+def discard_tile(provider, path, z, x, y):
     """Drop a cached tile whose bytes would not decode.
 
     A past frame's tiles never expire, so bytes that arrived torn would
@@ -223,7 +223,7 @@ def reproject(provider: Provider, host: str, path: str, bbox: tuple[float, float
             try:
                 tile = decode_rgba(data)
             except Exception as exc:
-                _discard_tile(provider, path, z_, x, y)
+                discard_tile(provider, path, z_, x, y)
                 log_failure(provider.tag, f"tile {z_}/{x}/{y} decode", exc,
                             fallback="frame refused, tile dropped")
             else:

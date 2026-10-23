@@ -6,10 +6,10 @@ the built-up raster, the cloud mosaic, and the street register's vector
 tiles.  This module holds what they have in common: the tile size, the
 projection into the tile world (`lonlat_to_world`), the zoom whose
 tiles match a view (`pick_zoom`), the stitch of a view's tiles into one
-canvas (`stitch_xyz`) and its resample back to the window
-(`reproject_xyz`), and the process's thread pools for fetching tiles
-(`shared_pool`).  What a tile is and where it comes from is the
-caller's: each hands the stitch a fetcher.
+canvas (`stitch_xyz`, and `mend_xyz` for the tiles it was missing) and
+its resample back to the window (`reproject_xyz`), and the process's
+thread pools for fetching tiles (`shared_pool`).  What a tile is and
+where it comes from is the caller's: each hands the stitch a fetcher.
 """
 
 import atexit
@@ -116,6 +116,7 @@ getattr(threading, "_register_atexit", atexit.register)(close_pools)
 
 def stitch_xyz(fetch_tile: Callable[[int, int, int], tuple[int, int, bytearray] | None],
                bbox: tuple[float, float, float, float], z: int,
+               missing: list[tuple[int, int, int]] | None = None,
                ) -> tuple[bytearray, int, int, int, int, int]:
     """Stitch the XYZ tiles covering `bbox` at zoom `z` into one canvas.
 
@@ -123,7 +124,8 @@ def stitch_xyz(fetch_tile: Callable[[int, int, int], tuple[int, int, bytearray] 
     (x arrives already wrapped to [0, 2^z)).  Returns (canvas RGBA,
     canvas_w, canvas_h, org_x, org_y, world): the canvas stays transparent
     where tiles are missing, `org_*` is its world-pixel origin and `world`
-    the world size in pixels at this zoom.
+    the world size in pixels at this zoom.  `missing`, a list, collects
+    the (z, x, y) of the tiles that did not arrive, for `mend_xyz`.
     """
     minlon, minlat, maxlon, maxlat = bbox
     n = 1 << z
@@ -161,16 +163,50 @@ def stitch_xyz(fetch_tile: Callable[[int, int, int], tuple[int, int, bytearray] 
 
     for (tx, ty), dec in tiles:
         if dec is None:
+            if missing is not None:
+                missing.append((z, tx % n, ty))
             continue
-        tw, th, trgba = dec
-        ox, oy = (tx - tx0) * TILE_SIZE, (ty - ty0) * TILE_SIZE
-        stride = min(tw, TILE_SIZE) * 4
-        for row in range(min(th, TILE_SIZE)):
-            src = (row * tw) * 4
-            dst = ((oy + row) * canvas_w + ox) * 4
-            canvas[dst:dst + stride] = trgba[src:src + stride]
+        _paste(canvas, canvas_w, (tx - tx0) * TILE_SIZE, (ty - ty0) * TILE_SIZE, dec)
 
     return canvas, canvas_w, canvas_h, tx0 * TILE_SIZE, ty0 * TILE_SIZE, world
+
+
+def mend_xyz(fetch_tile: Callable[[int, int, int], tuple[int, int, bytearray] | None],
+             canvas: tuple[bytearray, int, int, int, int, int],
+             tiles: list[tuple[int, int, int]],
+             ) -> tuple[tuple[bytearray, int, int, int, int, int], list[tuple[int, int, int]]]:
+    """A stitched canvas with the tiles it was missing asked for again.
+
+    `canvas` is what `stitch_xyz` returned and `tiles` the (z, x, y) it
+    collected as missing.  Only those are fetched, side by side, and
+    pasted into a copy, so a frame still sampling the old canvas never
+    sees it change.  Returns (canvas, the tiles still missing); the
+    canvas is the one passed in when none of them arrived.
+    """
+    buf, canvas_w, canvas_h, org_x, org_y, world = canvas
+    pool = shared_pool("tiles", _TILE_WORKERS)
+    if pool is None:
+        raise RuntimeError("the tile pool is closed")
+    found = list(pool.map(lambda tile: (tile, fetch_tile(*tile)), tiles))
+    still = [tile for tile, dec in found if dec is None]
+    if len(still) == len(found):
+        return canvas, still
+    buf = bytearray(buf)
+    for (_z, x, y), dec in found:
+        if dec is not None:
+            # x is wrapped, and the canvas may start west of the meridian
+            _paste(buf, canvas_w, (x * TILE_SIZE - org_x) % world, y * TILE_SIZE - org_y, dec)
+    return (buf, canvas_w, canvas_h, org_x, org_y, world), still
+
+
+def _paste(canvas, canvas_w, ox, oy, tile):
+    """Copy a decoded (tw, th, rgba) tile into the canvas at (ox, oy)."""
+    tw, th, trgba = tile
+    stride = min(tw, TILE_SIZE) * 4
+    for row in range(min(th, TILE_SIZE)):
+        src = (row * tw) * 4
+        dst = ((oy + row) * canvas_w + ox) * 4
+        canvas[dst:dst + stride] = trgba[src:src + stride]
 
 
 def reproject_xyz(fetch_tile: Callable[[int, int, int], tuple[int, int, bytearray] | None],

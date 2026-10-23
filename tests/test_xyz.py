@@ -58,3 +58,44 @@ class TestWhereAResampleReads:
         west, east = out[0:4], out[4:8]
         assert tuple(west) == (0, 0, 255, 255)
         assert tuple(east) == (255, 0, 0, 255)
+
+
+class TestMendingAStitch:
+    @staticmethod
+    def _tile(x):
+        return 256, 256, bytearray((x, 0, 0, 255) * (256 * 256))
+
+    def test_a_stitch_names_the_tiles_it_is_missing(self):
+        missing = []
+        _xyz.stitch_xyz(lambda z, x, y: None if (x, y) == (1, 0) else self._tile(x),
+                        (-180.0, -85.05, 180.0, 85.05), 1, missing)
+        assert missing == [(1, 1, 0)]
+
+    @pytest.mark.parametrize("bbox, z", [
+        ((-180.0, -85.05, 180.0, 85.05), 1),
+        ((-180.1, -17.0, -179.9, -16.8), 8),   # starts west of the antimeridian
+    ])
+    def test_only_the_missing_tiles_are_asked_and_pasted_where_they_go(self, bbox, z):
+        down = set(tiles_for_bbox(bbox, z)[:1])
+        missing = []
+        whole = _xyz.stitch_xyz(lambda *t: self._tile(t[1]), bbox, z)
+        short = _xyz.stitch_xyz(lambda *t: None if t in down else self._tile(t[1]),
+                                bbox, z, missing)
+        assert set(missing) == down
+        asked = []
+
+        def fetch(*tile):
+            asked.append(tile)
+            return self._tile(tile[1])
+
+        mended, still = _xyz.mend_xyz(fetch, short, missing)
+        assert asked == missing and still == []
+        assert mended[0] == whole[0] and mended[1:] == whole[1:]
+        # a copy: a frame still drawing from the short canvas keeps it
+        assert mended[0] is not short[0] and short[0] != whole[0]
+
+    def test_a_mend_that_brings_nothing_hands_the_canvas_back(self):
+        missing = []
+        short = _xyz.stitch_xyz(lambda *t: None, (-180.0, -85.05, 180.0, 85.05), 1, missing)
+        mended, still = _xyz.mend_xyz(lambda *t: None, short, missing)
+        assert mended is short and still == missing
