@@ -973,8 +973,12 @@ class _LiveLoop:
         nothing on screen changed.  The caller owes a repaint after a
         'coalesce' whatever the later input says: the bytes waiting may
         be the terminal's reply to the last frame, which changes nothing.
+
+        The terminal's replies are taken first, then the help panel has
+        the input while it is open; the rest goes to _on_key or, for the
+        mouse, _on_mouse.
         """
-        from linecast.terminal.keys import read_key, wheel_code
+        from linecast.terminal.keys import read_key
         help_panel = self.help_panel
         action = read_key(self.term.fd,
                           text=bool(self.text_mode is not None and self.text_mode()))
@@ -999,9 +1003,21 @@ class _LiveLoop:
                     self.on_drag(*self.drag_delta, True)
                 self.drag_start = None
                 return 'repaint'
+            # A key the panel does not take closes it and goes on
             help_closed = was_helping and not help_panel.open
+        if isinstance(action, tuple):
+            verdict = self._on_mouse(*action[1:]) if self.mouse else None
+        else:
+            verdict = self._on_key(action)
+        if verdict is None and help_closed:
+            return 'repaint'  # even an unbound key must erase the panel
+        return verdict
+
+    def _on_key(self, action):
+        """A key (or None, for bytes that are none): the view's intercept
+        first, then the loop's own -- q, the modal's o, the arrows, space
+        -- then the view's on_action."""
         if (self.intercept is not None and action is not None
-                and not isinstance(action, tuple)
                 and self.intercept(action)):
             return 'repaint'
         if action == 'quit':
@@ -1036,74 +1052,100 @@ class _LiveLoop:
               and action.startswith('key:')):
             if self.on_action(action[4:]):
                 return self._coalesce_or_repaint()  # held-down keys (zoom taps)
-        elif self.mouse and isinstance(action, tuple) and action[0] == 'mouse':
-            _, cb, cx, cy, is_rel = action
-            wheel_cb = wheel_code(cb)
-            if wheel_cb in (64, 65):
-                if self.on_wheel is not None:
-                    # A view can own the wheel, or defer to ordinary scrolling
-                    # when its panel is closed.
-                    handled = self.on_wheel(1 if wheel_cb == 64 else -1, cx, cy)
-                    if handled is not NotImplemented:
-                        return self._coalesce_or_repaint() if handled else None
-                if self.active_alert is not None:
-                    # Scroll the modal
-                    self.modal_scroll += 3 if wheel_cb == 65 else -3
-                    self.modal_scroll = max(0, self.modal_scroll)
-                else:
-                    self._scrub(1 if wheel_cb == 64 else -1)
-                return self._coalesce_or_repaint()  # rapid scrolling
-            if is_rel:
-                # Button release — completes a drag gesture if one
-                # started; otherwise ignore.
-                if self.drag_start is not None:
-                    dcol, drow = cx - self.drag_start[0], cy - self.drag_start[1]
-                    self.drag_start = None
-                    clicked = (dcol == 0 and drow == 0
-                               and self.on_click is not None
-                               and self.on_click(cx, cy))
-                    if self.on_drag(dcol, drow, True) or clicked:
-                        return 'repaint'
-                return None
-            if (cb & 0b11) == 0 and not (cb & 0x20):
-                # Left button press (not release, not motion)
-                if self.on_drag is not None:
-                    self.drag_start = (cx, cy)
-                    self.drag_delta = (0, 0)
-                row_idx = cy - 1  # 1-based → 0-based
-                if self.active_alert is not None:
-                    # Click while modal open — dismiss
-                    self.active_alert = None
-                    self.modal_scroll = 0
-                    return 'repaint'
-                elif row_idx in self.alert_row_map:
-                    spans = self.alert_row_map[row_idx]
-                    col_idx = cx - 1  # 1-based → 0-based
-                    self.active_alert = next(
-                        (i for start, end, i in spans
-                         if start <= col_idx <= end),
-                        spans[0][2])
-                    self.modal_scroll = 0
-                    return 'repaint'
-            if cb & 32:
-                if self.drag_start is not None:
-                    # mid-drag: live preview with cumulative delta
-                    dcol, drow = cx - self.drag_start[0], cy - self.drag_start[1]
-                    self.drag_delta = (dcol, drow)
-                    if self.on_drag(dcol, drow, False):
-                        return self._coalesce_or_repaint()  # rapid drag motion
-                    return None
-                # Hover-capable terminals: render once at the final position.
-                self.mouse_pos = (cx, cy)
-                return self._coalesce_or_repaint()
-            # Fallback for terminals without motion reporting:
-            # update pointer on press so tooltip can still appear.
-            if (cb & 0b11) in (0, 1, 2):
-                self.mouse_pos = (cx, cy)
-                return 'repaint'
-        if help_closed:
-            return 'repaint'  # even an unbound key must erase the panel
         return None
+
+    def _on_mouse(self, cb, cx, cy, is_rel):
+        """A mouse report: button code `cb`, the pointer's 1-based
+        (cx, cy), and whether a button was released."""
+        from linecast.terminal.keys import wheel_code
+        wheel_cb = wheel_code(cb)
+        if wheel_cb in (64, 65):
+            return self._on_wheel(1 if wheel_cb == 64 else -1, cx, cy)
+        if is_rel:
+            return self._on_release(cx, cy)
+        if (cb & 0b11) == 0 and not (cb & 0x20):
+            # Left button press (not release, not motion)
+            verdict = self._on_press(cx, cy)
+            if verdict is not None:
+                return verdict
+        if cb & 32:
+            return self._on_motion(cx, cy)
+        # Fallback for terminals without motion reporting:
+        # update pointer on press so tooltip can still appear.
+        if (cb & 0b11) in (0, 1, 2):
+            self.mouse_pos = (cx, cy)
+            return 'repaint'
+        return None
+
+    def _on_wheel(self, direction, cx, cy):
+        """A wheel notch, +1 up or -1 down: the view's on_wheel, unless it
+        defers; else the open modal scrolls, or time (or the animation)
+        does."""
+        if self.on_wheel is not None:
+            # A view can own the wheel, or defer to ordinary scrolling
+            # when its panel is closed.
+            handled = self.on_wheel(direction, cx, cy)
+            if handled is not NotImplemented:
+                return self._coalesce_or_repaint() if handled else None
+        if self.active_alert is not None:
+            # Scroll the modal: down reads on
+            self.modal_scroll = max(0, self.modal_scroll - 3 * direction)
+        else:
+            self._scrub(direction)
+        return self._coalesce_or_repaint()  # rapid scrolling
+
+    def _on_release(self, cx, cy):
+        """A button released: the end of a drag gesture, and a click if
+        it ended where it began; nothing if no drag started."""
+        if self.drag_start is None:
+            return None
+        dcol, drow = cx - self.drag_start[0], cy - self.drag_start[1]
+        self.drag_start = None
+        clicked = (dcol == 0 and drow == 0
+                   and self.on_click is not None
+                   and self.on_click(cx, cy))
+        if self.on_drag(dcol, drow, True) or clicked:
+            return 'repaint'
+        return None
+
+    def _on_press(self, cx, cy):
+        """The left button pressed: where a drag starts, if the view takes
+        drags, and a click on the alert modal, which dismisses it, or on
+        an alert, which opens it.  None when the press is only the
+        pointer's (see _on_mouse)."""
+        if self.on_drag is not None:
+            self.drag_start = (cx, cy)
+            self.drag_delta = (0, 0)
+        row_idx = cy - 1  # 1-based → 0-based
+        if self.active_alert is not None:
+            # Click while modal open — dismiss
+            self.active_alert = None
+            self.modal_scroll = 0
+            return 'repaint'
+        elif row_idx in self.alert_row_map:
+            spans = self.alert_row_map[row_idx]
+            col_idx = cx - 1  # 1-based → 0-based
+            self.active_alert = next(
+                (i for start, end, i in spans
+                 if start <= col_idx <= end),
+                spans[0][2])
+            self.modal_scroll = 0
+            return 'repaint'
+        return None
+
+    def _on_motion(self, cx, cy):
+        """The pointer moved: a drag's live preview while a button is
+        held, else the hover chip follows it."""
+        if self.drag_start is not None:
+            # mid-drag: live preview with cumulative delta
+            dcol, drow = cx - self.drag_start[0], cy - self.drag_start[1]
+            self.drag_delta = (dcol, drow)
+            if self.on_drag(dcol, drow, False):
+                return self._coalesce_or_repaint()  # rapid drag motion
+            return None
+        # Hover-capable terminals: render once at the final position.
+        self.mouse_pos = (cx, cy)
+        return self._coalesce_or_repaint()
 
 
 # ---------------------------------------------------------------------------
