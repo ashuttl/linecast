@@ -59,6 +59,9 @@ class TidesApp(LocationMenu, _live.LiveApp):
     # loading toast.  One already on disk is back well inside it, and a
     # toast for it would only flicker.
     LONG_GRACE = 0.4
+    # A month or year that could not be had waits this long before it is
+    # asked for again, so a dead network is not asked on every repaint
+    LONG_HOLD = 30.0
 
     def __init__(self, provider, station_id, station_name, station_meta,
                  station_tz, runtime, predictions, hilo, fetched_start,
@@ -96,11 +99,13 @@ class TidesApp(LocationMenu, _live.LiveApp):
         self.months = 0              # the month view's offset from this month
         self.years = 0               # the year view's from this year
         # (view, station, month or year) -> what that view draws; a
-        # worker fetches the one on screen, and a failure waits a while
+        # worker fetches the one on screen.  A fetch that failed keeps
+        # nothing here, only when it failed, so it is asked for again
+        # once LONG_HOLD has gone by.
         self._long = {}
+        self._long_held = {}         # key -> monotonic; when its fetch failed
         self._long_worker = None
         self._long_started = 0.0     # monotonic; when that worker set out
-        self._long_retry_at = 0.0
 
     @property
     def views(self):
@@ -247,30 +252,31 @@ class TidesApp(LocationMenu, _live.LiveApp):
             return (self.view, self.station_id, month_of(today, self.months))
         return ("year", self.station_id, today.year + self.years)
 
+    def _held(self, key):
+        """Whether *key*'s last fetch failed too recently to ask again."""
+        failed = self._long_held.get(key)
+        return failed is not None and _t.monotonic() - failed < self.LONG_HOLD
+
     def _start_long(self):
         """Fetch the month or year on screen, off the loop.  A month is one
         of NOAA's requests; a year of high and low waters is twelve, and
         what the gauge measured two or three more."""
         key = self._long_key()
-        if key in self._long:
+        if key in self._long or self._held(key):
             return
         if key[0] == "makeup" and ("makeup fit", self.station_id) in self._long:
             # The makeup view fetches once, for its fit.  With that in
             # hand another month is sums alone, a twentieth of a second
             # of them, so it is made here and the view never draws a
             # month it has not got.
-            if _t.monotonic() < self._long_retry_at:
-                return
             try:
                 self._long[key] = self._make_up(self.provider, self.station_id,
                                                 self.station_tz, self._today(), key[2])
             except Exception as exc:
                 log_failure("tides", "makeup view", exc, fallback="view left empty")
-                self._long_retry_at = _t.monotonic() + 30
+                self._long_held[key] = _t.monotonic()
             return
-        if (self._loading is not None
-                or _t.monotonic() < self._long_retry_at
-                or (self._long_worker and self._long_worker.is_alive())):
+        if self._loading is not None or (self._long_worker and self._long_worker.is_alive()):
             return
         provider, station_id, tz = self.provider, self.station_id, self.station_tz
         today = self._today()
@@ -289,16 +295,25 @@ class TidesApp(LocationMenu, _live.LiveApp):
                     from linecast.tides.year import daily_ranges
                     hilo = provider.hilo_range(station_id, date(when, 1, 1),
                                                date(when, 12, 31), tz)
-                    data = (daily_ranges(hilo),
-                            provider.observed_extremes(station_id, when, today),
-                            provider.flood_stage(station_id))
+                    # without the turns there is no year, and the gauge
+                    # is read at them, so it is not asked
+                    data = ((daily_ranges(hilo),
+                             provider.observed_extremes(station_id, when, today),
+                             provider.flood_stage(station_id)) if hilo else ({}, {}, None))
             except Exception as exc:
                 log_failure("tides", f"{kind} view", exc, fallback="view left empty")
                 data = None
-            if data is None:
-                self._long_retry_at = _t.monotonic() + 30
-            else:
+            if _answered(kind, data):
                 self._long[key] = data
+                self._long_held.pop(key, None)
+            else:
+                # A provider answers a fetch that failed with nothing,
+                # which is no answer: a flat sea kept here would stand
+                # for the month all session
+                if data is not None:
+                    log_failure("tides", f"{kind} view", LookupError("nothing came back"),
+                                fallback=f"asked again in {self.LONG_HOLD:.0f} s")
+                self._long_held[key] = _t.monotonic()
             _live.nudge()
 
         self._long_started = _t.monotonic()
@@ -462,6 +477,21 @@ class TidesApp(LocationMenu, _live.LiveApp):
         floating = self.menu_overlay(cols, rows)
         output = _live.overlay(output, floating)
         return output, {}
+
+
+def _answered(kind, data):
+    """Whether what a month, year or makeup worker brought back is an
+    answer.  The providers answer a failed fetch with an empty list, so
+    a month is answered only with its curve and its turns, and a year
+    with its days; what the gauge measured and the flood stage may be
+    missing from an answer, as they are where there is no gauge."""
+    if data is None:
+        return False
+    if kind == "month":
+        return bool(data[0]) and bool(data[1])
+    if kind == "year":
+        return bool(data[0])
+    return True
 
 
 # ---------------------------------------------------------------------------

@@ -14,6 +14,7 @@ Notable changes, by release. Notes for the next release collect under **Unreleas
 - Maps: Fixed the live map stopping short of places beyond 80 degrees of latitude, such as Alert, Nunavut.
 - Maps: Fixed a crash when flying a long way out over a short distance, such as pressing `n` close to home at street zoom when the map started on the globe.
 - Maps: When a tile server refuses or the network is down, the map waits a moment before asking again, rather than asking on every mouse movement. Radar's temperature and wind layers wait the same way.
+- Tides: A month or year view that fails to load, as when the network drops, is tried again after a short wait instead of staying empty until linecast is restarted.
 - Tides: Fixed the missing night shading on the chart at stations from TICON-4.
 - Tides: `--station` accepts the five-digit codes the Canadian Hydrographic Service gives its stations, such as 00490 for Halifax.
 

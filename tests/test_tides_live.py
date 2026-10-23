@@ -493,10 +493,57 @@ class TestLongViews:
         provider.fail = True
         self._settle(app)
         assert ("year", "8418150", 2026) not in app._long
-        assert app._long_retry_at > 0
+        assert ("year", "8418150", 2026) in app._long_held
         calls, worker = len(provider.calls), app._long_worker
         app._start_long()                                 # inside the pause
         assert len(provider.calls) == calls and app._long_worker is worker
+
+    @pytest.mark.parametrize("view, kept", [
+        ("month", ("month", "8418150", date(2026, 3, 1))),
+        ("year", ("year", "8418150", 2026)),
+    ])
+    def test_nothing_come_back_is_not_kept_and_is_asked_for_again(self, window, monkeypatch,
+                                                                   view, kept):
+        # The providers answer a failed fetch with an empty list, not an
+        # error; kept, it would be an empty month all session
+        app, provider = _tidal_app(view)
+        answer = TidalProvider.tides_range, TidalProvider.hilo_range
+        monkeypatch.setattr(TidalProvider, "tides_range", lambda *a: [])
+        monkeypatch.setattr(TidalProvider, "hilo_range", lambda *a: [])
+        self._settle(app)
+        assert kept not in app._long and kept in app._long_held
+        worker = app._long_worker
+        app._start_long()                                 # inside the pause
+        assert app._long_worker is worker
+        monkeypatch.setattr(TidalProvider, "tides_range", answer[0])
+        monkeypatch.setattr(TidalProvider, "hilo_range", answer[1])
+        now = _tides_live._t.monotonic()
+        monkeypatch.setattr(_tides_live._t, "monotonic", lambda: now + app.LONG_HOLD + 1)
+        self._settle(app)                                 # the pause is over
+        assert kept in app._long and kept not in app._long_held
+        assert app._long[kept][0]
+
+    def test_a_month_without_its_turns_is_not_kept(self, window, monkeypatch):
+        app, provider = _tidal_app("month")
+        monkeypatch.setattr(TidalProvider, "hilo_range", lambda *a: [])
+        self._settle(app)
+        assert app._long_key() not in app._long
+
+    def test_a_year_without_its_turns_does_not_ask_the_gauge(self, window, monkeypatch):
+        app, provider = _tidal_app("year")
+        monkeypatch.setattr(TidalProvider, "hilo_range", lambda *a: [])
+        self._settle(app)
+        assert not [c for c in provider.calls if c[0] == "observed"]
+
+    def test_a_failure_holds_only_its_own_month(self, window, monkeypatch):
+        app, provider = _tidal_app("month")
+        answer = TidalProvider.hilo_range
+        monkeypatch.setattr(TidalProvider, "hilo_range", lambda *a: [])
+        self._settle(app)
+        monkeypatch.setattr(TidalProvider, "hilo_range", answer)
+        app.intercept("fwd")                              # on to April, at once
+        self._settle(app)
+        assert ("month", "8418150", date(2026, 4, 1)) in app._long
 
     def test_what_is_made_is_kept(self, window):
         app, provider = _tidal_app("month")
