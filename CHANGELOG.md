@@ -33,6 +33,7 @@ Notable changes, by release. Notes for the next release collect under **Unreleas
 - Maps: Fixed the live map stopping short of places beyond 80 degrees of latitude, such as Alert, Nunavut.
 - Maps: Fixed a crash when flying a long way out over a short distance, such as pressing `n` close to home at street zoom when the map started on the globe.
 - Maps: When a tile server refuses or the network is down, the map waits a moment before asking again, rather than asking on every mouse movement. Radar's temperature and wind layers wait the same way.
+- Maps: Day and night on the map follow the same Sun as the sunshine and sky views.
 - Location: Place names ending in "UK" or "USA", such as `--location "London, UK"`, are found.
 - Location: When the network stops answering, a command waits for the place's name once instead of several times over.
 - Location: A damaged location cache is fetched again instead of stopping every command with an error.

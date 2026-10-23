@@ -28,6 +28,19 @@ class TestSubsolar:
         _lat, lon = globe_now.subsolar(t)
         assert -95.0 < lon < -85.0
 
+    def test_the_sun_is_overhead_there_by_the_ephemeris(self):
+        # The globe's Sun is the one sunrise is timed by: standing at
+        # the subsolar point, the ephemeris puts it at the zenith. Its
+        # own formula was up to a third of a degree from it.
+        from datetime import datetime, timedelta, timezone
+        from linecast.astro.ephemeris import sun_alt_az_deg
+        start = datetime(2026, 1, 1, tzinfo=timezone.utc)
+        for hours in range(0, 365 * 24, 53):
+            moment = start + timedelta(hours=hours)
+            lat, lon = globe_now.subsolar(moment.timestamp())
+            assert -180.0 <= lon <= 180.0
+            assert sun_alt_az_deg(moment, lat, lon)[0] > 89.999
+
 
 class TestDaylight:
     def test_noon_night_and_space(self):

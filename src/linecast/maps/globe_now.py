@@ -29,17 +29,17 @@ filtered to the screen resolution rather than inferred from population.
 import math
 import threading
 import time
+from datetime import datetime, timezone
 
 from linecast.maps import night_lights as _night_lights
 from linecast.radar import tiles
-from linecast._geo import wrap_lon
 from linecast._xyz import stitch_xyz
 from linecast.maps.globe import _aspect, _source_zoom, bilinear_taps, geometry
 from linecast._png import decode_rgba
 from linecast._log import log_failure
 from linecast.terminal.scenes import FAIL_HOLD, FAIL_HOLD_MAX, Memo
 from linecast.terminal.theme import themed
-from linecast.sunshine.solar import _declination
+from linecast.astro.ephemeris import subsolar_point
 
 ATTRIBUTION = "Clouds: LibreWXR · CC BY 4.0"
 
@@ -176,17 +176,10 @@ _theme.on_reload(_rebuild)
 def subsolar(t=None):
     """(lat, lon) of the point under the sun at unix time `t` (now).
 
-    Declination shares sunshine's formula; the longitude adds the
-    equation of time, worth up to four degrees — a braille cell's worth
-    of terminator at planet scale.
+    The ephemeris's: the same Sun the sunshine and sky views place.
     """
-    tm = time.gmtime(time.time() if t is None else t)
-    utc_h = tm.tm_hour + tm.tm_min / 60.0 + tm.tm_sec / 3600.0
-    b = math.radians(360.0 / 364.0 * (tm.tm_yday - 81))
-    eot_min = (9.87 * math.sin(2 * b) - 7.53 * math.cos(b)
-               - 1.5 * math.sin(b))
-    lon = 15.0 * (12.0 - utc_h - eot_min / 60.0)
-    return _declination(tm.tm_yday), wrap_lon(lon)
+    moment = datetime.fromtimestamp(time.time() if t is None else t, timezone.utc)
+    return subsolar_point(moment)
 
 
 # the ramp's two ends as sines of the solar altitude.  Whole night and

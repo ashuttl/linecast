@@ -4,8 +4,8 @@ the sunshine views plot a day by.
 Both come from the ephemeris: the sunrise and sunset are
 astro.ephemeris.sunrise_sunset, the one the tides' and the weather's
 month views and the traditional hours read too, and the height is the
-same ephemeris's. The tides chart, the globe and the one-line summaries
-borrow from here as well.
+same ephemeris's. The tides chart and the one-line summaries borrow
+from here as well.
 """
 
 import math
@@ -48,19 +48,6 @@ def _clock(day, offset_h):
 
 def _hours_since(midnight, moment):
     return (moment - midnight).total_seconds() / 3600
-
-
-@lru_cache(maxsize=1024)
-def _declination_on(year, doy):
-    """Solar declination in degrees at UTC noon on a day of *year*."""
-    noon = datetime(year, 1, 1, 12, tzinfo=timezone.utc) + timedelta(days=doy - 1)
-    return sun_declination(noon)
-
-
-def _declination(doy):
-    """Solar declination in degrees at UTC noon on day *doy* of the
-    user's year (_day_of), from the ephemeris."""
-    return _declination_on(_local_today().year, doy)
 
 
 def solar_times(lat, lng, doy, tz_offset_h=None):

@@ -703,6 +703,14 @@ def sun_alt_az_deg(dt_utc, lat_deg, lng_deg):
     return _alt_az_deg(ra, dec, dt_utc, lat_deg, lng_deg)
 
 
+def subsolar_point(dt_utc):
+    """(lat, lng) in degrees of the place with the Sun overhead: its
+    declination, and the meridian it is crossing, where its hour angle
+    is zero, from -180 to 180. sun_alt_az_deg gives 90° there."""
+    ra, dec = _sun_ra_dec(dt_utc)
+    return dec, (ra - _gmst_deg(dt_utc) + 540.0) % 360.0 - 180.0
+
+
 def moon_horizontal_parallax_deg(dt_utc):
     """The Moon's horizontal parallax: how far below its geocentric place
     an observer with the Moon on the horizon sees it, about a degree.
