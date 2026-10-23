@@ -68,15 +68,15 @@ class TestApply:
     def test_import_time_palettes_follow(self, restore_theme):
         _theme._apply(*DARK)
         dark = (style.TEXT_RGB, palette.INFO_TEXT_RGB,
-                tides.TEXT_RGB, moon_palette.MOON_SHADOW_RGB, basemap.SEA_FILL)
+                tides.PILL_FG_RGB, moon_palette.MOON_SHADOW_RGB, basemap.SEA_FILL)
         _theme._apply(*LIGHT)
         light = (style.TEXT_RGB, palette.INFO_TEXT_RGB,
-                 tides.TEXT_RGB, moon_palette.MOON_SHADOW_RGB, basemap.SEA_FILL)
+                 tides.PILL_FG_RGB, moon_palette.MOON_SHADOW_RGB, basemap.SEA_FILL)
         for d, lt in zip(dark, light):
             assert d != lt
         # text is ink on the new background, not the old one
         assert _theme.contrast_ratio(style.TEXT_RGB, (250, 250, 248)) >= 4.5
-        assert _theme.contrast_ratio(tides.TEXT_RGB, (250, 250, 248)) >= 4.5
+        assert _theme.contrast_ratio(tides.PILL_FG_RGB, (250, 250, 248)) >= 4.5
         # the ground follows the background; the inks keep the theme's hues
         assert _maps_style._light()
         assert _maps_style.ground_color() != _maps_style._GROUND_ANCHOR_DARK
