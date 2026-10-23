@@ -14,13 +14,9 @@ from linecast.weather.i18n import _s
 from linecast._i18n import DAY_NAMES
 from linecast.weather.alert_feeds import ALERTS_OK, ALERTS_STALE, ALERTS_UNAVAILABLE
 from linecast.weather.style import (
-    ALERT_AMBER,
     ALERT_AMBER_RGB,
-    ALERT_BLUE,
     ALERT_BLUE_RGB,
-    ALERT_RED,
     ALERT_RED_RGB,
-    ALERT_YELLOW,
     ALERT_YELLOW_RGB,
     DIM_RGB,
     LINK_RGB,
@@ -82,16 +78,6 @@ def alerts_notice(alerts, width, runtime=None, tz_name=""):
     else:
         return None
     return f"{MUTED}{fit(text, max(1, width))}{RESET}"
-
-
-def _severity_color(severity):
-    if severity in ("Extreme", "Severe"):
-        return ALERT_RED
-    if severity == "Moderate":
-        return ALERT_AMBER
-    if severity == "Minor":
-        return ALERT_BLUE
-    return ALERT_YELLOW
 
 
 def _severity_rgb(severity):

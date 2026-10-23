@@ -866,11 +866,6 @@ def comparative_sentence(daily, now, runtime=None):
     return _comparison(daily, now, runtime)[0]
 
 
-def _comparative_line(daily, now, runtime=None):
-    """ANSI-colored comparative sentence for the dashboard."""
-    return _prose(comparative_sentence(daily, now, runtime))
-
-
 # ---------------------------------------------------------------------------
 # The highs ahead
 # ---------------------------------------------------------------------------

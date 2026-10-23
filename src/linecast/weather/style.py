@@ -41,8 +41,7 @@ def _rebuild():
     global CHART_BG_DAY_RGB, CHART_HOVER_RGB, CHART_NOW_RGB, SUNRISE_LABEL_RGB
     global SUNSET_LABEL_RGB, TOOLTIP_BG_RGB, TOOLTIP_TEXT_RGB, MODAL_BG_RGB
     global MODAL_BORDER_RGB, LINK_RGB, TEXT, DIM, MUTED, PRECIP, PRECIP_RAIN
-    global PRECIP_SNOW, PRECIP_MIX, PRECIP_STORM, ALERT_RED, ALERT_AMBER
-    global ALERT_YELLOW, ALERT_BLUE, WIND_COLOR, SEP, CLOUD_RGB
+    global ALERT_AMBER, WIND_COLOR, CLOUD_RGB
     global CHIP_BG_RGB, CHIP_FG_RGB, CHIP, TOOLTIP_DIM_RGB
     TEXT_RGB = ensure_contrast(_theme.theme_fg, _theme.theme_bg, minimum=4.5)
     DIM_RGB = ensure_contrast(neutral_tone(0.32), _theme.theme_bg, minimum=2.0)
@@ -137,16 +136,9 @@ def _rebuild():
     MUTED = fg(*MUTED_RGB)
     PRECIP = fg(*PRECIP_RAIN_RGB)  # blue (rain) — kept for daily text
     PRECIP_RAIN = fg(*PRECIP_RAIN_RGB)
-    PRECIP_SNOW = fg(*PRECIP_SNOW_RGB)
-    PRECIP_MIX = fg(*PRECIP_MIX_RGB)
-    PRECIP_STORM = fg(*PRECIP_STORM_RGB)
-    ALERT_RED = fg(*ALERT_RED_RGB)
     ALERT_AMBER = fg(*ALERT_AMBER_RGB)
-    ALERT_YELLOW = fg(*ALERT_YELLOW_RGB)
-    ALERT_BLUE = fg(*ALERT_BLUE_RGB)
     WIND_COLOR = fg(*WIND_RGB)
 
-    SEP = f"{MUTED} · "
     CHIP = (fg(*CHIP_BG_RGB), bg(*CHIP_BG_RGB), fg(*CHIP_FG_RGB))
 
 

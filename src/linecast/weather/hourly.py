@@ -743,35 +743,6 @@ def _render_today_line(width, chart_lo, chart_hi, midnight_day_names, sun_labels
     return f"{today_left}{mid_str}{' ' * max(0, pad)}{today_right}{RESET}"
 
 
-def _render_extrema_line(extrema, graph_w, runtime, is_peak):
-    """Render one extrema annotation line (peaks above or valleys below)."""
-    points = sorted([(x, t) for x, t, peak in extrema if peak == is_peak])
-    if not points:
-        return None
-
-    segments, cursor = [], 0
-    for x, temp in points:
-        label = f"{round(temp)}°"
-        pos = max(cursor, x - len(label) // 2)
-        if pos + len(label) > graph_w:
-            continue
-        if pos > cursor:
-            segments.append((" " * (pos - cursor), None))
-        segments.append((label, temp))
-        cursor = pos + len(label)
-    if not segments:
-        return None
-
-    line = ""
-    for text, temp in segments:
-        if temp is None:
-            line += text
-            continue
-        r, g, b = _temp_color(temp, runtime)
-        line += f"{fg(r, g, b)}{text}"
-    return f"{line}{RESET}"
-
-
 def _compute_extrema_overlays(extrema, col_temps, n_rows, graph_w, runtime, value_range=None):
     """Map temperature extrema to overlay labels on specific braille rows."""
     if not extrema or n_rows < 1:
@@ -1128,24 +1099,6 @@ def _render_shared_row(wind, uv, graph_w, midnight_cols=None, hover_col=None, no
         last_end = start + len(text) - 1
     return _render_label_canvas(canvas, graph_w, WIND_COLOR, midnight_cols=midnight_cols,
                                 hover_col=hover_col, now_col=now_col, colors=colors)
-
-
-def _render_wind_row(window_winds, window_wind_dirs, total_hours, graph_w, runtime,
-                     midnight_cols=None, hover_col=None, now_col=None):
-    """Render wind arrows/speed labels at high-wind positions."""
-    placed = _place_wind_labels(window_winds, window_wind_dirs, total_hours, graph_w, runtime)
-    return _render_label_canvas(_labels_to_canvas(placed, graph_w), graph_w, WIND_COLOR,
-                                midnight_cols=midnight_cols, hover_col=hover_col,
-                                now_col=now_col)
-
-
-def _render_uv_row(window_uv, total_hours, graph_w, runtime,
-                    midnight_cols=None, hover_col=None, now_col=None):
-    """Render UV index labels where protection is called for (UV_LABEL_MIN up)."""
-    placed = _place_uv_labels(window_uv, total_hours, graph_w, runtime)
-    return _render_label_canvas(_labels_to_canvas(placed, graph_w), graph_w, UV_COLOR,
-                                midnight_cols=midnight_cols, hover_col=hover_col,
-                                now_col=now_col)
 
 
 def _render_precip_rows(window_amount, window_precip, window_codes, graph_w, n_precip_rows,
