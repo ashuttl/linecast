@@ -1,5 +1,128 @@
 """The prose under the graph: what the next hours and days will bring,
-in a sentence or two (narrative_lines, narrative_text)."""
+in a sentence or two (narrative_lines, narrative_text).
+
+narrative_text writes the paragraph, and narrative_lines wraps it for
+the dashboard.  They read three things.  `data` is the forecast as
+weather/forecast.py fetched it, Open-Meteo's dict with its current,
+hourly and daily blocks.  Before it gets here, observed.py may have put
+a nearby station's sky in `current`, noting the station under
+current["observed"], and the station's gauge for the last day beside it
+in data["observed_precipitation"]; humidex.py may have added Canada's
+humidex and wind chill.  `now` is the local time at the place as a
+naive datetime, on the same clock as the forecast's hour stamps.  The
+runtime gives the language, the units and the clock.  The hour we are
+in is read as the station saw it, where there is one (_observed_hour),
+so the paragraph starts from what the header shows.
+
+Each kind of sentence has a builder: a function that returns the
+sentence, or "" when it has nothing to say, and usually the hour the
+sentence is about.  narrative_text calls the builders in the order
+below and hands each to add(), which keeps it as a candidate with:
+
+- its salience, a small whole number for how sure a person would be to
+  mention it;
+- the time it is about, in hours from now, which sets where it reads;
+- its anchor, the hour it is about, and the last hour it names, which
+  is the anchor unless it names a later one;
+- a function that builds its text, given `after`, and its place in the
+  order the candidates were added.
+
+A candidate is kept as a function rather than as its text, because the
+words of a sentence can depend on the one before it.  narrative_text
+calls a builder once up front, to learn whether it has anything to say
+and which hour it is about; add() calls the candidate's function with
+after=None, keeps it only if it says something, and records that text
+for the trace; and the chosen ones are called again as the paragraph is
+written.  So a builder that takes `after` can run three times for one
+paragraph, and must have no effect beyond what it returns.  A sentence
+whose words never depend on the one before it (the feeling now, today's
+comparison, the snow, the week's turn) is built once, and its function
+only hands it back.
+
+The builders are called in this order:
+
+1. Precipitation in the next 24 hours: falling and going on, falling
+   and ending, or starting (_precip_parts).  Gusts in the same part of
+   the day ride on its sentence ("with_gusts") where the language has
+   the form, and the sentence takes the higher salience of the two;
+   otherwise the strongest gusts in the 24 hours are a candidate of
+   their own (_gusts).
+2. More precipitation within the 24 hours, after a break of three hours
+   or more (more_later_sentence).
+3. The snow on the ground when the snow stops (_snow_sentence).
+4. Why it feels warmer or colder now than the thermometer reads
+   (_feels), unless the sentence about the felt temperature ahead names
+   the same cause.
+5. Before 14:00, today's high against yesterday's, and tomorrow's high
+   when that is a change (_comparison, _high_tomorrow).  From 14:00,
+   tomorrow's high against today's, placed at noon tomorrow.
+6. Fog in the day ahead, and when it lifts (_fog).
+7. A lasting change in the sky, unless there is fog (_sky).
+8. A freeze tonight (_freeze).
+9. The felt temperature at the hottest or coldest hour ahead, when it
+   is extreme (_feels_ahead).
+10. A turn in the week's highs after tomorrow (_highs_turn).
+11. The next rain in the week, when none falls in the next 24 hours
+    (_next_rain).
+12. What fell in the last day (past_precip_sentence).
+
+The paragraph takes at most _MAX_SENTENCES of the candidates.  They are
+ranked by salience, highest first; of two with the same salience, the
+one about the sooner time is taken, and of two about the same time, the
+one added first.  Salience is what a person would be sure to mention:
+
+- 5: heavy or freezing precipitation, a gale (gusts of 60 km/h or
+  more), 10 cm of snow or more;
+- 4: other precipitation, less snow, fog, a freeze tonight, the felt
+  temperature ahead;
+- 3: gusts short of a gale, more later, the feeling now, a change in
+  the sky, a big change in today's or tomorrow's high;
+- 2: a smaller change in the high or none, tomorrow's high otherwise, a
+  big turn in the week's highs, the next rain, the last day's rain;
+- 1: a smaller turn in the week's highs.
+
+The comparison is what most people open the app for -- will it be like
+today out there, or not -- so it keeps its salience of 2 when the
+answer is "about the same".  A turn in the week's highs is said when
+there is room for it, unless it is a big one.
+
+The chosen sentences are then put in the order of the things they
+describe: now, later today, tonight, tomorrow, the week.  What fell in
+the last day is a footnote at the end.  The feeling now goes just ahead
+of the comparison about today: after "Today's high", "the humidity is
+making it feel warmer" would read as though it were about the high.
+
+As the paragraph is written, a sentence about the same later day as the
+one before it is passed that sentence's last hour as `after`, and
+_time_phrase and _period_phrase leave out the second "tomorrow": "Gusts
+to 40 km/h tomorrow morning.  It will be 3° cooler than today."  A
+sentence that names the same part of today as the one before it says
+the language's word for "then" instead (_part_of_day, through the _SAID
+context variable, which _said_in sets for each sentence).  The
+language's sentence_join and sentence_end put in the full stops.
+
+To add a sentence:
+
+1. Write its builder.  It takes `after=None` and returns its text, ""
+   when it has nothing to say, and the hour it is about.  It names an
+   hour with _time_phrase, or a part of the day with _period_phrase,
+   and passes them `after`.
+2. Put its template in the WEATHER table of locales/en.py, and of each
+   language that has the words.  The builder checks _has(key, runtime)
+   first and says nothing without it: an English sentence in a
+   paragraph in another language reads as a mistake.
+3. Call it from narrative_text, and hand it to add(salience,
+   hours(anchor), anchor, lambda after: ..., leaves=...) at the place in
+   the order above where it should win a tie.
+4. Test it in tests/test_weather_narrative.py.  `linecast prose --trace`
+   reads a frozen set of real forecasts and lists every candidate for
+   each, with its salience, its time and whether it was chosen.
+
+The public *_sentence functions (feels_sentence, sky_sentence and the
+rest) each build one kind of sentence on its own, with no sentence
+before it, so the tests can check one kind at a time.
+comparative_sentence is also the "summary" in weather --json.
+"""
 
 import contextvars
 import functools
@@ -110,24 +233,8 @@ def _prose_inches(n, runtime):
     return f"{n}{_s('precip_inch', runtime)}"
 
 
-# How many sentences the paragraph will carry, and which.  Each candidate
-# sentence comes with a salience, for choosing, and a time, for reading.
-#
-# Salience is what a person would be sure to mention: thunder, a freeze,
-# a gale, snow on the ground by morning, then rain and when, then the sky
-# and the felt temperature, then how today compares and what tomorrow
-# gets up to, then what fell yesterday.  The comparison is what most
-# people open the app for -- will it be like today out there, or not --
-# so it is never dropped lightly, "about the same" included.  A turn in
-# the week's highs comes last, said when there is room for it, unless
-# it is a big one.
-#
-# The sentences then read in the order of the things they describe: now,
-# later today, tonight, tomorrow, the week.  What fell in the last day
-# is a footnote at the end.  The feels-like sentence is about this hour,
-# so it goes ahead of the comparison about today: after "Today's high",
-# "the humidity is making it feel warmer" reads as though it were about
-# the high.  The comparison about tomorrow takes tomorrow's place.
+# How many sentences the paragraph carries; the module docstring says
+# how they are chosen and in what order they read.
 _MAX_SENTENCES = 4
 
 
