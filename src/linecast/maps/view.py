@@ -411,7 +411,7 @@ def _reprojection(prev, bbox, graph_w, height_cells):
         return None
     if min(pgw, phc, graph_w, height_cells) <= 0:
         return None
-    minlon, minlat, maxlon, maxlat = bbox
+    minlon, minlat, maxlon, maxlat = _overscan.unwrap(bbox, pbbox)
     pminlon, pminlat, pmaxlon, pmaxlat = pbbox
     span_x, span_y = maxlon - minlon, maxlat - minlat
     pspan_x, pspan_y = pmaxlon - pminlon, pmaxlat - pminlat

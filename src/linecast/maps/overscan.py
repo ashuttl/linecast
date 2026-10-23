@@ -82,6 +82,23 @@ class Frame(namedtuple("Frame", "bbox gw hc")):
         return (maxlon - minlon) / self.gw, (maxlat - minlat) / self.hc
 
 
+def unwrap(bbox, about):
+    """`bbox` moved by whole turns of longitude to sit beside `about`.
+
+    A built view's bbox is unwrapped about its own centre, so one built
+    just west of the antimeridian runs past 180 and a window panned
+    east of it starts near -180: the same ground, numbered a turn
+    apart.  Measured against each other as they stand, every pan east
+    across the line would be off the view in hand.
+    """
+    cx = (about[0] + about[2]) / 2
+    turns = round(((bbox[0] + bbox[2]) / 2 - cx) / 360.0)
+    if not turns:
+        return bbox
+    shift = turns * 360.0
+    return (bbox[0] - shift, bbox[1], bbox[2] - shift, bbox[3])
+
+
 def window_frame(bbox, gw, hc):
     """The Frame that is the window itself — no margin at all.
 
@@ -159,7 +176,7 @@ def locate(frame, bbox, gw, hc, inside=True, cap=None):
     would visibly swim is left to be built for itself.
     """
     fminlon, fminlat, fmaxlon, fmaxlat = frame.bbox
-    minlon, minlat, maxlon, maxlat = bbox
+    minlon, minlat, maxlon, maxlat = unwrap(bbox, frame.bbox)
     colw, rowh = frame.cell
     if colw <= 0 or rowh <= 0 or gw <= 0 or hc <= 0:
         return None

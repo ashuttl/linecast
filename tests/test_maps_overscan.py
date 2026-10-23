@@ -95,6 +95,34 @@ class TestThePlan:
         far = bbox_for(46.8 + 3 * 4.0 / hc, 8.2, 4.0, gw, hc)
         assert over.locate(frame, far, gw, hc) is None
 
+    @pytest.mark.parametrize("lon0", [179.996, -179.996])
+    def test_a_pan_across_the_antimeridian_is_still_a_crop(self, lon0):
+        # Fiji: a view built beside the line runs past it, and a window
+        # panned over it is numbered a turn away.  Six columns west was
+        # a crop and six east a blank stand-in and a rebuild
+        lat, gw, hc = -16.8, 60, 20
+        frame, (dx, dy) = over.plan(bbox_for(lat, lon0, ZOOM, gw, hc),
+                                    gw, hc)
+        colw = frame.cell[0]
+        for cols in (-6, -2, 2, 6):
+            lon = (lon0 + cols * colw + 180.0) % 360.0 - 180.0
+            window = bbox_for(lat, lon, ZOOM, gw, hc)
+            assert over.locate(frame, window, gw, hc) == (dx + cols, dy)
+            prev = (frame.bbox, frame.gw, frame.hc)
+            assert maps._translation(prev, window, gw, hc) == (dx + cols, dy)
+
+    def test_a_reprojection_across_the_antimeridian_finds_its_ground(self):
+        # past the margin the stand-in is the view in hand re-projected,
+        # and across the line it found none of it
+        lat, gw, hc = -16.8, 60, 20
+        frame, _at = over.plan(bbox_for(lat, 179.996, ZOOM, gw, hc), gw, hc)
+        prev = (frame.bbox, frame.gw, frame.hc)
+        lon = 179.996 + 30 * frame.cell[0] - 360.0
+        m = maps._reprojection(prev, bbox_for(lat, lon, ZOOM * 1.5, gw, hc),
+                               gw, hc)
+        assert m is not None
+        assert sum(c >= 0 for c in m.cols) > gw // 2
+
     def test_a_crop_is_the_sub_cells_the_built_view_already_held(self):
         frame, (dx, dy) = over.plan(self.BBOX, self.GW, self.HC)
         grid = [[(x, y) for x in range(frame.gw)]
