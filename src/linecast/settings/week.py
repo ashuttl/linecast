@@ -15,7 +15,7 @@ everywhere else; judged by the saved location or the machine's IP).
 import os
 
 from linecast._runtime import resolve_week_start
-from linecast._config import saved_week_start
+from linecast._config import saved
 from linecast.settings._command import forget, remember, run, show
 
 
@@ -29,7 +29,7 @@ def _cmd_show():
           "Run 'linecast week monday', 'linecast week sunday', or "
           "'linecast week saturday' to fix it."),
          "Run 'linecast week auto' to return to the default.",
-         saved_week_start())
+         saved("week"))
 
 
 def _cmd_set(week):

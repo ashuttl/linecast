@@ -52,7 +52,7 @@ class CalendarCommandTests(ConfigDirMixin):
         with redirect_stdout(io.StringIO()):
             calendar_cmd._cmd_auto()
         self.assertIsNone(_config.saved_calendar())
-        self.assertEqual(_config.saved_units(), "metric")
+        self.assertEqual(_config.saved("units"), "metric")
 
     def test_saved_calendar_ignores_junk_values(self):
         _config.write_config({"calendar": "mayan"})

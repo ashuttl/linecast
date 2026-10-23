@@ -12,7 +12,7 @@ terminal bundles them, emoji on other interactive terminals, plain
 Unicode when piped).
 """
 
-from linecast._config import saved_icons
+from linecast._config import saved
 from linecast.settings._command import forget, remember, run, show
 
 _DESCRIBE = {
@@ -32,7 +32,7 @@ def _cmd_show():
           "Detected from the terminal; piped output is always plain.",
           "Run 'linecast icons nerd|emoji|plain' to fix it."),
          "Run 'linecast icons auto' to return to the default.",
-         saved_icons())
+         saved("icons"))
 
 
 def _cmd_set(icons):

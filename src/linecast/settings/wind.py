@@ -17,7 +17,7 @@ takes are taken here too: kmh, ms, knots.
 import os
 import sys
 
-from linecast._config import saved_wind_units, wind_unit_of
+from linecast._config import SETTING, saved
 from linecast.settings._command import forget, remember, run, show
 
 
@@ -33,7 +33,7 @@ def _cmd_show():
           "Run 'linecast wind km/h', 'linecast wind m/s', 'linecast wind mph', "
           "or 'linecast wind kn' to fix it."),
          "Run 'linecast wind auto' to return to the default.",
-         saved_wind_units())
+         saved("wind"))
 
 
 def _cmd_set(unit):
@@ -56,7 +56,7 @@ def main():
          ("kn", "knots, whatever the other units"),
          ("auto", "clear the saved wind units and follow the units and the language")),
         _cmd_set, _cmd_auto, _cmd_show,
-        argv=[wind_unit_of(arg) or arg for arg in sys.argv[1:]])
+        argv=[SETTING["wind"].read(arg) or arg for arg in sys.argv[1:]])
 
 
 if __name__ == "__main__":

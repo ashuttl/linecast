@@ -274,7 +274,7 @@ def _real_home():
 class TestPrivateHome:
     def test_nothing_is_saved(self):
         assert _runtime.units_pref() is None
-        assert _config.saved_units() is None
+        assert _config.saved("units") is None
         assert _config.saved_location() is None
 
     def test_nothing_leaks_from_the_shell(self):

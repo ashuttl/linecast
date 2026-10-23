@@ -135,19 +135,19 @@ class SavedIconsTests(unittest.TestCase):
         from linecast.settings import icons
         with redirect_stdout(io.StringIO()):
             icons._cmd_set("nerd")
-        self.assertEqual(_config.saved_icons(), "nerd")
+        self.assertEqual(_config.saved("icons"), "nerd")
         out = io.StringIO()
         with redirect_stdout(out):
             icons._cmd_show()
         self.assertIn("nerd", out.getvalue())
         with redirect_stdout(io.StringIO()):
             icons._cmd_auto()
-        self.assertIsNone(_config.saved_icons())
+        self.assertIsNone(_config.saved("icons"))
 
     def test_saved_icons_ignores_junk(self):
         from linecast import _config
         _config.write_config({"icons": "webdings"})
-        self.assertIsNone(_config.saved_icons())
+        self.assertIsNone(_config.saved("icons"))
 
     def test_config_beats_detection(self):
         from linecast import _config

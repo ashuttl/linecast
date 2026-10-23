@@ -14,7 +14,7 @@ elsewhere).
 import os
 
 from linecast._runtime import resolve_clock
-from linecast._config import saved_clock
+from linecast._config import saved
 from linecast.settings._command import forget, remember, run, show
 
 
@@ -23,12 +23,12 @@ def _cmd_show():
     from linecast._location import own_country
     country = own_country()
     clock, source = resolve_clock(None, os.environ, country)
-    saved = saved_clock()
+    kept = saved("clock")
     show(f"{clock}-hour", source,
          (f"auto: {country or 'country unknown, so 24-hour'}",
           "Run 'linecast clock 12' or 'linecast clock 24' to fix it."),
          "Run 'linecast clock auto' to return to the default.",
-         saved and f"{saved}-hour")
+         kept and f"{kept}-hour")
 
 
 def _cmd_set(clock):

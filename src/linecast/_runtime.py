@@ -12,7 +12,7 @@ import re
 import sys
 
 from linecast import _config
-from linecast._config import ICON_SETS, WEEK_STARTS
+from linecast._config import SETTING, chosen
 from linecast._i18n import LOCALE_CODES
 from linecast._log import debug_enabled, debug_log, set_debug
 from linecast._parsers import _base_parser, tides_parser, weather_parser
@@ -129,15 +129,9 @@ def resolve_units(namespace=None, environ=None, legacy_env="WEATHER_UNITS",
             return "imperial", "flag"
         if getattr(namespace, "metric", False):
             return "metric", "flag"
-    for name in (legacy_env, "LINECAST_UNITS"):
-        if name is None:
-            continue
-        value = env.get(name, "").strip().lower()
-        if value in _config.UNITS_CHOICES:
-            return value, name
-    saved = _config.saved_units()
-    if saved is not None:
-        return saved, "config"
+    value, source = chosen("units", env, before=legacy_env)
+    if value is not None:
+        return value, source
     if country is _UNSET:
         from linecast._location import own_country
         country = own_country()
@@ -153,14 +147,11 @@ def resolve_clock(namespace=None, environ=None, country=_UNSET):
     default for *country*, looked up as resolve_units does.
     """
     env = _environ(environ)
-    if namespace is not None and getattr(namespace, "clock", None) in _config.CLOCK_CHOICES:
+    if namespace is not None and getattr(namespace, "clock", None) in SETTING["clock"].choices:
         return namespace.clock, "flag"
-    value = env.get("LINECAST_CLOCK", "").strip()
-    if value in _config.CLOCK_CHOICES:
-        return value, "LINECAST_CLOCK"
-    saved = _config.saved_clock()
-    if saved is not None:
-        return saved, "config"
+    value, source = chosen("clock", env)
+    if value is not None:
+        return value, source
     if country is _UNSET:
         from linecast._location import own_country
         country = own_country()
@@ -188,18 +179,12 @@ def resolve_wind_units(namespace=None, environ=None, metric=True, lang="en"):
     (`linecast wind kn`), then default_wind_unit for the units and the
     language.
     """
-    env = _environ(environ)
-    candidates = (
-        (getattr(namespace, "wind_units", None), "flag"),
-        (env.get("LINECAST_WIND_UNITS", ""), "LINECAST_WIND_UNITS"),
-    )
-    for value, source in candidates:
-        unit = _config.wind_unit_of(value)
-        if unit is not None:
-            return unit, source
-    saved = _config.saved_wind_units()
-    if saved is not None:
-        return saved, "config"
+    unit = SETTING["wind"].read(getattr(namespace, "wind_units", None))
+    if unit is not None:
+        return unit, "flag"
+    unit, source = chosen("wind", _environ(environ))
+    if unit is not None:
+        return unit, source
     return default_wind_unit(metric, lang), "auto"
 
 
@@ -213,14 +198,11 @@ def resolve_week_start(namespace=None, environ=None, country=_UNSET):
     as resolve_units does.
     """
     env = _environ(environ)
-    if namespace is not None and getattr(namespace, "week_start", None) in WEEK_STARTS:
+    if namespace is not None and getattr(namespace, "week_start", None) in SETTING["week"].choices:
         return namespace.week_start, "flag"
-    value = env.get("LINECAST_WEEK_START", "").strip().lower()
-    if value in WEEK_STARTS:
-        return value, "LINECAST_WEEK_START"
-    saved = _config.saved_week_start()
-    if saved is not None:
-        return saved, "config"
+    value, source = chosen("week", env)
+    if value is not None:
+        return value, source
     if country is _UNSET:
         from linecast._location import own_country
         country = own_country()
@@ -413,16 +395,13 @@ def resolve_icons(namespace=None, environ=None):
     """
     env = _environ(environ)
     explicit = getattr(namespace, "icons", None)
-    if explicit in ICON_SETS:
+    if explicit in SETTING["icons"].choices:
         return explicit, "flag"
     if getattr(namespace, "emoji", False):
         return "emoji", "flag"
-    env_pref = env.get("LINECAST_ICONS", "").strip().lower()
-    if env_pref in ICON_SETS:
-        return env_pref, "LINECAST_ICONS"
-    saved = _config.saved_icons()
-    if saved is not None:
-        return saved, "config"
+    value, source = chosen("icons", env)
+    if value is not None:
+        return value, source
     return default_icons(env), "auto"
 
 

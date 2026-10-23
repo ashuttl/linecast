@@ -15,7 +15,7 @@ machine's IP).
 import os
 
 from linecast._runtime import resolve_units
-from linecast._config import saved_units
+from linecast._config import saved
 from linecast.settings._command import forget, remember, run, show
 
 
@@ -28,7 +28,7 @@ def _cmd_show():
          (f"auto: {country or 'country unknown, so metric'}",
           "Run 'linecast units metric' or 'linecast units imperial' to fix it."),
          "Run 'linecast units auto' to return to the default.",
-         saved_units())
+         saved("units"))
 
 
 def _cmd_set(units):

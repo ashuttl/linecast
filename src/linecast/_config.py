@@ -99,13 +99,9 @@ _WIND_SPELLINGS = {"km/h": "km/h", "kmh": "km/h", "kph": "km/h",
                    "kn": "kn", "kt": "kn", "kts": "kn", "knot": "kn", "knots": "kn"}
 
 
-def wind_unit_of(value) -> str | None:
-    """The wind unit *value* names, as the wind setting spells it, or None."""
-    return _WIND_SPELLINGS.get(str(value or "").strip().lower())
-
-
 def _wind(value, _choices):
-    return wind_unit_of(value)
+    """The wind unit *value* names, by any of its spellings."""
+    return _WIND_SPELLINGS.get(str(value or "").strip().lower())
 
 
 def _dates(value, choices):
@@ -248,13 +244,8 @@ def chosen(name, environ=None, before=None):
 
 
 # The names the settings had before the table, until each is read from it
-UNITS_CHOICES = SETTING["units"].choices
-WIND_UNITS = SETTING["wind"].choices
-CLOCK_CHOICES = SETTING["clock"].choices
-WEEK_STARTS = SETTING["week"].choices
 DATES_CHOICES = SETTING["dates"].choices
 DIGITS_CHOICES = SETTING["digits"].choices
-ICON_SETS = SETTING["icons"].choices
 CALENDAR_CHOICES = SETTING["calendar"].choices
 CULTURE_CHOICES = SETTING["culture"].choices
 HOURS_CHOICES = SETTING["hours"].choices
@@ -268,32 +259,12 @@ def digits_choice(value):
     return SETTING["digits"].read(value)
 
 
-def saved_units() -> str | None:
-    return saved("units")
-
-
-def saved_wind_units() -> str | None:
-    return saved("wind")
-
-
-def saved_clock() -> str | None:
-    return saved("clock")
-
-
-def saved_week_start() -> str | None:
-    return saved("week")
-
-
 def saved_dates() -> str | None:
     return saved("dates")
 
 
 def saved_digits() -> str | None:
     return saved("digits")
-
-
-def saved_icons() -> str | None:
-    return saved("icons")
 
 
 def saved_language() -> str | None:

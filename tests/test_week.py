@@ -27,7 +27,7 @@ class WeekCommandTests(ConfigDirMixin):
     def test_set_sunday_saves_and_show_reports_it(self):
         with redirect_stdout(io.StringIO()):
             week._cmd_set("sunday")
-        self.assertEqual(_config.saved_week_start(), "sunday")
+        self.assertEqual(_config.saved("week"), "sunday")
 
         out = io.StringIO()
         with redirect_stdout(out):
@@ -38,15 +38,15 @@ class WeekCommandTests(ConfigDirMixin):
         with redirect_stdout(io.StringIO()):
             week._cmd_set("saturday")
             week._cmd_auto()
-        self.assertIsNone(_config.saved_week_start())
+        self.assertIsNone(_config.saved("week"))
 
     def test_saved_week_ignores_junk_values(self):
         _config.write_config({"week": "friday"})
-        self.assertIsNone(_config.saved_week_start())
+        self.assertIsNone(_config.saved("week"))
 
     def test_saved_week_tolerates_case_and_spaces(self):
         _config.write_config({"week": " Monday "})
-        self.assertEqual(_config.saved_week_start(), "monday")
+        self.assertEqual(_config.saved("week"), "monday")
 
 
 class ResolveWeekStartTests(ConfigDirMixin):

@@ -27,7 +27,7 @@ class ClockCommandTests(ConfigDirMixin):
     def test_set_12_saves_and_show_reports_it(self):
         with redirect_stdout(io.StringIO()):
             clock._cmd_set("12")
-        self.assertEqual(_config.saved_clock(), "12")
+        self.assertEqual(_config.saved("clock"), "12")
 
         out = io.StringIO()
         with redirect_stdout(out):
@@ -38,15 +38,15 @@ class ClockCommandTests(ConfigDirMixin):
         with redirect_stdout(io.StringIO()):
             clock._cmd_set("24")
             clock._cmd_auto()
-        self.assertIsNone(_config.saved_clock())
+        self.assertIsNone(_config.saved("clock"))
 
     def test_saved_clock_ignores_junk_values(self):
         _config.write_config({"clock": "13"})
-        self.assertIsNone(_config.saved_clock())
+        self.assertIsNone(_config.saved("clock"))
 
     def test_saved_clock_tolerates_a_bare_number(self):
         _config.write_config({"clock": 24})
-        self.assertEqual(_config.saved_clock(), "24")
+        self.assertEqual(_config.saved("clock"), "24")
 
 
 class ResolveClockTests(ConfigDirMixin):

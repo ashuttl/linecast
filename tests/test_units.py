@@ -34,7 +34,7 @@ class UnitsCommandTests(ConfigDirMixin):
     def test_set_metric_saves_and_show_reports_it(self):
         with redirect_stdout(io.StringIO()):
             units._cmd_set("metric")
-        self.assertEqual(_config.saved_units(), "metric")
+        self.assertEqual(_config.saved("units"), "metric")
 
         out = io.StringIO()
         with redirect_stdout(out):
@@ -45,11 +45,11 @@ class UnitsCommandTests(ConfigDirMixin):
         with redirect_stdout(io.StringIO()):
             units._cmd_set("imperial")
             units._cmd_auto()
-        self.assertIsNone(_config.saved_units())
+        self.assertIsNone(_config.saved("units"))
 
     def test_saved_units_ignores_junk_values(self):
         _config.write_config({"units": "cubits"})
-        self.assertIsNone(_config.saved_units())
+        self.assertIsNone(_config.saved("units"))
 
 
 class UnitsPrefTests(ConfigDirMixin):
@@ -237,27 +237,27 @@ class WindUnitsTests(ConfigDirMixin):
     def test_the_saved_setting_applies_below_the_env_var(self):
         with redirect_stdout(io.StringIO()):
             wind._cmd_set("kn")
-        self.assertEqual(_config.saved_wind_units(), "kn")
+        self.assertEqual(_config.saved("wind"), "kn")
         self.assertEqual(self._rt("--lang", "en", "--metric").wind_unit, "kn")
         rt = self._rt("--lang", "en", environ={"LINECAST_WIND_UNITS": "m/s"})
         self.assertEqual(rt.wind_unit, "m/s")
         self.assertEqual(self._rt("--wind-units", "mph").wind_unit, "mph")
         with redirect_stdout(io.StringIO()):
             wind._cmd_auto()
-        self.assertIsNone(_config.saved_wind_units())
+        self.assertIsNone(_config.saved("wind"))
         self.assertEqual(self._rt("--lang", "en", "--metric").wind_unit, "km/h")
 
     def test_the_saved_setting_ignores_junk(self):
         _config.write_config({"wind": "furlongs"})
-        self.assertIsNone(_config.saved_wind_units())
+        self.assertIsNone(_config.saved("wind"))
         _config.write_config({"wind": "KNOTS"})
-        self.assertEqual(_config.saved_wind_units(), "kn")
+        self.assertEqual(_config.saved("wind"), "kn")
 
     def test_the_command_takes_the_usual_spellings(self):
         with patch("sys.argv", ["linecast wind", "knots"]), \
                 redirect_stdout(io.StringIO()) as out:
             wind.main()
-        self.assertEqual(_config.saved_wind_units(), "kn")
+        self.assertEqual(_config.saved("wind"), "kn")
         self.assertEqual(out.getvalue(), "Wind speeds set to kn\n")
         with patch("sys.argv", ["linecast wind"]), redirect_stdout(io.StringIO()) as out:
             wind.main()
