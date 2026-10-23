@@ -902,7 +902,7 @@ def _whats_up(scene, runtime, culture=None, *, bg_color=None):
     """The Moon and the planets above the horizon, brightest first, each
     with the way to look: '🌖 84% W · Jupiter SE · Saturn S'."""
     parts = []
-    if scene.moon_alt > 0.0:
+    if scene.moon_up:
         _idx, _name, icon = moon_phase(scene.moment_utc, runtime, bg_color=bg_color)
         parts.append(f"{icon} {fmt_percent(scene.moon_illum * 100, runtime)} "
                      f"{compass_point(scene.moon_az, runtime, culture)}")

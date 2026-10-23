@@ -28,6 +28,7 @@ Notable changes, by release. Notes for the next release collect under **Unreleas
 - Weather: During polar night the chart no longer marks a sunset at midnight, or at 11 p.m. after the clocks go back, and `--json` gives those days no sunrise or sunset.
 - Sunshine: Fixed the day view's and `--oneline`'s sunrise and sunset being an hour off between midnight and 2 a.m. on the night the clocks change.
 - Sunshine: Sunrise, sunset, and the Sun's height are more accurate, within seconds of published tables rather than a minute or two, and agree with the traditional hours shown beside them.
+- Moon and sky: Both say the Moon is up from the moment it rises, and give it the same altitude, as seen from where you stand. In `sky --json` the Sun is up from sunrise.
 
 ## 2.10.3 — 2026-10-20
 

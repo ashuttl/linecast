@@ -329,6 +329,52 @@ class TestScene:
         assert view.az == 45.0 and view.fov == 60.0
 
 
+class TestUpByOneRule:
+    """The Moon and the Sun are up, in the sky and in the moon and
+    sunshine views alike, from the moment they rise: their upper limb
+    above the horizon, lifted by refraction. Portland's Moon rose at
+    15:59:50 on 22 October 2026; until 16:05 the moon view said it was
+    up and the sky said it was not, a degree lower."""
+
+    PORTLAND = (43.66, -70.26)
+    ET = ZoneInfo("America/New_York")
+
+    def test_the_moon_and_the_sky_agree_minute_by_minute(self):
+        from linecast.moon.json import build_payload as moon_payload
+        from linecast.moon.phase import upcoming_moon_events
+        from linecast.sky.json import build_payload as sky_payload
+        start = datetime(2026, 10, 22, 15, 50, tzinfo=self.ET)
+        rise, _set = upcoming_moon_events(start, *self.PORTLAND)
+        for minute in range(20):
+            now = start + timedelta(minutes=minute)
+            moon = moon_payload(now, *self.PORTLAND, _runtime(), location="Portland",
+                                calendar="none")
+            sky_moon = sky_payload(now, *self.PORTLAND, _runtime(), location="Portland")["moon"]
+            assert moon["up_now"] == sky_moon["up"] == (now > rise), now
+            assert moon["altitude_deg"] == sky_moon["altitude"], now
+
+    def test_the_sky_says_the_sun_is_up_from_sunrise(self):
+        from linecast.astro.ephemeris import sunrise_sunset
+        from linecast.sky.json import build_payload as sky_payload
+        rise, sset = sunrise_sunset(datetime(2026, 10, 22).date(), *self.PORTLAND, self.ET)
+        for moment, up in ((rise - timedelta(seconds=30), False),
+                           (rise + timedelta(seconds=30), True),
+                           (sset - timedelta(seconds=30), True),
+                           (sset + timedelta(seconds=30), False)):
+            sun = sky_payload(moment, *self.PORTLAND, _runtime(), location="Portland")["sun"]
+            assert sun["up"] is up, moment
+
+    def test_the_search_times_the_moonrise_the_moon_view_prints(self):
+        from linecast.moon.phase import upcoming_moon_events
+        from linecast.sky.search import Target, next_rising
+        start = datetime(2026, 10, 22, 12, 0, tzinfo=self.ET)
+        rise, _set = upcoming_moon_events(start, *self.PORTLAND)
+        moon = Target("moon", "Moon", None, ["moon"], -20.0)
+        found, _az = next_rising(
+            moon, lambda t: Scene(t.astimezone(timezone.utc), *self.PORTLAND), start)
+        assert abs((found - rise).total_seconds()) < 60
+
+
 # ---------------------------------------------------------------------------
 # The frame
 # ---------------------------------------------------------------------------

@@ -338,9 +338,9 @@ def _moon_altitude_deg(dt_utc, lat_deg, lng_deg):
 
     Standard altitude formula (Meeus, ch. 13):
       sin(alt) = sin(lat)*sin(dec) + cos(lat)*cos(dec)*cos(ha)
-    Geocentric: parallax and refraction are not corrected here, and the
-    threshold_deg parameter in _moon_events_for_local_date stands in for
-    the pair of them.
+    Geocentric: parallax and refraction are not corrected here, and
+    MOON_RISE_ALTITUDE_DEG stands in for the pair of them; moon_altitude
+    gives the altitude seen from the ground.
     """
     ra_deg, dec_deg = _moon_ra_dec(dt_utc)
     hour_angle = math.radians(_hour_angle(dt_utc, lng_deg, ra_deg))
@@ -397,6 +397,17 @@ def _moon_parallactic_deg(dt_utc, lat_deg, lng_deg):
     ))
 
 
+# The Moon rises and sets, by the almanacs' rule, when its upper limb
+# touches the horizon, lifted by 34′ of refraction: the Sun's rule
+# (SUNRISE_DEPRESSION_DEG below), with the parallax that puts the Moon
+# about a degree lower than the Earth's centre sees it. Meeus (ch. 15)
+# gives that moment as a geocentric altitude of 0.7275 times the
+# parallax less 34′, which at the Moon's mean distance is 0.125°. The
+# moonrise and moonset are timed by it, and every view says the Moon is
+# up above it.
+MOON_RISE_ALTITUDE_DEG = 0.125
+
+
 def _refine_moon_crossing_utc(t0_utc, t1_utc, lat_deg, lng_deg, threshold_deg):
     """Refine a moonrise/moonset crossing between two UTC datetimes.
 
@@ -426,15 +437,15 @@ def _refine_moon_crossing_utc(t0_utc, t1_utc, lat_deg, lng_deg, threshold_deg):
     return lo + timedelta(seconds=(hi - lo).total_seconds() / 2.0)
 
 
-def _moon_events_for_local_date(local_date, lat_deg, lng_deg, tzinfo, threshold_deg=0.125,
-                                since=None):
+def _moon_events_for_local_date(local_date, lat_deg, lng_deg, tzinfo,
+                                threshold_deg=MOON_RISE_ALTITUDE_DEG, since=None):
     """Return (moonrise_local, moonset_local) for one local calendar date.
 
-    The threshold_deg of 0.125° approximates the combined effect of
-    atmospheric refraction (~0.57° at horizon) and lunar horizontal
-    parallax (~0.95°), which partially cancel. The net geometric rise
-    happens when the Moon's center is about 0.125° above the true
-    horizon. (See Meeus, ch. 15, for the full derivation.)
+    The threshold is the geocentric altitude the Moon rises and sets at,
+    MOON_RISE_ALTITUDE_DEG: refraction (~0.57° at the horizon) and the
+    lunar parallax (~0.95°) partly cancel, and put the moment its upper
+    limb clears the horizon at about 0.125° above the true horizon for
+    the Earth's centre (Meeus, ch. 15).
 
     Events are found by stepping in 10-minute increments, detecting sign
     changes in (altitude - threshold), then refining via bisection.
@@ -695,6 +706,19 @@ def moon_horizontal_parallax_deg(dt_utc):
     The topocentric altitude is the geocentric one less this times the
     cosine of the altitude."""
     return math.degrees(math.asin(1.0 / _moon_distance_er(dt_utc)))
+
+
+def moon_altitude(dt_utc, lat_deg, lng_deg, geocentric_deg=None):
+    """(altitude, up): the Moon's altitude in degrees as it is seen from
+    the ground, the parallax taken off, and whether it is up by the rule
+    its rise and set are timed by. For a few minutes after it rises the
+    altitude of its centre is still below zero, as the Sun's is just
+    after sunrise. *geocentric_deg*, where the caller has it, is the
+    geocentric altitude, so it is not worked out twice."""
+    geo = (_moon_altitude_deg(dt_utc, lat_deg, lng_deg)
+           if geocentric_deg is None else geocentric_deg)
+    seen = geo - moon_horizontal_parallax_deg(dt_utc) * math.cos(math.radians(geo))
+    return seen, geo > MOON_RISE_ALTITUDE_DEG
 
 
 # ---------------------------------------------------------------------------

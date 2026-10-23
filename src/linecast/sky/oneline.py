@@ -30,10 +30,11 @@ def sky_oneline(now_local, lat, lng, runtime, culture=None):
     text, dim = (fg(*_theme.ensure_contrast(ink, _theme.theme_bg, minimum=4.5))
                  for ink in (TEXT_RGB, DIM_RGB))
     parts = []
-    if scene.moon_alt > 0.0:
+    if scene.moon_up:
         _idx, _name, icon = moon_phase(scene.moment_utc, runtime, bg_color=_theme.theme_bg)
         parts.append(f"{text}{icon} {fmt_percent(scene.moon_illum * 100, runtime)} "
-                     f"{compass_point(scene.moon_az, runtime, culture)} {scene.moon_alt:.0f}°")
+                     f"{compass_point(scene.moon_az, runtime, culture)} "
+                     f"{max(0.0, scene.moon_alt):.0f}°")
     for key, _vec, alt, az, mag in scene.planets:
         if alt > 0.0 and easily_seen(mag, alt, scene):
             parts.append(f"{text}{body_name(key, runtime)} "

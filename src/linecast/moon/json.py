@@ -1,9 +1,9 @@
 """Machine-readable JSON payload for `moon --json`.
 
 Builds a plain-dict snapshot of the moon display's astronomy for external
-consumers (e.g. a desktop widget). Reuses moon/phase.py's mean-synodic phase math
-and low-precision rise/set ephemeris; times are minute-precision local ISO
-strings and missing values become None rather than raising.
+consumers (e.g. a desktop widget). Reuses moon/phase.py's phase and the
+ephemeris's rise and set; times are minute-precision local ISO strings and
+missing values become None rather than raising.
 """
 
 # The build_payload argument named `calendar` would shadow the stdlib
@@ -28,11 +28,9 @@ def build_payload(now_local, lat, lng, runtime, location=None, calendar=None,
     the saved setting and language the same way the panel resolves it.
     """
     from linecast._i18n import moon_name
-    from linecast.astro.ephemeris import (
-        _moon_altitude_deg, _moon_azimuth_deg, moon_age_days,
-    )
+    from linecast.astro.ephemeris import _moon_azimuth_deg, moon_age_days, moon_altitude
     from linecast.moon.phase import (
-        HORIZON_THRESHOLD_DEG, SYNODIC_MONTH, moon_cycle_frac, moon_illumination,
+        SYNODIC_MONTH, moon_cycle_frac, moon_illumination,
         moon_phase, next_phase_local, upcoming_moon_events,
     )
 
@@ -60,7 +58,9 @@ def build_payload(now_local, lat, lng, runtime, location=None, calendar=None,
     event_kind = ("march_equinox", "june_solstice",
                   "september_equinox", "december_solstice")[event]
 
-    altitude = _moon_altitude_deg(moment_utc, lat, lng)
+    # As the sky has it: seen from the ground, and up by the rule its
+    # rise and set are timed by.
+    altitude, up = moon_altitude(moment_utc, lat, lng)
     azimuth = _moon_azimuth_deg(moment_utc, lat, lng)
 
     # The traditional calendar, resolved exactly as the panel resolves
@@ -101,5 +101,5 @@ def build_payload(now_local, lat, lng, runtime, location=None, calendar=None,
         # Extras a widget would want beyond the phase basics:
         "altitude_deg": round(altitude, 1),
         "azimuth_deg": round(azimuth, 1),
-        "up_now": altitude > HORIZON_THRESHOLD_DEG,
+        "up_now": up,
     }

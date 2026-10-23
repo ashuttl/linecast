@@ -99,6 +99,16 @@ class Target:
         at = star_vectors()[self.key] if self.kind == "star" else self.key["at"]
         return alt_az_of(mat_apply(scene.catalogue, at))
 
+    def up(self, scene):
+        """Whether it is above the horizon at the scene's moment: the Sun
+        and the Moon by the rule their rising and setting are timed by,
+        everything else by its centre."""
+        if self.kind == "sun":
+            return scene.sun_up
+        if self.kind == "moon":
+            return scene.moon_up
+        return self.place(scene)[0] > 0.0
+
     def fov(self, current):
         """A field that shows the thing: a constellation framed with air
         around it, the Moon close, a star or planet no wider than sixty."""
@@ -303,20 +313,20 @@ def next_rising(target, scene_at, now_local, hours=26):
     quarter-hour steps find the crossing, bisection fixes it."""
     step = timedelta(minutes=15)
     prev_t = now_local
-    prev_alt, _az = target.place(scene_at(prev_t))
+    prev_up = target.up(scene_at(prev_t))
     for i in range(1, int(hours * 4) + 1):
         t = now_local + step * i
-        alt, az = target.place(scene_at(t))
-        if prev_alt <= 0.0 < alt:
+        up = target.up(scene_at(t))
+        if up and not prev_up:
             lo, hi = prev_t, t
             for _ in range(10):
                 mid = lo + (hi - lo) / 2
-                if target.place(scene_at(mid))[0] > 0.0:
+                if target.up(scene_at(mid)):
                     hi = mid
                 else:
                     lo = mid
             return hi, target.place(scene_at(hi))[1]
-        prev_t, prev_alt = t, alt
+        prev_t, prev_up = t, up
     return None
 
 

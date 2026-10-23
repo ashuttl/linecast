@@ -25,10 +25,6 @@ MOON_NAMES = [
 # Value from the Explanatory Supplement to the Astronomical Almanac (3rd ed.).
 SYNODIC_MONTH = 29.53058867
 
-# Matches the rise/set threshold in _moon_events_for_local_date: net effect
-# of refraction and lunar parallax puts the geometric event at +0.125°.
-HORIZON_THRESHOLD_DEG = 0.125
-
 def moon_cycle_frac(dt):
     """Fraction of the synodic cycle elapsed since New Moon, in [0, 1)."""
     if dt.tzinfo is None:

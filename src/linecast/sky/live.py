@@ -300,8 +300,9 @@ class SkyApp(LiveApp):
         """Fly to a found thing if it is up; otherwise say when it rises
         and offer that moment."""
         now = self.moment()
-        alt, az = target.place(self.scene_at(now))
-        if alt > 1.0:
+        scene = self.scene_at(now)
+        alt, az = target.place(scene)
+        if alt > 1.0 or target.up(scene):
             self.camera.fly_to(az, alt)
             self.camera.zoom_to(target.fov(self.camera.fov))
             self.search.close()
@@ -425,7 +426,7 @@ class SkyApp(LiveApp):
         elif key == "m":
             from datetime import timezone
             scene = Scene(self.moment().astimezone(timezone.utc), self.lat, self.lng)
-            if scene.moon_alt < 0.0:
+            if not scene.moon_up:
                 return False
             changed = cam.fly_to(scene.moon_az, max(cam.alt, min(60.0, scene.moon_alt)))
         elif key in "12345678" and key:

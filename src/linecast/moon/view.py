@@ -62,8 +62,8 @@ from linecast._parsers import moon_parser, refuse_view_flag
 from linecast.terminal import theme as _theme
 from linecast.radar.i18n import compass_point, rs
 from linecast.astro.ephemeris import (
-    _moon_altitude_deg, _moon_azimuth_deg, _moon_parallactic_deg, _moon_ra_dec,
-    moon_age_days, moon_axis_deg, moon_bright_limb_deg, precess_to_j2000,
+    _moon_azimuth_deg, _moon_parallactic_deg, _moon_ra_dec,
+    moon_age_days, moon_altitude, moon_axis_deg, moon_bright_limb_deg, precess_to_j2000,
 )
 from linecast.moon.disc import _draw_moon_disc
 from linecast.moon.stars import star_overlays
@@ -73,7 +73,7 @@ from linecast.moon.palette import (
 )
 from linecast.moon.readings import Instant, Now, Panel, context, reading
 from linecast.moon.phase import (
-    HORIZON_THRESHOLD_DEG, SYNODIC_MONTH, moon_illumination, moon_phase,
+    SYNODIC_MONTH, moon_illumination, moon_phase,
     next_phase_local, upcoming_moon_events,
 )
 
@@ -462,8 +462,8 @@ class _Facts(NamedTuple):
     icon: str
     illum: float            # the lit fraction of the disc
     age: float              # days since the new moon
-    alt: float              # degrees above the horizon
-    up: bool
+    alt: float              # degrees above the horizon, seen from the ground
+    up: bool                # by the rule its rise and set are timed by
     bearing: str            # the compass point it stands over, in the display language
     limb: float             # where the bright limb and the Moon's north
     axis: float             # pole point on screen, in degrees
@@ -476,12 +476,19 @@ class _Facts(NamedTuple):
     season_at: datetime
 
 
+def _shown_alt(alt):
+    """The altitude an up Moon is given, in whole degrees. Just risen,
+    its centre is still below the horizon, as the Sun's is just after
+    sunrise, and its upper limb is on it: 0°, never -1°."""
+    return f"{max(0.0, alt):.0f}"
+
+
 def _moon_facts(now_local, lat, lng, runtime):
     """The Moon's _Facts at *now_local*, seen from *lat*, *lng*, its
     times in *now_local*'s zone."""
     idx, _name, icon = moon_phase(now_local, runtime, bg_color=SKY_RGB)
     moment_utc = now_local.astimezone(timezone.utc)
-    alt = _moon_altitude_deg(moment_utc, lat, lng)
+    alt, up = moon_altitude(moment_utc, lat, lng)
     # Where the bright limb and the Moon's north pole fall on screen.
     # Position angles run from celestial north through east, which is
     # anticlockwise with north up; the parallactic angle then says how
@@ -493,7 +500,7 @@ def _moon_facts(now_local, lat, lng, runtime):
         moment_utc=moment_utc, phase=idx, icon=icon,
         illum=moon_illumination(now_local),
         age=moon_age_days(moment_utc),
-        alt=alt, up=alt > HORIZON_THRESHOLD_DEG,
+        alt=alt, up=up,
         bearing=compass_point(_moon_azimuth_deg(moment_utc, lat, lng), lang_of(runtime)),
         limb=parallactic - moon_bright_limb_deg(moment_utc),
         axis=parallactic - moon_axis_deg(moment_utc),
@@ -664,7 +671,7 @@ def _corners(moon, found, ctx, offset_minutes):
         when_txt = (f"{_day_abbrev(now_local, runtime)} "
                     f"{_fmt_month_day(now_local, runtime)} "
                     f"{fmt_time_dt(now_local, use_24h=runtime.use_24h)}")
-        alt_txt = _ms('above_horizon', runtime, alt=f'{moon.alt:.0f}')
+        alt_txt = _ms('above_horizon', runtime, alt=_shown_alt(moon.alt))
         day_head = [[(when_txt, A, False)],
                     [(f"{alt_txt} · {moon.bearing}", T, False)] if moon.up
                     else [(below_txt, M, False)]]
@@ -673,7 +680,7 @@ def _corners(moon, found, ctx, offset_minutes):
         # whole claim — so the altitude goes short and spends the room
         # on where to actually look.
         day_head = [[(_ms('up_now', runtime), A, False),
-                     (f" · {moon.alt:.0f}° · {moon.bearing}", T, False)]]
+                     (f" · {_shown_alt(moon.alt)}° · {moon.bearing}", T, False)]]
     else:
         day_head = [[(below_txt, M, False)]]
 

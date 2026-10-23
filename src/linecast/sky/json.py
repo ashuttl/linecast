@@ -32,9 +32,10 @@ def build_payload(now_local, lat, lng, runtime, location=None, facing=None,
     idx, _name, _icon = moon_phase(scene.moment_utc, runtime)
     from linecast._i18n import moon_name
 
-    def place(alt, az):
+    def place(alt, az, up=None):
         return {"altitude": round(alt, 1), "azimuth": round(az, 1),
-                "compass": compass_point(az, runtime), "up": alt > 0.0}
+                "compass": compass_point(az, runtime),
+                "up": alt > 0.0 if up is None else up}
 
     planets = []
     for key, _vec, alt, az, mag in scene.planets:
@@ -63,9 +64,9 @@ def build_payload(now_local, lat, lng, runtime, location=None, facing=None,
                      "name": location if location is not None else _location_label(lat, lng)},
         "view": {"azimuth": round(view.az, 1), "altitude": round(view.alt, 1),
                  "field_of_view": round(view.fov, 1)},
-        "sun": {**place(scene.sun_alt, scene.sun_az),
+        "sun": {**place(scene.sun_alt, scene.sun_az, scene.sun_up),
                 "sky": sky_phase(scene.sun_alt, runtime, morning=scene.morning())},
-        "moon": {**place(scene.moon_alt, scene.moon_az),
+        "moon": {**place(scene.moon_alt, scene.moon_az, scene.moon_up),
                  "illumination": round(scene.moon_illum * 100.0, 1),
                  "phase": moon_name(idx, runtime), "phase_index": idx},
         "planets": planets,

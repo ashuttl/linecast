@@ -14,8 +14,8 @@ import math
 from collections import namedtuple
 
 from linecast.astro.ephemeris import (
-    _alt_az_deg, _gmst_deg, _moon_parallactic_deg, _moon_ra_dec, _sun_ra_dec,
-    mat_mul, moon_axis_deg, moon_bright_limb_deg, moon_horizontal_parallax_deg,
+    SUNRISE_DEPRESSION_DEG, _alt_az_deg, _gmst_deg, _moon_parallactic_deg, _moon_ra_dec,
+    _sun_ra_dec, mat_mul, moon_altitude, moon_axis_deg, moon_bright_limb_deg,
     moon_illuminated_fraction, precession_at,
 )
 from linecast._geo import angle_delta
@@ -218,11 +218,16 @@ class Scene:
 
         # The Moon is close enough that where you stand moves it: the
         # topocentric altitude is the geocentric one less the parallax.
+        # The Sun and the Moon are up, as the sunshine and moon views
+        # say they are, from their rising to their setting: the upper
+        # limb above the horizon, lifted by refraction, which leaves the
+        # centre a little below it for a few minutes after.
         moon_ra, moon_dec = _moon_ra_dec(moment_utc)
-        alt, az = _alt_az_deg(moon_ra, moon_dec, moment_utc, lat, lng)
-        alt -= moon_horizontal_parallax_deg(moment_utc) * math.cos(math.radians(alt))
-        self.moon_alt, self.moon_az = alt, az
-        self.moon = horizontal_vector(az, alt)
+        geo, az = _alt_az_deg(moon_ra, moon_dec, moment_utc, lat, lng)
+        self.moon_alt, self.moon_up = moon_altitude(moment_utc, lat, lng, geo)
+        self.moon_az = az
+        self.moon = horizontal_vector(az, self.moon_alt)
+        self.sun_up = self.sun_alt > -SUNRISE_DEPRESSION_DEG
         self.moon_illum = moon_illuminated_fraction(moment_utc)
         parallactic = _moon_parallactic_deg(moment_utc, lat, lng)
         self.moon_limb = parallactic - moon_bright_limb_deg(moment_utc)

@@ -57,6 +57,8 @@ from functools import lru_cache
 from typing import NamedTuple
 
 from linecast.astro.ephemeris import (
+    MOON_RISE_ALTITUDE_DEG,
+    SUNRISE_DEPRESSION_DEG,
     _angular_separation,
     _moon_altitude_deg,
     _moon_distance_er,
@@ -110,16 +112,17 @@ def _crescent_q(evening, obs):
     """
     dusk = _day_start_utc(evening, obs.meridian_hours) + timedelta(hours=16)
     sunset = _setting_instant(dusk, dusk + timedelta(hours=5),
-                              lambda t: sun_alt_az_deg(t, obs.lat, obs.lng)[0], -0.833)
+                              lambda t: sun_alt_az_deg(t, obs.lat, obs.lng)[0],
+                              -SUNRISE_DEPRESSION_DEG)
 
     def moon_alt(t):
         return _moon_altitude_deg(t, obs.lat, obs.lng)
 
-    # The same effective horizon moonrise/set uses elsewhere in the app.
-    if moon_alt(sunset) <= 0.125:
+    # The same horizons sunrise and moonrise use elsewhere in the app.
+    if moon_alt(sunset) <= MOON_RISE_ALTITUDE_DEG:
         return None                      # sets before the sun: no crescent
     moonset = _setting_instant(sunset, sunset + timedelta(hours=6),
-                               moon_alt, 0.125)
+                               moon_alt, MOON_RISE_ALTITUDE_DEG)
     best = sunset + (moonset - sunset) * 4 / 9
 
     parallax = math.degrees(math.asin(1.0 / _moon_distance_er(best)))
