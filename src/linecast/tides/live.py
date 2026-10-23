@@ -691,6 +691,12 @@ def main():
                 app._start_long()
                 app._long_worker.join()
                 spin.stop()
+                if app._long_key() not in app._long:
+                    # The fetch failed, and the frame would be the view
+                    # with no water in it; say so, as when no station
+                    # could be looked for
+                    print(_ts("load_failed", runtime, name=station_name), file=sys.stderr)
+                    sys.exit(1)
                 _live.print_frame(app._render_long(None))
         elif provider is NOAA:
             # NOAA's static view is the calendar day, which render fetches

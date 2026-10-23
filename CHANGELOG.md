@@ -23,6 +23,7 @@ Notable changes, by release. Notes for the next release collect under **Unreleas
 - Tides: Queensland's year view loads with 12 requests instead of 183, and Queensland predictions still show offline the day after they were last fetched.
 - Tides: Predictions for Canadian stations still show offline the day after they were last fetched.
 - Tides: A month or year view that fails to load, as when the network drops, is tried again after a short wait instead of staying empty until linecast is restarted.
+- Tides: `--print` with `--month`, `--year` or `--makeup` says when the tides could not be loaded, and exits with an error, instead of printing the view empty.
 - Tides: Fixed the missing night shading on the chart at stations from TICON-4.
 - Tides: The chart's night shading begins and ends at sunset and sunrise, where it could be up to half an hour off.
 - Tides: `--station` accepts the five-digit codes the Canadian Hydrographic Service gives its stations, such as 00490 for Halifax.

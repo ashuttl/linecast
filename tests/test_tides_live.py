@@ -336,6 +336,23 @@ class TestViewFlags:
         assert "Portland" in frames[0] and "2026" in frames[0]
 
     @pytest.mark.parametrize("view", ["month", "year", "makeup"])
+    @pytest.mark.parametrize("mode", [[], ["--print"]])
+    def test_static_says_a_view_that_would_not_load_failed(self, monkeypatch, capsys,
+                                                           cli_station, view, mode):
+        # The day's window came back, the month's or the year's did not:
+        # no frame of an empty view, and not exit 0
+        cli_station.fail = True
+        monkeypatch.setattr("sys.argv", ["tides", "--station", "8418150", f"--{view}", *mode])
+        frames = []
+        monkeypatch.setattr(_tides_live._live, "print_frame", frames.append)
+        with pytest.raises(SystemExit) as exc:
+            _tides_live.main()
+        assert exc.value.code == 1
+        assert not frames
+        assert capsys.readouterr().err.strip().endswith(
+            "Could not load tides for Portland, ME. Please try again.")
+
+    @pytest.mark.parametrize("view", ["month", "year", "makeup"])
     @pytest.mark.parametrize("mode", ["--json", "--oneline"])
     def test_alternate_views_refuse_current_conditions_output(self, monkeypatch, capsys,
                                                              view, mode):
