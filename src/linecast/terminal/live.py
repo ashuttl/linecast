@@ -695,54 +695,75 @@ def live_loop(render_fn, interval=60, mouse=False, on_open=None, scroll_step=15,
     _theme.poll_interval / watch_path) and repaints when they change,
     so switching the terminal theme re-inks the view in place.
     """
-    global _running
-    from linecast.terminal.keys import read_key, wheel_code
+    _LiveLoop(render_fn, interval=interval, mouse=mouse, scroll_step=scroll_step,
+              clamp_offset=clamp_offset, auto_play=auto_play,
+              play_interval=play_interval, play_gate=play_gate,
+              help_panel=help_panel, on_open=on_open, on_action=on_action,
+              on_drag=on_drag, on_click=on_click, on_wheel=on_wheel,
+              intercept=intercept, text_mode=text_mode).run()
 
-    # Before the terminal is taken: the theme's import probes it, the
-    # first time.
-    theme = _ThemeSchedule()
 
-    # Cbreak input, the wakeup nudge() pulls, and resize notice — a self-pipe
-    # and SIGWINCH on POSIX, console modes and a poll on Windows.
-    term = _term.LiveTerminal(sys.stdin.fileno())
-    term.install()
+class _LiveLoop:
+    """One run of live_loop: the state a frame is rendered from, the
+    handlers that change it, and the terminal it is drawn on.
 
-    fd = term.fd
+    The settings and hooks are live_loop's arguments, kept as they came.
+    """
 
-    offset = 0
-    playing = auto_play
-    play_frame = 0
-    mouse_pos = None
-    hover_until = 0.0    # monotonic time mouse_pos is forgotten
-    drag_start = None    # (col, row) of left-button press while on_drag is set
-    drag_delta = (0, 0)  # last displayed drag, to finish before opening help
-    active_alert = None  # index of alert whose modal is open, or None
-    modal_scroll = 0     # scroll offset within the modal
-    alert_row_map = {}   # 0-based line index → [(first col, last col, alert index)]
+    def __init__(self, render_fn, *, interval, mouse, scroll_step, clamp_offset,
+                 auto_play, play_interval, play_gate, help_panel, on_open,
+                 on_action, on_drag, on_click, on_wheel, intercept, text_mode):
+        self.render_fn = render_fn
+        self.interval = interval
+        self.mouse = mouse
+        self.scroll_step = scroll_step
+        self.clamp_offset = clamp_offset
+        self.auto_play = auto_play
+        self.play_interval = play_interval
+        self.play_gate = play_gate
+        self.help_panel = help_panel
+        self.on_open = on_open
+        self.on_action = on_action
+        self.on_drag = on_drag
+        self.on_click = on_click
+        self.on_wheel = on_wheel
+        self.intercept = intercept
+        self.text_mode = text_mode
 
-    pacing = _Pacing()
+        self.offset = 0
+        self.playing = auto_play
+        self.play_frame = 0
+        self.mouse_pos = None
+        self.hover_until = 0.0    # monotonic time mouse_pos is forgotten
+        self.drag_start = None    # (col, row) of left-button press while on_drag is set
+        self.drag_delta = (0, 0)  # last displayed drag, to finish before opening help
+        self.active_alert = None  # index of alert whose modal is open, or None
+        self.modal_scroll = 0     # scroll offset within the modal
+        self.alert_row_map = {}   # 0-based line index → [(first col, last col, alert index)]
 
-    def _coalesce_or_repaint():
+        self.theme = self.term = self.pacing = None
+        self.init = self.restore = ""
+
+    def _coalesce_or_repaint(self):
         """The verdict for input that changed the frame: paint now, or
         hold the paint while more input is waiting."""
-        return 'coalesce' if _term.wait_readable(fd, 0) else 'repaint'
+        return 'coalesce' if _term.wait_readable(self.term.fd, 0) else 'repaint'
 
-    def scrub(step):
+    def _scrub(self, step):
         """An arrow or a wheel notch, `step` +1 forward or -1 back: a
         frame of the animation, which pauses it, or scroll_step minutes
         of time."""
-        nonlocal offset, playing, play_frame
-        if auto_play:
-            playing = False
-            play_frame += step
+        if self.auto_play:
+            self.playing = False
+            self.play_frame += step
         else:
-            if clamp_offset is not None:
-                offset = clamp_offset(offset)
-            offset += step * scroll_step
-            if clamp_offset is not None:
-                offset = clamp_offset(offset)
+            if self.clamp_offset is not None:
+                self.offset = self.clamp_offset(self.offset)
+            self.offset += step * self.scroll_step
+            if self.clamp_offset is not None:
+                self.offset = self.clamp_offset(self.offset)
 
-    def handle_input():
+    def _on_input(self):
         """Read one key or mouse event and apply it.
 
         'quit' to leave the loop, 'repaint' when the frame should be drawn
@@ -752,9 +773,10 @@ def live_loop(render_fn, interval=60, mouse=False, on_open=None, scroll_step=15,
         'coalesce' whatever the later input says: the bytes waiting may
         be the terminal's reply to the last frame, which changes nothing.
         """
-        nonlocal offset, playing, play_frame, mouse_pos, drag_start, drag_delta
-        nonlocal active_alert, modal_scroll, hover_until
-        action = read_key(fd, text=bool(text_mode is not None and text_mode()))
+        from linecast.terminal.keys import read_key, wheel_code
+        help_panel = self.help_panel
+        action = read_key(self.term.fd,
+                          text=bool(self.text_mode is not None and self.text_mode()))
         if isinstance(action, tuple) and action[0] == 'mouse' and _bidi.mirrored():
             # The view laid this frame out from the left and the pass
             # drew it from the right: the pointer goes back the same way
@@ -762,9 +784,9 @@ def live_loop(render_fn, interval=60, mouse=False, on_open=None, scroll_step=15,
             _, cb, cx, cy, is_rel = action
             action = ('mouse', cb, get_terminal_size()[0] + 1 - cx, cy, is_rel)
         if isinstance(action, tuple) and action[0] == 'mouse':
-            hover_until = _time.monotonic() + _HOVER_IDLE_S
+            self.hover_until = _time.monotonic() + _HOVER_IDLE_S
         if action == 'ack':
-            pacing.answered()
+            self.pacing.answered()
             return None
         if action == 'theme':
             return 'repaint'  # the terminal's colours changed
@@ -772,275 +794,291 @@ def live_loop(render_fn, interval=60, mouse=False, on_open=None, scroll_step=15,
         if help_panel is not None:
             was_helping = help_panel.open
             if help_panel.handle(action):
-                if not was_helping and help_panel.open and drag_start is not None:
-                    on_drag(*drag_delta, True)
-                drag_start = None
+                if not was_helping and help_panel.open and self.drag_start is not None:
+                    self.on_drag(*self.drag_delta, True)
+                self.drag_start = None
                 return 'repaint'
             help_closed = was_helping and not help_panel.open
-        if (intercept is not None and action is not None
+        if (self.intercept is not None and action is not None
                 and not isinstance(action, tuple)
-                and intercept(action)):
+                and self.intercept(action)):
             return 'repaint'
         if action == 'quit':
-            if active_alert is not None:
-                active_alert = None
-                modal_scroll = 0
+            if self.active_alert is not None:
+                self.active_alert = None
+                self.modal_scroll = 0
                 return 'repaint'
             return 'quit'
         elif action == 'escape':
             # With mouse tracking, bare ESC is almost always a split mouse
             # sequence (release bytes arriving late).  Only honour ESC to
             # dismiss when mouse is off.
-            if not mouse and active_alert is not None:
-                active_alert = None
+            if not self.mouse and self.active_alert is not None:
+                self.active_alert = None
                 return 'repaint'
         elif action == 'open':
-            if active_alert is not None and on_open:
-                on_open(active_alert)
+            if self.active_alert is not None and self.on_open:
+                self.on_open(self.active_alert)
                 return 'repaint'
         elif action in ('fwd', 'back'):
-            scrub(1 if action == 'fwd' else -1)
-            return _coalesce_or_repaint()  # rapid scrolling
+            self._scrub(1 if action == 'fwd' else -1)
+            return self._coalesce_or_repaint()  # rapid scrolling
         elif action == 'reset':
-            if auto_play:
-                playing = not playing  # space = play/pause
-                if not playing:
-                    play_frame = 0  # pause returns to the home frame
+            if self.auto_play:
+                self.playing = not self.playing  # space = play/pause
+                if not self.playing:
+                    self.play_frame = 0  # pause returns to the home frame
             else:
-                offset = 0
+                self.offset = 0
             return 'repaint'
-        elif (on_action is not None and isinstance(action, str)
+        elif (self.on_action is not None and isinstance(action, str)
               and action.startswith('key:')):
-            if on_action(action[4:]):
-                return _coalesce_or_repaint()  # held-down keys (zoom taps)
-        elif mouse and isinstance(action, tuple) and action[0] == 'mouse':
+            if self.on_action(action[4:]):
+                return self._coalesce_or_repaint()  # held-down keys (zoom taps)
+        elif self.mouse and isinstance(action, tuple) and action[0] == 'mouse':
             _, cb, cx, cy, is_rel = action
             wheel_cb = wheel_code(cb)
             if wheel_cb in (64, 65):
-                if on_wheel is not None:
+                if self.on_wheel is not None:
                     # A view can own the wheel, or defer to ordinary scrolling
                     # when its panel is closed.
-                    handled = on_wheel(1 if wheel_cb == 64 else -1, cx, cy)
+                    handled = self.on_wheel(1 if wheel_cb == 64 else -1, cx, cy)
                     if handled is not NotImplemented:
-                        return _coalesce_or_repaint() if handled else None
-                if active_alert is not None:
+                        return self._coalesce_or_repaint() if handled else None
+                if self.active_alert is not None:
                     # Scroll the modal
-                    modal_scroll += 3 if wheel_cb == 65 else -3
-                    modal_scroll = max(0, modal_scroll)
+                    self.modal_scroll += 3 if wheel_cb == 65 else -3
+                    self.modal_scroll = max(0, self.modal_scroll)
                 else:
-                    scrub(1 if wheel_cb == 64 else -1)
-                return _coalesce_or_repaint()  # rapid scrolling
+                    self._scrub(1 if wheel_cb == 64 else -1)
+                return self._coalesce_or_repaint()  # rapid scrolling
             if is_rel:
                 # Button release — completes a drag gesture if one
                 # started; otherwise ignore.
-                if drag_start is not None:
-                    dcol, drow = cx - drag_start[0], cy - drag_start[1]
-                    drag_start = None
+                if self.drag_start is not None:
+                    dcol, drow = cx - self.drag_start[0], cy - self.drag_start[1]
+                    self.drag_start = None
                     clicked = (dcol == 0 and drow == 0
-                               and on_click is not None
-                               and on_click(cx, cy))
-                    if on_drag(dcol, drow, True) or clicked:
+                               and self.on_click is not None
+                               and self.on_click(cx, cy))
+                    if self.on_drag(dcol, drow, True) or clicked:
                         return 'repaint'
                 return None
             if (cb & 0b11) == 0 and not (cb & 0x20):
                 # Left button press (not release, not motion)
-                if on_drag is not None:
-                    drag_start = (cx, cy)
-                    drag_delta = (0, 0)
+                if self.on_drag is not None:
+                    self.drag_start = (cx, cy)
+                    self.drag_delta = (0, 0)
                 row_idx = cy - 1  # 1-based → 0-based
-                if active_alert is not None:
+                if self.active_alert is not None:
                     # Click while modal open — dismiss
-                    active_alert = None
-                    modal_scroll = 0
+                    self.active_alert = None
+                    self.modal_scroll = 0
                     return 'repaint'
-                elif row_idx in alert_row_map:
-                    spans = alert_row_map[row_idx]
+                elif row_idx in self.alert_row_map:
+                    spans = self.alert_row_map[row_idx]
                     col_idx = cx - 1  # 1-based → 0-based
-                    active_alert = next(
+                    self.active_alert = next(
                         (i for start, end, i in spans
                          if start <= col_idx <= end),
                         spans[0][2])
-                    modal_scroll = 0
+                    self.modal_scroll = 0
                     return 'repaint'
             if cb & 32:
-                if drag_start is not None:
+                if self.drag_start is not None:
                     # mid-drag: live preview with cumulative delta
-                    dcol, drow = cx - drag_start[0], cy - drag_start[1]
-                    drag_delta = (dcol, drow)
-                    if on_drag(dcol, drow, False):
-                        return _coalesce_or_repaint()  # rapid drag motion
+                    dcol, drow = cx - self.drag_start[0], cy - self.drag_start[1]
+                    self.drag_delta = (dcol, drow)
+                    if self.on_drag(dcol, drow, False):
+                        return self._coalesce_or_repaint()  # rapid drag motion
                     return None
                 # Hover-capable terminals: render once at the final position.
-                mouse_pos = (cx, cy)
-                return _coalesce_or_repaint()
+                self.mouse_pos = (cx, cy)
+                return self._coalesce_or_repaint()
             # Fallback for terminals without motion reporting:
             # update pointer on press so tooltip can still appear.
             if (cb & 0b11) in (0, 1, 2):
-                mouse_pos = (cx, cy)
+                self.mouse_pos = (cx, cy)
                 return 'repaint'
         if help_closed:
             return 'repaint'  # even an unbound key must erase the panel
         return None
 
-    init, restore = _screen_escapes(mouse)
-
-    def suspend():
+    def _suspend(self):
         """Ctrl-Z: hand the terminal back as the loop's end does, stop,
         and on resume take it again.  The frame drawn next is drawn
         whole, as every frame is."""
+        term, pacing = self.term, self.pacing
+
         def hand_back():
             # Alone in its job, the loop waits for the terminal to answer,
             # so no reply or late mouse report reaches the shell.  Under a
             # wrapper the shell may be reading the terminal already, and
             # the answer would land on its prompt: drop what has come in
             careful = pacing.on and term.leads_job()
-            sys.stdout.write(restore + (_CPR_QUERY if careful else ""))
+            sys.stdout.write(self.restore + (_CPR_QUERY if careful else ""))
             sys.stdout.flush()
             term.settle(pacing.wait_s() if careful else 0, replies=pacing.owed + 1)
 
         term.suspend(hand_back)
         pacing.owed = 0
-        sys.stdout.write(init)
+        sys.stdout.write(self.init)
         sys.stdout.flush()
 
-    watch = WorkerWatch()
-    watch.install()
-    try:
-        _running = True
-        # Cbreak first, then the escapes: on Windows, switching stdin to
-        # VT input resets the terminal's mouse tracking, so enables sent
-        # beforehand are silently dropped.  Order is moot on POSIX.
-        term.set_cbreak()
-        sys.stdout.write(init)
-        sys.stdout.flush()
+    def run(self):
+        global _running
+        # Before the terminal is taken: the theme's import probes it, the
+        # first time.
+        self.theme = theme = _ThemeSchedule()
 
-        while True:
-            # Hold this frame until the terminal has read the last one.
-            # Keys and wheel notches that arrive meanwhile change the
-            # state the frame is rendered from; a wakeup or a timer tick
-            # is absorbed the same way, since a repaint is coming.
-            if pacing.on and pacing.owed:
-                until = _time.monotonic() + pacing.wait_s()
-                while pacing.owed:
-                    left = until - _time.monotonic()
-                    if left <= 0:
-                        pacing.give_up()
-                        break
-                    event = term.wait(min(0.1, left))
-                    if term.suspend_pending:
-                        break
-                    if event == 'input':
-                        if handle_input() == 'quit':
-                            return
-            if term.suspend_pending:
-                suspend()
+        # Cbreak input, the wakeup nudge() pulls, and resize notice — a self-pipe
+        # and SIGWINCH on POSIX, console modes and a poll on Windows.
+        self.term = term = _term.LiveTerminal(sys.stdin.fileno())
+        term.install()
 
-            # Drain wakeups from before this render: whatever they announced,
-            # the frame about to be drawn reflects it.  The drain must come
-            # BEFORE render_fn, never after — a background fetch can finish
-            # (and nudge the pipe) while the render is still composing its
-            # "loading" frame, and a drain after the paint would swallow that
-            # completion, leaving the loading frame up until the next input.
-            term.drain()
-            kwargs = {}
-            if mouse:
-                kwargs.update(mouse_pos=mouse_pos, active_alert=active_alert,
-                              modal_scroll=modal_scroll)
-            if auto_play:
-                kwargs.update(play_frame=play_frame, playing=playing)
-            if clamp_offset is not None:
-                offset = clamp_offset(offset)
-            result = render_fn(offset_minutes=offset, **kwargs)
-            # render_fn may return (output, metadata) or just output
-            if isinstance(result, tuple):
-                output, alert_row_map = result
-            else:
-                output = result
-                alert_row_map = {}
-            # Separate the cursor-positioned overlay from the body (the
-            # \x00 delimiter overlay() writes)
-            parts = output.split('\x00', 1)
-            main_out = parts[0]
-            overlay = parts[1] if len(parts) > 1 else ""
-            if help_panel is not None and help_panel.open:
-                from linecast.terminal.framebuffer import get_terminal_size
-                overlay = "\033[?1003l" + help_panel.render(*get_terminal_size())
-            elif help_panel is not None and mouse:
-                # A search field may intentionally disable motion; only
-                # restore it when the caller's overlay has not done so.
-                if "\033[?1003l" not in overlay:
-                    overlay = "\033[?1003h" + overlay
-            sys.stdout.write(frame_paint(main_out, overlay) + pacing.ask())
+        self.pacing = pacing = _Pacing()
+        self.init, self.restore = _screen_escapes(self.mouse)
+
+        watch = WorkerWatch()
+        watch.install()
+        try:
+            _running = True
+            # Cbreak first, then the escapes: on Windows, switching stdin to
+            # VT input resets the terminal's mouse tracking, so enables sent
+            # beforehand are silently dropped.  Order is moot on POSIX.
+            term.set_cbreak()
+            sys.stdout.write(self.init)
             sys.stdout.flush()
 
-            # Wait for input, resize, or timeout
-            wait = (play_interval if (auto_play and playing)
-                    else interval() if callable(interval) else interval)
-            deadline = _time.time() + wait
-            owed = False   # a coalesced input is waiting for its repaint
             while True:
-                # A repaint held back for more input is due once the input
-                # has run out.  It cannot wait for the last of that input
-                # to ask: that is often the terminal's reply to the frame
-                # before, and a reply changes nothing on screen.
-                if owed and not _term.wait_readable(fd, 0):
-                    break
-                remaining = deadline - _time.time()
-                if remaining <= 0:
-                    if auto_play and playing and (play_gate is None
-                                                  or play_gate()):
-                        play_frame += 1  # advance the animation
-                    break
-                now = _time.monotonic()
-                if mouse_pos is not None and drag_start is None:
-                    if now >= hover_until:
-                        mouse_pos = None  # the mouse has been still: drop the chip
+                # Hold this frame until the terminal has read the last one.
+                # Keys and wheel notches that arrive meanwhile change the
+                # state the frame is rendered from; a wakeup or a timer tick
+                # is absorbed the same way, since a repaint is coming.
+                if pacing.on and pacing.owed:
+                    until = _time.monotonic() + pacing.wait_s()
+                    while pacing.owed:
+                        left = until - _time.monotonic()
+                        if left <= 0:
+                            pacing.give_up()
+                            break
+                        event = term.wait(min(0.1, left))
+                        if term.suspend_pending:
+                            break
+                        if event == 'input':
+                            if self._on_input() == 'quit':
+                                return
+                if term.suspend_pending:
+                    self._suspend()
+
+                # Drain wakeups from before this render: whatever they announced,
+                # the frame about to be drawn reflects it.  The drain must come
+                # BEFORE render_fn, never after — a background fetch can finish
+                # (and nudge the pipe) while the render is still composing its
+                # "loading" frame, and a drain after the paint would swallow that
+                # completion, leaving the loading frame up until the next input.
+                term.drain()
+                kwargs = {}
+                if self.mouse:
+                    kwargs.update(mouse_pos=self.mouse_pos, active_alert=self.active_alert,
+                                  modal_scroll=self.modal_scroll)
+                if self.auto_play:
+                    kwargs.update(play_frame=self.play_frame, playing=self.playing)
+                if self.clamp_offset is not None:
+                    self.offset = self.clamp_offset(self.offset)
+                result = self.render_fn(offset_minutes=self.offset, **kwargs)
+                # render_fn may return (output, metadata) or just output
+                if isinstance(result, tuple):
+                    output, self.alert_row_map = result
+                else:
+                    output = result
+                    self.alert_row_map = {}
+                # Separate the cursor-positioned overlay from the body (the
+                # \x00 delimiter overlay() writes)
+                parts = output.split('\x00', 1)
+                main_out = parts[0]
+                overlay = parts[1] if len(parts) > 1 else ""
+                help_panel = self.help_panel
+                if help_panel is not None and help_panel.open:
+                    from linecast.terminal.framebuffer import get_terminal_size
+                    overlay = "\033[?1003l" + help_panel.render(*get_terminal_size())
+                elif help_panel is not None and self.mouse:
+                    # A search field may intentionally disable motion; only
+                    # restore it when the caller's overlay has not done so.
+                    if "\033[?1003l" not in overlay:
+                        overlay = "\033[?1003h" + overlay
+                sys.stdout.write(frame_paint(main_out, overlay) + pacing.ask())
+                sys.stdout.flush()
+
+                # Wait for input, resize, or timeout
+                interval = self.interval
+                wait = (self.play_interval if (self.auto_play and self.playing)
+                        else interval() if callable(interval) else interval)
+                deadline = _time.time() + wait
+                owed = False   # a coalesced input is waiting for its repaint
+                while True:
+                    # A repaint held back for more input is due once the input
+                    # has run out.  It cannot wait for the last of that input
+                    # to ask: that is often the terminal's reply to the frame
+                    # before, and a reply changes nothing on screen.
+                    if owed and not _term.wait_readable(term.fd, 0):
                         break
-                    remaining = min(remaining, hover_until - now)
-                event = term.wait(max(0.0, min(remaining, theme.due - now)))
-                if event == 'wake':
-                    break
-                if event == 'timeout':
-                    theme.look()
-                    continue
-                if event == 'input':
-                    verdict = handle_input()
-                    if verdict == 'quit':
-                        return
-                    if verdict == 'repaint':
+                    remaining = deadline - _time.time()
+                    if remaining <= 0:
+                        if self.auto_play and self.playing and (
+                                self.play_gate is None or self.play_gate()):
+                            self.play_frame += 1  # advance the animation
                         break
-                    if verdict == 'coalesce':
-                        owed = True
-    except KeyboardInterrupt:
-        pass
-    # SystemExit is NOT swallowed: a sys.exit(1) from a render callback (or
-    # the signal handler above) must reach the shell as a nonzero status.
-    # The finally block still restores the terminal on its way out.
-    finally:
-        _running = False
-        try:
-            sys.stdout.write(restore + (_CPR_QUERY if pacing.on else ""))
-            sys.stdout.flush()
-        except Exception:
-            pass  # tty may already be gone (SIGHUP); nothing left to restore
-        # What the terminal was still sending -- a colour probe's replies,
-        # mouse reports from before it read the escape above -- is read
-        # and dropped, up to its reply to the query, so none of it reaches
-        # the shell.  A frame whose reply was still owed when the loop
-        # ended is answered first, so the drain waits for one reply more
-        # than that.  Then the terminal settings, the signal handlers and
-        # the wakeup channel go back, in that order (terminal.term.LiveTerminal).
-        # The drain waits on the terminal, and a second ctrl-C or SIGTERM
-        # meanwhile raises through this block: close() runs regardless,
-        # or the shell would inherit the tty in cbreak.
-        try:
-            term.settle(pacing.wait_s() if pacing.on else 0, replies=pacing.owed + 1)
-        except Exception:
+                    now = _time.monotonic()
+                    if self.mouse_pos is not None and self.drag_start is None:
+                        if now >= self.hover_until:
+                            self.mouse_pos = None  # the mouse has been still: drop the chip
+                            break
+                        remaining = min(remaining, self.hover_until - now)
+                    event = term.wait(max(0.0, min(remaining, theme.due - now)))
+                    if event == 'wake':
+                        break
+                    if event == 'timeout':
+                        theme.look()
+                        continue
+                    if event == 'input':
+                        verdict = self._on_input()
+                        if verdict == 'quit':
+                            return
+                        if verdict == 'repaint':
+                            break
+                        if verdict == 'coalesce':
+                            owed = True
+        except KeyboardInterrupt:
             pass
+        # SystemExit is NOT swallowed: a sys.exit(1) from a render callback (or
+        # a signal handler in terminal.term) must reach the shell as a nonzero
+        # status.  The finally block still restores the terminal on its way out.
         finally:
-            term.close()
-        watch.uninstall()
-        watch.report()
+            _running = False
+            try:
+                sys.stdout.write(self.restore + (_CPR_QUERY if pacing.on else ""))
+                sys.stdout.flush()
+            except Exception:
+                pass  # tty may already be gone (SIGHUP); nothing left to restore
+            # What the terminal was still sending -- a colour probe's replies,
+            # mouse reports from before it read the escape above -- is read
+            # and dropped, up to its reply to the query, so none of it reaches
+            # the shell.  A frame whose reply was still owed when the loop
+            # ended is answered first, so the drain waits for one reply more
+            # than that.  Then the terminal settings, the signal handlers and
+            # the wakeup channel go back, in that order (terminal.term.LiveTerminal).
+            # The drain waits on the terminal, and a second ctrl-C or SIGTERM
+            # meanwhile raises through this block: close() runs regardless,
+            # or the shell would inherit the tty in cbreak.
+            try:
+                term.settle(pacing.wait_s() if pacing.on else 0, replies=pacing.owed + 1)
+            except Exception:
+                pass
+            finally:
+                term.close()
+            watch.uninstall()
+            watch.report()
 
 
 
