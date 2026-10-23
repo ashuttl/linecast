@@ -30,6 +30,7 @@ Notable changes, by release. Notes for the next release collect under **Unreleas
 - Sunshine: Sunrise, sunset, and the Sun's height are more accurate, within seconds of published tables rather than a minute or two, and agree with the traditional hours shown beside them.
 - Moon and sky: Both say the Moon is up from the moment it rises, and give it the same altitude, as seen from where you stand. In `sky --json` the Sun is up from sunrise.
 - Moon: In a small month grid, each new, quarter, and full moon shows its phase on the day it falls, and no other day shows one.
+- Weather: On 29 February the comparison with the ten-year average takes in the days either side, so it draws on all ten years rather than the two or three leap days.
 
 ## 2.10.3 — 2026-10-20
 

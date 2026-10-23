@@ -225,10 +225,15 @@ def _compute_averages(data, month: int, day: int) -> Optional[HistoricalAverages
     if not times:
         return None
 
+    # Feb 29 comes round two or three times in ten years, so its average
+    # takes in the days either side of it in every year, as the year
+    # view's band does: leap day is compared with ten years, not two.
+    wanted = {(2, 28), (2, 29), (3, 1)} if (month, day) == (2, 29) else {(month, day)}
     sum_hi = 0.0
     sum_lo = 0.0
     sum_precip = 0.0
     count = 0
+    years = set()
 
     dropped = 0
     bad = None
@@ -252,13 +257,14 @@ def _compute_averages(data, month: int, day: int) -> Optional[HistoricalAverages
         if lo is not None:
             year_lows[y] = min(lo, year_lows.get(y, lo))
 
-        if m == month and d == day:
+        if (m, d) in wanted:
             pr = _at(precips, i)
             if hi is not None and lo is not None:
                 sum_hi += hi
                 sum_lo += lo
                 sum_precip += (pr if pr is not None else 0)
                 count += 1
+                years.add(y)
     log_skipped("weather/climate", "daily dates", dropped, len(times), bad)
 
     if count == 0:
@@ -268,7 +274,7 @@ def _compute_averages(data, month: int, day: int) -> Optional[HistoricalAverages
         avg_high=round(sum_hi / count, 1),
         avg_low=round(sum_lo / count, 1),
         avg_precip=round(sum_precip / count, 2),
-        years=count,
+        years=len(years),
         year_high=(round(sum(year_highs.values()) / len(year_highs), 1)
                    if year_highs else None),
         year_low=(round(sum(year_lows.values()) / len(year_lows), 1)

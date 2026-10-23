@@ -160,6 +160,21 @@ class TestComputeAverages:
         assert result.years == 2
         assert result.avg_high == 52.5
 
+    def test_feb_29_takes_in_the_days_either_side_in_every_year(self):
+        """Ten years hold Feb 29 twice or three times; the days beside it
+        bring the rest of the span in, as the year view's band does."""
+        rows = []
+        for year in range(2016, 2026):
+            rows += [(f"{year}-02-28", 40.0, 20.0, 0.1), (f"{year}-03-01", 44.0, 24.0, 0.3)]
+            if year % 4 == 0:
+                rows.append((f"{year}-02-29", 42.0, 22.0, 0.2))
+        result = _compute_averages(self._make_data(rows), 2, 29)
+        assert result.years == 10
+        assert result.avg_high == 42.0 and result.avg_low == 22.0
+        assert result.avg_precip == 0.2
+        # An ordinary date is still its own day alone
+        assert _compute_averages(self._make_data(rows), 2, 28).avg_high == 40.0
+
 
 # ---------------------------------------------------------------------------
 # format_historical_comparison
