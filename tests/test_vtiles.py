@@ -149,6 +149,43 @@ class TestTileInfo:
                             lambda url, timeout=0: dict(TILEJSON))
         assert vt.tilejson() == TILEJSON
 
+    def test_a_first_source_slow_to_answer_has_the_second_asked_beside_it(
+            self, cache, monkeypatch):
+        # on a network that has stopped answering, each source's ten
+        # seconds came one after the other
+        monkeypatch.setattr(vt, "_HEDGE_S", 0.05)
+        events = []
+
+        def fetch(url, timeout=0):
+            events.append(("asked", url))
+            if url == vt.DEFAULT_TILEJSON_URL:
+                time.sleep(0.3)
+                events.append(("failed", url))
+                raise OSError("timed out")
+            return dict(TILEJSON)
+
+        monkeypatch.setattr(vt, "fetch_json", fetch)
+        assert vt.tilejson() == TILEJSON
+        assert vt.source_credit() == "Tiles by OSM US"
+        assert events == [("asked", vt.DEFAULT_TILEJSON_URL),
+                          ("asked", vt.FALLBACK_TILEJSON_URL),
+                          ("failed", vt.DEFAULT_TILEJSON_URL)]
+
+    def test_the_first_source_is_still_taken_when_it_answers_late(
+            self, cache, monkeypatch):
+        monkeypatch.setattr(vt, "_HEDGE_S", 0.05)
+        theirs = dict(TILEJSON, tiles=["https://osm.example/{z}/{x}/{y}.pbf"])
+
+        def fetch(url, timeout=0):
+            if url == vt.DEFAULT_TILEJSON_URL:
+                time.sleep(0.3)
+                return dict(TILEJSON)
+            return theirs
+
+        monkeypatch.setattr(vt, "fetch_json", fetch)
+        assert vt.tilejson() == TILEJSON
+        assert vt.source_credit() == "OpenFreeMap"
+
     def test_reads_at_once_share_one_request(self, cache, monkeypatch):
         calls, go = [], threading.Event()
 

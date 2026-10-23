@@ -70,6 +70,11 @@ _FAIL_HOLD_S = 2.0
 # One read at a time: the tiles of a view ask at once, and the ones that
 # wait take the first one's answer rather than asking again themselves.
 _memo_lock = threading.Lock()
+# OpenFreeMap's TileJSON comes back in a quarter of a second.  A source
+# that has kept us this long gets the fallback asked beside it, so a
+# network that has stopped answering costs one timeout rather than two,
+# and OpenFreeMap's answer is still the one taken whenever it comes.
+_HEDGE_S = 2.0
 
 
 def tilejson_url() -> str:
@@ -114,7 +119,9 @@ def _served(data, url):
 def tilejson() -> dict[str, Any] | None:
     """The TileJSON dict, or None when no source is reachable or cached.
 
-    Each source in turn: fresh cache, then the network. Only when every
+    Each source in turn: fresh cache, then the network, with the next
+    source asked beside one slow to answer (_HEDGE_S); the first that
+    answers in that order is taken. Only when every
     source has failed do the stale caches answer, again in source order —
     yesterday's OpenFreeMap template usually still serves, and beats
     switching sources over a blip. When none of that finds anything,
@@ -136,22 +143,42 @@ def tilejson() -> dict[str, Any] | None:
     return data
 
 
+def _ask_source(url: str, name: str) -> dict[str, Any]:
+    """One source's TileJSON: its fresh cache, else the network, which
+    raises when it does not answer."""
+    cache_file = cache_dir("maps", name)
+    data = read_cache(cache_file, _TILEJSON_TTL)
+    if data is not None:
+        debug_log(f"cache hit: {name}")
+        return data
+    data = fetch_json(url, timeout=10)
+    write_cache(cache_file, data)
+    return data
+
+
 def _tilejson_uncached() -> dict[str, Any] | None:
+    from concurrent.futures import wait
+
+    from linecast._fanout import Fanout
+
     sources = _sources()
+    fanout = Fanout()
+    asked = [None] * len(sources)
     for i, (url, name) in enumerate(sources):
-        cache_file = cache_dir("maps", name)
-        data = read_cache(cache_file, _TILEJSON_TTL)
-        if data is not None:
-            debug_log(f"cache hit: {name}")
-            return _served(data, url)
+        if asked[i] is None:
+            asked[i] = fanout.submit(_ask_source, url, name)
+        # A source that has kept us waiting gets the next one asked
+        # beside it, and its own answer is still the one taken if it
+        # comes (see _HEDGE_S).
+        if i + 1 < len(sources) and not wait([asked[i]], _HEDGE_S).done:
+            asked[i + 1] = fanout.submit(_ask_source, *sources[i + 1])
         try:
-            data = fetch_json(url, timeout=10)
+            data = asked[i].result()
         except Exception as exc:
             log_failure("maps/vtiles", "tilejson fetch", exc, url=url,
                         fallback=(sources[i + 1][0] if i + 1 < len(sources)
                                   else "stale cache"))
             continue
-        write_cache(cache_file, data)
         return _served(data, url)
     for url, name in sources:
         stale = read_stale(cache_dir("maps", name))
