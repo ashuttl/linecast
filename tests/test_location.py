@@ -75,6 +75,37 @@ class GeolocationProviderChainTests(unittest.TestCase):
 
         self.assertEqual(self._get_location(fake), (5.5, -6.5, "GB"))
 
+    def test_a_source_that_answers_is_asked_alone(self):
+        asked = []
+
+        def fake(url, headers=None, timeout=0):
+            asked.append(url)
+            return {"loc": "3.0,4.0", "country": "CA"}
+
+        self.assertEqual(self._get_location(fake), (3.0, 4.0, "CA"))
+        self.assertEqual(asked, ["https://ipinfo.io/json"])
+
+    def test_a_stalled_source_is_not_waited_out_before_the_next(self):
+        # On a stalled network the three timed out one after another:
+        # nine seconds before the last location found stood in
+        stalled = __import__("threading").Event()
+        asked = []
+
+        def fake(url, headers=None, timeout=0):
+            asked.append(url)
+            if url == "https://ipinfo.io/json":
+                stalled.wait(5)
+                raise OSError("timed out")
+            return {"success": True, "latitude": 3.0, "longitude": 4.0,
+                    "country_code": "CA"}
+
+        began = time.monotonic()
+        with patch.object(_location, "_HEDGE_S", 0.05):
+            self.assertEqual(self._get_location(fake), (3.0, 4.0, "CA"))
+        self.assertLess(time.monotonic() - began, 1.0)
+        self.assertEqual(asked, ["https://ipinfo.io/json", "https://ipwho.is/"])
+        stalled.set()
+
     def test_every_source_down_is_no_location(self):
         def fake(url, headers=None, timeout=0):
             raise OSError("down")

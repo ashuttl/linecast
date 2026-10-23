@@ -37,6 +37,11 @@ PROVIDERS = (
     ("ipwho.is", "https://ipwho.is/", _parse_ipwhois),
     ("GeoJS", "https://get.geojs.io/v1/ip/geo.json", _parse_geojs),
 )
+# A source that has kept us this long without an answer gets company:
+# the next is asked beside it rather than after its timeout, so a
+# network that has stalled costs about one timeout rather than three.
+# ipinfo answers well inside it, so a working network asks it alone.
+_HEDGE_S = 1.0
 
 
 def _cache_file():
@@ -77,28 +82,63 @@ def get_location() -> tuple[float | None, float | None, str | None]:
     if cached is not None:
         return cached
 
-    for i, (name, url, parse) in enumerate(PROVIDERS):
-        try:
-            data = fetch_json(url, headers={"Accept": "application/json"},
-                              timeout=3)
-            lat, lng, country = parse(data)
-            country = plain_text(country)
-            break
-        except Exception as exc:
-            last = i == len(PROVIDERS) - 1
-            log_failure(f"location/{name}", "geolocation", exc, url=url,
-                        fallback="last location found, if any" if last
-                        else PROVIDERS[i + 1][0])
-    else:
+    found = _ask_sources()
+    if found is None:
         # Offline, the place the machine was last found is a better
         # guess than none, and the moon, the sky and the sun need
         # nothing else from the network.
         stale = _cached_place(read_stale(_cache_file()))
         return stale if stale is not None else (None, None, None)
 
+    lat, lng, country = found
     # the answer is in hand; keeping it is a separate, best-effort matter
     write_cache(_cache_file(), {"lat": lat, "lng": lng, "country": country})
     return lat, lng, country
+
+
+def _ask_sources():
+    """(lat, lng, country) from the first source to answer, or None.
+
+    The sources are asked in PROVIDERS order, each started once the one
+    before it has failed or has kept us waiting _HEDGE_S, and the first
+    answer from any of those out is taken.  The rest are left to finish
+    on their daemon threads, and say nothing more.
+    """
+    import queue
+    import threading
+
+    answers = queue.SimpleQueue()
+    done = threading.Event()
+
+    def ask(i, name, url, parse):
+        try:
+            data = fetch_json(url, headers={"Accept": "application/json"}, timeout=3)
+            lat, lng, country = parse(data)
+            answers.put((float(lat), float(lng), plain_text(country)))
+        except Exception as exc:
+            if not done.is_set():
+                last = i == len(PROVIDERS) - 1
+                log_failure(f"location/{name}", "geolocation", exc, url=url,
+                            fallback="last location found, if any" if last
+                            else PROVIDERS[i + 1][0])
+            answers.put(None)
+
+    asked = out = 0
+    while True:
+        if asked < len(PROVIDERS):
+            threading.Thread(target=ask, args=(asked, *PROVIDERS[asked]), daemon=True).start()
+            asked += 1
+            out += 1
+        try:
+            found = answers.get(timeout=_HEDGE_S if asked < len(PROVIDERS) else None)
+        except queue.Empty:
+            continue   # the next source is asked beside the ones still out
+        out -= 1
+        if found is not None:
+            done.set()
+            return found
+        if not out and asked == len(PROVIDERS):
+            return None
 
 
 def own_country() -> str | None:

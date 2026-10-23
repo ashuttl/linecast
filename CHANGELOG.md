@@ -44,6 +44,7 @@ Notable changes, by release. Notes for the next release collect under **Unreleas
 - Maps: Day and night on the map follow the same Sun as the sunshine and sky views.
 - Location: Place names ending in "UK" or "USA", such as `--location "London, UK"`, are found.
 - Location: When the network stops answering, a command waits for the place's name once instead of several times over.
+- Location: When the network stops answering and no location is saved, a command gives up looking for where you are sooner.
 - Weather: When the forecast can't be fetched, weather says so as soon as it knows, instead of first waiting for the climate averages and the alerts.
 - Location: A damaged location cache is fetched again instead of stopping every command with an error.
 - Live views: Resizing the window resizes the view even with `COLUMNS` and `LINES` exported in the shell.
