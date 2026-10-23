@@ -57,8 +57,9 @@ _FALLBACK_ANSI: tuple[RGB, ...] = (
 )
 
 # The questions: foreground, background, and the sixteen ANSI slots.
-_PROBE_QUERY = ("\033]10;?\007\033]11;?\007"
-                + "".join(f"\033]4;{idx};?\007" for idx in range(16))).encode("ascii")
+_DEFAULTS_QUERY = b"\033]10;?\007\033]11;?\007"
+_PROBE_QUERY = _DEFAULTS_QUERY + "".join(
+    f"\033]4;{idx};?\007" for idx in range(16)).encode("ascii")
 
 _OSC_RESPONSE_RE = re.compile(
     r"\x1b\](?P<op>10|11|4;(?P<idx>\d{1,2}));"
@@ -511,9 +512,11 @@ def _is_current(fg_value, bg_value, ansi_value):
 
 # The live loop's probe is asynchronous: the query goes out on stdout and
 # the terminal's replies come back interleaved with keystrokes, where the
-# key reader hands each OSC body to ingest_osc.  A probe is complete when
-# fg, bg and all sixteen ANSI slots have answered.
-_probe = None        # {"fg": rgb, "bg": rgb, "ansi": {idx: rgb}, "started": monotonic}
+# key reader hands each OSC body to ingest_osc.  A full probe is complete
+# when fg, bg and all sixteen ANSI slots have answered; a light one asks
+# for fg and bg alone, and asks for the rest only when either has moved.
+_probe = None        # {"fg": rgb, "bg": rgb, "ansi": {idx: rgb}, "started": monotonic,
+                     #  "full": bool, "fd": the descriptor it was asked on}
 _PROBE_STALE_S = 2.0
 
 
@@ -521,16 +524,23 @@ def can_reprobe():
     return theme_available and not theme_legacy_mode
 
 
-def request_probe(fd_out):
-    """Ask the terminal for its colours; replies arrive via ingest_osc."""
+def request_probe(fd_out, full=True):
+    """Ask the terminal for its colours; replies arrive via ingest_osc.
+
+    A light probe (*full* false) asks for the two default colours, two
+    questions instead of eighteen: a theme change all but always moves
+    the background or the text, and when either has moved the whole
+    palette is asked for next.  A palette that changes under the same
+    two defaults waits for the next full probe."""
     global _probe
     if not can_reprobe():
         return False
     try:
-        os.write(fd_out, _PROBE_QUERY)
+        os.write(fd_out, _PROBE_QUERY if full else _DEFAULTS_QUERY)
     except OSError:
         return False
-    _probe = {"fg": None, "bg": None, "ansi": {}, "started": time.monotonic()}
+    _probe = {"fg": None, "bg": None, "ansi": {}, "started": time.monotonic(),
+              "full": full, "fd": fd_out}
     return True
 
 
@@ -570,6 +580,15 @@ def ingest_osc(body):
         idx = int(match.group("idx"))
         if 0 <= idx <= 15:
             _probe["ansi"][idx] = rgb
+    if not _probe["full"]:
+        if _probe["fg"] is None or _probe["bg"] is None:
+            return False
+        moved = (clamp_rgb(_probe["fg"]), clamp_rgb(_probe["bg"])) != (theme_fg, theme_bg)
+        fd_out = _probe["fd"]
+        _probe = None
+        if moved:
+            request_probe(fd_out)   # the defaults moved: ask for the whole palette
+        return False
     if _probe["fg"] is None or _probe["bg"] is None or len(_probe["ansi"]) < 16:
         return False
     answer = (_probe["fg"], _probe["bg"], tuple(_probe["ansi"][i] for i in range(16)))
@@ -599,11 +618,14 @@ def poll_interval():
 def watch_path():
     """A file whose mtime changes when the desktop theme does, so the live
     loop can re-probe at once instead of waiting for the next poll.
-    Defaults to Omarchy's current-theme marker; LINECAST_THEME_WATCH
+    Defaults to Omarchy's current-theme marker, where there is one, so a
+    machine without Omarchy has nothing to watch; LINECAST_THEME_WATCH
     overrides (empty disables)."""
     raw = os.environ.get("LINECAST_THEME_WATCH")
     if raw is None:
         raw = os.path.expanduser("~/.local/state/omarchy/current/theme.name")
+        if not os.path.exists(raw):
+            return None
     raw = raw.strip()
     return raw or None
 

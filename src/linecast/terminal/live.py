@@ -63,6 +63,13 @@ _ACK_FIRST_WAIT_S = 0.25
 # keep a chip up because the pointer came to rest over it.
 _HOVER_IDLE_S = 7.0
 
+# An idle loop sleeps until something is due rather than waking ten times
+# a second to look: the theme's watch file is looked at this often, the
+# periodic re-probe asks for the two default colours, and every so often
+# for the whole palette, for a change that leaves both alone.
+_THEME_WATCH_S = 0.5
+_FULL_PROBE_S = 10.0
+
 
 def frame_body(text):
     r"""A frame with every row addressed, so no row can shift the ones below.
@@ -575,28 +582,48 @@ def live_loop(render_fn, interval=60, mouse=False, on_open=None, scroll_step=15,
     theme_poll = _theme.poll_interval()
     theme_watch = _theme.watch_path()
     theme_watch_mtime = _mtime(theme_watch) if theme_watch else None
-    next_probe = _time.monotonic() + theme_poll
+    started = _time.monotonic()
+    next_probe = started + theme_poll
+    next_watch = started + _THEME_WATCH_S
+    last_full = started   # the probe at import asked for everything
     burst_until = 0.0   # after the watch file changes, probe briskly for a
                         # few seconds: the terminal may get its colours a
                         # beat after the marker file is written
+    probe_due = started   # the first idle wait looks at once, and sets the next
 
     def _maybe_probe():
-        nonlocal theme_watch_mtime, next_probe, burst_until
-        if not _theme.can_reprobe() or _theme.probe_pending():
+        """Look at the watch file and send a re-probe if either is due,
+        and set probe_due to when one next will be."""
+        nonlocal theme_watch_mtime, next_probe, next_watch, last_full, burst_until
+        nonlocal probe_due
+        if not _theme.can_reprobe():
+            probe_due = float("inf")
             return
         now = _time.monotonic()
+        due = []
         if theme_watch:
-            m = _mtime(theme_watch)
-            if m != theme_watch_mtime:
-                theme_watch_mtime = m
-                burst_until = now + 4.0
-                next_probe = now
+            if now >= next_watch:
+                next_watch = now + _THEME_WATCH_S
+                m = _mtime(theme_watch)
+                if m != theme_watch_mtime:
+                    theme_watch_mtime = m
+                    burst_until = now + 4.0
+                    next_probe = now
+            due.append(next_watch)
         interval = 0.5 if now < burst_until else theme_poll
-        if interval <= 0 and now >= burst_until:
-            return
-        if now >= next_probe:
-            next_probe = now + interval
-            _theme.request_probe(sys.stdout.fileno())
+        if interval > 0 and now >= next_probe:
+            if _theme.probe_pending():
+                # its answers arrive as input; one the terminal never
+                # sends is given up on (probe_pending) by a later look
+                next_probe = now + 0.5
+            else:
+                next_probe = now + interval
+                full = now < burst_until or now - last_full >= _FULL_PROBE_S
+                if _theme.request_probe(sys.stdout.fileno(), full=full) and full:
+                    last_full = now
+        if interval > 0:
+            due.append(next_probe)
+        probe_due = min(due) if due else float("inf")
 
     offset = 0
     playing = auto_play
@@ -916,11 +943,13 @@ def live_loop(render_fn, interval=60, mouse=False, on_open=None, scroll_step=15,
                                                   or play_gate()):
                         play_frame += 1  # advance the animation
                     break
-                if (mouse_pos is not None and drag_start is None
-                        and _time.monotonic() >= hover_until):
-                    mouse_pos = None  # the mouse has been still: drop the chip
-                    break
-                event = term.wait(min(0.1, remaining))
+                now = _time.monotonic()
+                if mouse_pos is not None and drag_start is None:
+                    if now >= hover_until:
+                        mouse_pos = None  # the mouse has been still: drop the chip
+                        break
+                    remaining = min(remaining, hover_until - now)
+                event = term.wait(max(0.0, min(remaining, probe_due - now)))
                 if event == 'wake':
                     break
                 if event == 'timeout':

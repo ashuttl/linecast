@@ -8,6 +8,7 @@ change from OSC replies parsed out of its own input stream.
 
 import colorsys
 import os
+import re
 import select
 import subprocess
 import sys
@@ -559,6 +560,42 @@ class TestProbe:
         assert (_theme.theme_fg, _theme.theme_bg, _theme.theme_ansi) == (
             DARK[0], DARK[1], LIGHT[2])
 
+    def test_a_light_probe_asks_for_the_two_defaults_alone(self, pipe, restore_theme):
+        """The periodic probe asks two questions, not eighteen, and with
+        both answers as they were it is done."""
+        _theme._apply(*DARK)
+        r, w = pipe
+        assert _theme.request_probe(w, full=False)
+        assert os.read(r, 4096) == b"\x1b]10;?\x07\x1b]11;?\x07"
+        gen = _theme.generation
+        for body in _replies(*DARK)[:2]:
+            assert _theme.ingest_osc(body.encode()) is False
+        assert not _theme.probe_pending()
+        assert _theme.generation == gen
+        os.set_blocking(r, False)
+        with pytest.raises(BlockingIOError):
+            os.read(r, 4096)   # and asked nothing more
+
+    @pytest.mark.parametrize("moved", (0, 1))
+    def test_a_light_probe_that_sees_a_default_move_asks_for_the_palette(
+            self, pipe, restore_theme, moved):
+        _theme._apply(*DARK)
+        r, w = pipe
+        assert _theme.request_probe(w, full=False)
+        os.read(r, 4096)
+        after = list(DARK)
+        after[moved] = LIGHT[moved]
+        after[2] = LIGHT[2]
+        for body in _replies(*after)[:2]:
+            assert _theme.ingest_osc(body.encode()) is False
+        assert os.read(r, 4096).startswith(b"\x1b]10;?\x07\x1b]11;?\x07\x1b]4;0;?\x07")
+        assert _theme.probe_pending()
+        replies = _replies(*after)
+        for body in replies[:-1]:
+            assert _theme.ingest_osc(body.encode()) is False
+        assert _theme.ingest_osc(replies[-1].encode()) is True
+        assert (_theme.theme_fg, _theme.theme_bg, _theme.theme_ansi) == tuple(after)
+
     def test_replies_without_a_probe_are_ignored(self, restore_theme):
         _theme._probe = None
         assert _theme.ingest_osc(b"11;rgb:ffff/ffff/ffff") is False
@@ -628,9 +665,15 @@ def test_live_loop_re_inks_when_the_terminal_changes(tmp_path):
                     outbuf += os.read(master, 65536)
                 except OSError:
                     break
-                while b"\x1b]4;15;?\x07" in outbuf:  # the tail of one query
-                    outbuf = outbuf.split(b"\x1b]4;15;?\x07", 1)[1]
-                    os.write(master, _reply_bytes(*palette))
+                # Answer each question as a terminal does, in order: the
+                # light probes ask for the two defaults alone.
+                replies = dict(zip((b"10", b"11", *(b"4;%d" % i for i in range(16))),
+                                   (r.encode() for r in _replies(*palette))))
+                answered = 0
+                for match in re.finditer(rb"\x1b\](10|11|4;\d+);\?\x07", outbuf):
+                    os.write(master, b"\x1b]" + replies[match.group(1)] + b"\x07")
+                    answered = match.end()
+                outbuf = outbuf[answered:]
             if proc.stderr in ready:
                 chunk = proc.stderr.read()
                 if chunk:
@@ -663,6 +706,79 @@ def test_live_loop_re_inks_when_the_terminal_changes(tmp_path):
         os.close(master)
     assert "BG (18, 18, 24)" in seen, (seen, errbuf)
     assert "BG (250, 250, 248)" in seen, (seen, errbuf)
+
+
+def _idle_loop(monkeypatch, seconds, watch="", at=None):
+    """live_loop left alone for `seconds` on a fake terminal and clock,
+    with `at`'s (seconds in, fn) run once on the way. Returns the
+    timeout of every wait, the probes sent as (seconds in, full?), and
+    the clock."""
+    import io
+    from linecast.terminal import live as _live
+    clock = [1000.0]
+    waits, probes = [], []
+
+    hooks = [at] if at else []
+
+    def wait(timeout):
+        waits.append(timeout)
+        clock[0] += timeout
+        if hooks and clock[0] - 1000 >= hooks[0][0]:
+            hooks.pop()[1]()
+        if clock[0] - 1000 > seconds:
+            raise KeyboardInterrupt
+        return 'timeout'
+
+    class Out(io.StringIO):
+        def fileno(self):
+            return 1
+
+    terminal = SimpleNamespace(fd=0, install=lambda: None, set_cbreak=lambda: None,
+                               suspend_pending=False, drain=lambda: None,
+                               close=lambda: None, settle=lambda timeout, replies=1: None,
+                               wait=wait)
+    monkeypatch.setattr(_live._term, "LiveTerminal", lambda fd: terminal)
+    monkeypatch.setattr(_live, "_time", SimpleNamespace(
+        monotonic=lambda: clock[0], time=lambda: clock[0]))
+    monkeypatch.setenv("LINECAST_FRAME_SYNC", "0")
+    monkeypatch.setenv("LINECAST_THEME_POLL", "2")
+    monkeypatch.setenv("LINECAST_THEME_WATCH", watch)
+    monkeypatch.setattr(_theme, "can_reprobe", lambda: True)
+    monkeypatch.setattr(_theme, "probe_pending", lambda: False)
+    monkeypatch.setattr(_theme, "request_probe", lambda fd, full=True: (
+        probes.append((round(clock[0] - 1000, 3), full)), True)[1])
+    monkeypatch.setattr(_live.sys, "stdin", SimpleNamespace(fileno=lambda: 0))
+    monkeypatch.setattr(_live.sys, "stdout", Out())
+    monkeypatch.setattr(_framebuffer, "get_terminal_size", lambda: (80, 24))
+    _live.live_loop(lambda **kw: ".", interval=3600)
+    return waits, probes, clock
+
+
+def test_an_idle_view_sleeps_until_a_probe_is_due(monkeypatch):
+    """It woke ten times a second to look, and asked all eighteen colours
+    every two seconds. Now it sleeps to the next probe, which asks for
+    the two defaults, and for the whole palette every ten seconds."""
+    waits, probes, _clock = _idle_loop(monkeypatch, 65)
+    assert len(waits) < 40
+    assert [t for t, full in probes if full] == [10, 20, 30, 40, 50, 60]
+    assert [t for t, full in probes if not full] == [
+        t for t in range(2, 66, 2) if t % 10]
+
+
+def test_a_changed_watch_file_is_seen_within_half_a_second(tmp_path, monkeypatch):
+    """Omarchy's theme marker is looked at twice a second, and a change
+    to it asks for the whole palette at once, then briskly for a while."""
+    watch = tmp_path / "theme.name"
+    watch.write_text("tokyo-night")
+    os.utime(watch, ns=(1, 1))
+
+    def switch():
+        os.utime(watch, ns=(2, 2))
+    waits, probes, _clock = _idle_loop(monkeypatch, 12, watch=str(watch), at=(7.2, switch))
+    assert max(waits) <= 0.5
+    after = [(t, full) for t, full in probes if t > 7.2]
+    assert after[0] == (7.5, True)
+    assert all(full for t, full in after if t < 11.5)
 
 
 @pytest.mark.parametrize("background,foreground", [
