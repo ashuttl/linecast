@@ -76,3 +76,34 @@ class TestReverseCache:
         def down(url, **_kw):
             raise OSError("offline")
         assert self._ask(-34.5601, 67.8901, down) == ("", "", {})
+
+
+class TestTrailingCountry:
+    """Open-Meteo matches a trailing ISO code or country name, and finds
+    nothing for "London, UK"; the everyday forms are asked as ISO codes."""
+
+    def _asked(self, query):
+        urls = []
+
+        def fetch(url, **_kw):
+            urls.append(url)
+            return {"results": []}
+        with patch.object(_geocode, "fetch_json", fetch):
+            _geocode.geocode(query)
+        import urllib.parse
+        return urllib.parse.parse_qs(urllib.parse.urlsplit(urls[0]).query)["name"][0]
+
+    def test_uk_is_asked_as_gb(self):
+        assert self._asked("London, UK") == "London, GB"
+        assert self._asked("Manchester,uk") == "Manchester, GB"
+        assert self._asked("Leeds, U.K.") == "Leeds, GB"
+
+    def test_usa_is_asked_as_us(self):
+        assert self._asked("Portland, USA") == "Portland, US"
+        assert self._asked("Portland, Maine, U.S.A.") == "Portland, Maine, US"
+
+    def test_other_queries_go_as_typed(self):
+        assert self._asked("London") == "London"
+        assert self._asked("UK") == "UK"
+        assert self._asked("London, United Kingdom") == "London, United Kingdom"
+        assert self._asked("Ukiah, California") == "Ukiah, California"

@@ -180,6 +180,20 @@ def photon_query(query, lang="en", timeout=10):
     return results
 
 
+# Open-Meteo reads a trailing ", XX" as a country when it is the ISO
+# code or the country's name; these everyday forms are neither, and
+# "London, UK" found nothing.
+_COUNTRY_ALIASES = {"uk": "GB", "usa": "US", "us": "US"}
+
+
+def _iso_country(query):
+    """*query* with a trailing everyday country name ("UK", "U.S.A.")
+    swapped for its ISO code, which the geocoder matches."""
+    head, comma, tail = query.rpartition(",")
+    code = _COUNTRY_ALIASES.get(tail.strip().replace(".", "").casefold()) if comma else None
+    return f"{head.rstrip()}, {code}" if code and head.strip() else query
+
+
 def geocode(query, lang="en"):
     """Geocode a place name via Open-Meteo, falling back to Photon.
     Returns list of result dicts; raises GeocoderUnavailable when
@@ -188,7 +202,8 @@ def geocode(query, lang="en"):
 
     url = (
         "https://geocoding-api.open-meteo.com/v1/search"
-        f"?name={urllib.parse.quote(query)}&count=10&language={geocoder_language(lang)}"
+        f"?name={urllib.parse.quote(_iso_country(query))}&count=10"
+        f"&language={geocoder_language(lang)}"
     )
     try:
         data = fetch_json(url, timeout=10)
