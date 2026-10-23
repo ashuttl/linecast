@@ -1179,10 +1179,6 @@ def _(ctx):
 # ---------------------------------------------------------------------------
 # The command line: help, the settings, the completions
 # ---------------------------------------------------------------------------
-SETTINGS = ("location", "language", "units", "clock", "week", "dates", "digits",
-            "icons", "calendar", "culture", "hours")
-
-
 @scene("cli", langs=("en",), themes=("stock",))
 def _(ctx):
     """What `linecast` prints, run as a user runs it: every --help, each
@@ -1191,12 +1187,13 @@ def _(ctx):
     import io
 
     from linecast import __main__ as cli
+    from linecast._config import SETTINGS
     ctx.runtime()
     runs = [["--help"], ["--version"], ["completion", "--help"], ["link", "--help"],
             ["doctor", "--help"]]
     runs += [[view, "--help"] for view in ("weather", "sunshine", "moon", "sky",
                                             "tides", "radar", "maps")]
-    runs += [[name, *extra] for name in SETTINGS for extra in (["--help"], [])]
+    runs += [[s.name, *extra] for s in SETTINGS for extra in (["--help"], [])]
     runs += [["completion", shell] for shell in ("bash", "zsh", "fish", "nu")]
     out = []
     for argv in runs:
