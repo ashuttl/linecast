@@ -336,8 +336,8 @@ class TidesApp(LocationMenu, _live.LiveApp):
         kind, _station, when = key
         if kind == "month":
             from linecast._i18n import lang_of
-            from linecast.moon.calendar import _month_title
-            name = _month_title(when.year, when.month, lang_of(self.runtime), full=True)
+            from linecast.moon.calendar import month_title
+            name = month_title(when.year, when.month, lang_of(self.runtime), full=True)
         else:
             name = str(when) if kind == "year" else self.station_name
         return self.busy_toast(ls('loading', self.runtime.lang, name=name), cols, rows,

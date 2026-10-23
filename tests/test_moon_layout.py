@@ -39,13 +39,13 @@ def _disc(cols, rows, fullscreen=False):
     """(cx, cy, radius) the view draws the disc at."""
     from linecast.moon import view
     seen = {}
-    real = view._draw_moon_disc
+    real = view.draw_moon_disc
 
     def spy(fb, cx, cy, radius, *args, **kwargs):
         seen.update(cx=cx, cy=cy, radius=radius)
         return real(fb, cx, cy, radius, *args, **kwargs)
 
-    with patch("linecast.moon.view._draw_moon_disc", spy):
+    with patch("linecast.moon.view.draw_moon_disc", spy):
         _render(cols, rows, fullscreen=fullscreen)
     return seen["cx"], seen["cy"], seen["radius"]
 
@@ -289,14 +289,14 @@ class TestMoonAlone:
         from linecast._runtime import RuntimeConfig
         runtime = RuntimeConfig(live=False, icons="emoji", lang="en", oneline=False)
         seen = {}
-        real = view._draw_moon_disc
+        real = view.draw_moon_disc
 
         def spy(fb, cx, cy, radius, *args, **kwargs):
             seen["radius"] = radius
             return real(fb, cx, cy, radius, *args, **kwargs)
 
         with patch("linecast.moon.view.get_terminal_size", return_value=(80, 24)), \
-             patch("linecast.moon.view._draw_moon_disc", spy):
+             patch("linecast.moon.view.draw_moon_disc", spy):
             out = view.render(NOW, 43.7, -79.4, runtime, fullscreen=True,
                               show_text=show_text)
         return _strip_ansi(out), seen["radius"]

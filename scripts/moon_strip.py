@@ -40,7 +40,7 @@ from datetime import datetime, timedelta
 sys.path.insert(0, "src")
 
 from linecast.terminal.color import RESET, fg
-from linecast.moon.i18n import _fmt_month_day
+from linecast.moon.i18n import fmt_month_day
 from linecast._runtime import RuntimeConfig
 from linecast.terminal.textwidth import char_width, visible_len
 from linecast.sunshine.palette import INFO_AMBER_RGB, INFO_DIM_RGB, INFO_TEXT_RGB
@@ -104,10 +104,10 @@ def rule(now, rt, width):
     for frac_pos, idx in ((0.0, 0), (0.25, 2), (0.5, 4), (0.75, 6), (1.0, 0)):
         _place(line, round(frac_pos * (width - 1)), icons[idx])
     dates = [" "] * width
-    _place(dates, 0, _fmt_month_day(last_new, rt))
-    fl = _fmt_month_day(full, rt)
+    _place(dates, 0, fmt_month_day(last_new, rt))
+    fl = fmt_month_day(full, rt)
     _place(dates, round(0.5 * (width - 1)) - visible_len(fl) // 2, fl)
-    nl = _fmt_month_day(next_new, rt)
+    nl = fmt_month_day(next_new, rt)
     _place(dates, width - visible_len(nl), nl)
     return [f"{TEXT}{''.join(line)}{RESET}",
             f"{DIM}{''.join(dates)}{RESET}",
@@ -169,10 +169,10 @@ def spare(now, rt, width):
     col = min(width - 1, max(0, round(t * (width - 1))))
     _place(line, col, "│")
     labels = [" "] * width
-    _place(labels, 0, _fmt_month_day(last_new, rt))
-    fl = _fmt_month_day(full, rt)
+    _place(labels, 0, fmt_month_day(last_new, rt))
+    fl = fmt_month_day(full, rt)
     _place(labels, mid - visible_len(fl) // 2, fl)
-    nl = _fmt_month_day(next_new, rt)
+    nl = fmt_month_day(next_new, rt)
     _place(labels, width - visible_len(nl), nl)
     return [f"{TEXT}{''.join(line)}{RESET}", f"{DIM}{''.join(labels)}{RESET}"]
 

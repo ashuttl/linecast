@@ -50,7 +50,7 @@ def _season_label(event, lat, runtime):
     return _ms(_SEASON_KEYS_NORTH[event], runtime)
 
 
-def _fmt_month_day(dt, runtime):
+def fmt_month_day(dt, runtime):
     """Format a month + day date in the runtime language's convention,
     in the civil calendar (astro.calendars.civil): `23 Sep`, or `1 مهر` where
     the dates are Solar Hijri."""

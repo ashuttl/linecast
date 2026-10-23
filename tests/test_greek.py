@@ -7,7 +7,7 @@ import pytest
 
 from linecast._timefmt import fmt_hour_phrase
 from linecast._i18n import LANGUAGE_CODES
-from linecast.moon.i18n import _ms, _fmt_month_day
+from linecast.moon.i18n import _ms, fmt_month_day
 from linecast._runtime import WeatherRuntime, language_of, resolve_lang
 from linecast.sunshine.i18n import axis_month_labels, relative_day, sky_phase
 from linecast.terminal.textwidth import visible_len
@@ -133,7 +133,7 @@ def test_amounts_and_probability_take_the_genitive(code, snow, expected):
 
 
 def test_dates_day_counts_and_dawn_are_greek():
-    assert _fmt_month_day(NOW, runtime()) == "17 Σεπ"
+    assert fmt_month_day(NOW, runtime()) == "17 Σεπ"
     for narrow in (False, True):
         assert axis_month_labels(runtime(), narrow=narrow) == [str(m) for m in range(1, 13)]
     assert relative_day(1, runtime()) == "σε 1 ημέρα"

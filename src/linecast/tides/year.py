@@ -270,14 +270,14 @@ def render_year(year, predicted, observed, flood, runtime, *, header, footer, to
 def summary(year, predicted, observed, runtime, today):
     """The header's words: the year's highest water so far, measured,
     or for a year not yet begun, predicted; with its day."""
-    from linecast.moon.i18n import _fmt_month_day
+    from linecast.moon.i18n import fmt_month_day
     source = {d: v for d, v in (observed or {}).items() if d.year == year} or predicted
     if not source:
         return ""
     day, (_lo, high) = max(source.items(), key=lambda kv: kv[1][1])
     return _ts("highest_on", runtime,
                h=f"{fmt_decimal(runtime.convert_height(high), 1, runtime)}{runtime.height_unit}",
-               date=_fmt_month_day(day, runtime))
+               date=fmt_month_day(day, runtime))
 
 
 @lru_cache(maxsize=8)
@@ -310,7 +310,7 @@ def _moon_row(year, width, n, tzinfo, runtime):
 def _tooltip(span, predicted, observed, observed_name, runtime, col, mouse_row, cols, rows):
     """The chip for the hovered column's days: the predicted and the
     measured (or modeled) highest and lowest water."""
-    from linecast.moon.i18n import _fmt_month_day
+    from linecast.moon.i18n import fmt_month_day
     tbg = bg(*_palette.TIP_BG_RGB)
     tfg = fg(*_palette.TIP_TEXT_RGB)
     tdim = fg(*_palette.TIP_DIM_RGB)
@@ -319,9 +319,9 @@ def _tooltip(span, predicted, observed, observed_name, runtime, col, mouse_row, 
     def fmt(v):
         return f"{fmt_decimal(runtime.convert_height(v), 1, runtime)}{unit}"
 
-    when = _fmt_month_day(span[0], runtime)
+    when = fmt_month_day(span[0], runtime)
     if span[-1] != span[0]:
-        when += f" – {_fmt_month_day(span[-1], runtime)}"
+        when += f" – {fmt_month_day(span[-1], runtime)}"
     lines = [f"{tbg}{tdim} {when} "]
     for name, table in (("predicted", predicted), (observed_name, observed)):
         known = [table[d] for d in span if d in table]

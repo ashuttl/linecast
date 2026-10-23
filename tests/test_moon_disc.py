@@ -23,11 +23,11 @@ class TestMoonDisc:
     def test_terminator_squares_up_to_the_bright_limb(self):
         """The lit half sits where the bright limb points."""
         from linecast.terminal.framebuffer import Framebuffer
-        from linecast.moon.disc import _draw_moon_disc
+        from linecast.moon.disc import draw_moon_disc
 
         def sides(limb_deg, axis_deg=0.0, illum=0.5):
             fb = Framebuffer(40, 20)
-            _draw_moon_disc(fb, 20, 20, 15, illum, limb_deg, axis_deg)
+            draw_moon_disc(fb, 20, 20, 15, illum, limb_deg, axis_deg)
             left = sum(sum(fb.fb[20][x]) for x in range(6, 18))
             right = sum(sum(fb.fb[20][x]) for x in range(23, 35))
             return left, right
@@ -41,11 +41,11 @@ class TestMoonDisc:
         """The two angles are independent: the Sun lights one side of the
         Moon whichever way the Moon's own pole happens to be leaning."""
         from linecast.terminal.framebuffer import Framebuffer
-        from linecast.moon.disc import _draw_moon_disc
+        from linecast.moon.disc import draw_moon_disc
 
         def render(axis_deg):
             fb = Framebuffer(40, 20)
-            _draw_moon_disc(fb, 20, 20, 15, 0.5, 90.0, axis_deg)
+            draw_moon_disc(fb, 20, 20, 15, 0.5, 90.0, axis_deg)
             left = sum(sum(fb.fb[20][x]) for x in range(6, 18))
             right = sum(sum(fb.fb[20][x]) for x in range(23, 35))
             return fb, (left, right)
@@ -58,11 +58,11 @@ class TestMoonDisc:
     def test_lit_fraction_drives_the_terminator(self):
         """Full fills the disc, new empties it."""
         from linecast.terminal.framebuffer import Framebuffer
-        from linecast.moon.disc import _draw_moon_disc
+        from linecast.moon.disc import draw_moon_disc
 
         def brightness(illum):
             fb = Framebuffer(40, 20)
-            _draw_moon_disc(fb, 20, 20, 15, illum, 90.0, 0.0)
+            draw_moon_disc(fb, 20, 20, 15, illum, 90.0, 0.0)
             return sum(sum(fb.fb[20][x]) for x in range(6, 35))
 
         assert brightness(1.0) > brightness(0.5) > brightness(0.02)
@@ -124,22 +124,22 @@ class TestMoonDisc:
     def test_no_turn_is_the_identity(self):
         """A disc drawn through an identity turn is the disc drawn without."""
         from linecast.terminal.framebuffer import Framebuffer
-        from linecast.moon.disc import _IDENTITY, _draw_moon_disc
+        from linecast.moon.disc import _IDENTITY, draw_moon_disc
 
         plain = Framebuffer(40, 20)
-        _draw_moon_disc(plain, 20, 20, 15, 0.7, 110.0, 25.0)
+        draw_moon_disc(plain, 20, 20, 15, 0.7, 110.0, 25.0)
         turned = Framebuffer(40, 20)
-        _draw_moon_disc(turned, 20, 20, 15, 0.7, 110.0, 25.0, _IDENTITY)
+        draw_moon_disc(turned, 20, 20, 15, 0.7, 110.0, 25.0, _IDENTITY)
         assert turned.fb == plain.fb
 
     def test_a_turn_carries_the_light_round_with_the_surface(self):
         """Dragging turns the whole Moon: the lit half goes with it."""
         from linecast.terminal.framebuffer import Framebuffer
-        from linecast.moon.disc import _draw_moon_disc, _rotation
+        from linecast.moon.disc import draw_moon_disc, _rotation
 
         def render(turn, illum=0.5):
             fb = Framebuffer(40, 20)
-            _draw_moon_disc(fb, 20, 20, 15, illum, 90.0, 0.0, turn)
+            draw_moon_disc(fb, 20, 20, 15, illum, 90.0, 0.0, turn)
             row = fb.fb[20]
             left = sum(sum(row[x]) for x in range(6, 18))
             right = sum(sum(row[x]) for x in range(23, 35))
@@ -167,11 +167,11 @@ class TestMoonDisc:
         side's night, turned toward us, is flat shadow."""
         from linecast.terminal.framebuffer import Framebuffer
         from linecast.moon.palette import MOON_SHADOW_RGB
-        from linecast.moon.disc import _draw_moon_disc, _rotation
+        from linecast.moon.disc import draw_moon_disc, _rotation
 
         def night_row(illum, turn=None):
             fb = Framebuffer(60, 30)
-            _draw_moon_disc(fb, 30, 30, 24, illum, 90.0, 0.0, turn)
+            draw_moon_disc(fb, 30, 30, 24, illum, 90.0, 0.0, turn)
             return [fb.fb[30][x] for x in range(10, 26)]   # left, in shadow
 
         crescent = night_row(0.05)
@@ -185,16 +185,16 @@ class TestMoonDisc:
     def test_the_disc_view_night_is_darker_than_the_sky(self):
         from linecast.terminal.framebuffer import Framebuffer
         from linecast.moon.palette import MOON_NIGHT_RGB, MOON_SHADOW_RGB, SKY_RGB
-        from linecast.moon.disc import _draw_moon_disc, _rotation
+        from linecast.moon.disc import draw_moon_disc, _rotation
 
         assert sum(MOON_NIGHT_RGB) < sum(SKY_RGB)
         fb = Framebuffer(60, 30)
-        _draw_moon_disc(fb, 30, 30, 24, 1.0, 90.0, 0.0,
-                        _rotation((0.0, 1.0, 0.0), math.pi), night=MOON_NIGHT_RGB)
+        draw_moon_disc(fb, 30, 30, 24, 1.0, 90.0, 0.0,
+                       _rotation((0.0, 1.0, 0.0), math.pi), night=MOON_NIGHT_RGB)
         assert fb.fb[30][20] == MOON_NIGHT_RGB
         fb = Framebuffer(60, 30)
-        _draw_moon_disc(fb, 30, 30, 24, 1.0, 90.0, 0.0,
-                        _rotation((0.0, 1.0, 0.0), math.pi))
+        draw_moon_disc(fb, 30, 30, 24, 1.0, 90.0, 0.0,
+                       _rotation((0.0, 1.0, 0.0), math.pi))
         assert fb.fb[30][20] == MOON_SHADOW_RGB     # the calendar's default
 
     def test_stars_are_sown_evenly_and_keep_off_the_moon(self):

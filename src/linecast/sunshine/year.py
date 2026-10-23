@@ -26,7 +26,7 @@ from linecast.terminal.framebuffer import get_terminal_size, Framebuffer
 from linecast.terminal.scenes import Memo
 from linecast._timefmt import fmt_time
 from linecast.terminal.live import overlay
-from linecast.moon.i18n import _fmt_month_day
+from linecast.moon.i18n import fmt_month_day
 from linecast.sunshine.i18n import (
     axis_month_labels, clock_label, polar_name, relative_day, sky_event,
     sky_phase,
@@ -468,7 +468,7 @@ def _hover_tooltip(chart, hover_x, mouse_row, cols, rows, runtime, icons):
     gregorian = (f"{gregorian_month_day(date, lang)} · "
                  if civil_calendar(lang) == SOLAR_HIJRI else "")
     tip_lines = [
-        f"{tip_bg}{tip_fg} {_fmt_month_day(date, runtime)} "
+        f"{tip_bg}{tip_fg} {fmt_month_day(date, runtime)} "
         f"{tip_dim}· {gregorian}{rel} ",
         f"{tip_bg}{tip_fg} {fmt_time(hour % 24, runtime.use_24h)}"
         f"{tip_dim}{' ' + zone if zone else ''} · {sky} ",

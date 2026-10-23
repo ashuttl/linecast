@@ -9,7 +9,7 @@ import pytest
 
 from linecast._runtime import WeatherRuntime
 from linecast._i18n import LANGUAGE_CODES
-from linecast.moon.calendar import _month_title
+from linecast.moon.calendar import month_title
 from linecast.terminal import color
 from linecast.terminal.help_i18n import hs
 from linecast.terminal.textwidth import visible_len
@@ -222,7 +222,7 @@ def test_localized_layout_keeps_heading_with_chart_and_legend_within_window(lang
     lines = re.sub(r'\x1b\[[0-9;]*m', '', output).splitlines()
     assert len(lines) <= size[1]
     assert max(map(visible_len, lines)) <= size[0]
-    date_title = _month_title(2025, 10, lang, full=True)
+    date_title = month_title(2025, 10, lang, full=True)
     assert date_title not in lines[0]
     title = next(i for i, line in enumerate(lines) if line.strip() == date_title) + 1
     caption = lines[title].strip().removesuffix('  °F')

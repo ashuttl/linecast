@@ -9,7 +9,7 @@ import pytest
 
 from linecast._runtime import TidesRuntime
 from linecast._i18n import LANGUAGE_CODES
-from linecast.moon.calendar import _month_title
+from linecast.moon.calendar import month_title
 from linecast.terminal import color as _color
 from linecast.terminal.color import fg
 from linecast.terminal.textwidth import visible_len
@@ -206,7 +206,7 @@ class TestThePage:
     def test_localized_title_and_field_fit_the_window(self, lang, size):
         cols, rows = size
         lines, _ = _frame(None, cols=cols, rows=rows, lang=lang)
-        title = _month_title(OCT.year, OCT.month, lang, full=True)
+        title = month_title(OCT.year, OCT.month, lang, full=True)
         assert title not in lines[0]
         assert title in (line.strip() for line in lines)
         heading = next(i for i, line in enumerate(lines) if line.strip() == title)

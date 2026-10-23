@@ -16,7 +16,7 @@ from linecast.sky.scene import focal_length, project, unproject
 from linecast.maps import globe
 from linecast.terminal.framebuffer import Framebuffer, cell_aspect
 from linecast._xyz import bbox_for
-from linecast.moon.disc import _draw_moon_disc
+from linecast.moon.disc import draw_moon_disc
 
 
 class TestCellAspect:
@@ -48,9 +48,9 @@ def _painted_extent(fb):
 class TestTheMoon:
     def test_disc_is_taller_in_subpixels_on_a_short_cell(self):
         wide = Framebuffer(60, 30, bg_color=(0, 0, 0))
-        _draw_moon_disc(wide, 30, 30, 12.0, 1.0, 0.0, 0.0, aspect=15 / 9 / 2)
+        draw_moon_disc(wide, 30, 30, 12.0, 1.0, 0.0, 0.0, aspect=15 / 9 / 2)
         square = Framebuffer(60, 30, bg_color=(0, 0, 0))
-        _draw_moon_disc(square, 30, 30, 12.0, 1.0, 0.0, 0.0)
+        draw_moon_disc(square, 30, 30, 12.0, 1.0, 0.0, 0.0)
         w_wide, h_wide = _painted_extent(wide)
         w_sq, h_sq = _painted_extent(square)
         assert w_wide == w_sq                       # the width is the radius

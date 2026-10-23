@@ -816,7 +816,7 @@ def _tooltip(climate, days, span, jan1, slots, runtime, col, mouse_row, cols, ro
     high and lowest low, the ten years' average and extremes for the
     dates, and the precipitation of the days gone by."""
     from linecast.astro.calendars.civil import SOLAR_HIJRI, civil_calendar
-    from linecast.moon.i18n import _fmt_month_day, gregorian_month_day
+    from linecast.moon.i18n import fmt_month_day, gregorian_month_day
     from linecast.sunshine.i18n import relative_day
     from linecast.weather.daily import fmt_precip_amount, fmt_snow_amount
     from linecast.weather.cover import _PRECIP_CODES
@@ -831,9 +831,9 @@ def _tooltip(climate, days, span, jan1, slots, runtime, col, mouse_row, cols, ro
         return [v for v in (values[k] for k in span) if v is not None]
 
     a, b = jan1 + timedelta(days=first), jan1 + timedelta(days=last)
-    when = _fmt_month_day(a, runtime)
+    when = fmt_month_day(a, runtime)
     if first != last:
-        when += f" – {_fmt_month_day(b, runtime)}"
+        when += f" – {fmt_month_day(b, runtime)}"
     # Where the dates are Solar Hijri, the Gregorian dates the axis runs by
     # ride beside them, as in sunshine's year view.
     if civil_calendar(runtime.lang) == SOLAR_HIJRI:

@@ -92,15 +92,15 @@ class TestFormatting:
         assert shift_month(1405, 7, 0) == (1405, 7)
 
     def test_fmt_month_day_follows_the_civil_calendar(self, monkeypatch):
-        from linecast.moon.i18n import _fmt_month_day, gregorian_date_label
+        from linecast.moon.i18n import fmt_month_day, gregorian_date_label
         when = datetime(2026, 9, 23, 12, tzinfo=IRST)
-        assert _fmt_month_day(when, SimpleNamespace(lang="fa")) == "1 مهر"
-        assert _fmt_month_day(when, SimpleNamespace(lang="en")) == "Sep 23"
+        assert fmt_month_day(when, SimpleNamespace(lang="fa")) == "1 مهر"
+        assert fmt_month_day(when, SimpleNamespace(lang="en")) == "Sep 23"
         assert gregorian_date_label(when, "fa") == "23 سپتامبر 2026"
         monkeypatch.setenv("LINECAST_DATES", "gregorian")
-        assert _fmt_month_day(when, SimpleNamespace(lang="fa")) == "23 سپتامبر"
+        assert fmt_month_day(when, SimpleNamespace(lang="fa")) == "23 سپتامبر"
         monkeypatch.setenv("LINECAST_DATES", "solar-hijri")
-        assert _fmt_month_day(when, SimpleNamespace(lang="en")) == "1 Mehr"
+        assert fmt_month_day(when, SimpleNamespace(lang="en")) == "1 Mehr"
 
 
 def _grid(now, lang="fa", month_offset=0, mouse_pos=None, calendar=None,
@@ -260,6 +260,6 @@ class TestSunshineYear:
 
 @pytest.mark.parametrize("lang", ["en", "de", "ja"])
 def test_other_languages_do_not_change(lang):
-    from linecast.moon.i18n import _fmt_month_day, gregorian_month_day
+    from linecast.moon.i18n import fmt_month_day, gregorian_month_day
     when = datetime(2026, 9, 23, 12, tzinfo=ET)
-    assert _fmt_month_day(when, SimpleNamespace(lang=lang)) == gregorian_month_day(when, lang)
+    assert fmt_month_day(when, SimpleNamespace(lang=lang)) == gregorian_month_day(when, lang)

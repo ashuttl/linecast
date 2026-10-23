@@ -39,7 +39,7 @@ from linecast.astro.calendars import solar_hijri
 from linecast.astro.calendars.civil import (
     SOLAR_HIJRI, civil_calendar, shift_month, solar_hijri_month_title,
 )
-from linecast.moon.i18n import _day_abbrev, _fmt_month_day, _ms, gregorian_date_label
+from linecast.moon.i18n import _day_abbrev, fmt_month_day, _ms, gregorian_date_label
 from linecast._i18n import MONTHS, moon_name
 from linecast.astro.seasons import full_moon_name
 from linecast.moon.phase import (
@@ -70,7 +70,7 @@ def _week_start(runtime):
     return WEEK_START_WEEKDAY.get(getattr(runtime, "week_start", None), 0)
 
 
-def _month_title(year, month, lang, full=False):
+def month_title(year, month, lang, full=False):
     """`Sep 2026`, `2026年9月` — the grid's headline, in the UI language;
     `September 2026` with the month in *full*."""
     if base_language(lang) in ("ja", "zh", "zh-Hant"):
@@ -99,8 +99,8 @@ def month_title_forms(year, month, lang):
     spell out May and then abbreviate September."""
     forms = []
     for full in (True, False):
-        widest = max(visible_len(_month_title(year, m, lang, full)) for m in range(1, 13))
-        form = (_month_title(year, month, lang, full), widest)
+        widest = max(visible_len(month_title(year, m, lang, full)) for m in range(1, 13))
+        form = (month_title(year, month, lang, full), widest)
         if form not in forms:
             forms.append(form)
     return forms
@@ -329,8 +329,8 @@ def render_calendar(now_local, lat, lng, runtime, month_offset=0,
             limb = 90.0 if waxing else 270.0
             if lat is not None and lat < 0:
                 limb = 360.0 - limb
-            disc._draw_moon_disc(fb, cx, cy, radius, illum, limb, 0.0,
-                                 night=moon_palette.MOON_NIGHT_RGB, aspect=aspect)
+            disc.draw_moon_disc(fb, cx, cy, radius, illum, limb, 0.0,
+                                night=moon_palette.MOON_NIGHT_RGB, aspect=aspect)
             if mirrored:
                 # The grid reads from the right; the Moon is still the
                 # Moon, so it is drawn flipped for the row's flip to undo
@@ -482,7 +482,7 @@ def _hover_chip(d, ctx, found, phase_days, mouse_pos, cols, rows):
     tip_fg = fg(*TIP_TEXT_RGB)
     tip_dim = fg(*TIP_DIM_RGB)
 
-    head = f"{_day_abbrev(noon, runtime)} {_fmt_month_day(noon, runtime)}"
+    head = f"{_day_abbrev(noon, runtime)} {fmt_month_day(noon, runtime)}"
     ahead = (d - ctx.today).days
     if ahead > 0:
         head += f" · {_ms('in_days', runtime, days=str(ahead))}"

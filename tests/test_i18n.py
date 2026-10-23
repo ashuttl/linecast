@@ -531,9 +531,9 @@ class TestHungarianWeather:
         assert DAY_NAMES["hu"] == ["H", "K", "Sze", "Cs", "P", "Szo", "V"]
 
     def test_dates_run_from_the_year(self):
-        from linecast.moon.calendar import _month_title
+        from linecast.moon.calendar import month_title
         from linecast.moon.i18n import gregorian_date_label
-        assert _month_title(2026, 9, "hu") == "2026. szept."
+        assert month_title(2026, 9, "hu") == "2026. szept."
         assert gregorian_date_label(datetime(2026, 9, 27), "hu") == "2026. szept. 27."
 
 
@@ -603,12 +603,12 @@ class TestSwahili:
         assert fmt_hour_phrase(5, True, "sw") == "kumi na moja alfajiri"
 
     def test_calendar_labels_remain_distinct_in_narrow_columns(self):
-        from linecast.moon.i18n import _fmt_month_day
+        from linecast.moon.i18n import fmt_month_day
         from linecast.sunshine.i18n import axis_month_labels, relative_day
         runtime = SimpleNamespace(lang="sw")
         assert DAY_NAMES["sw"] == ["J3", "J4", "J5", "Alh", "Ij", "J1", "J2"]
         assert len({name[:2] for name in DAY_NAMES["sw"]}) == 7
-        assert _fmt_month_day(datetime(2026, 8, 24), runtime) == "24 Ago"
+        assert fmt_month_day(datetime(2026, 8, 24), runtime) == "24 Ago"
         assert axis_month_labels(runtime)[2] == "Mac"
         assert relative_day(-1, runtime) == "siku 1 iliyopita"
         assert relative_day(-2, runtime) == "siku 2 zilizopita"

@@ -174,7 +174,7 @@ class Turn:
 
 _IDENTITY = (1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0)
 # The daylit ground's brightness, from the photometric law in
-# _draw_moon_disc, is raised to this before it colours a pixel: the eye
+# draw_moon_disc, is raised to this before it colours a pixel: the eye
 # and a camera compress the Moon's range, and the terminator of a
 # quarter Moon in a photograph is a grade over the last fifth or so of
 # the daylit ground, not the half that the law alone would make it.
@@ -267,9 +267,9 @@ def _radial_lit(a, b, lo, hi):
     return (lit_hi - lit_lo) / (hi - lo), lit_lo, lit_hi
 
 
-def _draw_moon_disc(fb, cx, cy, radius, illum, limb_deg, axis_deg,
-                    turn=None, night=None, lit=None, contrast=1.0,
-                    earthshine=1.0, dusk=0.0, aspect=1.0):
+def draw_moon_disc(fb, cx, cy, radius, illum, limb_deg, axis_deg,
+                   turn=None, night=None, lit=None, contrast=1.0,
+                   earthshine=1.0, dusk=0.0, aspect=1.0):
     """Draw the phase-shaded lunar disc centered at (cx, cy) sub-pixels.
 
     *radius* is in cells across; *aspect* is a sub-pixel's height in cell

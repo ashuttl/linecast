@@ -76,7 +76,7 @@ from linecast.sky.i18n import _sk, body_name
 from linecast.sunshine.i18n import clock_label, sky_phase
 from linecast.terminal.textwidth import cells as text_cells
 from linecast.tides.i18n import _ts  # shared "space to return to now" hint
-from linecast.moon.disc import _draw_moon_disc
+from linecast.moon.disc import draw_moon_disc
 from linecast.sunshine.palette import (
     SKY_FAR_HORIZON, SKY_NEAR_HORIZON, SKY_ZENITH, SUN_DOT_RGB, SUN_GLOW_RGB,
 )
@@ -519,7 +519,7 @@ def _draw_moon(fb, scene, lens, hits):
     cell = fb.cell_bg(max(0, min(fb.graph_w - 1, int(mx))),
                       max(0, min(fb.graph_h - 1, int(my) // 2)))
     up = _screen_up_deg(moon_cam, lens)
-    _behind_the_horizon(fb, mx, my, radius, lens, lambda: _draw_moon_disc(
+    _behind_the_horizon(fb, mx, my, radius, lens, lambda: draw_moon_disc(
         fb, int(round(mx)), int(round(my)), radius, illum,
         up + scene.moon_limb, up + scene.moon_axis, None,
         night=lerp(cell, darken(NIGHT_RGB, 0.5), dark),

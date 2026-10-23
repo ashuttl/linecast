@@ -9,7 +9,7 @@ from zoneinfo import ZoneInfo
 from linecast._i18n import DAY_NAMES, fmt_decimal, table_for
 from linecast._timefmt import fmt_time_dt
 from linecast.astro.ephemeris import sun_crossings
-from linecast.moon.calendar import _month_title
+from linecast.moon.calendar import month_title
 from linecast.terminal import live, theme
 from linecast.terminal.braille import DOT_BITS
 from linecast.terminal.color import RESET, bg, fg
@@ -290,7 +290,7 @@ def render_month(series, first, runtime, lat, lng, label, *, difference=False,
     if now_cell:
         overlays[now_cell] = ("◆", clear_ink(style.TEXT_RGB, field.cell_bg(*now_cell)), False)
 
-    title = _month_title(first.year, first.month, runtime.lang, full=True)
+    title = month_title(first.year, first.month, runtime.lang, full=True)
     place = month_location(label, cols, runtime, location_menu)
     baseline = f"{series.span[0]}–{series.span[1]}"
     caption = (_s("month_departure", runtime, span=baseline) if difference

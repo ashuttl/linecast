@@ -48,7 +48,7 @@ from linecast._location import (
 )
 from linecast.astro.calendars.lunisolar import resolve_calendar
 from linecast.moon.i18n import (
-    _day_abbrev, _fmt_month_day, _ms, _season_label, solar_hijri_observance_name,
+    _day_abbrev, fmt_month_day, _ms, _season_label, solar_hijri_observance_name,
     year_turn_label,
 )
 from linecast._i18n import moon_name
@@ -65,7 +65,7 @@ from linecast.astro.ephemeris import (
     moon_azimuth_deg, moon_parallactic_deg, moon_ra_dec,
     moon_age_days, moon_altitude, moon_axis_deg, moon_bright_limb_deg, precess_to_j2000,
 )
-from linecast.moon.disc import _draw_moon_disc
+from linecast.moon.disc import draw_moon_disc
 from linecast.moon.stars import star_overlays
 from linecast.moon.palette import (
     MOON_GLOW_RGB, MOON_NIGHT_RGB, PANEL_AMBER_RGB, PANEL_DIM_RGB, PANEL_MUTED_RGB,
@@ -209,14 +209,14 @@ class _RowMaker:
         else:
             wait_txt = _ms('in_days', runtime,
                            days=fmt_decimal(wait.total_seconds() / 86400.0, 1, runtime))
-        return _Row(dt, label, _fmt_month_day(dt, runtime), wait_txt, self._ink(dt))
+        return _Row(dt, label, fmt_month_day(dt, runtime), wait_txt, self._ink(dt))
 
     def day(self, label, day, wait=None):
         """Something kept on a day — a festival, a month's first day:
         the date, and the wait in whole days."""
         at = datetime.combine(day, datetime.min.time(), self.now_local.tzinfo)
         gap = (day - self.today).days
-        return _Row(at, label, _fmt_month_day(day, self.runtime),
+        return _Row(at, label, fmt_month_day(day, self.runtime),
                     wait or _ms('in_days', self.runtime, days=str(gap)),
                     self._ink(at))
 
@@ -242,7 +242,7 @@ def solar_hijri_rows(now_local, runtime):
         at = turn_utc.astimezone(now_local.tzinfo)
         clock = (at.strftime("%H:%M:%S") if runtime.use_24h
                  else fmt_time_dt(at, use_24h=False))
-        when = clock if at.date() == today else f"{_fmt_month_day(at, runtime)} {clock}"
+        when = clock if at.date() == today else f"{fmt_month_day(at, runtime)} {clock}"
         if left < timedelta(days=1):
             wait = _ms('in_time', runtime, dur=_fmt_clock(left))
         else:
@@ -258,7 +258,7 @@ def solar_hijri_rows(now_local, runtime):
     if gap == 0:
         return name, rows
     rows.append(_Row(datetime.combine(day, datetime.min.time(), now_local.tzinfo),
-                     name, _fmt_month_day(day, runtime),
+                     name, fmt_month_day(day, runtime),
                      _ms('in_days', runtime, days=str(gap)), PANEL_TEXT_RGB))
     return None, rows
 
@@ -670,7 +670,7 @@ def _corners(moon, found, ctx, offset_minutes):
         # Scrubbed away from the present: lead with the simulated moment
         # ("Up now" would lie), and show how to get back.
         when_txt = (f"{_day_abbrev(now_local, runtime)} "
-                    f"{_fmt_month_day(now_local, runtime)} "
+                    f"{fmt_month_day(now_local, runtime)} "
                     f"{fmt_time_dt(now_local, use_24h=runtime.use_24h)}")
         alt_txt = _ms('above_horizon', runtime, alt=_shown_alt(moon.alt))
         day_head = [[(when_txt, A, False)],
@@ -751,8 +751,8 @@ def render(now_local, lat, lng, runtime, fullscreen=False, offset_minutes=0,
         turn.aspect = aspect
     fb.draw_radial(cx, cy, MOON_GLOW_RGB, int(radius * 1.7), aspect=aspect,
                    peak_alpha=0.10 + 0.20 * moon.illum)
-    _draw_moon_disc(fb, cx, cy, radius, moon.illum, moon.limb, moon.axis, rotation,
-                    night=MOON_NIGHT_RGB, aspect=aspect)
+    draw_moon_disc(fb, cx, cy, radius, moon.illum, moon.limb, moon.axis, rotation,
+                   night=MOON_NIGHT_RGB, aspect=aspect)
     if fullscreen and show_text:
         _place_help(overlays, graph_w, graph_h, lang_of(runtime))
     stars = star_overlays(fb, cx, cy, radius, moon.sky, taken=overlays.keys(),

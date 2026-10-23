@@ -388,7 +388,7 @@ def render_makeup(first, made, runtime, *, header, footer, station_tz, now_local
     when it cannot fit above the body, otherwise an empty string.
     *footer* is the line the live view puts below it.
     """
-    from linecast.moon.calendar import _month_title
+    from linecast.moon.calendar import month_title
     from linecast.moon.phase import moon_phase
     from linecast.radar.i18n import rs
     from linecast.sunshine.i18n import gregorian_axis_labels
@@ -514,7 +514,7 @@ def render_makeup(first, made, runtime, *, header, footer, station_tz, now_local
                                  for y in range(long_start + 1, long_start + YEARS_SPAN,
                                                 4 if cell_w >= 26 else 8)]),
     }
-    titles = {"month": _month_title(first.year, first.month, lang), "year": str(year),
+    titles = {"month": month_title(first.year, first.month, lang), "year": str(year),
               "long": f"{long_start}–{long_start + YEARS_SPAN - 1}"}
 
     def padded(s, width):
@@ -596,7 +596,7 @@ def _hover_chip(mouse_pos, strips, spans, left_w, cell_w, gap, strip_rows, strip
     and that part's size then."""
     if not mouse_pos or not strips:
         return ""
-    from linecast.moon.i18n import _fmt_month_day
+    from linecast.moon.i18n import fmt_month_day
     mcol, mrow = mouse_pos
     x = mcol - 1 - (left_w + 1)
     span_i, in_cell = divmod(x, cell_w + gap)
@@ -616,7 +616,7 @@ def _hover_chip(mouse_pos, strips, spans, left_w, cell_w, gap, strip_rows, strip
     else:
         day = (first + timedelta(days=int(frac * ndays)) if span == "month"
                else date(year, 1, 1) + timedelta(days=int(frac * year_days)))
-        when = f"{table_for(DAY_NAMES, lang)[day.weekday()]} {_fmt_month_day(day, runtime)}"
+        when = f"{table_for(DAY_NAMES, lang)[day.weekday()]} {fmt_month_day(day, runtime)}"
         value = _sample(values, frac)
     tip_bg, tip_fg, dim = (bg(*_palette.TIP_BG_RGB), fg(*_palette.TIP_TEXT_RGB),
                            fg(*_palette.TIP_DIM_RGB))

@@ -36,7 +36,7 @@ from datetime import date, datetime, timedelta
 from linecast._i18n import DAY_NAMES, fmt_decimal, lang_of, table_for
 from linecast._timefmt import fmt_time_dt
 from linecast.astro.ephemeris import sun_crossings, sunrise_sunset
-from linecast.moon.calendar import _month_title
+from linecast.moon.calendar import month_title
 from linecast.terminal import live as _live
 from linecast.terminal import theme as _theme
 from linecast.terminal.braille import DOT_BITS
@@ -344,7 +344,7 @@ def render_month(first, predictions, hilo, runtime, *, header, footer, station_m
 
     # --- assemble ---
     lines = [header] + [""] * layout.header_gap
-    title = _month_title(first.year, first.month, lang_of(runtime), full=True)
+    title = month_title(first.year, first.month, lang_of(runtime), full=True)
     lines += [" " * gutter + line for line in render_heading(
         title, width, text_rgb=_palette.TEXT_RGB, dim_rgb=_palette.DIM_RGB,
         ruled=layout.ruled)]
@@ -390,7 +390,7 @@ def _phase_marks(first, tz, runtime):
 def _hover_chip(hover, row_days, heights, gutter, width, mouse_pos, runtime, tz):
     """The chip for the hovered hour: the water at that time on the
     row's day, or on each of its two."""
-    from linecast.moon.i18n import _fmt_month_day
+    from linecast.moon.i18n import fmt_month_day
     r, x = hover
     minutes = round((x + 0.5) * 1440 / width)
     tip_bg = bg(*_palette.TIP_BG_RGB)
@@ -401,7 +401,7 @@ def _hover_chip(hover, row_days, heights, gutter, width, mouse_pos, runtime, tz)
         moment = datetime(day.year, day.month, day.day, tzinfo=tz) + timedelta(minutes=minutes)
         h = heights.at(moment)
         when = (f"{table_for(DAY_NAMES, lang_of(runtime))[day.weekday()]} "
-                f"{_fmt_month_day(day, runtime)}")
+                f"{fmt_month_day(day, runtime)}")
         if not lines:
             lines.append(f"{tip_bg}{dim} {fmt_time_dt(moment, use_24h=runtime.use_24h)} ")
         value = ("–" if h is None else
