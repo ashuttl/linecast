@@ -278,6 +278,11 @@ class LiveTerminal:
         self._old_settings = None
         self._prev_handlers = {}
         self._wake_r = self._wake_w = None
+        # wake() runs on any thread and close() on the loop's: the lock
+        # keeps a nudge from writing to the pipe as it closes, or to a
+        # file that has just been given its descriptor number
+        import threading
+        self._wake_lock = threading.Lock()
         self._event = None
         self._old_in_mode = self._old_out_mode = None
         self._handle_in = self._handle_out = None
@@ -438,12 +443,13 @@ class LiveTerminal:
             if self._event is not None:
                 self._event.set()
             return
-        if self._wake_w is None:
-            return
-        try:
-            os.write(self._wake_w, b'\x00')
-        except OSError:
-            pass
+        with self._wake_lock:
+            if self._wake_w is None:
+                return
+            try:
+                os.write(self._wake_w, b'\x00')
+            except OSError:
+                pass
 
     def _is_console(self):
         if self._console is None:
@@ -549,13 +555,15 @@ class LiveTerminal:
                 signal.signal(_sig, _handler)
             except (ValueError, OSError):
                 pass
-        for _fd in (self._wake_r, self._wake_w):
-            if _fd is not None:
-                try:
-                    os.close(_fd)
-                except OSError:
-                    pass
-        self._wake_r = self._wake_w = None
+        with self._wake_lock:
+            pipe = (self._wake_r, self._wake_w)
+            self._wake_r = self._wake_w = None
+            for _fd in pipe:
+                if _fd is not None:
+                    try:
+                        os.close(_fd)
+                    except OSError:
+                        pass
         if self._old_settings is not None:
             try:
                 termios.tcsetattr(

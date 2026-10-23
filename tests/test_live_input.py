@@ -6,6 +6,7 @@ is handed to read_key, exactly as cbreak stdin would deliver them.
 
 import os
 import sys
+import time
 
 import pytest
 
@@ -295,6 +296,57 @@ class TestNudge:
             term.close()
             os.close(r)
             os.close(w)
+
+    @pytest.mark.skipif(sys.platform == "win32", reason="the self-pipe is POSIX")
+    def test_a_nudge_racing_the_end_of_the_loop_finishes_first(self, monkeypatch):
+        """A fetch that lands as the loop ends nudges from its own thread.
+        Its write must not meet a pipe closed under it, a descriptor
+        number some file has just been given, or the None close() leaves
+        (os.write(None) raised in the worker)."""
+        import threading
+        import types
+        from linecast.terminal import term as _term
+        r, w = os.pipe()
+        term = _term.LiveTerminal(r)
+        term.install()
+        wake_w = term._wake_w
+        events = []
+        in_write = threading.Event()
+
+        def write(fd, data):
+            if fd == wake_w:
+                in_write.set()
+                time.sleep(0.2)   # close() is called meanwhile
+                events.append("write")
+            return os.write(fd, data)
+
+        def close(fd):
+            if fd == wake_w:
+                events.append("close")
+            return os.close(fd)
+
+        names = {name: getattr(os, name) for name in dir(os) if not name.startswith("__")}
+        monkeypatch.setattr(_term, "os", types.SimpleNamespace(
+            **{**names, "write": write, "close": close}))
+        errors = []
+
+        def nudge():
+            try:
+                term.wake()
+            except Exception as exc:
+                errors.append(exc)
+        worker = threading.Thread(target=nudge)
+        worker.start()
+        try:
+            assert in_write.wait(2)
+            term.close()
+        finally:
+            worker.join(2)
+            os.close(r)
+            os.close(w)
+        assert errors == []
+        assert events == ["write", "close"]
+        term.wake()   # and after the end, a nudge is nothing
 
     def test_radar_frames_nudge_is_the_live_one(self):
         from linecast.terminal import live as _live
