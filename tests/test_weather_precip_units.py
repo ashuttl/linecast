@@ -227,3 +227,38 @@ class TestCalmDays:
         lines = self._rows(width=28)
         assert "mph" not in lines[2]
         assert self.MUTED in lines[1] and self.MUTED not in lines[2]
+
+
+class TestForecastCacheKey:
+    """The cached forecast is the answer in one set of units; a run in
+    another set must not read it, or millimetres are labelled inches."""
+
+    def _requests(self, monkeypatch):
+        from linecast._runtime import WeatherRuntime
+        from linecast.weather import forecast
+
+        asked = []
+        monkeypatch.setattr(forecast, "fetch_json_cached",
+                            lambda path, _age, url, **_kw: asked.append((path.name, url)))
+        for celsius in (True, False):
+            for metric in (True, False):
+                for wind in ("km/h", "mph", "m/s", "kn"):
+                    runtime = WeatherRuntime(live=False, icons="plain", lang="en",
+                                             oneline=False, celsius=celsius,
+                                             metric=metric, wind_choice=wind)
+                    forecast.fetch_forecast(43.66, -70.26, runtime)
+        return asked
+
+    def test_every_unit_has_its_own_file(self, monkeypatch):
+        asked = self._requests(monkeypatch)
+        assert len({name for name, _url in asked}) == len(asked) == 16
+
+    def test_the_file_names_each_unit_the_request_sends(self, monkeypatch):
+        for name, url in self._requests(monkeypatch):
+            units = dict(part.split("=") for part in url.split("?")[1].split("&")
+                         if part.split("=")[0].endswith("_unit"))
+            assert set(units) == {"temperature_unit", "wind_speed_unit",
+                                  "precipitation_unit"}
+            assert units["wind_speed_unit"] in name
+            assert units["precipitation_unit"] in name
+            assert name.split("_")[2] == units["temperature_unit"][0].upper()

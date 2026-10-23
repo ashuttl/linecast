@@ -24,6 +24,7 @@ Notable changes, by release. Notes for the next release collect under **Unreleas
 - Tides: A month or year view that fails to load, as when the network drops, is tried again after a short wait instead of staying empty until linecast is restarted.
 - Tides: Fixed the missing night shading on the chart at stations from TICON-4.
 - Tides: `--station` accepts the five-digit codes the Canadian Hydrographic Service gives its stations, such as 00490 for Halifax.
+- Weather: Changing the precipitation units no longer shows the last forecast's millimetres as inches, or its inches as millimetres.
 
 ## 2.10.3 — 2026-10-20
 

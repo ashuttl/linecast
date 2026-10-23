@@ -113,10 +113,14 @@ def fetch_forecast(lat: float, lng: float,
     only while it still says today is today."""
     if runtime is None:
         runtime = current_runtime(WeatherRuntime)
-    temp_tag = "C" if runtime.celsius else "F"
-    wind_tag = {"km/h": "m", "mph": "i", "m/s": "s", "kn": "k"}[runtime.wind_unit]
+    # Each unit changes the numbers in the answer, so the file is named
+    # for all three, from the same values the request sends.
+    temp_unit = "celsius" if runtime.celsius else "fahrenheit"
+    wind_unit = runtime.wind_unit_param
+    precip_unit = "mm" if runtime.metric else "inch"
     cache_file = cache_dir(
-        "weather", f"forecast_{location_cache_key(lat, lng)}_{temp_tag}{wind_tag}.json")
+        "weather", f"forecast_{location_cache_key(lat, lng)}"
+                   f"_{temp_unit[0].upper()}_{wind_unit}_{precip_unit}.json")
     url = (
         "https://api.open-meteo.com/v1/forecast"
         f"?latitude={lat}&longitude={lng}"
@@ -126,9 +130,9 @@ def fetch_forecast(lat: float, lng: float,
         "&daily=temperature_2m_max,temperature_2m_min,precipitation_sum,snowfall_sum,"
         "precipitation_probability_max,weather_code,wind_speed_10m_max,wind_gusts_10m_max,"
         "sunrise,sunset,cloud_cover_mean"
-        f"&temperature_unit={'celsius' if runtime.celsius else 'fahrenheit'}"
-        f"&wind_speed_unit={runtime.wind_unit_param}"
-        f"&precipitation_unit={'mm' if runtime.metric else 'inch'}"
+        f"&temperature_unit={temp_unit}"
+        f"&wind_speed_unit={wind_unit}"
+        f"&precipitation_unit={precip_unit}"
         "&timezone=auto&forecast_days=7&past_days=1"
         "&current=temperature_2m,apparent_temperature,weather_code,"
         "wind_speed_10m,wind_gusts_10m,relative_humidity_2m,dew_point_2m,cloud_cover,cloud_cover_high"
