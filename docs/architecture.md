@@ -40,7 +40,7 @@ These are the smaller modules, by command. Weather: `gather` in `weather/live.py
 
 The package is built in layers, and a module imports only from its own layer or the ones below it, at the top of the file or inside a function alike. At the bottom are the modules everything uses: `_paths`, `_plaintext`, `_geo`, `_png`, `_log`, `_timefmt` for clock times as text, and `_i18n` with the strings in `locales/`. Above them are the ones that keep state or reach the network: `_cache`, `_http`, `_rate_limit`, `_config`, `_location`, `_geocode`, and `_fanout` for fetches run side by side. Then come the libraries the commands are built from: `terminal/`, `astro/`, `_xyz` for the slippy-map tiles maps and radar share, `_commands`, `_parsers` and `_runtime`. Then the seven commands, which may borrow one another's small modules but never one another's `view.py` or `live.py`. At the top are the entry points that nothing imports: `__main__.py`, `_completion.py`, `link.py`, `doctor.py`, `prose.py` and `settings/`.
 
-`tests/test_layers.py` holds the package to this, and to having no import cycle at module level. The imports that still break the rule are listed there, each with the change that removes it, and the list can only shrink.
+`tests/test_layers.py` holds the package to this, and to having no import cycle at module level. The imports that still break the rule are listed there, each with the reason it stands, and the list can only shrink. A name with a leading underscore belongs to the package it is defined in. Another package imports only public names, so a name that more than one package uses is made public in its home module. The same test checks this, and keeps its own shrinking list of the uses that remain.
 
 ## The live loop
 

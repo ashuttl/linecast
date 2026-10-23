@@ -19,6 +19,13 @@ in a cycle.
 UPWARD lists the imports that break the rule today, each with the
 reason it stands.  A new one fails here, and so does
 an entry that no longer occurs, so the list only shrinks.
+
+A name with a leading underscore belongs to its own package.  Another
+package imports only public names, whether by `from ... import` or as
+an attribute of a module it imported; what more than one package uses
+is given a public name in its home module.  PRIVATE_ACROSS lists the
+uses that stand today, and shrinks the same way.  Tests may reach into
+anything.
 """
 
 import ast
@@ -46,6 +53,14 @@ UPWARD = {
 # (importer, imported module): a command reaching another's view or live.
 # There are none; a new one fails here.
 INTO_A_VIEW = {
+}
+
+# (importer, home module.name): a private name used outside its package.
+PRIVATE_ACROSS = {
+    ("maps.globe_texture", "terminal.live._running"):
+        "kept: terminal.live has no public way to ask whether a live view is on screen",
+    ("maps.loaders", "terminal.live._running"):
+        "kept: terminal.live has no public way to ask whether a live view is on screen",
 }
 
 
@@ -113,6 +128,77 @@ def _imports(module, path, top_level_only=False):
                     yield node.lineno, alias.name[len("linecast."):]
 
 
+def _is_module(dotted):
+    path = SRC / dotted.replace(".", "/")
+    return path.with_suffix(".py").exists() or path.is_dir()
+
+
+def _private(name):
+    return name.startswith("_") and not (name.startswith("__") and name.endswith("__"))
+
+
+def _private_uses(module, path):
+    """(line, home module, name) for each private name *path* takes from
+    linecast: by `from ... import`, or as an attribute of a module it
+    imported.  A private submodule counts as a private name of its
+    package; the top-level modules (_config, _http, ...) are shared on
+    purpose and do not."""
+    tree = ast.parse(path.read_text(encoding="utf-8"))
+    package = module.split(".") if path.name == "__init__.py" else module.split(".")[:-1]
+    bound = {}  # a local name for a linecast module -> that module
+
+    for node in ast.walk(tree):
+        if isinstance(node, ast.ImportFrom):
+            if node.level:
+                base = package[:len(package) - node.level + 1]
+                parent = ".".join(base + ([node.module] if node.module else []))
+            elif node.module == "linecast":
+                parent = ""
+            elif (node.module or "").startswith("linecast."):
+                parent = node.module[len("linecast."):]
+            else:
+                continue
+            for alias in node.names:
+                child = f"{parent}.{alias.name}" if parent else alias.name
+                if _is_module(child):
+                    bound[alias.asname or alias.name] = child
+                if parent and _private(alias.name):
+                    yield node.lineno, parent, alias.name
+        elif isinstance(node, ast.Import):
+            for alias in node.names:
+                if not alias.name.startswith("linecast."):
+                    continue
+                target = alias.name[len("linecast."):]
+                if alias.asname:
+                    bound[alias.asname] = target
+                else:
+                    bound["linecast"] = ""
+                *home, last = target.split(".")
+                if home and _private(last):
+                    yield node.lineno, ".".join(home), last
+
+    for node in ast.walk(tree):
+        # module.name, or package.module.name, read off a module imported above
+        if not isinstance(node, ast.Attribute):
+            continue
+        chain, root = [], node
+        while isinstance(root, ast.Attribute):
+            chain.insert(0, root.attr)
+            root = root.value
+        if not isinstance(root, ast.Name) or root.id not in bound:
+            continue
+        home = bound[root.id]
+        for part in chain:
+            name = f"{home}.{part}" if home else part
+            if not _is_module(name):
+                break
+            home = name
+        else:
+            continue
+        if home and _private(part) and node.attr == part:
+            yield node.lineno, home, part
+
+
 def test_every_module_has_a_layer():
     for module, _path in _modules():
         _layer(module)
@@ -143,6 +229,49 @@ def test_no_command_reaches_into_anothers_view():
                 found.add((module, target))
     assert found == set(INTO_A_VIEW), (
         f"new: {sorted(found - set(INTO_A_VIEW))}; gone: {sorted(set(INTO_A_VIEW) - found)}")
+
+
+def test_no_package_takes_anothers_private_names():
+    found = {}
+    for module, path in _modules():
+        for line, home, name in _private_uses(module, path):
+            if home.split(".")[0] != module.split(".")[0]:
+                found.setdefault((module, f"{home}.{name}"), line)
+    new = {key: line for key, line in found.items() if key not in PRIVATE_ACROSS}
+    assert not new, (
+        "uses another package's private name; give it a public one in its home "
+        "module (see the docstring): " + ", ".join(
+            f"{a}:{line} -> {b}" for (a, b), line in sorted(new.items())))
+    assert not set(PRIVATE_ACROSS) - set(found), (
+        "no longer used; take it off PRIVATE_ACROSS: " + ", ".join(
+            f"{a} -> {b}" for a, b in sorted(set(PRIVATE_ACROSS) - set(found))))
+
+
+def test_the_private_name_check_sees_each_way_in(tmp_path, monkeypatch):
+    """A from-import, a relative one, a private submodule, and a private
+    attribute of an imported module are each found; a public name and a
+    shared top-level module, imported whole, are not."""
+    (tmp_path / "tides").mkdir()
+    (tmp_path / "moon").mkdir()
+    for name in ("tides/__init__.py", "tides/i18n.py", "tides/_shared.py",
+                 "moon/__init__.py", "moon/calendar.py", "_config.py"):
+        (tmp_path / name).write_text("")
+    source = tmp_path / "moon" / "view.py"
+    source.write_text(
+        "from linecast.tides.i18n import _ts, ts\n"
+        "from linecast.tides import i18n as tides_i18n\n"
+        "from linecast.tides import _shared\n"
+        "from linecast import _config\n"
+        "from .calendar import _grid\n"
+        "import linecast.tides.i18n\n"
+        "tides_i18n._lookup('x')\n"
+        "tides_i18n.lookup('x')\n"
+        "linecast.tides.i18n._TABLE\n"
+        "_config._load()\n")
+    monkeypatch.setitem(globals(), "SRC", tmp_path)
+    assert {(home, name) for _line, home, name in _private_uses("moon.view", source)} == {
+        ("tides.i18n", "_ts"), ("tides", "_shared"), ("moon.calendar", "_grid"),
+        ("tides.i18n", "_lookup"), ("tides.i18n", "_TABLE"), ("_config", "_load")}
 
 
 def test_no_import_cycle_at_module_level():
