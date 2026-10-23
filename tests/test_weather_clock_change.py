@@ -125,6 +125,63 @@ class TestWallClock:
         assert data["daily"]["sunrise"] == [None]
 
 
+class TestPolarNight:
+    """Open-Meteo gives a day without a sunrise a sunrise and a sunset
+    both at its midnight. That is no sunset: not at 00:00, and not at
+    23:00 the evening before, where wall_clock moves the pair once the
+    clocks have gone back (Longyearbyen, October 2026)."""
+
+    DAYS = ["2026-10-25", "2026-10-26", "2026-10-27", "2026-10-28"]
+    SUNRISE = ["2026-10-25T11:36", "2026-10-26T12:11", "2026-10-27T00:00", "2026-10-28T00:00"]
+    SUNSET = ["2026-10-25T13:43", "2026-10-26T13:09", "2026-10-27T00:00", "2026-10-28T00:00"]
+
+    def _data(self):
+        # Fetched on the 24th, in summer time: every stamp is +02:00.
+        first = datetime(2026, 10, 25)
+        times = [(first + timedelta(hours=i)).isoformat(timespec="minutes")
+                 for i in range(96)]
+        return wall_clock({
+            "timezone": "Arctic/Longyearbyen",
+            "utc_offset_seconds": 7200,
+            "hourly": {"time": times, "temperature_2m": [0.0] * 96,
+                       "precipitation_probability": [0] * 96,
+                       "precipitation": [0.0] * 96, "weather_code": [3] * 96},
+            "daily": {"time": list(self.DAYS), "sunrise": list(self.SUNRISE),
+                      "sunset": list(self.SUNSET)},
+        })
+
+    def test_the_sunless_days_have_no_sun_events(self):
+        from linecast.weather.hourly import _parse_sun_events
+        events = _parse_sun_events(self._data()["daily"])
+        assert events[2:] == [(None, None), (None, None)]
+        # The last days with a sun keep theirs, the 26th on winter time.
+        assert events[1] == (datetime(2026, 10, 26, 11, 11), datetime(2026, 10, 26, 12, 9))
+
+    def test_the_chart_marks_no_sunset_in_the_night(self):
+        from linecast.weather.hourly import _parse_sun_events
+        data = self._data()
+        wdts = [datetime.fromisoformat(t) for t in data["hourly"]["time"]]
+        labels = _compute_sun_labels(wdts, _parse_sun_events(data["daily"]), WIDTH,
+                                     _runtime())
+        assert sorted(lbl for lbl, _ in labels.values()) == [
+            "↑10:36", "↑11:11", "↓12:09", "↓12:43"]
+
+    def test_the_json_gives_the_sunless_days_no_times(self):
+        from linecast.weather.json import build_payload
+        payload = build_payload(self._data(), "", "NO", _runtime(),
+                                now=datetime(2026, 10, 27, 12))
+        assert payload["today"]["sunrise"] is None
+        assert payload["today"]["sunset"] is None
+        assert [(d["sunrise"], d["sunset"]) for d in payload["daily"]] == [
+            (None, None), (None, None)]
+
+    def test_a_day_the_sun_does_not_set_keeps_its_daylight(self):
+        from linecast.weather.hourly import _parse_sun_events
+        daily = {"sunrise": ["2026-06-21T00:00"], "sunset": ["2026-06-22T00:00"]}
+        assert _parse_sun_events(daily) == [
+            (datetime(2026, 6, 21), datetime(2026, 6, 22))]
+
+
 class TestMarkersFollowTheSamples:
     """Every marker sits on the column of the sample it names."""
 

@@ -15,7 +15,7 @@ from linecast._i18n import is_rtl, lang_of, table_for
 from linecast.weather.historical import temperature_scale
 from linecast.weather.i18n import _s
 from linecast._i18n import FULL_DAY_NAMES
-from linecast.weather.forecast import local_now
+from linecast.weather.forecast import local_now, sun_of_day
 from linecast.weather.style import (
     CHART_BG_DAY_RGB,
     CHART_BG_NIGHT_RGB,
@@ -87,28 +87,24 @@ def _daylight_factor(col_dt, sun_events):
 
 
 def _parse_sun_events(daily):
-    """Parse sunrise/sunset ISO strings from daily data into datetime pairs."""
+    """Parse sunrise/sunset ISO strings from daily data into datetime
+    pairs, (None, None) for a day the Sun does not rise (sun_of_day)."""
     events = []
-    sunrises = daily.get("sunrise", [])
-    sunsets = daily.get("sunset", [])
-    total = max(len(sunrises), len(sunsets))
+    total = max(len(daily.get("sunrise") or []), len(daily.get("sunset") or []))
     dropped = 0
     bad = None
     for i in range(total):
-        rise = sunset = None
-        try:
-            if i < len(sunrises) and sunrises[i]:
-                rise = datetime.fromisoformat(sunrises[i])
-        except (TypeError, ValueError) as exc:
-            dropped += 1
-            bad = exc
-        try:
-            if i < len(sunsets) and sunsets[i]:
-                sunset = datetime.fromisoformat(sunsets[i])
-        except (TypeError, ValueError) as exc:
-            dropped += 1
-            bad = exc
-        events.append((rise, sunset))
+        parsed = []
+        for text in sun_of_day(daily, i):
+            moment = None
+            try:
+                if text:
+                    moment = datetime.fromisoformat(text)
+            except (TypeError, ValueError) as exc:
+                dropped += 1
+                bad = exc
+            parsed.append(moment)
+        events.append(tuple(parsed))
     log_skipped("weather/open-meteo", "sun events", dropped, total * 2, bad)
     return events
 

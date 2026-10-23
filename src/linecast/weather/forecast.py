@@ -107,6 +107,23 @@ def wall_clock(data):
     return data
 
 
+def sun_of_day(daily, i):
+    """Day *i*'s (sunrise, sunset) as the forecast stamps them, or
+    (None, None) for a day the Sun does not rise.
+
+    Open-Meteo gives such a day a sunrise and a sunset both at its
+    midnight. Neither is an event: read as one, the chart marks a sunset
+    at 00:00 every day of a polar night, and once wall_clock has moved
+    the pair across a clock change, at 23:00 the evening before. A day
+    the Sun does not set runs from midnight to midnight, which is the
+    daylight it has, and stands."""
+    rise = _at((daily or {}).get("sunrise"), i)
+    sset = _at((daily or {}).get("sunset"), i)
+    if rise and rise == sset:
+        return None, None
+    return rise, sset
+
+
 def fetch_forecast(lat: float, lng: float,
                    runtime: WeatherRuntime | None = None) -> dict[str, Any] | None:
     """Fetch hourly + daily forecast from Open-Meteo. Cached 1h, and
