@@ -255,12 +255,15 @@ def machine_tzinfo() -> tzinfo:
     from datetime import datetime
     now = datetime.now().astimezone()
     names = [os.environ.get("TZ", "").lstrip(":")]
-    try:
-        path = os.path.realpath("/etc/localtime")
-        if "/zoneinfo/" in path:
-            names.append(path.split("/zoneinfo/", 1)[1])
-    except OSError:
-        pass
+    if sys.platform == "win32":
+        names.append(_windows_zone_name())
+    else:
+        try:
+            path = os.path.realpath("/etc/localtime")
+            if "/zoneinfo/" in path:
+                names.append(path.split("/zoneinfo/", 1)[1])
+        except OSError:
+            pass
     for name in names:
         if not name:
             continue
@@ -272,6 +275,31 @@ def machine_tzinfo() -> tzinfo:
         if now.astimezone(zone).utcoffset() == now.utcoffset():
             return zone
     return now.tzinfo
+
+
+def _windows_zone_name() -> str | None:
+    """The machine's zone by its IANA name on Windows, or None.
+
+    Windows keeps zones under names of its own ("Eastern Standard Time")
+    and sets neither TZ nor /etc/localtime, but the ICU it has shipped
+    since Windows 10 1903 answers with the IANA name.  An older Windows,
+    or anything unexpected, is None, and the fixed offset stands.
+    """
+    try:
+        import ctypes
+        icu = ctypes.WinDLL("icu.dll")
+        ask = icu.ucal_getDefaultTimeZone
+        ask.restype = ctypes.c_int32
+        ask.argtypes = (ctypes.c_wchar_p, ctypes.c_int32, ctypes.POINTER(ctypes.c_int))
+        buf = ctypes.create_unicode_buffer(128)
+        status = ctypes.c_int(0)
+        length = ask(buf, len(buf), ctypes.byref(status))
+    except Exception:
+        return None
+    # ICU's errors are positive; a name that filled the buffer has no end
+    if status.value > 0 or not 0 < length < len(buf):
+        return None
+    return buf.value
 
 
 def location_tzinfo(lat: float | None, lng: float | None) -> tzinfo | None:

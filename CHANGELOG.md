@@ -39,6 +39,7 @@ Notable changes, by release. Notes for the next release collect under **Unreleas
 - Location: When the network stops answering, a command waits for the place's name once instead of several times over.
 - Print: Output is UTF-8 even where the locale or `PYTHONIOENCODING` asks for another encoding, instead of ending in an error.
 - Location: A damaged location cache is fetched again instead of stopping every command with an error.
+- Windows: Moon and sky times for where you are follow your computer's clock changes, instead of keeping today's offset for dates across a change.
 
 ## 2.10.3 — 2026-10-20
 

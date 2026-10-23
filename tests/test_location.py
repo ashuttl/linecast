@@ -1,5 +1,6 @@
 import json
 import os
+import sys
 import tempfile
 import time
 import unittest
@@ -289,6 +290,35 @@ class LocationTzinfoTests(unittest.TestCase):
         self.assertEqual(zone, ZoneInfo("America/Los_Angeles"))
         self.assertEqual(datetime(2026, 11, 20, tzinfo=zone).utcoffset().total_seconds(),
                          -8 * 3600)
+
+    @unittest.skipUnless(hasattr(time, "tzset"), "POSIX time zones")
+    def test_on_windows_the_zone_comes_by_name_from_icu(self):
+        """Windows has no TZ or /etc/localtime to name the zone, and the
+        fixed offset puts a date across a clock change an hour out."""
+        from datetime import datetime
+        from zoneinfo import ZoneInfo
+        # the machine's clock is Pacific; TZ itself is no zone's name
+        with patch.dict(os.environ, {"TZ": "XST8XDT,M3.2.0,M11.1.0"}):
+            time.tzset()
+            with patch.object(_location.sys, "platform", "win32"), \
+                    patch.object(_location, "_windows_zone_name",
+                                 return_value="America/Los_Angeles"):
+                zone = _location.machine_tzinfo()
+            with patch.object(_location.sys, "platform", "win32"), \
+                    patch.object(_location, "_windows_zone_name", return_value=None):
+                fixed = _location.machine_tzinfo()
+        time.tzset()
+        self.assertEqual(zone, ZoneInfo("America/Los_Angeles"))
+        self.assertEqual(datetime(2026, 11, 20, tzinfo=zone).utcoffset().total_seconds(),
+                         -8 * 3600)
+        self.assertNotIsInstance(fixed, ZoneInfo)
+
+    @unittest.skipUnless(sys.platform == "win32", "Windows' own ICU")
+    def test_icu_names_a_zone_zoneinfo_knows(self):
+        from zoneinfo import ZoneInfo
+        name = _location._windows_zone_name()
+        if name is not None:
+            ZoneInfo(name)
 
     def test_falls_back_to_machine_tz_when_offline(self):
         with patch.object(_location, "fetch_json_cached", return_value=None):
