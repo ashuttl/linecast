@@ -225,7 +225,7 @@ class StationSearchTests(unittest.TestCase):
          "lat": 36.89, "lng": -76.31},
     ]
     CHS = [
-        {"id": "5cebf1df3d0f4a073c4bbd1e", "officialName": "Saint John",
+        {"id": "5cebf1df3d0f4a073c4bbd1e", "code": "00065", "officialName": "Saint John",
          "latitude": 45.25, "longitude": -66.06},
     ]
     QLD = [
@@ -258,6 +258,13 @@ class StationSearchTests(unittest.TestCase):
     def test_country_token_matches_chs_stations(self):
         matches = self._matches("saint john canada")
         self.assertEqual([m["source"] for m in matches], ["chs"])
+
+    def test_a_chs_station_is_found_by_its_code(self):
+        # the five digits CHS publishes for a station, which the API
+        # knows by its ObjectId
+        matches = self._matches("00065")
+        self.assertEqual([(m["source"], m["id"]) for m in matches],
+                         [("chs", "5cebf1df3d0f4a073c4bbd1e")])
 
     def test_qld_station_matched_by_region_token(self):
         matches = self._matches("brisbane queensland")
@@ -355,6 +362,12 @@ class ProviderRegistryTests(unittest.TestCase):
         self.assertIs(provider_for_id("ticon:portland-61410-aus-bom"), TICON)
         self.assertIsNone(provider_for_id("portland maine"))
         self.assertIsNone(provider_for_id("Brisbane Bar"))
+
+    def test_a_number_that_is_not_seven_digits_is_not_noaas(self):
+        # CHS's code for Halifax, which NOAA would answer with nothing
+        self.assertIsNone(provider_for_id("00490"))
+        self.assertIsNone(provider_for_id("84181500"))
+        self.assertIsNone(provider_for_id("٨٤١٨١٥٠"))
 
     def test_provider_for_id_tidecheck_slug_needs_a_key(self):
         with patch("linecast.tides.tidecheck.is_available", return_value=False):

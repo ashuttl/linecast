@@ -82,8 +82,8 @@ _ASCII_NORWEGIAN = str.maketrans({"æ": "ae", "ø": "o", "å": "a"})
 class TideProvider:
     """What the tides command asks of a source.
 
-    Station IDs are strings the provider recognises: NOAA's digits, CHS's
-    24-hex ObjectIds, QLD's station names, HKO's three-letter codes,
+    Station IDs are strings the provider recognises: NOAA's seven digits,
+    CHS's 24-hex ObjectIds, QLD's station names, HKO's three-letter codes,
     JMA's "jma:" and a two-character code, TICON-4's "ticon:" gauge
     names, TideCheck's slugs, Open-Meteo's "om:lat,lng", Kartverket's
     "kv:lat,lng". Every method takes and returns the shapes the NOAA
@@ -182,7 +182,10 @@ class _NOAA(TideProvider):
     label = "NOAA"
 
     def id_matches(self, text):
-        return text.isdigit()
+        # Seven digits, as every station on NOAA's list has: a shorter
+        # number is someone else's, CHS's five-digit station code most
+        # likely, which its search finds
+        return len(text) == 7 and text.isascii() and text.isdigit()
 
     def name_for_id(self, station_id):
         for s in (noaa.fetch_all_stations_noaa() or []):
@@ -247,7 +250,9 @@ class _CHS(TideProvider):
         found = []
         for s in (chs.fetch_all_stations_chs() or []):
             name = s.get("officialName", "")
-            if _matches(f"{name} canada".lower(), tokens):
+            # The five-digit code is how CHS names a station to the
+            # public (Halifax is 00490); the API knows it by its ObjectId
+            if _matches(f"{name} {s.get('code', '')} canada".lower(), tokens):
                 found.append({
                     "source": self.name, "id": str(s.get("id", "")), "name": name,
                     "lat": s.get("latitude"), "lng": s.get("longitude"),
@@ -619,8 +624,9 @@ def provider_for_id(text: str) -> TideProvider | None:
     Most specific first: the "om:", "kv:", "jma:" and "ticon:" prefixes,
     then CHS's 24-character hex ObjectId (which can happen to be all
     digits), then HKO's codes (letters, one with a digit; never all
-    digits), then NOAA's digits, then TideCheck's hyphenated slugs (only
-    once a key is set).
+    digits), then NOAA's seven digits, then TideCheck's hyphenated slugs
+    (only once a key is set).  CHS's five-digit station codes are none
+    of these: the search finds them.
     """
     for provider in (OPENMETEO, KARTVERKET, JMA, TICON, CHS, HKO, NOAA, TIDECHECK):
         if provider.id_matches(text):
