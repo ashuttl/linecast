@@ -383,10 +383,13 @@ _linecast_complete() {{
 
 # Whether a short name is linecast's: an alias for it, or on the PATH as
 # the same file as linecast, linked or (where links are refused) copied.
-# Sunshine, for one, installs /usr/bin/sunshine.
+# Sunshine, for one, installs /usr/bin/sunshine. The alias is read from
+# `alias`, since BASH_ALIASES is new in bash 4 and macOS ships 3.2; in
+# POSIX mode `alias` leaves off its leading "alias ".
 _linecast_owns() {{
-  local file ours
-  [[ "${{BASH_ALIASES[$1]-}}" == "linecast "* ]] && return 0
+  local def file ours
+  def="$(alias "$1" 2>/dev/null)"
+  [[ "${{def#alias }}" == "$1='linecast "* ]] && return 0
   file="$(type -P "$1")" && ours="$(type -P linecast)" || return 1
   [[ "$file" -ef "$ours" ]] || cmp -s "$file" "$ours"
 }}
