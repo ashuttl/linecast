@@ -52,3 +52,24 @@ class TerminalSizeTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class OutputEncodingTests(unittest.TestCase):
+    def test_output_is_utf8_whatever_the_locale_asks(self):
+        """Nothing linecast draws is in latin-1 or ASCII, so asking for
+        either (PYTHONIOENCODING, or a legacy locale) crashed every view
+        with UnicodeEncodeError; output is UTF-8 instead."""
+        import subprocess
+        import sys
+        from conftest import SRC
+        for encoding in ("latin-1", "ascii"):
+            with self.subTest(encoding=encoding):
+                env = dict(os.environ, PYTHONIOENCODING=encoding, PYTHONPATH=SRC)
+                result = subprocess.run(
+                    [sys.executable, "-c",
+                     "import sys, linecast; print('\\u25d5 \\u2840'); "
+                     "print('\\u2588', file=sys.stderr)"],
+                    env=env, capture_output=True, check=False)
+                self.assertEqual(result.returncode, 0, result.stderr)
+                self.assertEqual(result.stdout.decode("utf-8").strip(), "◕ ⡀")
+                self.assertEqual(result.stderr.decode("utf-8").strip(), "█")

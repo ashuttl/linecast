@@ -37,6 +37,7 @@ Notable changes, by release. Notes for the next release collect under **Unreleas
 - Completions: Shell completion leaves a short name such as `sunshine` to the program that owns it, and completes it as linecast only where `linecast link` made it or an alias points it at linecast. Reported by [@jmote](https://github.com/jmote) in [#20](https://github.com/ashuttl/linecast/issues/20).
 - Live views: Quitting with Ctrl-C while a frame is drawing no longer leaves some terminals frozen for a moment afterwards.
 - Location: When the network stops answering, a command waits for the place's name once instead of several times over.
+- Print: Output is UTF-8 even where the locale or `PYTHONIOENCODING` asks for another encoding, instead of ending in an error.
 
 ## 2.10.3 — 2026-10-20
 

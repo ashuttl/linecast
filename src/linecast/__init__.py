@@ -30,18 +30,18 @@ def user_agent():
     return globals().get("USER_AGENT") or __getattr__("USER_AGENT")
 
 
-def _use_utf8_on_windows():
-    """Keep non-console output UTF-8 on Windows.
+def _use_utf8():
+    """Keep output UTF-8, whatever the locale says.
 
-    A redirected stdout there gets the locale encoding — usually cp1252 —
-    and braille, box drawing and Nerd Font glyphs are not in it, so
-    `weather --print > out.txt` or piping to another command dies with
-    UnicodeEncodeError.  The console itself is already UTF-8, so this
-    only ever matters off-terminal.  Costs one platform check elsewhere.
+    A redirected stdout on Windows gets the locale encoding — usually
+    cp1252 — and braille, box drawing and Nerd Font glyphs are not in it,
+    so `weather --print > out.txt` or piping to another command dies with
+    UnicodeEncodeError.  Elsewhere Python only strays from UTF-8 when
+    asked to, by PYTHONIOENCODING or a legacy locale such as
+    de_DE.ISO-8859-1, usually on a terminal that is UTF-8 all the same;
+    nothing linecast draws survives those encodings, and JSON is UTF-8.
     """
     import sys
-    if sys.platform != "win32":
-        return
     for stream in (sys.stdout, sys.stderr):
         try:
             if (stream.encoding or "").lower().replace("-", "") != "utf8":
@@ -50,7 +50,7 @@ def _use_utf8_on_windows():
             pass  # replaced or non-reconfigurable stream: leave it alone
 
 
-_use_utf8_on_windows()
+_use_utf8()
 
 
 def _use_os_certificates_on_windows():
