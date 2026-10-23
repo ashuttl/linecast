@@ -478,6 +478,73 @@ class Ticker:
                 return
 
 
+def _mtime(path):
+    try:
+        return os.stat(path).st_mtime_ns
+    except OSError:
+        return None
+
+
+class _ThemeSchedule:
+    """When an idle live loop next looks at the terminal's colours.
+
+    Nothing here waits.  `look()` does what is due -- a look at the
+    theme's watch file, a re-probe sent -- and sets `due` to when the
+    next look will be; the idle loop sleeps until then unless something
+    else wakes it first.  A changed watch file probes at once, and then
+    briskly for a few seconds, since the terminal may get its colours a
+    beat after the marker file is written.  Otherwise the periodic probe
+    asks for the two default colours, and every _FULL_PROBE_S for the
+    whole palette.  The probe's answers arrive as input
+    (terminal.keys), not here.
+    """
+
+    def __init__(self):
+        from linecast.terminal import theme as _theme
+        self.poll = _theme.poll_interval()
+        self.watch = _theme.watch_path()
+        self.watch_mtime = _mtime(self.watch) if self.watch else None
+        started = _time.monotonic()
+        self.next_probe = started + self.poll
+        self.next_watch = started + _THEME_WATCH_S
+        self.last_full = started   # the probe at import asked for everything
+        self.burst_until = 0.0     # the brisk probing after a watch file change
+        self.due = started         # the first idle wait looks at once
+
+    def look(self):
+        """Look at the watch file and send a re-probe if either is due,
+        and set `due` to when one next will be."""
+        from linecast.terminal import theme as _theme
+        if not _theme.can_reprobe():
+            self.due = float("inf")
+            return
+        now = _time.monotonic()
+        due = []
+        if self.watch:
+            if now >= self.next_watch:
+                self.next_watch = now + _THEME_WATCH_S
+                m = _mtime(self.watch)
+                if m != self.watch_mtime:
+                    self.watch_mtime = m
+                    self.burst_until = now + 4.0
+                    self.next_probe = now
+            due.append(self.next_watch)
+        interval = 0.5 if now < self.burst_until else self.poll
+        if interval > 0 and now >= self.next_probe:
+            if _theme.probe_pending():
+                # its answers arrive as input; one the terminal never
+                # sends is given up on (probe_pending) by a later look
+                self.next_probe = now + 0.5
+            else:
+                self.next_probe = now + interval
+                full = now < self.burst_until or now - self.last_full >= _FULL_PROBE_S
+                if _theme.request_probe(sys.stdout.fileno(), full=full) and full:
+                    self.last_full = now
+        if interval > 0:
+            due.append(self.next_probe)
+        self.due = min(due) if due else float("inf")
+
+
 def live_loop(render_fn, interval=60, mouse=False, on_open=None, scroll_step=15,
               auto_play=False, play_interval=0.6, on_action=None, on_drag=None,
               intercept=None, play_gate=None, on_wheel=None, text_mode=None,
@@ -561,8 +628,11 @@ def live_loop(render_fn, interval=60, mouse=False, on_open=None, scroll_step=15,
     so switching the terminal theme re-inks the view in place.
     """
     global _running
-    from linecast.terminal import theme as _theme
     from linecast.terminal.keys import read_key, wheel_code
+
+    # Before the terminal is taken: the theme's import probes it, the
+    # first time.
+    theme = _ThemeSchedule()
 
     # Cbreak input, the wakeup nudge() pulls, and resize notice — a self-pipe
     # and SIGWINCH on POSIX, console modes and a poll on Windows.
@@ -572,58 +642,6 @@ def live_loop(render_fn, interval=60, mouse=False, on_open=None, scroll_step=15,
     is_apple_terminal = os.environ.get('TERM_PROGRAM') == 'Apple_Terminal'
 
     fd = term.fd
-
-    def _mtime(path):
-        try:
-            return os.stat(path).st_mtime_ns
-        except OSError:
-            return None
-
-    theme_poll = _theme.poll_interval()
-    theme_watch = _theme.watch_path()
-    theme_watch_mtime = _mtime(theme_watch) if theme_watch else None
-    started = _time.monotonic()
-    next_probe = started + theme_poll
-    next_watch = started + _THEME_WATCH_S
-    last_full = started   # the probe at import asked for everything
-    burst_until = 0.0   # after the watch file changes, probe briskly for a
-                        # few seconds: the terminal may get its colours a
-                        # beat after the marker file is written
-    probe_due = started   # the first idle wait looks at once, and sets the next
-
-    def _maybe_probe():
-        """Look at the watch file and send a re-probe if either is due,
-        and set probe_due to when one next will be."""
-        nonlocal theme_watch_mtime, next_probe, next_watch, last_full, burst_until
-        nonlocal probe_due
-        if not _theme.can_reprobe():
-            probe_due = float("inf")
-            return
-        now = _time.monotonic()
-        due = []
-        if theme_watch:
-            if now >= next_watch:
-                next_watch = now + _THEME_WATCH_S
-                m = _mtime(theme_watch)
-                if m != theme_watch_mtime:
-                    theme_watch_mtime = m
-                    burst_until = now + 4.0
-                    next_probe = now
-            due.append(next_watch)
-        interval = 0.5 if now < burst_until else theme_poll
-        if interval > 0 and now >= next_probe:
-            if _theme.probe_pending():
-                # its answers arrive as input; one the terminal never
-                # sends is given up on (probe_pending) by a later look
-                next_probe = now + 0.5
-            else:
-                next_probe = now + interval
-                full = now < burst_until or now - last_full >= _FULL_PROBE_S
-                if _theme.request_probe(sys.stdout.fileno(), full=full) and full:
-                    last_full = now
-        if interval > 0:
-            due.append(next_probe)
-        probe_due = min(due) if due else float("inf")
 
     offset = 0
     playing = auto_play
@@ -949,11 +967,11 @@ def live_loop(render_fn, interval=60, mouse=False, on_open=None, scroll_step=15,
                         mouse_pos = None  # the mouse has been still: drop the chip
                         break
                     remaining = min(remaining, hover_until - now)
-                event = term.wait(max(0.0, min(remaining, probe_due - now)))
+                event = term.wait(max(0.0, min(remaining, theme.due - now)))
                 if event == 'wake':
                     break
                 if event == 'timeout':
-                    _maybe_probe()
+                    theme.look()
                     continue
                 if event == 'input':
                     verdict = handle_input()
