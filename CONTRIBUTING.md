@@ -20,9 +20,11 @@ The exception is a fix that cannot wait for the next release. For that, branch f
 Run the tests and the lint. Both work without the network and without touching your home directory.
 
 ```sh
-uv run --with pytest pytest tests -q
+uv run --with pytest --with pytest-xdist pytest tests -q -n auto
 uvx ruff@0.16.9 check src tests scripts
 ```
+
+`-n auto` runs the tests side by side, one worker for each core. Leave it off to run them one at a time.
 
 The render tests compare each view against a snapshot in `tests/snapshots`. If your change is meant to alter what a view draws, delete the affected snapshot and run the tests again to write a new one, then read the diff.
 

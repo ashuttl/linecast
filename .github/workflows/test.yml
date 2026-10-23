@@ -27,9 +27,9 @@ jobs:
 
   test:
     runs-on: ${{ matrix.os }}
-    # The slowest leg, Windows, takes about nine minutes. A test that
-    # hangs ends the job here instead of at GitHub's six hours, and
-    # faulthandler_timeout (pyproject.toml) has already printed where.
+    # A test that hangs ends the job here instead of at GitHub's six
+    # hours, and faulthandler_timeout (pyproject.toml) has already
+    # printed where.
     timeout-minutes: 30
     strategy:
       fail-fast: false
@@ -59,7 +59,7 @@ jobs:
         # the installed package reports is the real one.
         run: |
           pip install -e .
-          pip install pytest
+          pip install pytest pytest-xdist
 
       # The completion scripts are run in the shells they are written
       # for. Those tests skip where a shell is missing, so the Linux
@@ -74,10 +74,11 @@ jobs:
       - uses: hustcer/setup-nu@95cd3bfe252450ef7d35dd9a7ddecf3484341134 # v3.28
         if: runner.os == 'Linux'
 
+      # -n auto: a worker for each of the runner's cores
       - name: Run tests
         env:
           LINECAST_REQUIRE_SHELLS: ${{ runner.os == 'Linux' && 'bash zsh fish nu' || '' }}
-        run: pytest tests -q -p no:cacheprovider
+        run: pytest tests -q -p no:cacheprovider -n auto
 
   hermetic:
     # The suite must touch neither the real home nor the user's settings.
@@ -97,7 +98,7 @@ jobs:
         # Before HOME moves, so pip never needs a writable home.
         run: |
           python -m venv "$RUNNER_TEMP/venv"
-          "$RUNNER_TEMP/venv/bin/pip" install -e . pytest
+          "$RUNNER_TEMP/venv/bin/pip" install -e . pytest pytest-xdist
 
       - name: Run tests with a read-only home and hostile settings
         run: |
@@ -110,7 +111,7 @@ jobs:
               LINECAST_THEME=off LINECAST_CELL_ASPECT=2.5 \
               LINECAST_WEEK_START=sunday LINECAST_RADAR_SOURCE=iem \
               https_proxy=http://127.0.0.1:1 \
-              "$RUNNER_TEMP/venv/bin/python" -m pytest tests -q -p no:cacheprovider
+              "$RUNNER_TEMP/venv/bin/python" -m pytest tests -q -p no:cacheprovider -n auto
 
   build:
     runs-on: ubuntu-latest
