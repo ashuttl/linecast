@@ -431,3 +431,20 @@ def test_save_action_tracks_successful_location_changes():
     assert _config.saved_location() == dict(
         lat=47.92, lng=106.92, label='Ulaanbaatar', country='MN')
     view.stop()
+
+
+@pytest.mark.parametrize('lang,rows', [
+    ('en', ['locations', 'add location']),
+    ('fr', ['lieux', 'ajouter un lieu']),
+    ('es-ES', ['ubicaciones', 'añadir ubicación']),
+    ('ru', ['места', 'добавить место']),
+    # German writes a noun with a capital, in a help row as anywhere
+    ('de', ['Orte', 'Ort hinzufügen']),
+    ('ja', ['場所', '場所を追加']),
+])
+def test_the_menu_keys_are_cased_like_the_help_rows_around_them(lang, rows):
+    """The help panel's rows start in lower case ("browse forecast");
+    the two borrowed from the menu were "Locations" and "Add location"."""
+    view = _weather_live.WeatherApp({}, [], {}, 43, -70, SimpleNamespace(lang=lang),
+                                    location_name='Portland', country='US', historical={})
+    assert [text for _key, text in view.help_rows()] == rows

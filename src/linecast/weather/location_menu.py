@@ -8,9 +8,19 @@ under it, until a live view starts.
 
 import threading
 
+from linecast._i18n import base_language
 from linecast._log import log_failure
 from linecast.terminal import live as _live
 from linecast.weather.locations_i18n import ls
+
+
+def _help_case(label, lang):
+    """A menu label as the help panel's rows are written: in lower case
+    in every language that has one, but German, where these labels begin
+    with a noun and keep its capital ("Orte", "Ort hinzufügen")."""
+    if base_language(lang) == "de":
+        return label
+    return label[:1].lower() + label[1:]
 
 
 class LocationMenu:
@@ -119,9 +129,11 @@ class LocationMenu:
         self._update_location_picker()
 
     def help_rows(self):
-        """The menu's keys, at the top of the help panel."""
+        """The menu's keys, at the top of the help panel, in the menu's
+        own words."""
         lang = self.runtime.lang
-        return [('l', ls('locations', lang)), ('/', ls('add', lang))]
+        return [('l', _help_case(ls('locations', lang), lang)),
+                ('/', _help_case(ls('add', lang), lang))]
 
     def menu_overlay(self, cols, rows):
         """The note, and the menu while it is open, for the floating channel."""
