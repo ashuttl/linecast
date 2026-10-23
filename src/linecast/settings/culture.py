@@ -11,6 +11,7 @@ the UI language (--lang zh) > the IAU sky.
 
 from linecast._config import SETTING, saved
 from linecast.settings._command import forget, remember, run, show
+from linecast._log import exits_on_user_error
 
 _NATURAL = "chinese with --lang zh; the IAU sky otherwise"
 
@@ -42,6 +43,7 @@ def _cmd_auto():
     print(f"Culture set to auto ({_NATURAL})")
 
 
+@exits_on_user_error
 def main():
     from linecast._runtime import resolve_lang
     from linecast.sky.catalogue import culture_title

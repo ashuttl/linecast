@@ -7,14 +7,13 @@ and doctor read it from there.
 
 import json
 import os
-import sys
 from collections import namedtuple
 from pathlib import Path
 from typing import Any
 
 from linecast._i18n import LANGUAGE_CODES, VARIANTS, canonical_language, is_language_code
 from linecast._paths import config_root
-from linecast._log import log_failure
+from linecast._log import UserError, log_failure
 
 
 def config_file() -> Path:
@@ -76,12 +75,13 @@ def save_config(data: dict[str, Any]) -> None:
 
     A config directory that cannot be written is a fact about the
     machine, not a bug, so the command ends with one line naming the
-    file and the reason rather than a traceback.
+    file and the reason rather than a traceback: a UserError.
     """
     try:
         write_config(data)
     except OSError as exc:
-        sys.exit(f"Could not save settings to {config_file()}: {exc.strerror or exc}")
+        raise UserError(
+            f"Could not save settings to {config_file()}: {exc.strerror or exc}") from exc
 
 
 def _choice(value, choices):

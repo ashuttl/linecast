@@ -20,6 +20,7 @@ import sys
 from linecast import _runtime
 from linecast._commands import VIEW_NAMES, formatter_class
 from linecast._parsers import VersionAction
+from linecast._log import exits_on_user_error
 
 SHORT_NAMES = VIEW_NAMES
 
@@ -127,6 +128,7 @@ def link_parser():
     return parser
 
 
+@exits_on_user_error
 def main():
     args = link_parser().parse_args()
 

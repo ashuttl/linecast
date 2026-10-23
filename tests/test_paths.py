@@ -235,17 +235,19 @@ class TestUnreadableCache:
 
 
 class TestUnwritableConfig:
-    def test_units_command_ends_with_one_line(self, readonly_config):
+    def test_units_command_ends_with_one_line(self, readonly_config, monkeypatch):
+        monkeypatch.setattr(sys, "argv", ["linecast units", "metric"])
         with pytest.raises(SystemExit) as exc:
-            units._cmd_set("metric")
+            units.main()
         assert str(exc.value.code).startswith("Could not save settings to ")
         assert "\n" not in str(exc.value.code)
 
     def test_location_command_ends_with_one_line(self, readonly_config, monkeypatch):
         monkeypatch.setattr(_geocode, "reverse_geocode",
                             lambda lat, lng: ("Westbrook", "US", {}))
+        monkeypatch.setattr(sys, "argv", ["linecast location", "set", "43.7,-70.3"])
         with pytest.raises(SystemExit) as exc:
-            location._cmd_set("43.7,-70.3")
+            location.main()
         assert str(exc.value.code).startswith("Could not save settings to ")
 
     def test_the_installed_command_prints_no_traceback(self, readonly_config):

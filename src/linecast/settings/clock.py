@@ -16,6 +16,7 @@ import os
 from linecast._runtime import resolve_clock
 from linecast._config import saved
 from linecast.settings._command import forget, remember, run, show
+from linecast._log import exits_on_user_error
 
 
 def _cmd_show():
@@ -41,6 +42,7 @@ def _cmd_auto():
     print("Clock set to auto (follows the country)")
 
 
+@exits_on_user_error
 def main():
     run("linecast clock", "%(prog)s [show | 12 | 24 | auto]",
         "Show or set the preferred clock style (12-hour or 24-hour)",

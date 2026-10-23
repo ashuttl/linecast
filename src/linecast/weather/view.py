@@ -53,6 +53,7 @@ from linecast.weather.credits import observed_credit
 from linecast.weather.forecast import _at, local_now, forecast_date, FORECAST_SOURCE
 from linecast.weather.cover import _PRECIP_CODES, sky_condition
 from linecast.terminal.glyphs import arrow_toward
+from linecast._log import exits_on_user_error
 
 # What the dashboard keeps when the window is too short for all of it:
 # the graph is the view -- its day line, its ticks and two rows of braille
@@ -698,6 +699,7 @@ def render_from_data(data, alerts, runtime, location_name="", offset_minutes=0, 
     return output, alert_row_map
 
 
+@exits_on_user_error
 def main():
     # the live view draws through render_from_data, so weather.live
     # imports this module; importing it here, at the call, keeps that

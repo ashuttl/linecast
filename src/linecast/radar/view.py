@@ -51,7 +51,7 @@ from linecast.radar.ui import (
     _get_basemap, conditions_at, panned_place, shift_grid, _theme_menu_overlay, _timeline_bar,
 )
 from linecast._runtime import current_runtime
-from linecast._log import log_failure
+from linecast._log import exits_on_user_error, log_failure
 from linecast.terminal.textwidth import fit, pad, visible_len
 from linecast.terminal.spinner import SPINNER_FRAMES
 
@@ -352,6 +352,7 @@ def render_radar(lat, lon, location_name, zoom, play_frame=0, playing=True,
     return overlay(out, floating), err is not None
 
 
+@exits_on_user_error
 def main():
     # the live loop draws through render_radar, so radar.live imports this
     # module; importing it here, at the call, keeps that one-way at load

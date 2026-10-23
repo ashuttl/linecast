@@ -144,6 +144,32 @@ class Argv0DispatchTests(unittest.TestCase):
                 self.assertEqual(sorted(taken), sorted(("show", *setting.choices, "auto")))
                 self.assertEqual(len(taken), len(set(taken)))
 
+    def test_every_commands_main_ends_a_user_error_as_an_exit(self):
+        # Below the mains a failure the user must act on is a
+        # _log.UserError; each command's main turns it into its message
+        # on stderr and status 1, as sys.exit(message) would
+        for name, module_name in cli.COMMANDS.items():
+            with self.subTest(command=name):
+                main = importlib.import_module(module_name).main
+                self.assertTrue(hasattr(main, "__wrapped__"),
+                                f"{module_name}.main is not @exits_on_user_error")
+        from linecast._log import UserError, exits_on_user_error
+
+        def broken():
+            raise UserError("No locations matching \"Nowhereville Q\".")
+        with self.assertRaises(SystemExit) as exit_:
+            exits_on_user_error(broken)()
+        self.assertEqual(exit_.exception.code, 'No locations matching "Nowhereville Q".')
+
+    def test_a_place_no_geocoder_knows_ends_the_run_with_its_line(self):
+        from linecast.moon import view
+        argv = ["linecast moon", "--print", "--location", "Nowhereville Q"]
+        with mock.patch("linecast._geocode.geocode_first", return_value=None), \
+                mock.patch.object(sys, "argv", argv), \
+                self.assertRaises(SystemExit) as exit_:
+            view.main()
+        self.assertEqual(exit_.exception.code, 'No locations matching "Nowhereville Q".')
+
     def test_help_shares_the_commands_own_blurbs(self):
         # `linecast --help` and `linecast weather --help` open with the
         # same line, so the two pages cannot drift

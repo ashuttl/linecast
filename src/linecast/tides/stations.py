@@ -9,7 +9,6 @@ _find_matching_stations searches every provider's list by name, for
 --station, --search and --nearby.
 """
 
-import sys
 from datetime import datetime, timezone, timedelta
 
 from linecast._geo import haversine_nm
@@ -294,7 +293,7 @@ def _find_matching_stations(query, cli_location=None):
 
 def _search_stations(query, metric=False, limit=20, cli_location=None):
     """Print stations matching *query* (all stations when empty), nearest
-    first, and exit."""
+    first."""
     nearby = not query.strip()
     matches = _find_matching_stations(query, cli_location=cli_location)
 
@@ -303,7 +302,7 @@ def _search_stations(query, metric=False, limit=20, cli_location=None):
     if not matches and not nearby:
         print(f"No stations matching \"{query}\". "
               "Try `linecast tides --nearby` to list the nearest stations.")
-        sys.exit(0)
+        return
 
     if nearby:
         matches = [c for c in matches if c["dist_nm"] is not None] or matches

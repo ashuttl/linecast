@@ -15,6 +15,7 @@ none.
 
 from linecast._config import saved
 from linecast.settings._command import forget, remember, run, show
+from linecast._log import exits_on_user_error
 
 _NATURAL = ("chinese with --lang zh, japanese with ja, "
             "korean with ko, vietnamese with vi, thai with th, islamic "
@@ -73,6 +74,7 @@ def _cmd_auto():
     print(f"Calendar set to auto ({_NATURAL})")
 
 
+@exits_on_user_error
 def main():
     run("linecast calendar", "%(prog)s [show | <calendar> | auto]",
         "Show or set the traditional calendar the moon follows",

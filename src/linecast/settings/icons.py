@@ -14,6 +14,7 @@ Unicode when piped).
 
 from linecast._config import saved
 from linecast.settings._command import forget, remember, run, show
+from linecast._log import exits_on_user_error
 
 _DESCRIBE = {
     "nerd": "Nerd Font glyphs",
@@ -45,6 +46,7 @@ def _cmd_auto():
     print("Icons set to auto (detected from the terminal)")
 
 
+@exits_on_user_error
 def main():
     run("linecast icons", "%(prog)s [show | nerd | emoji | plain | auto]",
         "Show or set the preferred icon set",

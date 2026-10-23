@@ -19,6 +19,7 @@ import sys
 
 from linecast._config import SETTING, saved
 from linecast.settings._command import forget, remember, run, show
+from linecast._log import exits_on_user_error
 
 
 def _cmd_show():
@@ -46,6 +47,7 @@ def _cmd_auto():
     print("Wind speeds set to auto (follows the units and the language)")
 
 
+@exits_on_user_error
 def main():
     run("linecast wind", "%(prog)s [show | km/h | m/s | mph | kn | auto]",
         "Show or set the unit for wind speeds in weather and radar",

@@ -17,6 +17,7 @@ import os
 from linecast._runtime import resolve_week_start
 from linecast._config import saved
 from linecast.settings._command import forget, remember, run, show
+from linecast._log import exits_on_user_error
 
 
 def _cmd_show():
@@ -42,6 +43,7 @@ def _cmd_auto():
     print("Week set to auto (follows the country)")
 
 
+@exits_on_user_error
 def main():
     run("linecast week", "%(prog)s [show | monday | sunday | saturday | auto]",
         "Show or set the day the week opens on in the moon's month view",

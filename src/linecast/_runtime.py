@@ -14,7 +14,7 @@ import sys
 from linecast import _config
 from linecast._config import SETTING, chosen, saved
 from linecast._i18n import LOCALE_CODES
-from linecast._log import debug_enabled, debug_log, set_debug
+from linecast._log import UserError, debug_enabled, debug_log, set_debug
 from linecast._parsers import _base_parser, tides_parser, weather_parser
 
 
@@ -600,8 +600,9 @@ def place_for(args, runtime, unknown="Could not determine location.", zone=False
     no --location the place is the user's own, so the units and the
     clock can follow its country: a runtime that a cold cache left
     without one is resolved again for it, and made current, before
-    anything is fetched.  A place that cannot be found ends the run with
-    *unknown* on stderr, after any spinner's finally has cleared it.
+    anything is fetched.  A place that cannot be found is a UserError
+    saying *unknown*, which the main ends the run with, after any
+    spinner's finally has cleared it.
 
     *zone* and *name* say the view will ask next for the place's time
     zone (location_tzinfo, for a pinned place) and its name in the
@@ -616,7 +617,7 @@ def place_for(args, runtime, unknown="Could not determine location.", zone=False
     lat, lng, country, label = resolve_location(
         args.location, lang=runtime.lang, return_label=True)
     if lat is None:
-        sys.exit(unknown)
+        raise UserError(unknown)
     from linecast._fanout import Fanout
     fanout, lookups = Fanout(), []
     if zone:

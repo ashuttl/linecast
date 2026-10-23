@@ -10,7 +10,7 @@ from linecast._config import SETTING, saved_location
 from linecast._http import fetch_json, fetch_json_cached
 from linecast._paths import cache_dir
 from linecast._plaintext import plain_text
-from linecast._log import log_failure
+from linecast._log import UserError, log_failure
 
 _MAX_AGE = 3600  # 1 hour; implicit IP geolocation should refresh as users move.
 
@@ -206,7 +206,7 @@ def resolve_location(
     Precedence: --location flag (*cli_location*) > WEATHER_LOCATION env >
     saved location > IP geolocation. Returns (lat, lng, country_code), or
     (None, None, None) when no location can be determined. An explicit
-    override that can't be geocoded exits with an error message instead.
+    override that can't be geocoded raises a UserError instead.
 
     country_code is "" for overrides unless *need_country* is set, in which
     case it is filled in via the (cached) reverse geocoder.
@@ -230,12 +230,12 @@ def resolve_location(
         try:
             hit = geocode_first(override, lang=lang)
         except GeocoderUnavailable as exc:
-            sys.exit(f"Search failed: {exc}")
+            raise UserError(f"Search failed: {exc}") from exc
         if hit is None:
-            # sys.exit with a message prints it to stderr with status 1,
-            # after the caller's finally blocks have run -- so a spinner
-            # on the same line is cleared before the message lands.
-            sys.exit(f'No locations matching "{override}".')
+            # The main ends the run with it, after the caller's finally
+            # blocks have run -- so a spinner on the same line is
+            # cleared before the message lands.
+            raise UserError(f'No locations matching "{override}".')
         lat, lng, label = hit
     if need_country:
         from linecast._geocode import reverse_geocode

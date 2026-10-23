@@ -16,6 +16,7 @@ from linecast.astro.calendars.civil import SOLAR_HIJRI, resolve_dates
 from linecast._config import saved
 from linecast._runtime import resolve_lang
 from linecast.settings._command import forget, remember, run, show
+from linecast._log import exits_on_user_error
 
 _NATURAL = "solar-hijri with --lang fa, gregorian otherwise"
 
@@ -45,6 +46,7 @@ def _cmd_auto():
     print(f"Dates set to auto ({_NATURAL})")
 
 
+@exits_on_user_error
 def main():
     run("linecast dates", "%(prog)s [show | gregorian | solar-hijri | auto]",
         "Show or set the calendar dates are written in",

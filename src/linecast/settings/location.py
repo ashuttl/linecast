@@ -9,11 +9,10 @@ Precedence for every command: --location flag > WEATHER_LOCATION env >
 saved location (this command) > IP geolocation.
 """
 
-import sys
-
 from linecast._commands import formatter_class, parser_class
 from linecast._parsers import VersionAction
 from linecast._config import saved_location
+from linecast._log import UserError, exits_on_user_error
 from linecast.settings._command import forget, remember
 
 
@@ -45,10 +44,9 @@ def _cmd_set(query):
         try:
             results = geocode(query)
         except GeocoderUnavailable as exc:
-            sys.exit(f"Search failed: {exc}")
+            raise UserError(f"Search failed: {exc}") from exc
         if not results:
-            print(f'No locations matching "{query}".', file=sys.stderr)
-            sys.exit(1)
+            raise UserError(f'No locations matching "{query}".')
         r = results[0]
         lat, lng = r.get("latitude", 0), r.get("longitude", 0)
         parts = [r.get("name", "")]
@@ -74,6 +72,7 @@ def _cmd_search(query):
     print_search(query)
 
 
+@exits_on_user_error
 def main():
     parser = parser_class()(
         prog="linecast location",

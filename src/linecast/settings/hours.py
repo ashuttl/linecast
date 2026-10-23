@@ -15,6 +15,7 @@ own (swahili with --lang sw) > none.
 
 from linecast._config import saved
 from linecast.settings._command import forget, remember, run, show
+from linecast._log import exits_on_user_error
 
 _SET = {
     "halachic": "the zmanim by the Gr\"a: twelve hours from sunrise "
@@ -69,6 +70,7 @@ def _cmd_auto():
     print("Hours set to auto (swahili with --lang sw, else none)")
 
 
+@exits_on_user_error
 def main():
     from linecast.astro.hours.prayer_times import METHODS
     run("linecast hours", "%(prog)s [show | <hours> | auto]",

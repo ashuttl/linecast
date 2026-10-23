@@ -76,6 +76,7 @@ from linecast.moon.phase import (
     SYNODIC_MONTH, moon_illumination, moon_phase,
     next_phase_local, upcoming_moon_events,
 )
+from linecast._log import exits_on_user_error
 
 _theme.track_imports(globals(), "linecast.moon.palette")
 
@@ -770,6 +771,7 @@ def render(now_local, lat, lng, runtime, fullscreen=False, offset_minutes=0,
         lines.append(hint)
     return "\n".join(lines)
 
+@exits_on_user_error
 def main():
     parser = moon_parser()
     args = parser.parse_args()

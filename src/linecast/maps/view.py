@@ -71,7 +71,7 @@ from linecast.radar.ui import (
     CROSSHAIR, DIM, MUTED, panned_place, shift_grid,
 )
 from linecast._geo import angle_delta, wrap_lon
-from linecast._log import log_failure
+from linecast._log import exits_on_user_error, log_failure
 from linecast.terminal.scenes import Memo
 
 # Zoom is degrees of latitude top to bottom.  The floor used to be 0.1
@@ -1607,6 +1607,7 @@ def render_map(lat, lon, location_name, zoom, marker=None, runtime=None,
     return out
 
 
+@exits_on_user_error
 def main():
     # the live loop draws through render_map, so maps.live imports this
     # module; importing it here, at the call, keeps that one-way at load

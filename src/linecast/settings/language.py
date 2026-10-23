@@ -20,6 +20,7 @@ from linecast._runtime import LOCALE_VARS, resolve_lang
 from linecast._parsers import VersionAction
 from linecast._config import saved
 from linecast.settings._command import forget, remember, show
+from linecast._log import exits_on_user_error
 
 
 def _describe(code):
@@ -62,6 +63,7 @@ def _cmd_auto():
         print("Language set to auto (English)")
 
 
+@exits_on_user_error
 def main():
     codes = ", ".join(code for code, _name in LANGUAGES)
     variants = ", ".join(VARIANTS)

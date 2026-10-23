@@ -17,6 +17,7 @@ import os
 from linecast._runtime import resolve_units
 from linecast._config import saved
 from linecast.settings._command import forget, remember, run, show
+from linecast._log import exits_on_user_error
 
 
 def _cmd_show():
@@ -44,6 +45,7 @@ def _cmd_auto():
     print("Units set to auto (metric; imperial in the US)")
 
 
+@exits_on_user_error
 def main():
     run("linecast units", "%(prog)s [show | metric | imperial | auto]",
         "Show or set the preferred measurement units",

@@ -9,7 +9,6 @@ maps/search.py; it shares the Nominatim gate here, since both ask the
 same server, which allows one request a second.
 """
 
-import sys
 import time
 
 from linecast._cache import location_cache_key, read_cache, read_stale, write_cache
@@ -17,7 +16,7 @@ from linecast._http import fetch_json
 from linecast._i18n import (
     GEOCODER_UNTRANSLATED, accept_language, base_language, geocoder_language,
 )
-from linecast._log import log_failure
+from linecast._log import UserError, log_failure
 from linecast._paths import cache_dir
 from linecast._plaintext import plain_text
 from linecast._rate_limit import RateLimit
@@ -269,7 +268,7 @@ def print_search(query, lang="en"):
     try:
         results = geocode(query, lang=lang)
     except GeocoderUnavailable as exc:
-        sys.exit(f"Search failed: {exc}")
+        raise UserError(f"Search failed: {exc}") from exc
     if not results:
         print(f'No locations matching "{query}".')
         return

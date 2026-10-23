@@ -21,7 +21,7 @@ import sys
 from pathlib import Path
 
 from linecast._parsers import doctor_parser
-from linecast._log import set_debug
+from linecast._log import exits_on_user_error, set_debug
 
 PROBE_TIMEOUT = 4        # seconds per host; every probe runs at once
 _PROBE_GRACE = 1         # seconds past that before a probe is given up on
@@ -676,6 +676,7 @@ def render(report):
     return "\n".join(out)
 
 
+@exits_on_user_error
 def main():
     args = doctor_parser().parse_args()
     if args.debug:

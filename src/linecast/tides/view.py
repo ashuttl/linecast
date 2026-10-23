@@ -22,7 +22,6 @@ Usage: tides [--print] [--oneline] [--json] [--month | --year | --makeup]
 """
 
 import math
-import sys
 from datetime import datetime, timezone, timedelta
 
 from linecast.terminal.braille import BLANK, build_braille_curve
@@ -34,7 +33,7 @@ from linecast.terminal import live as _live
 from linecast.terminal import theme as _theme
 from linecast._i18n import fmt_decimal
 from linecast._runtime import TidesRuntime, current_runtime, install_banner
-from linecast._log import log_failure
+from linecast._log import UserError, exits_on_user_error, log_failure
 from linecast.tides.marine import parse_marine_current, format_marine_line
 from linecast.tides.i18n import _ts
 from linecast._i18n import moon_name
@@ -452,8 +451,7 @@ def render(station_id, station_name, station_meta=None, runtime=None,
         preds_dt = provider.tides_range(station_id, date, date, station_tz)
         hilo_dt = provider.hilo_range(station_id, date, date, station_tz)
         if not preds_dt:
-            print(f"Could not fetch tide data for station {station_id}.", file=sys.stderr)
-            sys.exit(1)
+            raise UserError(f"Could not fetch tide data for station {station_id}.")
         day_start = datetime(date.year, date.month, date.day)
         day_end = day_start + timedelta(days=1)
         if station_tz is not None:
@@ -611,6 +609,7 @@ def render(station_id, station_name, station_meta=None, runtime=None,
     return output
 
 
+@exits_on_user_error
 def main():
     # the live view draws through render, so tides.live imports this
     # module; importing it here, at the call, keeps that one-way at load

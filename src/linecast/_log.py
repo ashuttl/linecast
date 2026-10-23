@@ -1,11 +1,14 @@
-"""The --debug transcript, and the one line every fallback writes to it.
+"""The --debug transcript, the one line every fallback writes to it, and
+the one line a run that cannot go on ends with.
 
 A provider, cache or decoder that fails returns its documented fallback
 and calls log_failure, which prints one line naming the provider, the
 operation, the host, the exception and the fallback, and prints nothing
 unless --debug is on (docs/architecture.md, "Diagnostics").  Everything
 that touches the network or the disk calls it, so it sits at the bottom
-of the package and imports nothing of linecast's."""
+of the package and imports nothing of linecast's.  A failure the user
+has to act on, a place no geocoder knows, is a UserError instead, which
+the command's main turns into its message on stderr and status 1."""
 
 import sys
 
@@ -125,3 +128,30 @@ def log_skipped(provider, what, skipped, total, exc=None):
         debug_log(f"{provider}: parse of {what} failed -- {tail}")
     else:
         log_failure(provider, f"parse of {what}", exc, fallback=tail)
+
+
+class UserError(Exception):
+    """A run that cannot go on, for a reason the user can act on: "No
+    locations matching ...", "Could not save settings to ...".
+
+    The library below a command raises it rather than ending the
+    process itself, which from a worker thread would end only the
+    thread, and silently.  The command's main ends the run with it, as
+    sys.exit(message) would: the message on stderr, status 1, once the
+    finally blocks between have run, so a spinner on the same line is
+    cleared first.
+    """
+
+
+def exits_on_user_error(main):
+    """*main*, a command's, ending the run on a UserError as
+    sys.exit(message) would have."""
+    import functools
+
+    @functools.wraps(main)
+    def run(*args, **kwargs):
+        try:
+            return main(*args, **kwargs)
+        except UserError as exc:
+            raise SystemExit(str(exc)) from None
+    return run

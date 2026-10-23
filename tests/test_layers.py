@@ -49,6 +49,18 @@ INTO_A_VIEW = {
 }
 
 
+# (module, function): what ends the run below the entry points, each with
+# the reason it stands.  Everything else raises _log.UserError, and the
+# command's main ends the run with it; a command's own main and _main
+# may end it themselves.
+ENDS_THE_RUN = {
+    ("_log", "exits_on_user_error.run"): "the mains' own exit, made from a UserError",
+    ("terminal.term", "LiveTerminal.install._exit_on_signal"):
+        "SIGTERM, SIGHUP and SIGQUIT become SystemExit so the live view's "
+        "finally blocks restore the terminal",
+}
+
+
 def _modules():
     for path in sorted(SRC.rglob("*.py")):
         if "locales" in path.parts:
@@ -167,3 +179,48 @@ def test_no_import_cycle_at_module_level():
         if v not in index:
             visit(v)
     assert not cycles, f"module-level import cycles: {cycles}"
+
+
+def _exits(path):
+    """(the enclosing defs, line) of each sys.exit() and raise SystemExit
+    in *path*."""
+    found = []
+
+    def visit(node, stack):
+        for child in ast.iter_child_nodes(node):
+            if isinstance(child, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+                visit(child, stack + (child.name,))
+                continue
+            if (isinstance(child, ast.Call) and isinstance(child.func, ast.Attribute)
+                    and child.func.attr == "exit"
+                    and getattr(child.func.value, "id", None) == "sys"):
+                found.append((stack, child.lineno))
+            elif isinstance(child, ast.Raise) and child.exc is not None:
+                exc = child.exc.func if isinstance(child.exc, ast.Call) else child.exc
+                if getattr(exc, "id", None) == "SystemExit":
+                    found.append((stack, child.lineno))
+            visit(child, stack)
+
+    visit(ast.parse(path.read_text(encoding="utf-8")), ())
+    return found
+
+
+def test_only_a_main_ends_the_run():
+    # A library that ends the process ends only the thread when it runs
+    # in a worker, and silently; below the entry points a failure the
+    # user must act on is a UserError, which the main turns into the exit
+    found, stray = set(), []
+    for module, path in _modules():
+        if _layer(module) == 4:
+            continue
+        for stack, line in _exits(path):
+            if _layer(module) == 3 and {"main", "_main"} & set(stack):
+                continue
+            key = (module, ".".join(stack))
+            if key in ENDS_THE_RUN:
+                found.add(key)
+            else:
+                stray.append(f"{module}:{line}")
+    assert not stray, ("ends the run below a main; raise _log.UserError instead: "
+                       + ", ".join(stray))
+    assert found == set(ENDS_THE_RUN), f"no longer there: {set(ENDS_THE_RUN) - found}"

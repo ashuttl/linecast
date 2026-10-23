@@ -8,6 +8,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 from linecast import _config, _location
+from linecast._log import UserError
 from linecast.settings import location
 
 
@@ -195,9 +196,9 @@ class GeocoderFallbackTests(unittest.TestCase):
     def test_both_geocoders_down_ends_a_named_location_with_a_line(self):
         from linecast import _geocode
         with patch.object(_geocode, "fetch_json", side_effect=OSError("down")), \
-                self.assertRaises(SystemExit) as exit_:
+                self.assertRaises(UserError) as exit_:
             _location.resolve_location("Westbrook")
-        self.assertEqual(exit_.exception.code, "Search failed: down")
+        self.assertEqual(str(exit_.exception), "Search failed: down")
 
 
 class ResolveLocationTests(unittest.TestCase):
@@ -227,13 +228,13 @@ class ResolveLocationTests(unittest.TestCase):
             self.assertEqual(
                 _location.resolve_location("Westbrook"), (43.68, -70.35, ""))
 
-    def test_unmatched_place_name_exits(self):
+    def test_unmatched_place_name_is_a_user_error(self):
         with patch("linecast._geocode.geocode_first", return_value=None):
-            with self.assertRaises(SystemExit) as cm:
+            with self.assertRaises(UserError) as cm:
                 _location.resolve_location("Nowhereville Q")
-        # a string code prints to stderr and exits 1, once the caller's
+        # the main prints it to stderr and exits 1, once the caller's
         # finally blocks (radar's spinner) have run
-        self.assertEqual(cm.exception.code, 'No locations matching "Nowhereville Q".')
+        self.assertEqual(str(cm.exception), 'No locations matching "Nowhereville Q".')
 
     def test_return_label_carries_the_geocoder_hit(self):
         with patch("linecast._geocode.geocode_first",
@@ -499,7 +500,7 @@ class LocationCommandTests(unittest.TestCase):
         path.write_text(text)
         with patch("linecast._geocode.reverse_geocode",
                    return_value=("Fayette, Maine", "US", {})), \
-             self.assertRaises(SystemExit):
+             self.assertRaises(UserError):
             location._cmd_set("44.4293,-70.0356")
         self.assertEqual(path.read_text(), text)
 
@@ -562,7 +563,7 @@ class ParseLatLngTests(unittest.TestCase):
 
     def test_an_override_off_the_planet_goes_to_the_geocoder(self):
         with patch("linecast._geocode.geocode_first", return_value=None):
-            with self.assertRaises(SystemExit):
+            with self.assertRaises(UserError):
                 _location.resolve_location("91,0")
 
     def test_a_third_number_is_not_dropped(self):
@@ -575,7 +576,7 @@ class ParseLatLngTests(unittest.TestCase):
         with patch("linecast._geocode.geocode", return_value=[]), \
              patch("linecast._geocode.reverse_geocode",
                    side_effect=AssertionError("not coordinates")):
-            with self.assertRaises(SystemExit):
+            with self.assertRaises(UserError):
                 location._cmd_set("91,0")
 
 

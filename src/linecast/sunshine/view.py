@@ -40,6 +40,7 @@ from linecast.sunshine.palette import (
 from linecast.sunshine.solar import (
     day_length_change, day_offset, polar_state, solar_times, sun_elevation,
 )
+from linecast._log import exits_on_user_error
 
 _theme.track_imports(globals(), "linecast.terminal.color")
 _theme.track_imports(globals(), "linecast.sunshine.palette")
@@ -434,6 +435,7 @@ def _sky_name(lat, lng, doy, hour, sunrise, sunset, tz_offset_h, runtime):
 # ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
+@exits_on_user_error
 def main():
     parser = sunshine_parser()
     args = parser.parse_args()

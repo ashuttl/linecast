@@ -86,6 +86,7 @@ from linecast.sky.palette import (
     MILKY_RGB, MOON_GLOW_RGB, MOON_LIT_RGB, NIGHT_RGB, STAR_BRIGHT_RGB, STAR_DIM_RGB,
     STAR_RGB, TEXT_RGB, TIP_BG_RGB, TIP_DIM_RGB, TIP_TEXT_RGB,
 )
+from linecast._log import exits_on_user_error
 
 _theme.track_imports(globals(), "linecast.sunshine.palette")
 _theme.track_imports(globals(), "linecast.sky.palette")
@@ -997,6 +998,7 @@ def parse_facing(text, runtime=None):
     raise ValueError(f"not a direction: {text!r}")
 
 
+@exits_on_user_error
 def main():
     parser = sky_parser()
     args = parser.parse_args()

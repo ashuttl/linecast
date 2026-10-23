@@ -16,6 +16,7 @@ from linecast.terminal.bidi import resolve_digits
 from linecast._config import saved
 from linecast._runtime import resolve_lang
 from linecast.settings._command import forget, remember, run, show
+from linecast._log import exits_on_user_error
 
 _NATURAL = "the language's own digits where it has them, 0-9 otherwise"
 _SET = {
@@ -45,6 +46,7 @@ def _cmd_auto():
     print(f"Digits set to auto ({_NATURAL})")
 
 
+@exits_on_user_error
 def main():
     run("linecast digits", "%(prog)s [show | latin | native | auto]",
         "Show or set the digits numbers are written in",
