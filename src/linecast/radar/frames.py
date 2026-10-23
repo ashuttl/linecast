@@ -88,12 +88,13 @@ def _sat_timeline():
 
 
 def _frame_key(bbox, gw, hc, frame, layer="radar", src=None):
+    # A digest of the token rides with the timestamp, so an image a
+    # source replaces under the same time is not served forever: a
+    # nowcast frame is re-predicted, and a frame IEM may not have
+    # composited yet is listed under a new token each step.
+    import hashlib
     stamp = frame.time.strftime("%Y%m%dT%H%M")
-    if frame.future:
-        # nowcast frames are re-predicted under the same timestamp; a token
-        # digest keeps a superseded prediction from being served forever
-        import hashlib
-        stamp += ":" + hashlib.sha1(str(frame.token).encode()).hexdigest()[:8]
+    stamp += ":" + hashlib.sha1(str(frame.token).encode()).hexdigest()[:8]
     return _view_key(bbox, gw, hc, src) + (layer, stamp)
 
 

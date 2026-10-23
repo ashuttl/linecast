@@ -30,8 +30,7 @@ import threading
 import time
 from typing import Any
 
-from linecast._png import decode_rgba
-from linecast.radar.iem import fetch_frame, frame_times
+from linecast.radar.iem import fetch_frame, frame_times, latest_frame_time, settled
 from linecast.radar import tiles
 from linecast.radar import palettes
 from linecast.radar import ub
@@ -151,13 +150,17 @@ class IEMSource:
         self.n_frames = n_frames
 
     def current_frames(self) -> list[Frame]:
-        # timestamps are cheap to recompute, so newer frames appear live
-        return [Frame(t, t) for t in frame_times(self.n_frames)]
+        # Timestamps are cheap to recompute, so newer frames appear live.
+        # A frame IEM may not have composited yet is listed under the
+        # window it is in as well, so the next window, a step later,
+        # asks for it again instead of keeping an empty answer for good.
+        end = latest_frame_time()
+        return [Frame(t, t if settled(t) else (t, end))
+                for t in frame_times(self.n_frames, end)]
 
     def frame_rgba(self, bbox: tuple[float, float, float, float], gw: int, hc: int,
                    frame: Frame) -> tuple[int, int, bytearray]:
-        png = fetch_frame(bbox, gw, hc * 2, when=frame.token)
-        return decode_rgba(png)
+        return fetch_frame(bbox, gw, hc * 2, frame.time)
 
 
 class _TileSource:

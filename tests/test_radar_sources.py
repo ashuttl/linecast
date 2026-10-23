@@ -434,3 +434,89 @@ class TestIEMSource:
         assert all(isinstance(f, Frame) for f in frames)
         times = [f.time for f in frames]
         assert times == sorted(times)
+
+
+def _rgba_png(width, height, alpha):
+    """A filter-0 RGBA PNG of one colour, at `alpha` opacity."""
+    import struct
+    import zlib
+
+    def chunk(kind, body):
+        return (struct.pack(">I", len(body)) + kind + body
+                + struct.pack(">I", zlib.crc32(kind + body) & 0xFFFFFFFF))
+    row = b"\0" + bytes([200, 40, 40, alpha]) * width
+    return (b"\x89PNG\r\n\x1a\n"
+            + chunk(b"IHDR", struct.pack(">IIBBBBB", width, height, 8, 6, 0, 0, 0))
+            + chunk(b"IDAT", zlib.compress(row * height)) + chunk(b"IEND", b""))
+
+
+class TestIEMNewestFrames:
+    """IEM answers a time it has not composited yet with a fully
+    transparent image.  That reads as a clear sky, so an empty recent
+    frame must not be kept: the next window asks for it again."""
+
+    NOW = datetime.datetime(2026, 10, 23, 12, 2, tzinfo=UTC)
+    BBOX = (-72.0, 42.0, -68.0, 46.0)
+
+    def _iem(self, monkeypatch, tmp_path, published):
+        """A fake IEM whose newest composite is `published[0]`; returns
+        the list of times it was asked for."""
+        from linecast.radar import iem
+        monkeypatch.setenv("LINECAST_CACHE_DIR", str(tmp_path))
+        monkeypatch.setattr(iem, "_now", lambda: self.NOW)
+        asked = []
+
+        def fetch(url, timeout=15):
+            stamp = url.rsplit("TIME=", 1)[1]
+            when = datetime.datetime.strptime(
+                stamp, "%Y-%m-%dT%H:%M:00Z").replace(tzinfo=UTC)
+            asked.append(when)
+            return _rgba_png(8, 8, 255 if when <= published[0] else 0)
+        monkeypatch.setattr(iem, "fetch_bytes", fetch)
+        return asked
+
+    def test_an_empty_recent_frame_is_asked_for_again(self, monkeypatch, tmp_path):
+        from linecast.radar import iem
+        published = [None]
+        asked = self._iem(monkeypatch, tmp_path, published)
+        newest = iem.latest_frame_time()
+        published[0] = newest - datetime.timedelta(minutes=10)  # IEM is late
+        assert iem.is_empty(iem.fetch_frame(self.BBOX, 8, 8, newest)[2])
+        published[0] = newest  # IEM catches up
+        assert not iem.is_empty(iem.fetch_frame(self.BBOX, 8, 8, newest)[2])
+        assert asked == [newest, newest]
+        # with echo in it, the frame is IEM's composite: kept for good
+        iem.fetch_frame(self.BBOX, 8, 8, newest)
+        assert len(asked) == 2
+
+    def test_a_settled_empty_frame_is_a_clear_sky(self, monkeypatch, tmp_path):
+        from linecast.radar import iem
+        published = [None]
+        asked = self._iem(monkeypatch, tmp_path, published)
+        old = iem.latest_frame_time() - datetime.timedelta(minutes=30)
+        published[0] = old - datetime.timedelta(hours=1)
+        assert iem.settled(old)
+        iem.fetch_frame(self.BBOX, 8, 8, old)
+        assert iem.is_empty(iem.fetch_frame(self.BBOX, 8, 8, old)[2])
+        assert asked == [old]
+
+    def test_recent_frames_are_listed_again_each_step(self, monkeypatch):
+        """The live view keys its memo by the token, so a recent frame
+        listed under a new token one window later is fetched again."""
+        from linecast.radar import frames as rf
+        from linecast.radar import iem
+        src = IEMSource(8)
+        monkeypatch.setattr(iem, "_now", lambda: self.NOW)
+        before = {f.time: f for f in src.current_frames()}
+        monkeypatch.setattr(iem, "_now", lambda: self.NOW + datetime.timedelta(minutes=5))
+        after = {f.time: f for f in src.current_frames()}
+        shared = sorted(set(before) & set(after))
+        assert len(shared) == 7
+        def key(frame):
+            return rf._frame_key(self.BBOX, 8, 4, frame, src=src)
+        recent = [t for t in shared if not iem.settled(t, self.NOW)]
+        assert recent  # the newest frames are still settling
+        for t in shared:
+            same = key(before[t]) == key(after[t])
+            assert same is iem.settled(t, self.NOW), t
+            assert before[t].time == t and after[t].time == t

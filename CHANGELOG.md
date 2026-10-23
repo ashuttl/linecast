@@ -4,6 +4,8 @@ Notable changes, by release. Notes for the next release collect under **Unreleas
 
 ## Unreleased
 
+- Radar: The newest NEXRAD frame no longer stays empty when the Iowa Environmental Mesonet is late to publish it.
+
 ## 2.10.3 — 2026-10-20
 
 - Units: `linecast wind` sets the unit for wind speeds in weather and radar: km/h, m/s, mph, or knots, whatever the other units and the language. `--wind-units` sets it for one run. Suggested by [@nkh](https://github.com/nkh) in [#135](https://github.com/ashuttl/linecast/issues/135).
