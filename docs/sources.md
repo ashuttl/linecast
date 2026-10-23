@@ -21,7 +21,7 @@ Checked against: nothing outside the services themselves; a location is what the
 
 Fetched:
 
-- **[Open-Meteo forecast API](https://open-meteo.com/en/docs)**. The forecast: the current conditions, seven days ahead and one behind by the hour, and each day's highs, lows, precipitation, snowfall, wind, sunrise, and sunset. Open-Meteo blends the national and global models and picks the best for the place; linecast names no model. The numbers are shown as sent, the felt temperature included. When the service cannot be reached, the last forecast fetched is shown with a line naming the day it was made, and `--json` sets `stale`.
+- **[Open-Meteo forecast API](https://open-meteo.com/en/docs)**. The forecast: the current conditions, seven days ahead and one behind by the hour, and each day's highs, lows, precipitation, snowfall, and wind. The sunrise and sunset are linecast's own, from the ephemeris under Sunshine and the Moon. Open-Meteo blends the national and global models and picks the best for the place; linecast names no model. The numbers are shown as sent, the felt temperature included. When the service cannot be reached, the last forecast fetched is shown with a line naming the day it was made, and `--json` sets `stale`.
 - **[Open-Meteo historical weather API](https://open-meteo.com/en/docs/historical-weather-api)**. The last ten complete calendar years, for the line on how today compares with a normal day, the typical-year scale, and the month and year views. A normal day is the mean of that calendar day across the ten years. The archive is a reanalysis grid, and which reanalysis answers is Open-Meteo's choice. It is milder at the extremes than a thermometer at the airport, so these are not a station's readings, official normals, or records, and the year view names its bands by their years. [weather-month.md](weather-month.md) describes the month view's comparison.
 - **[Aviation Weather Center](https://aviationweather.gov/data/api/)**. Airports' METAR reports. Where an airport within 25 km has reported in the last 90 minutes, its present weather and cloud take the place of the model's in the header, and the credit line names the station. An automated station sees cloud only to about 12,000 ft, so the model's high cloud still counts above a clear report from one. At a US automated station the prose gives what the rain gauge caught in the last 24 hours in place of the model's hours. Checked against the Portland Jetport's reports for 26 and 27 September 2026, whose hourly amounts add up to its six-hour total of 0.48″.
 
@@ -74,7 +74,7 @@ Checked against: real responses from every feed, saved as fixtures (the Bureau o
 
 ## Sunshine and the Moon
 
-Everything here is computed on the device. Sunrise and sunset are the Sun's upper limb, refracted, at 0.833° below the horizon, and the twilights are the usual 6°, 12°, and 18°. The traditional hours and the calendars have their own pages, [hours.md](hours.md) and [calendars.md](calendars.md).
+Everything here is computed on the device. Sunrise and sunset are the Sun's upper limb, refracted, at 0.833° below the horizon, and the twilights are the usual 6°, 12°, and 18°. The weather, the tides, and the map's day and night use the same sunrise, sunset, and Sun. The traditional hours and the calendars have their own pages, [hours.md](hours.md) and [calendars.md](calendars.md).
 
 Computed from:
 
@@ -94,7 +94,6 @@ Checked against:
 - **PyEphem's ELP2000.** The Moon's position at four moments of 2026, within a tenth of a degree, and its bright limb's bearing at four places, within 3°.
 - **PyEphem's VSOP87.** Sunrise and sunset at five places on dates of 2026, from the equator to the edge of the polar night, within a quarter of a minute. Over twelve places on nine dates the worst is 41 seconds, at Tromsø in January, where the Sun is up for 49 minutes and grazes the horizon.
 - **Hebcal.** The ephemeris's sunrise and sunset, within half a minute at four places on four dates of 2026 ([hours.md](hours.md)).
-- The sunshine view's own rise and set, by the NOAA equations, are not in the tests. On 20 September 2026 they were compared with the ephemeris's at six places on the same four dates and agreed within two minutes, most within one.
 - Moonrise and moonset are checked for shape, not against a table.
 
 ## The sky

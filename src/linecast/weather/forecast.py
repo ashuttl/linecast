@@ -107,16 +107,61 @@ def wall_clock(data):
     return data
 
 
-def sun_of_day(daily, i):
-    """Day *i*'s (sunrise, sunset) as the forecast stamps them, or
-    (None, None) for a day the Sun does not rise.
+def _zone(data):
+    """The forecast's zone, or the fixed offset it was stamped in where
+    the machine does not know the zone, as local_now reads it."""
+    tz_name = (data or {}).get("timezone")
+    if tz_name:
+        try:
+            from zoneinfo import ZoneInfo
+            return ZoneInfo(tz_name)
+        except Exception:
+            pass
+    try:
+        return timezone(timedelta(seconds=int(data.get("utc_offset_seconds", 0))))
+    except (TypeError, ValueError):
+        return timezone.utc
 
-    Open-Meteo gives such a day a sunrise and a sunset both at its
+
+def with_app_sun(data, lat, lng):
+    """*data* with each day's sunrise and sunset the app's own, from
+    astro.ephemeris.sunrise_sunset, as the sunshine view and the month
+    views give them, rather than Open-Meteo's, a minute or so off.
+
+    They are written into the daily block as Open-Meteo writes its
+    own, the wall clock's minute and no zone, so everything that reads
+    the forecast reads them: the chart, its Today row, the narrative
+    and --json. A day the Sun does not rise has neither, and a day it
+    does not set runs from its midnight to the next.
+    """
+    daily = (data or {}).get("daily")
+    if not isinstance(daily, dict) or not isinstance(daily.get("time"), list):
+        return data
+    from linecast.astro.ephemeris import sunrise_sunset
+    from linecast._timefmt import iso_minutes
+    zone = _zone(data)
+    rises, sets = [], []
+    for text in daily["time"]:
+        try:
+            rise, sset = sunrise_sunset(date.fromisoformat(text), lat, lng, zone)
+        except (TypeError, ValueError):
+            rise = sset = None
+        rises.append(iso_minutes(rise))
+        sets.append(iso_minutes(sset))
+    daily["sunrise"], daily["sunset"] = rises, sets
+    return data
+
+
+def sun_of_day(daily, i):
+    """Day *i*'s (sunrise, sunset), or (None, None) for a day the Sun
+    does not rise. A day it does not set runs from midnight to
+    midnight, which is the daylight it has, and stands.
+
+    A forecast straight from Open-Meteo, as the tests' fixtures are,
+    gives a day without a sunrise a sunrise and a sunset both at its
     midnight. Neither is an event: read as one, the chart marks a sunset
     at 00:00 every day of a polar night, and once wall_clock has moved
-    the pair across a clock change, at 23:00 the evening before. A day
-    the Sun does not set runs from midnight to midnight, which is the
-    daylight it has, and stands."""
+    the pair across a clock change, at 23:00 the evening before."""
     rise = _at((daily or {}).get("sunrise"), i)
     sset = _at((daily or {}).get("sunset"), i)
     if rise and rise == sset:
@@ -127,7 +172,8 @@ def sun_of_day(daily, i):
 def fetch_forecast(lat: float, lng: float,
                    runtime: WeatherRuntime | None = None) -> dict[str, Any] | None:
     """Fetch hourly + daily forecast from Open-Meteo. Cached 1h, and
-    only while it still says today is today."""
+    only while it still says today is today. Its days carry the app's
+    sunrise and sunset (with_app_sun), not Open-Meteo's."""
     if runtime is None:
         runtime = current_runtime(WeatherRuntime)
     # Each unit changes the numbers in the answer, so the file is named
@@ -146,7 +192,7 @@ def fetch_forecast(lat: float, lng: float,
         "relative_humidity_2m,dew_point_2m,uv_index,cloud_cover"
         "&daily=temperature_2m_max,temperature_2m_min,precipitation_sum,snowfall_sum,"
         "precipitation_probability_max,weather_code,wind_speed_10m_max,wind_gusts_10m_max,"
-        "sunrise,sunset,cloud_cover_mean"
+        "cloud_cover_mean"
         f"&temperature_unit={temp_unit}"
         f"&wind_speed_unit={wind_unit}"
         f"&precipitation_unit={precip_unit}"
@@ -154,11 +200,11 @@ def fetch_forecast(lat: float, lng: float,
         "&current=temperature_2m,apparent_temperature,weather_code,"
         "wind_speed_10m,wind_gusts_10m,relative_humidity_2m,dew_point_2m,cloud_cover,cloud_cover_high"
     )
-    return wall_clock(fetch_json_cached(
+    return with_app_sun(wall_clock(fetch_json_cached(
         cache_file,
         3600,
         url,
         timeout=10,
         fallback=None,
         fresh=forecast_is_todays,
-    ))
+    )), lat, lng)
