@@ -66,7 +66,7 @@ def providers():
     from linecast._location import own_country
     from linecast.maps.builtup import DEFAULT_URL as BUILTUP_URL
     from linecast.maps.elevation import tile_url as elevation_tile_url
-    from linecast.maps.route import _FALLBACK as OSRM_FALLBACK, _PRIMARY as OSRM_PRIMARY
+    from linecast.maps.route import OSRM_FALLBACK, OSRM_PRIMARY
     from linecast.maps.search import NOMINATIM_URL, PHOTON_URL
     from linecast.radar.tiles import LIBREWXR_DEFAULT_URL
     from linecast.tides.chs import CHS_BASE

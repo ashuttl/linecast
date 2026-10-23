@@ -32,8 +32,8 @@ PROFILES = ("car", "bike", "foot")
 
 ATTRIBUTION = "Directions © OpenStreetMap contributors"
 
-_PRIMARY = "https://routing.openstreetmap.de/routed-{profile}/route/v1/driving/"
-_FALLBACK = "https://router.project-osrm.org/route/v1/driving/"
+OSRM_PRIMARY = "https://routing.openstreetmap.de/routed-{profile}/route/v1/driving/"
+OSRM_FALLBACK = "https://router.project-osrm.org/route/v1/driving/"
 _QUERY = "?overview=full&geometries=geojson&steps=true"
 
 _throttle = RateLimit(1.0, "routing")
@@ -154,9 +154,9 @@ def route(profile: str, origin: tuple[float, float], dest: tuple[float, float],
     # NB: OSRM wants lon,lat — the reverse of every other coordinate in
     # this codebase
     path = f"{olon},{olat};{dlon},{dlat}{_QUERY}"
-    urls = [_PRIMARY.format(profile=profile) + path]
+    urls = [OSRM_PRIMARY.format(profile=profile) + path]
     if profile == "car":
-        urls.append(_FALLBACK + path)
+        urls.append(OSRM_FALLBACK + path)
 
     failure: Exception | None = None
     for url in urls:
