@@ -3,9 +3,11 @@
 import json
 import os
 import sys
+from collections import namedtuple
 from pathlib import Path
 from typing import Any
 
+from linecast._i18n import LANGUAGE_CODES, VARIANTS, canonical_language, is_language_code
 from linecast._paths import config_root
 from linecast._log import log_failure
 
@@ -79,173 +81,235 @@ def save_config(data: dict[str, Any]) -> None:
 
 def _choice(value, choices):
     """*value* as *choices* spells it, or None. The case and the spaces
-    around a hand-edited value are forgiven: " Metric" is metric."""
+    around a hand-edited value are forgiven, " Metric" is metric, and so
+    is a number written as one, 24 for "24"."""
+    if isinstance(value, int) and not isinstance(value, bool):
+        value = str(value)
     if not isinstance(value, str):
         return None
     value = value.strip().lower()
     return value if value in choices else None
 
 
-def _saved_choice(key, choices):
-    """The setting saved under *key*, as *choices* spells it, or None."""
-    return _choice(read_config().get(key), choices)
-
-
-UNITS_CHOICES = ("metric", "imperial")
-
-
-def saved_units() -> str | None:
-    """Return 'metric' or 'imperial' saved via `linecast units`, or None."""
-    return _saved_choice("units", UNITS_CHOICES)
-
-
 # The units a wind speed is shown in, as the views write them, and the
 # other ways they are typed: Open-Meteo's kmh and ms, kph and mps, and
 # the knot as kt or by name.
-WIND_UNITS = ("km/h", "m/s", "mph", "kn")
 _WIND_SPELLINGS = {"km/h": "km/h", "kmh": "km/h", "kph": "km/h",
                    "m/s": "m/s", "ms": "m/s", "mps": "m/s", "mph": "mph",
                    "kn": "kn", "kt": "kn", "kts": "kn", "knot": "kn", "knots": "kn"}
 
 
 def wind_unit_of(value) -> str | None:
-    """The wind unit *value* names, as WIND_UNITS spells it, or None."""
+    """The wind unit *value* names, as the wind setting spells it, or None."""
     return _WIND_SPELLINGS.get(str(value or "").strip().lower())
 
 
-def saved_wind_units() -> str | None:
-    """Return the wind unit saved via `linecast wind`, or None."""
-    return wind_unit_of(read_config().get("wind"))
+def _wind(value, _choices):
+    return wind_unit_of(value)
 
 
-CLOCK_CHOICES = ("12", "24")
+def _dates(value, choices):
+    """Case and the separator are forgiven: solar_hijri, Solar-Hijri."""
+    return _choice(value.replace("_", "-") if isinstance(value, str) else None, choices)
 
 
-def saved_clock() -> str | None:
-    """Return '12' or '24' saved via `linecast clock`, or None. A hand
-    edit may write the number itself, 24 rather than "24"."""
-    return _choice(str(read_config().get("clock")), CLOCK_CHOICES)
-
-
-# The day a printed calendar opens the week on. Monday nearly
-# everywhere; Sunday and Saturday where the wall calendars say so,
-# after CLDR's week data. Australia and China are left on Monday,
-# where their calendars mostly are whatever CLDR says.
-WEEK_STARTS = ("monday", "sunday", "saturday")
-
-
-def saved_week_start() -> str | None:
-    """Return 'monday', 'sunday' or 'saturday' saved via `linecast week`, or None."""
-    return _saved_choice("week", WEEK_STARTS)
-
-
-DATES_CHOICES = ("gregorian", "solar-hijri")
-
-
-def dates_choice(value):
-    """A setting's value as DATES_CHOICES spells it, or None.
-
-    Case and the separator are forgiven: solar_hijri, Solar-Hijri."""
-    return _choice(value.replace("_", "-") if isinstance(value, str) else None,
-                   DATES_CHOICES)
-
-
-def saved_dates() -> str | None:
-    """Return 'gregorian' or 'solar-hijri' saved via `linecast dates`, or None."""
-    return dates_choice(read_config().get("dates"))
-
-
-DIGITS_CHOICES = ("latin", "native")
-
-
-def digits_choice(value):
-    """A setting's value as DIGITS_CHOICES spells it, or None."""
-    return _choice(value, DIGITS_CHOICES)
-
-
-def saved_digits() -> str | None:
-    """Return 'latin' or 'native' saved via `linecast digits`, or None."""
-    return _saved_choice("digits", DIGITS_CHOICES)
-
-
-ICON_SETS = ("nerd", "emoji", "plain")
-
-
-def saved_icons() -> str | None:
-    """Return 'nerd', 'emoji' or 'plain' saved via `linecast icons`, or None."""
-    return _saved_choice("icons", ICON_SETS)
-
-
-def saved_language() -> str | None:
-    """Return the language code saved via `linecast language`, or None."""
-    from linecast._i18n import canonical_language, is_language_code
-    lang = read_config().get("language")
-    if isinstance(lang, str) and is_language_code(lang.strip()):
-        return canonical_language(lang.strip().lower())
+def _language(value, _choices):
+    """Any code linecast could act on, not only the ones it has words
+    in: another two-letter code still reaches the providers that publish
+    in it."""
+    if isinstance(value, str) and is_language_code(value.strip()):
+        return canonical_language(value.strip().lower())
     return None
 
 
-CALENDAR_CHOICES = ("chinese", "japanese", "korean", "vietnamese", "thai",
-                    "hawaiian", "samoan", "chamorro", "refaluwasch",
-                    "islamic", "hebrew", "icelandic", "almanac", "none")
+def _place(value, _choices):
+    """{"lat": float, "lng": float, "label": str, "country": str}, on
+    the planet, resolved to coordinates when it was set, so reading it
+    never reaches the network."""
+    if (isinstance(value, dict)
+            and all(isinstance(value.get(k), (int, float))
+                    and not isinstance(value.get(k), bool) for k in ("lat", "lng"))
+            and -90 <= value["lat"] <= 90 and -180 <= value["lng"] <= 180):
+        return value
+    return None
+
+
+class Setting(namedtuple("Setting", "name choices env blurb spell", defaults=(_choice,))):
+    """One saved setting, declared once.
+
+    *name* is the command that sets it (`linecast units`) and the key
+    config.json keeps it under; *choices* are the values the command
+    and the setting's flag take, in the order they are listed; *env* is
+    the variable that stands above the saved value, and *blurb* the line
+    `linecast --help` gives the command.  *spell* turns a value typed or
+    read back into the choice it names, or None: by default one of
+    *choices*, case and spaces forgiven.
+    """
+    __slots__ = ()
+
+    def read(self, value):
+        """*value*, from a command line, the environment or config.json,
+        as the setting spells it, or None when it names none of the
+        choices."""
+        return self.spell(value, self.choices)
+
+
+# Every setting a `linecast <name>` command saves, in the order the help
+# page lists them.  The command, its flag's choices, the completions,
+# the resolvers and doctor all read the setting from here.
+SETTINGS = (
+    Setting("location", None, "WEATHER_LOCATION",
+            "A fixed place, instead of the one your IP address suggests", _place),
+    # the codes linecast has words in; the command takes any code
+    Setting("language", (*LANGUAGE_CODES, *VARIANTS), "LINECAST_LANG",
+            ", ".join(LANGUAGE_CODES), _language),
+    Setting("units", ("metric", "imperial"), "LINECAST_UNITS", "metric or imperial"),
+    Setting("wind", ("km/h", "m/s", "mph", "kn"), "LINECAST_WIND_UNITS",
+            "km/h, m/s, mph, or kn: the unit for wind speeds, whatever the other units",
+            _wind),
+    Setting("clock", ("12", "24"), "LINECAST_CLOCK", "12-hour or 24-hour"),
+    # The day a printed calendar opens the week on. Monday nearly
+    # everywhere; Sunday and Saturday where the wall calendars say so,
+    # after CLDR's week data. Australia and China are left on Monday,
+    # where their calendars mostly are whatever CLDR says.
+    Setting("week", ("monday", "sunday", "saturday"), "LINECAST_WEEK_START",
+            "monday, sunday, or saturday: where the week opens in the moon's month view"),
+    Setting("dates", ("gregorian", "solar-hijri"), "LINECAST_DATES",
+            "gregorian or solar-hijri, for writing dates (solar-hijri is the default "
+            "in Persian)", _dates),
+    Setting("digits", ("latin", "native"), "LINECAST_DIGITS",
+            "latin (0-9) or native, for writing numbers (native, ۰-۹, is the default "
+            "in Persian)"),
+    Setting("icons", ("nerd", "emoji", "plain"), "LINECAST_ICONS", "nerd, emoji, or plain"),
+    # A calendar name pins that calendar in every language; 'none' turns
+    # the calendar lines off even where the language would show them.
+    Setting("calendar", ("chinese", "japanese", "korean", "vietnamese", "thai",
+                         "hawaiian", "samoan", "chamorro", "refaluwasch",
+                         "islamic", "hebrew", "icelandic", "almanac", "none"), None,
+            "chinese, japanese, korean, vietnamese, thai, hawaiian, samoan, chamorro, "
+            "refaluwasch, islamic, hebrew, icelandic, almanac, or none: the traditional "
+            "calendar the moon follows"),
+    # The sky's cultures, by their short names; the data behind them is
+    # sky.catalogue's. A culture pins its constellations and star names
+    # in every language; 'none' keeps the IAU sky even where the language
+    # would bring a culture with it.
+    Setting("culture", ("anutan", "belarusian", "blackfoot", "boorong", "bugis",
+                        "chinese", "chinese-modern", "hawaiian", "indian", "japanese",
+                        "mandar", "maori", "mongolian", "norse", "romanian", "ruelle",
+                        "sami", "siberian", "tongan", "tukano", "snt", "rey", "none"), None,
+            "chinese, hawaiian, norse, maori, boorong, and seventeen more, or none: "
+            "whose constellations the sky draws"),
+    # The systems of hours sunshine can read the day in. A hyphen
+    # separates a tradition from an opinion or method within it:
+    # halachic-mga is the Magen Avraham's day, alot to tzeit, where
+    # halachic is the Gr"a's. islamic-<method> pins a prayer-time
+    # convention where the place's country would pick one, and
+    # islamic-hanafi or -shafii the school whose Asr is listed. swahili
+    # is the one a language brings: `auto` reads the day in it with
+    # --lang sw. 'none' keeps the hours off.
+    Setting("hours", ("halachic", "halachic-mga", "roman", "japanese", "islamic",
+                      "swahili",
+                      "islamic-mwl", "islamic-isna", "islamic-egypt", "islamic-makkah",
+                      "islamic-karachi", "islamic-tehran", "islamic-turkey",
+                      "islamic-singapore", "islamic-jakim", "islamic-kemenag",
+                      "islamic-france", "islamic-russia", "islamic-kuwait",
+                      "islamic-qatar", "islamic-dubai", "islamic-jordan",
+                      "islamic-morocco", "islamic-algeria", "islamic-tunisia",
+                      "islamic-oman", "islamic-hanafi", "islamic-shafii", "none"), None,
+            "halachic, halachic-mga, roman, japanese, islamic, swahili, or none: the "
+            "hours sunshine reads the day in"),
+)
+SETTING = {setting.name: setting for setting in SETTINGS}
+
+
+def saved(name):
+    """The setting *name* as config.json holds it, spelled as the
+    setting spells it, or None when nothing it can read is saved."""
+    return SETTING[name].read(read_config().get(name))
+
+
+def chosen(name, environ=None, before=None):
+    """The setting *name* as the user chose it, short of a flag.
+
+    Returns (value, source): from the variable *before*, a command's own
+    (WEATHER_UNITS), then the setting's own variable, then config.json,
+    with the variable's name or "config" for the source; (None, None)
+    when none of them names a choice, and the default decides.
+    """
+    setting = SETTING[name]
+    env = os.environ if environ is None else environ
+    for var in (before, setting.env):
+        if var:
+            value = setting.read(env.get(var, ""))
+            if value is not None:
+                return value, var
+    value = saved(name)
+    return (value, "config") if value is not None else (None, None)
+
+
+# The names the settings had before the table, until each is read from it
+UNITS_CHOICES = SETTING["units"].choices
+WIND_UNITS = SETTING["wind"].choices
+CLOCK_CHOICES = SETTING["clock"].choices
+WEEK_STARTS = SETTING["week"].choices
+DATES_CHOICES = SETTING["dates"].choices
+DIGITS_CHOICES = SETTING["digits"].choices
+ICON_SETS = SETTING["icons"].choices
+CALENDAR_CHOICES = SETTING["calendar"].choices
+CULTURE_CHOICES = SETTING["culture"].choices
+HOURS_CHOICES = SETTING["hours"].choices
+
+
+def dates_choice(value):
+    return SETTING["dates"].read(value)
+
+
+def digits_choice(value):
+    return SETTING["digits"].read(value)
+
+
+def saved_units() -> str | None:
+    return saved("units")
+
+
+def saved_wind_units() -> str | None:
+    return saved("wind")
+
+
+def saved_clock() -> str | None:
+    return saved("clock")
+
+
+def saved_week_start() -> str | None:
+    return saved("week")
+
+
+def saved_dates() -> str | None:
+    return saved("dates")
+
+
+def saved_digits() -> str | None:
+    return saved("digits")
+
+
+def saved_icons() -> str | None:
+    return saved("icons")
+
+
+def saved_language() -> str | None:
+    return saved("language")
 
 
 def saved_calendar() -> str | None:
-    """Return the calendar saved via `linecast calendar`, or None.
-
-    A calendar name — 'chinese', 'japanese', 'korean', 'vietnamese',
-    'thai', 'hawaiian', 'samoan', 'chamorro', 'refaluwasch',
-    'islamic', 'hebrew', 'icelandic', or 'almanac' —
-    pins that calendar in every language; 'none' turns the calendar
-    lines off even where the language would show them.
-    """
-    return _saved_choice("calendar", CALENDAR_CHOICES)
-
-
-# The systems of hours sunshine can read the day in, by the names
-# `linecast hours` and `sunshine --hours` take. A hyphen separates a
-# tradition from an opinion or method within it: halachic-mga is the
-# Magen Avraham's day, alot to tzeit, where halachic is the Gr"a's.
-# islamic-<method> pins a prayer-time convention where the place's
-# country would pick one, and islamic-hanafi or -shafii the school
-# whose Asr is listed. swahili is the one a language brings: `auto`
-# reads the day in it with --lang sw.
-HOURS_CHOICES = ("halachic", "halachic-mga", "roman", "japanese", "islamic",
-                 "swahili",
-                 "islamic-mwl", "islamic-isna", "islamic-egypt", "islamic-makkah",
-                 "islamic-karachi", "islamic-tehran", "islamic-turkey",
-                 "islamic-singapore", "islamic-jakim", "islamic-kemenag",
-                 "islamic-france", "islamic-russia", "islamic-kuwait",
-                 "islamic-qatar", "islamic-dubai", "islamic-jordan",
-                 "islamic-morocco", "islamic-algeria", "islamic-tunisia",
-                 "islamic-oman", "islamic-hanafi", "islamic-shafii", "none")
+    return saved("calendar")
 
 
 def saved_hours() -> str | None:
-    """Return the system of hours saved via `linecast hours`, or None.
-
-    A name from HOURS_CHOICES pins that system in every language;
-    'none' keeps the hours off.
-    """
-    return _saved_choice("hours", HOURS_CHOICES)
-
-
-# The sky's cultures, by the short names `linecast culture` and `sky
-# --culture` take; the data behind them is sky.catalogue's.
-CULTURE_CHOICES = ("anutan", "belarusian", "blackfoot", "boorong", "bugis",
-                   "chinese", "chinese-modern", "hawaiian", "indian", "japanese",
-                   "mandar", "maori", "mongolian", "norse", "romanian", "ruelle",
-                   "sami", "siberian", "tongan", "tukano", "snt", "rey", "none")
+    return saved("hours")
 
 
 def saved_culture() -> str | None:
-    """Return the sky culture saved via `linecast culture`, or None.
-
-    A culture name pins that culture's constellations and star names in
-    every language; 'none' keeps the IAU sky even where the language
-    would bring a culture with it.
-    """
-    return _saved_choice("culture", CULTURE_CHOICES)
+    return saved("culture")
 
 
 def saved_tidecheck_key() -> str | None:
@@ -259,18 +323,8 @@ def saved_tidecheck_key() -> str | None:
 
 
 def saved_location() -> dict[str, Any] | None:
-    """Return the location saved via `linecast location set`, or None.
-
-    Shape: {"lat": float, "lng": float, "label": str, "country": str}.
-    Resolved to coordinates at set time, so reading it never hits the network.
-    """
-    loc = read_config().get("location")
-    if (isinstance(loc, dict)
-            and all(isinstance(loc.get(k), (int, float))
-                    and not isinstance(loc.get(k), bool) for k in ("lat", "lng"))
-            and -90 <= loc["lat"] <= 90 and -180 <= loc["lng"] <= 180):
-        return loc
-    return None
+    """Return the location saved via `linecast location set`, or None."""
+    return saved("location")
 
 
 def save_location(lat: float, lng: float, label: str, country: str = "") -> None:
