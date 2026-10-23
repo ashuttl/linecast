@@ -46,6 +46,11 @@ def get_terminal_size(fallback=(80, 24)):
         size = shutil.get_terminal_size(fallback)
     except (OSError, ValueError):
         size = os.terminal_size(fallback)
+    # A tty that reports 0x0 (term._terminal_size) gets the fallback from
+    # shutil since Python 3.11; 3.10's hands the zeros back
+    if size.columns <= 0 or size.lines <= 0:
+        size = os.terminal_size((size.columns if size.columns > 0 else fallback[0],
+                                 size.lines if size.lines > 0 else fallback[1]))
     return print_viewport(size)
 
 
