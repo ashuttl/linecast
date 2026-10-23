@@ -244,31 +244,9 @@ def chosen(name, environ=None, before=None):
 
 
 # The names the settings had before the table, until each is read from it
-DATES_CHOICES = SETTING["dates"].choices
-DIGITS_CHOICES = SETTING["digits"].choices
 CALENDAR_CHOICES = SETTING["calendar"].choices
 CULTURE_CHOICES = SETTING["culture"].choices
 HOURS_CHOICES = SETTING["hours"].choices
-
-
-def dates_choice(value):
-    return SETTING["dates"].read(value)
-
-
-def digits_choice(value):
-    return SETTING["digits"].read(value)
-
-
-def saved_dates() -> str | None:
-    return saved("dates")
-
-
-def saved_digits() -> str | None:
-    return saved("digits")
-
-
-def saved_language() -> str | None:
-    return saved("language")
 
 
 def saved_calendar() -> str | None:

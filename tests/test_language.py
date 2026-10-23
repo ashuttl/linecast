@@ -30,7 +30,7 @@ class LanguageCommandTests(ConfigDirMixin):
     def test_set_saves_and_show_reports_it(self):
         with redirect_stdout(io.StringIO()):
             language._cmd_set("fr")
-        self.assertEqual(_config.saved_language(), "fr")
+        self.assertEqual(_config.saved("language"), "fr")
 
         out = io.StringIO()
         with redirect_stdout(out):
@@ -50,7 +50,7 @@ class LanguageCommandTests(ConfigDirMixin):
         out = io.StringIO()
         with patch.dict(os.environ, {"LANG": "de_DE.UTF-8"}), redirect_stdout(out):
             language._cmd_auto()
-        self.assertIsNone(_config.saved_language())
+        self.assertIsNone(_config.saved("language"))
         self.assertIn("auto (de German, from LANG)", out.getvalue())
 
         out = io.StringIO()
@@ -71,7 +71,7 @@ class LanguageCommandTests(ConfigDirMixin):
         with redirect_stdout(io.StringIO()):
             language._cmd_set("de")
             language._cmd_auto()
-        self.assertIsNone(_config.saved_language())
+        self.assertIsNone(_config.saved("language"))
 
     def test_an_unlisted_code_is_kept_and_described(self):
         # India's alerts come in the state language; the code reaches
@@ -79,14 +79,14 @@ class LanguageCommandTests(ConfigDirMixin):
         out = io.StringIO()
         with redirect_stdout(out):
             language._cmd_set("hi")
-        self.assertEqual(_config.saved_language(), "hi")
+        self.assertEqual(_config.saved("language"), "hi")
         self.assertIn("English", out.getvalue())
 
     def test_saved_language_ignores_junk_values(self):
         _config.write_config({"language": "french"})
-        self.assertIsNone(_config.saved_language())
+        self.assertIsNone(_config.saved("language"))
         _config.write_config({"language": 12})
-        self.assertIsNone(_config.saved_language())
+        self.assertIsNone(_config.saved("language"))
 
     def test_main_rejects_a_word_that_is_not_a_code(self):
         with patch("sys.argv", ["linecast language", "french"]), \
@@ -188,11 +188,11 @@ class ResolveLangTests(ConfigDirMixin):
         for value in ("zh-hant", "zh-tw"):
             with redirect_stdout(io.StringIO()):
                 language._cmd_set(value)
-            self.assertEqual(_config.saved_language(), "zh-Hant", value)
+            self.assertEqual(_config.saved("language"), "zh-Hant", value)
         for value in ("zh-hk", "zh-mo", "zh_Hant_HK"):
             with redirect_stdout(io.StringIO()):
                 language._cmd_set(value)
-            self.assertEqual(_config.saved_language(), "zh-HK", value)
+            self.assertEqual(_config.saved("language"), "zh-HK", value)
         with redirect_stdout(io.StringIO()):
             language._cmd_set("zh-tw")
         out = io.StringIO()
@@ -206,7 +206,7 @@ class ResolveLangTests(ConfigDirMixin):
             with patch("sys.argv", ["linecast language", value]), \
                     redirect_stdout(io.StringIO()):
                 language.main()
-            self.assertEqual(_config.saved_language(), code, value)
+            self.assertEqual(_config.saved("language"), code, value)
 
     def test_setting_an_alias_saves_the_language_it_names(self):
         with redirect_stdout(io.StringIO()):

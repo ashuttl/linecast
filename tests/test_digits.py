@@ -12,7 +12,7 @@ from linecast import _config
 from linecast.terminal import bidi as _bidi
 from linecast.settings import digits
 from linecast.terminal.bidi import resolve_digits
-from linecast._config import digits_choice
+from linecast._config import SETTING
 
 _SGR = re.compile(r"\x1b\[[0-9;]*m")
 
@@ -43,14 +43,14 @@ class TestResolve:
             "latin", "config")
 
     def test_choice_spellings(self):
-        assert digits_choice(" Latin ") == "latin"
-        assert digits_choice("native") == "native"
-        assert digits_choice("persian") is None
-        assert digits_choice(3) is None
+        assert SETTING["digits"].read(" Latin ") == "latin"
+        assert SETTING["digits"].read("native") == "native"
+        assert SETTING["digits"].read("persian") is None
+        assert SETTING["digits"].read(3) is None
 
     def test_junk_in_the_config_is_no_setting(self):
         _config.write_config({"digits": "roman"})
-        assert _config.saved_digits() is None
+        assert _config.saved("digits") is None
         assert resolve_digits("fa", {}) == ("native", "auto")
 
     def test_a_corrupt_config_never_raises(self):
@@ -91,7 +91,7 @@ class TestCommand:
         monkeypatch.setenv("LINECAST_LANG", "fa")
         with redirect_stdout(io.StringIO()):
             digits._cmd_set("latin")
-        assert _config.saved_digits() == "latin"
+        assert _config.saved("digits") == "latin"
         assert json.loads(_config.config_file().read_text())["digits"] == "latin"
 
         out = io.StringIO()
@@ -109,7 +109,7 @@ class TestCommand:
         monkeypatch.delenv("LINECAST_DIGITS")
         with redirect_stdout(io.StringIO()):
             digits._cmd_auto()
-        assert _config.saved_digits() is None
+        assert _config.saved("digits") is None
         assert "digits" not in _config.read_config()
 
         out = io.StringIO()
@@ -125,5 +125,5 @@ class TestCommand:
         out = io.StringIO()
         with redirect_stdout(out):
             cli.main()
-        assert _config.saved_digits() == "latin"
+        assert _config.saved("digits") == "latin"
         assert "0-9" in out.getvalue()

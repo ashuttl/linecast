@@ -13,7 +13,7 @@ JSON output keeps ISO Gregorian dates whatever this says.
 import os
 
 from linecast.astro.calendars.civil import SOLAR_HIJRI, resolve_dates
-from linecast._config import saved_dates
+from linecast._config import saved
 from linecast._runtime import resolve_lang
 from linecast.settings._command import forget, remember, run, show
 
@@ -32,7 +32,7 @@ def _cmd_show():
          (f"auto: {_NATURAL}",
           "Run 'linecast dates gregorian' or 'linecast dates solar-hijri' to fix it."),
          "Run 'linecast dates auto' to follow the language again.",
-         saved_dates())
+         saved("dates"))
 
 
 def _cmd_set(choice):

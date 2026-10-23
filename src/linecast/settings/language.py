@@ -18,7 +18,7 @@ from linecast._i18n import (
 from linecast._commands import formatter_class
 from linecast._runtime import LOCALE_VARS, resolve_lang
 from linecast._parsers import VersionAction
-from linecast._config import saved_language
+from linecast._config import saved
 from linecast.settings._command import forget, remember, show
 
 
@@ -44,7 +44,7 @@ def _cmd_show():
     tag = f"auto: {source}={os.environ[source]}" if source in LOCALE_VARS else "default"
     show(f"{lang}  {_describe(lang)}", source, (tag, *_languages()),
          "Run 'linecast language auto' to follow the terminal's language.",
-         saved_language(), defaults=("default", *LOCALE_VARS))
+         saved("language"), defaults=("default", *LOCALE_VARS))
 
 
 def _cmd_set(lang):

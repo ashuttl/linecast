@@ -15,7 +15,7 @@ from linecast.astro.calendars.civil import (
     GREGORIAN, SOLAR_HIJRI, civil_calendar, resolve_dates, shift_month, solar_hijri_date_label,
     solar_hijri_day_month, solar_hijri_day_of_year, solar_hijri_month_title,
 )
-from linecast._config import dates_choice
+from linecast._config import SETTING
 from linecast._runtime import RuntimeConfig
 
 IRST = timezone(timedelta(hours=3, minutes=30))
@@ -44,17 +44,17 @@ class TestHook:
         assert resolve_dates("fa") == (GREGORIAN, "config")
 
     def test_choice_spellings(self):
-        assert dates_choice("Solar_Hijri") == "solar-hijri"
-        assert dates_choice(" gregorian ") == "gregorian"
-        assert dates_choice("julian") is None
-        assert dates_choice(3) is None
+        assert SETTING["dates"].read("Solar_Hijri") == "solar-hijri"
+        assert SETTING["dates"].read(" gregorian ") == "gregorian"
+        assert SETTING["dates"].read("julian") is None
+        assert SETTING["dates"].read(3) is None
 
     def test_dates_command_sets_and_clears(self, monkeypatch):
         from linecast import _config
         from linecast.settings import dates
         with redirect_stdout(io.StringIO()):
             dates._cmd_set("gregorian")
-        assert _config.saved_dates() == "gregorian"
+        assert _config.saved("dates") == "gregorian"
         assert json.loads(_config.config_file().read_text())["dates"] == "gregorian"
         out = io.StringIO()
         with redirect_stdout(out):
@@ -62,7 +62,7 @@ class TestHook:
         assert "gregorian  [fixed]" in out.getvalue()
         with redirect_stdout(io.StringIO()):
             dates._cmd_auto()
-        assert _config.saved_dates() is None
+        assert _config.saved("dates") is None
 
 
 class TestFormatting:

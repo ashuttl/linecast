@@ -396,7 +396,7 @@ def test_save_default_uses_displayed_place_and_preserves_other_settings():
     assert _config.saved_location() == dict(lat=43, lng=-70, label='Portland', country='US')
     assert _location.get_location() == (43, -70, 'US')
     assert _config.read_config()['custom'] == {'a': 1}
-    assert _config.saved("units") == 'metric' and _config.saved_language() == 'fr'
+    assert _config.saved("units") == 'metric' and _config.saved("language") == 'fr'
     assert 'Saved Portland' in view.flash_overlay(80, 24)
     view.locations.recent.clear()
     assert _config.saved_location()['label'] == 'Portland'

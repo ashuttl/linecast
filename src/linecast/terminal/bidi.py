@@ -51,8 +51,6 @@ import os
 import re
 import unicodedata
 
-from linecast._config import digits_choice
-
 # ---------------------------------------------------------------------------
 # Configuration
 # ---------------------------------------------------------------------------
@@ -88,17 +86,13 @@ def resolve_digits(lang, environ=None):
     (`linecast digits latin|native`) > the language's own digits where
     it has them, which is Persian today.  Never raises: a config that
     cannot be read counts as no saved setting."""
-    env = os.environ if environ is None else environ
-    choice = digits_choice(env.get("LINECAST_DIGITS", ""))
-    if choice:
-        return choice, "LINECAST_DIGITS"
     try:
-        from linecast._config import saved_digits
-        choice = saved_digits()
+        from linecast._config import chosen
+        choice, source = chosen("digits", environ)
     except Exception:
         choice = None
     if choice:
-        return choice, "config"
+        return choice, source
     from linecast._i18n import setting
     native = setting(lang or "en", "digits") is not None
     return ("native" if native else "latin"), "auto"

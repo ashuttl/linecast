@@ -13,7 +13,7 @@ Precedence: LINECAST_DIGITS env > saved digits (this command) > default
 import os
 
 from linecast.terminal.bidi import resolve_digits
-from linecast._config import saved_digits
+from linecast._config import saved
 from linecast._runtime import resolve_lang
 from linecast.settings._command import forget, remember, run, show
 
@@ -32,7 +32,7 @@ def _cmd_show():
          (f"auto: {_NATURAL}",
           "Run 'linecast digits latin' or 'linecast digits native' to fix it."),
          "Run 'linecast digits auto' to follow the language again.",
-         saved_digits())
+         saved("digits"))
 
 
 def _cmd_set(choice):

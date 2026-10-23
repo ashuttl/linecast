@@ -14,11 +14,9 @@ The helpers here write ASCII digits; the output pass (terminal.bidi)
 puts them in the reader's digits.
 """
 
-import os
 from datetime import datetime
 
 from linecast.astro.calendars import solar_hijri
-from linecast._config import dates_choice
 from linecast._i18n import base_language, setting
 
 GREGORIAN = "gregorian"
@@ -32,14 +30,10 @@ _CHOICE_CALENDAR = {"gregorian": GREGORIAN, "solar-hijri": SOLAR_HIJRI}
 def resolve_dates(lang, environ=None):
     """(calendar, source) for *lang*: GREGORIAN or SOLAR_HIJRI, and
     "LINECAST_DATES", "config", or "auto"."""
-    env = os.environ if environ is None else environ
-    choice = dates_choice(env.get("LINECAST_DATES", ""))
+    from linecast._config import chosen
+    choice, source = chosen("dates", environ)
     if choice:
-        return _CHOICE_CALENDAR[choice], "LINECAST_DATES"
-    from linecast._config import saved_dates
-    choice = saved_dates()
-    if choice:
-        return _CHOICE_CALENDAR[choice], "config"
+        return _CHOICE_CALENDAR[choice], source
     return setting(lang or "en", "civil_calendar"), "auto"
 
 

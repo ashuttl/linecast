@@ -12,7 +12,7 @@ import re
 import sys
 
 from linecast import _config
-from linecast._config import SETTING, chosen
+from linecast._config import SETTING, chosen, saved
 from linecast._i18n import LOCALE_CODES
 from linecast._log import debug_enabled, debug_log, set_debug
 from linecast._parsers import _base_parser, tides_parser, weather_parser
@@ -245,17 +245,20 @@ def resolve_lang(namespace=None, environ=None):
     English.  A value that does not name a language is ignored.
     """
     env = _environ(environ)
+    var = SETTING["language"].env
     candidates = (
         (getattr(namespace, "lang", None) if namespace is not None else None, "flag"),
-        (env.get("LINECAST_LANG", ""), "LINECAST_LANG"),
+        (env.get(var, ""), var),
     )
+    # The flag and the variable are read as a locale is, "de_DE.UTF-8"
+    # for de; config.json holds a code, as `linecast language` saves it
     for value, source in candidates:
         code = language_of(value)
         if code is not None:
             return code, source
-    saved = _config.saved_language()
-    if saved is not None:
-        return saved, "config"
+    code = saved("language")
+    if code is not None:
+        return code, "config"
     # The first of LC_ALL, LC_MESSAGES, and LANG that is set is the
     # locale, as POSIX has it, so LC_ALL=C over a German LANG is English.
     # gettext reads the LANGUAGE list ahead of it, unless the locale is C
