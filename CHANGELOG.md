@@ -63,7 +63,7 @@ Notable changes, by release. Notes for the next release collect under **Unreleas
 - Completions: Shell completion leaves a short name such as `sunshine` to the program that owns it, and completes it as linecast only where `linecast link` made it or an alias points it at linecast. Reported by [@jmote](https://github.com/jmote) in [#20](https://github.com/ashuttl/linecast/issues/20).
 - Help: `--emoji` and `--month-temperature` are no longer listed beside `--icons emoji` and `--month`, which they repeat. Both still work.
 - Doctor: A provider that answers with an error code at its root is reported as reachable, and one that is limiting requests or failing is no longer reported as ok.
-- Doctor: The settings line no longer names a calendar, culture, or hours setting that linecast cannot read and ignores.
+- Doctor: The settings line marks a saved setting that linecast cannot read, such as `"units": "metrik"`, as "(ignored)". It used to name a bad calendar, culture or hours setting as if it were in use, and leave a bad units setting out.
 - Windows: Moon and sky times for where you are follow your computer's clock changes, instead of keeping today's offset for dates across a change.
 
 ## 2.10.3 — 2026-10-20

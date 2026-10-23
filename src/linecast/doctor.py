@@ -300,13 +300,16 @@ def _collect_paths():
     # on a parent this process cannot search, which is one of the
     # setups the report exists to describe
     settings_exists = os.path.exists(settings)
-    keys = []
+    keys, ignored = [], []
     if settings_exists:
         # The settings the file holds and a run would use, in the order
-        # the help page lists them, then the keys that are no setting's
+        # the help page lists them, then the keys that are no setting's;
+        # apart from them, the settings it holds that no run can read
         config = read_config()
-        keys = [setting.name for setting in SETTINGS
-                if setting.read(config.get(setting.name)) is not None]
+        for setting in SETTINGS:
+            if setting.name in config:
+                used = setting.read(config[setting.name]) is not None
+                (keys if used else ignored).append(setting.name)
         keys.extend(sorted(key for key in config if key not in SETTING))
     root = cache_root()
     exists = os.path.isdir(root)
@@ -324,6 +327,7 @@ def _collect_paths():
         "settings_file": str(settings),
         "settings_exists": settings_exists,
         "settings_keys": keys,
+        "settings_ignored": ignored,
         "cache_dir": str(root),
         "cache_exists": exists,
         "cache_writable": writable,
@@ -585,7 +589,9 @@ def render(report):
     out = _section("linecast", rows)
 
     if paths["settings_exists"]:
-        keys = ", ".join(paths["settings_keys"]) or "no keys"
+        keys = ", ".join([*paths["settings_keys"],
+                          *(f"{key} (ignored)" for key in paths["settings_ignored"])])
+        keys = keys or "no keys"
         settings = f"{paths['settings_file']}  (exists; {keys})"
     else:
         settings = f"{paths['settings_file']}  (not created yet)"

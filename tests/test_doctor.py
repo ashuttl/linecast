@@ -135,11 +135,11 @@ class TestSettingsKeys:
             return {"lat": 43.68, "lng": -70.37, "label": "Westbrook", "country": "US"}
         return "fr" if setting.name == "language" else setting.choices[-1]
 
-    def _keys(self, config, monkeypatch):
+    def _keys(self, config, monkeypatch, which="settings_keys"):
         from linecast import _config
         _config.write_config(config)
         _, out, _ = _run("--offline", "--json", monkeypatch=monkeypatch)
-        return json.loads(out)["paths"]["settings_keys"]
+        return json.loads(out)["paths"][which]
 
     def test_every_setting_saved_is_named_in_the_help_pages_order(self, monkeypatch):
         from linecast._config import SETTINGS
@@ -148,15 +148,24 @@ class TestSettingsKeys:
         assert self._keys(config, monkeypatch) == [
             *(setting.name for setting in SETTINGS), "aaa", "tidecheck_key"]
 
-    def test_a_value_no_run_would_use_is_not_named(self, monkeypatch):
-        # the reviewer's case: a bogus calendar was named, a bogus
-        # units hidden; every setting is read the same way now
+    def test_a_value_no_run_would_use_is_named_as_ignored(self, monkeypatch):
+        # the reviewer's case: a bogus calendar was named as if in use,
+        # a bogus units hidden; every setting is read the same way now
         from linecast._config import SETTINGS
         config = {setting.name: "bogus" for setting in SETTINGS}
         assert self._keys(config, monkeypatch) == []
+        assert self._keys(config, monkeypatch, "settings_ignored") == [
+            setting.name for setting in SETTINGS]
         _, out, _ = _run("--offline", monkeypatch=monkeypatch)
-        assert "(exists; no keys)" in out
+        assert "(exists; location (ignored), " in out
+        assert ", calendar (ignored), " in out
         assert "  calendar  none (auto)" in out
+
+    def test_the_ignored_come_after_the_keys_in_use(self, monkeypatch):
+        from linecast import _config
+        _config.write_config({"units": "metrik", "clock": "24", "tidecheck_key": "k"})
+        _, out, _ = _run("--offline", monkeypatch=monkeypatch)
+        assert "(exists; clock, tidecheck_key, units (ignored))" in out
 
     def test_every_setting_command_is_declared_in_the_table(self):
         # A new `linecast <setting>` that is not in _config.SETTINGS is
@@ -336,7 +345,8 @@ class TestJson:
         assert set(report["linecast"]) == {
             "version", "python", "platform", "machine", "temporary_install"}
         assert set(report["paths"]) == {
-            "settings_file", "settings_exists", "settings_keys", "cache_dir",
+            "settings_file", "settings_exists", "settings_keys", "settings_ignored",
+            "cache_dir",
             "cache_exists", "cache_writable", "cache_writable_reason", "cache_files",
             "cache_bytes", "cache_count_complete", "cache_legacy_location",
             "maps_cache_bytes", "maps_cache_limit"}
