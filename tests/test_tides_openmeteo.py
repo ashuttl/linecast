@@ -669,5 +669,55 @@ class LastYearsPayloadTests(_OwnCache):
         self.assertEqual(om.find_nearest_openmeteo(39.0, -98.0), (None, None))
 
 
+class UnansweredYearTests(_OwnCache):
+    """A server that did not answer for last year is not asked for the
+    forecast window as well, which on a stalled network was a second
+    wait of fifteen seconds for the same silence."""
+
+    def test_the_window_is_not_asked_after_an_unanswered_year(self):
+        marine = self._ask(_Marine(year=None, window=_tide_payload()))
+        with self.assertRaises(om.Unreachable):
+            om.find_nearest_openmeteo(43.677, -70.371)
+        self.assertEqual(len(marine.years_asked), 1)
+        self.assertEqual(marine.windows_asked, 0)
+
+    def test_the_window_an_earlier_run_kept_still_stands_in(self):
+        self._ask(_Marine(window=_tide_payload()))
+        om._fetch_raw(43.677, -70.371)      # an earlier run's window
+        self._aged(30 * 86400)              # long past its three hours
+        marine = self._ask(_Marine(year=None, window=_tide_payload()))
+        self.assertEqual(om.find_nearest_openmeteo(43.677, -70.371), (STATION, None))
+        self.assertEqual(marine.windows_asked, 0)
+
+    def test_a_year_the_server_refused_still_asks_the_window(self):
+        # an error status is an answer: the server is there, and may
+        # serve the window it would not serve the year for
+        marine = _Marine(window=_tide_payload())
+
+        def refuse_the_year(url, headers=None, timeout=10):
+            if "start_date=" in url:
+                marine.urls.append(url)
+                raise _http.HTTPError(url, 400, "Bad Request")
+            return marine(url, headers, timeout)
+        self._ask(refuse_the_year)
+        self.assertEqual(om.find_nearest_openmeteo(43.677, -70.371), (STATION, None))
+        self.assertEqual((len(marine.years_asked), marine.windows_asked), (1, 1))
+
+
+class UnansweredTests(unittest.TestCase):
+    def test_a_failure_to_answer_is_told_from_an_answer(self):
+        import socket
+        import urllib.error
+        for exc in (TimeoutError("timed out"), socket.timeout("timed out"),
+                    urllib.error.URLError(TimeoutError("timed out")),
+                    ConnectionRefusedError(), socket.gaierror(-3, "no name")):
+            with self.subTest(exc=exc):
+                self.assertTrue(_http.unanswered(exc))
+        for exc in (_http.HTTPError("u", 503, "Service Unavailable"),
+                    ValueError("not JSON"), KeyError("hourly")):
+            with self.subTest(exc=exc):
+                self.assertFalse(_http.unanswered(exc))
+
+
 if __name__ == "__main__":
     unittest.main()

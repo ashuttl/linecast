@@ -138,6 +138,14 @@ class HTTPError(OSError):
         self.body = body
 
 
+def unanswered(exc: BaseException) -> bool:
+    """Whether a fetch failed for want of an answer rather than on the
+    one it got: a timeout, a connection refused or dropped, a name that
+    would not resolve.  An error status is the server answering, and so
+    is a body that will not parse."""
+    return isinstance(exc, OSError) and not isinstance(exc, HTTPError)
+
+
 def _proxied():
     """True when the environment asks for a proxy (http_proxy and kin);
     those requests take urllib's proxy-aware path instead of ours."""

@@ -41,6 +41,7 @@ import threading
 import time
 from datetime import date, datetime, timedelta, timezone, tzinfo
 
+from linecast import _http
 from linecast._cache import location_cache_key, read_cache, write_cache
 from linecast._http import fetch_json_cached
 from linecast._log import log_failure, log_skipped
@@ -96,8 +97,9 @@ def parse_station_id(station_id: str) -> tuple[float, float] | None:
 # ---------------------------------------------------------------------------
 # Raw fetch
 # ---------------------------------------------------------------------------
-def _fetch_raw(lat, lng):
-    """Fetch the standard tide-model window for a location.  Cached 3h."""
+def _fetch_raw(lat, lng, fetch=None):
+    """Fetch the standard tide-model window for a location.  Cached 3h.
+    *fetch* stands in for fetch_json, as fetch_json_cached takes it."""
     cache_file = cache_dir() / f"om_raw_{location_cache_key(lat, lng)}.json"
     url = (
         "https://marine-api.open-meteo.com/v1/marine"
@@ -107,7 +109,7 @@ def _fetch_raw(lat, lng):
     )
     return fetch_json_cached(
         cache_file, RAW_CACHE_MAX_AGE, url,
-        timeout=15, fallback=None,
+        timeout=15, fallback=None, fetch=fetch,
     )
 
 
@@ -148,13 +150,14 @@ def _series(data, station_tz):
 # ---------------------------------------------------------------------------
 # A year of the model, and the tide fitted to it
 # ---------------------------------------------------------------------------
-def _fetch_year(lat, lng, year, today):
+def _fetch_year(lat, lng, year, today, fetch=None):
     """The model's hourly heights for a calendar year, through yesterday
     when it is this year. A finished year never changes and is kept for
     a year; this year's latest days are revised as the model runs, so
     they are kept for three hours. A copy made while the year was
     running stops short of its end, and is not taken for the finished
-    year once the year has turned."""
+    year once the year has turned.  *fetch* stands in for fetch_json,
+    as fetch_json_cached takes it."""
     last = min(date(year, 12, 31), today - timedelta(days=1))
     if last < date(year, 1, 1):
         return None
@@ -172,7 +175,7 @@ def _fetch_year(lat, lng, year, today):
 
     return fetch_json_cached(cache_file, 366 * 86400 if finished else RAW_CACHE_MAX_AGE,
                              url, timeout=20, fallback=None, provider="tides/open-meteo",
-                             fresh=reaches_the_end if finished else None)
+                             fresh=reaches_the_end if finished else None, fetch=fetch)
 
 
 def _instants(data):
@@ -279,13 +282,32 @@ def find_nearest_openmeteo(lat: float | None, lng: float | None
         return None, None
     # as _payload asks: last year's answer, and the forecast window's
     # only where that has no heights
-    year = _fetch_year(lat, lng, date.today().year - 1, date.today())
-    window = None if _instants(year) else _fetch_raw(lat, lng)
+    unanswered = []
+
+    def ask(url, timeout):
+        try:
+            return _http.fetch_json(url, timeout=timeout)
+        except Exception as exc:
+            if _http.unanswered(exc):
+                unanswered.append(exc)
+            raise
+
+    year = _fetch_year(lat, lng, date.today().year - 1, date.today(), fetch=ask)
+    window = None
+    if not _instants(year):
+        # A server that did not answer for last year will not for the
+        # window a moment later, so it is not kept waiting on twice:
+        # the window it sent an earlier run stands in, if there is one.
+        window = _fetch_raw(lat, lng, fetch=_not_asked if unanswered else None)
     if _instants(year) or _instants(window):
         return make_station_id(lat, lng), None
     if year is None and window is None:
         raise Unreachable("the tide model could not be asked")
     return None, None
+
+
+def _not_asked(url, timeout):
+    raise OSError("not asked: the request for last year went unanswered")
 
 
 # ---------------------------------------------------------------------------
