@@ -231,7 +231,7 @@ def weather_parser():
                             "against the past ten years (v cycles forecast / month / year)")
     views.add_argument("--month", dest="month", action="store_const",
                        const="temperature", help="open on last month's hourly temperatures "
-                       "(arrows browse months; c switches temperature / departure)")
+                       "(arrows browse months; m switches temperature / departure)")
     # the same as --month: still taken, not offered
     views.add_argument("--month-temperature", dest="month", action="store_const",
                        const="temperature", help=argparse.SUPPRESS)
