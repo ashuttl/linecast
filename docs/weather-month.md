@@ -4,12 +4,11 @@ Press `v` in weather to cycle forecast → month → year. The month opens on th
 
 ```sh
 linecast weather --month
-linecast weather --month-temperature
 linecast weather --month-departure
 linecast weather --month --print
 ```
 
-`--month` and `--month-temperature` are the same. `--month-departure` starts with the comparison colors. All accept the usual location, language, units, clock, and print-sizing flags. The month has no `--json`, `--oneline`, or `--prose` output.
+`--month-departure` starts with the comparison colors. All accept the usual location, language, units, clock, and print-sizing flags. The month has no `--json`, `--oneline`, or `--prose` output.
 
 | Control | Action |
 | --- | --- |

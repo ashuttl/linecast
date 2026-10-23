@@ -149,8 +149,8 @@ def _base_parser(prog, description, units=None, clock=False, json=False,
                        help="Nerd Font glyphs, standard emoji, or plain "
                             "Unicode. Default: what the terminal can show; "
                             "'linecast icons' saves one")
-    looks.add_argument("--emoji", action="store_true",
-                       help="same as --icons emoji")
+    # the same as --icons emoji: still taken, not offered
+    looks.add_argument("--emoji", action="store_true", help=argparse.SUPPRESS)
     looks.add_argument("--classic-colors", action="store_true",
                        help="a fixed palette, instead of one matched to the "
                             "terminal's colours")
@@ -230,9 +230,12 @@ def weather_parser():
     views.add_argument("--year", action="store_true",
                        help="open on the year view: highs, lows and precipitation "
                             "against the past ten years (v cycles forecast / month / year)")
-    views.add_argument("--month", "--month-temperature", dest="month", action="store_const",
+    views.add_argument("--month", dest="month", action="store_const",
                        const="temperature", help="open on last month's hourly temperatures "
                        "(arrows browse months; c switches temperature / departure)")
+    # the same as --month: still taken, not offered
+    views.add_argument("--month-temperature", dest="month", action="store_const",
+                       const="temperature", help=argparse.SUPPRESS)
     views.add_argument("--month-departure", dest="month", action="store_const", const="departure",
                        help="open on last month's departures from the ten-year hourly average")
     return p

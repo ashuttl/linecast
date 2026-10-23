@@ -141,6 +141,22 @@ class Argv0DispatchTests(unittest.TestCase):
             with self.subTest(view=name):
                 self.assertEqual("--oneline" in help_page, name not in ("radar", "maps"))
 
+    def test_an_alias_works_but_the_help_offers_one_name(self):
+        """--emoji is --icons emoji, and --month-temperature is --month:
+        both still taken, neither printed beside the name it repeats."""
+        from linecast import _parsers
+        for name in ("weather", "sunshine", "moon", "sky", "tides", "radar", "maps"):
+            parser = getattr(_parsers, f"{name}_parser")()
+            with self.subTest(view=name):
+                self.assertNotIn("--emoji", parser.format_help())
+                self.assertTrue(parser.parse_args(["--emoji"]).emoji)
+        weather = _parsers.weather_parser()
+        self.assertNotIn("--month-temperature", weather.format_help())
+        self.assertIn("--month-departure", weather.format_help())
+        self.assertEqual(weather.parse_args(["--month-temperature"]).month, "temperature")
+        with redirect_stderr(StringIO()), self.assertRaises(SystemExit):
+            weather.parse_args(["--month-temperature", "--year"])
+
     def test_zoom_is_degrees_above_zero(self):
         # the views divide by it: 0 was a ZeroDivisionError, nan a ValueError
         from linecast._parsers import maps_parser, radar_parser

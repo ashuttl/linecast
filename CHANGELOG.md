@@ -43,6 +43,7 @@ Notable changes, by release. Notes for the next release collect under **Unreleas
 - Live views: A view left open wakes the computer far less often, and asks the terminal for fewer colors while it watches for a theme change.
 - Weather and tides: The help panel lists the location menu's keys in lower case, like the rows around them.
 - Doctor: A provider that answers with an error code at its root is reported as reachable, and one that is limiting requests or failing is no longer reported as ok.
+- Help: `--emoji` and `--month-temperature` are no longer listed beside `--icons emoji` and `--month`, which they repeat. Both still work.
 
 ## 2.10.3 — 2026-10-20
 
