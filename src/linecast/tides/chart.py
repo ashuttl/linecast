@@ -1,7 +1,14 @@
 """The tide chart's parts, which tides/view.py lays out: the window of
 predictions a frame shows and the height at any moment in it, the
 daylight shading, the midnight dividers and the day names, the moon's
-rises and sets, the hour ticks, and the now and hover chips."""
+rises and sets, the hour ticks, and the now and hover chips.
+
+The day's chart is drawn by the hours that pass, as the water moves:
+where the clocks go back its hour ticks read the repeated hour twice,
+and where they go on they leave the skipped one out.  Aware datetimes
+in one zone add and subtract by the clock instead, so the window's
+arithmetic goes through as_instant, hours_after and hours_between.
+"""
 
 from datetime import timedelta, timezone
 
@@ -25,35 +32,63 @@ from linecast.tides.palette import (
 _theme.track_imports(globals(), "linecast.tides.palette")
 
 
+def as_instant(moment):
+    """*moment* in UTC where it has a zone, so that arithmetic on it
+    counts the hours that pass; one without a zone as it is."""
+    return moment.astimezone(timezone.utc) if moment.tzinfo is not None else moment
+
+
+def hours_after(start, hours):
+    """The moment *hours* after *start*, by the hours that pass, on
+    *start*'s clock."""
+    if start.tzinfo is None:
+        return start + timedelta(hours=hours)
+    return (as_instant(start) + timedelta(hours=hours)).astimezone(start.tzinfo)
+
+
+def hours_between(start, moment):
+    """The hours that pass from *start* to *moment*."""
+    return (as_instant(moment) - as_instant(start)).total_seconds() / 3600
+
+
 def interp_height(target_dt, predictions):
-    """Linearly interpolate tide height at a given datetime."""
+    """Linearly interpolate tide height at a given moment, compared
+    with the samples as an instant where it has a zone."""
     if not predictions:
         return 0.0
-    if target_dt <= predictions[0][0]:
+    target = as_instant(target_dt)
+    if target <= predictions[0][0]:
         return predictions[0][1]
-    if target_dt >= predictions[-1][0]:
+    if target >= predictions[-1][0]:
         return predictions[-1][1]
     for i in range(len(predictions) - 1):
-        if predictions[i][0] <= target_dt <= predictions[i + 1][0]:
-            span = (predictions[i + 1][0] - predictions[i][0]).total_seconds()
+        if predictions[i][0] <= target <= predictions[i + 1][0]:
+            t0, t1 = as_instant(predictions[i][0]), as_instant(predictions[i + 1][0])
+            span = (t1 - t0).total_seconds()
             if span == 0:
                 return predictions[i][1]
-            frac = (target_dt - predictions[i][0]).total_seconds() / span
+            frac = (target - t0).total_seconds() / span
             return predictions[i][1] + (predictions[i + 1][1] - predictions[i][1]) * frac
     return predictions[-1][1]
 
 
 def prepare_tide_window(predictions, hilo, start_dt, hours_shown=24):
-    """Slice prediction data to a visible window starting at start_dt."""
-    end_dt = start_dt + timedelta(hours=hours_shown)
+    """Slice prediction data to a visible window starting at start_dt.
+
+    The window's samples come back as instants, in time order, so the
+    curve is drawn and read by the hours that pass; its turns keep
+    their own clock, for their labels."""
+    lo = as_instant(start_dt)
+    hi = lo + timedelta(hours=hours_shown)
     margin = timedelta(minutes=10)
-    win_preds = [(dt, h) for dt, h in predictions if start_dt - margin <= dt <= end_dt + margin]
-    win_hilo = [(dt, h, t) for dt, h, t in hilo if start_dt <= dt <= end_dt]
+    win_preds = sorted(((as_instant(dt), h) for dt, h in predictions
+                        if lo - margin <= dt <= hi + margin), key=lambda p: p[0])
+    win_hilo = [(dt, h, t) for dt, h, t in hilo if lo <= dt <= hi]
     return {
         "predictions": win_preds,
         "hilo": win_hilo,
         "start": start_dt,
-        "end": end_dt,
+        "end": hours_after(start_dt, hours_shown),
         "total_hours": hours_shown,
     }
 
@@ -87,7 +122,7 @@ def compute_daylight_window(graph_w, window_start, total_hours, station_meta):
     col_daylight = []
     for x in range(graph_w):
         frac = (x + 0.5) / graph_w
-        col_dt = window_start + timedelta(hours=frac * total_hours)
+        col_dt = hours_after(window_start, frac * total_hours)
         doy = col_dt.timetuple().tm_yday
         hour = col_dt.hour + col_dt.minute / 60
         offset = col_dt.utcoffset()
@@ -108,8 +143,8 @@ def compute_time_markers(window_start, total_hours, graph_w, runtime):
 
     dt = first_midnight
     window_secs = total_hours * 3600
-    while dt < window_start + timedelta(hours=total_hours):
-        offset_secs = (dt - window_start).total_seconds()
+    while hours_between(window_start, dt) < total_hours:
+        offset_secs = hours_between(window_start, dt) * 3600
         x = int(offset_secs / window_secs * (graph_w - 1))
         if 0 < x < graph_w - 1:
             midnight_cols.add(x)
@@ -143,7 +178,7 @@ def compute_moon_labels(window_start, total_hours, graph_w, station_meta, runtim
     else:
         local_start = window_start.astimezone(tzinfo)
 
-    local_end = local_start + timedelta(hours=total_hours)
+    local_end = hours_after(local_start, total_hours)
     labels = {}
     use_24h = bool(getattr(runtime, "use_24h", False))
 
@@ -154,7 +189,7 @@ def compute_moon_labels(window_start, total_hours, graph_w, station_meta, runtim
         for event_dt, is_rise in ((rise_dt, True), (set_dt, False)):
             if event_dt is None:
                 continue
-            off_h = (event_dt - local_start).total_seconds() / 3600.0
+            off_h = hours_between(local_start, event_dt)
             if 0 < off_h < total_hours:
                 col = int(off_h / total_hours * (graph_w - 1))
                 if 0 < col < graph_w - 1:
@@ -173,23 +208,59 @@ def compute_moon_labels(window_start, total_hours, graph_w, station_meta, runtim
     return labels
 
 
-def render_tide_ticks(window_start, total_hours, graph_w, runtime, now_col=None, hover_col=None):
-    """Render time axis labels under the chart."""
+def _to_tick(moment, interval_secs):
+    """The seconds on the clock from *moment* to the next tick, a whole
+    multiple of *interval_secs* since midnight, or 0 when it is on one."""
+    since_midnight = (moment.hour * 3600 + moment.minute * 60 + moment.second
+                      + moment.microsecond / 1_000_000)
+    return (interval_secs - (since_midnight % interval_secs)) % interval_secs
+
+
+def _readings(moment):
+    """The instants at which the clock reads *moment*'s time: none in an
+    hour the clocks skip, two in one they repeat, and otherwise one."""
+    wall = moment.replace(tzinfo=None)
+    found = []
+    for fold in (0, 1):
+        candidate = moment.replace(fold=fold)
+        instant = as_instant(candidate)
+        if (instant.astimezone(moment.tzinfo).replace(tzinfo=None, fold=0) == wall
+                and instant not in found):
+            found.append(instant)
+    return found
+
+
+def render_tide_ticks(window_start, total_hours, graph_w, runtime, now_col=None, hover_col=None,
+                      elapsed=False):
+    """Render time axis labels under the chart.
+
+    *elapsed* places them by the hours that pass from an aware
+    *window_start*, as the day's chart is drawn; without it they are
+    placed by the clock, as the month views' rows are, a day on the
+    clock to a row."""
     use_24h = runtime.use_24h
     interval = tick_interval(graph_w * 24 / total_hours) if total_hours > 0 else 6
 
     window_secs = total_hours * 3600
     label_items = []
-    if window_secs > 0:
+    if window_secs > 0 and elapsed and window_start.tzinfo is not None:
         interval_secs = interval * 3600
-        elapsed_secs = (
-            window_start.hour * 3600
-            + window_start.minute * 60
-            + window_start.second
-            + window_start.microsecond / 1_000_000
-        )
-        first_offset_secs = (interval_secs - (elapsed_secs % interval_secs)) % interval_secs
-        tick_dt = window_start + timedelta(seconds=first_offset_secs)
+        tick_dt = window_start + timedelta(seconds=_to_tick(window_start, interval_secs))
+        start = as_instant(window_start)
+        # step by the clock, from tick to tick, and place each time the
+        # clock shows it by the hours that have passed
+        while hours_between(window_start, tick_dt.replace(fold=0)) <= total_hours + interval:
+            for instant in _readings(tick_dt):
+                offset_secs = (instant - start).total_seconds()
+                if 0 <= offset_secs <= window_secs:
+                    x = int(offset_secs / window_secs * (graph_w - 1))
+                    label_items.append(
+                        (x, fmt_hour(tick_dt.hour, use_24h),
+                         tick_dt.hour == 0 and tick_dt.minute == 0))
+            tick_dt += timedelta(seconds=interval_secs)
+    elif window_secs > 0:
+        interval_secs = interval * 3600
+        tick_dt = window_start + timedelta(seconds=_to_tick(window_start, interval_secs))
         window_end = window_start + timedelta(hours=total_hours)
 
         while tick_dt <= window_end:
@@ -344,7 +415,7 @@ def build_tide_hover_tooltip(window, graph_col, mouse_row, chart_start, chart_en
     start_dt = window["start"]
 
     t_frac = graph_col / max(1, graph_w - 1)
-    target_dt = start_dt + timedelta(hours=t_frac * total_hours)
+    target_dt = hours_after(start_dt, t_frac * total_hours)
     height = interp_height(target_dt, predictions)
 
     tip_bg = bg(*TIP_BG_RGB)

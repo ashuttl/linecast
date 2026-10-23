@@ -2,6 +2,8 @@ from datetime import datetime, timedelta, timezone
 import re
 from types import SimpleNamespace
 
+import pytest
+
 from linecast.tides.chart import (
     compute_daylight_window,
     compute_moon_labels,
@@ -160,3 +162,97 @@ def test_render_day_label_line_shifts_moon_label_when_overlapping_day_name():
     day_start = canvas.index("Friday")
     moon_start = canvas.index("☽↑6:30a")
     assert moon_start >= day_start + len("Friday") + 1
+
+
+# ---------------------------------------------------------------------------
+# The day's chart is drawn by the hours that pass
+# ---------------------------------------------------------------------------
+def _paris():
+    from zoneinfo import ZoneInfo
+    return ZoneInfo("Europe/Paris")
+
+
+def _rising(start_utc, hours, tz, fixed=False):
+    """Water rising a foot an hour, every six minutes from *start_utc*,
+    in *tz* (TICON's way) or in its fixed offsets (CHS's)."""
+    points = []
+    for k in range(hours * 10 + 1):
+        t = (start_utc + timedelta(minutes=6 * k)).astimezone(tz)
+        points.append((datetime.fromisoformat(t.isoformat()) if fixed else t, k / 10))
+    return points
+
+
+def test_a_moment_in_the_repeated_hour_reads_its_own_pass():
+    from linecast.tides.chart import interp_height
+    paris = _paris()
+    preds = _rising(datetime(2026, 10, 24, 22, tzinfo=timezone.utc), 6, paris)
+    first = datetime(2026, 10, 25, 2, 30, tzinfo=paris)          # 00:30 UTC
+    second = first.replace(fold=1)                               # 01:30 UTC
+    assert interp_height(first, preds) == pytest.approx(2.5)
+    assert interp_height(second, preds) == pytest.approx(3.5)
+
+
+@pytest.mark.parametrize("fixed", [False, True])
+def test_the_days_curve_runs_on_through_the_clocks_going_back(monkeypatch, fixed):
+    # Brest, 25 October 2026: a chart from midnight across the change
+    # draws the water rising a foot an hour all the way, where the clock
+    # would have skipped the hour that came round again
+    from linecast.tides import view
+    from linecast._runtime import TidesRuntime
+    paris = _paris()
+    preds = _rising(datetime(2026, 10, 24, 20, tzinfo=timezone.utc), 30, paris, fixed)
+    now = datetime(2026, 10, 25, 5, 0, tzinfo=paris)              # 04:00 UTC
+    drawn = {}
+    real = view.build_braille_curve
+
+    def curve(heights, *args, **kwargs):
+        drawn["heights"] = heights
+        return real(heights, *args, **kwargs)
+
+    monkeypatch.setenv("COLUMNS", "96")
+    monkeypatch.setenv("LINES", "20")
+    monkeypatch.setattr(view, "_station_now", lambda *a: now)
+    monkeypatch.setattr(view, "build_braille_curve", curve)
+    runtime = TidesRuntime(live=True, icons="nerd", lang="en", metric=False, oneline=False,
+                           use_24h=True)
+    view.render("ticon:x", "Brest", station_meta={"lat": 48.38, "lng": -4.5,
+                                                  "timeZoneCode": "Europe/Paris"},
+                runtime=runtime, fullscreen=False, predictions=preds, hilo=[], y_range=(0, 30))
+    heights = drawn["heights"]
+    steps = {round(b - a, 6) for a, b in zip(heights, heights[1:])}
+    assert steps == {round(24 / 96, 6)}          # a quarter hour of rise to a column
+
+
+def test_the_ticks_read_the_repeated_hour_twice_and_leave_the_skipped_one_out():
+    runtime = SimpleNamespace(use_24h=True)
+    paris = _paris()
+
+    def labels(start, elapsed=True):
+        canvas = _canvas(render_tide_ticks(start, 8, 96, runtime, elapsed=elapsed))
+        return [(i, canvas[i + 1:i + 3]) for i, ch in enumerate(canvas) if ch in ("│", "╵")]
+
+    autumn = labels(datetime(2026, 10, 25, tzinfo=paris))
+    assert [text for _i, text in autumn] == ["00", "02", "02", "04", "06"]
+    # an hour apart where they repeat, and two from the second to 04
+    assert autumn[2][0] - autumn[1][0] == 12 and autumn[3][0] - autumn[2][0] == 24
+    spring = labels(datetime(2026, 3, 29, tzinfo=paris))
+    assert [text for _i, text in spring] == ["00", "04", "06", "08"]
+    assert spring[1][0] - spring[0][0] == 35    # three hours from midnight to 04
+    # a month's rows are days on the clock, and so are their ticks
+    assert [text for _i, text in labels(datetime(2026, 10, 25, tzinfo=paris), False)] == [
+        "00", "02", "04", "06"]
+
+
+def test_a_turn_after_the_change_is_placed_by_the_hours_that_pass():
+    # a low at 04:00 CET is five hours after midnight CEST, whichever way
+    # its provider keeps the time
+    from linecast.tides.chart import prepare_tide_window
+    from linecast.tides.view import _hilo_to_extrema
+    paris = _paris()
+    low = datetime(2026, 10, 25, 3, tzinfo=timezone.utc)
+    runtime = SimpleNamespace(convert_height=lambda h: h)
+    for when in (low.astimezone(paris), datetime.fromisoformat(low.astimezone(paris).isoformat())):
+        window = prepare_tide_window([], [(when, 0.5, "L")], datetime(2026, 10, 25, tzinfo=paris),
+                                     hours_shown=10)
+        [(x, *_rest)] = _hilo_to_extrema(window, 101, runtime)
+        assert x == 50

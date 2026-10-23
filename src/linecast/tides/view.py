@@ -45,6 +45,9 @@ from linecast.tides.chart import (
     compute_daylight_window,
     compute_moon_labels,
     compute_time_markers,
+    as_instant,
+    hours_after,
+    hours_between,
     interp_height,
     prepare_tide_window,
     render_day_label_line,
@@ -80,7 +83,7 @@ def _live_window_start(now_local, offset_minutes, hours_shown=LIVE_WINDOW_HOURS,
     favors upcoming tide changes while preserving a short recent history.
     """
     past_hours = hours_shown * now_ratio
-    return now_local - timedelta(hours=past_hours) + timedelta(minutes=offset_minutes)
+    return hours_after(now_local, offset_minutes / 60 - past_hours)
 
 
 # ---------------------------------------------------------------------------
@@ -95,7 +98,7 @@ def _hilo_to_extrema(window, graph_w, runtime):
     secs = window["total_hours"] * 3600
     extrema = []
     for dt, height, typ in hilo:
-        frac = (dt - start).total_seconds() / secs
+        frac = hours_between(start, dt) * 3600 / secs
         x = max(0, min(graph_w - 1, int(frac * (graph_w - 1))))
         h_display = runtime.convert_height(height)
         extrema.append((x, height, h_display, typ == "H", dt))
@@ -545,9 +548,14 @@ def render(station_id, station_name, station_meta=None, runtime=None,
             print(f"Could not fetch tide data for station {station_id}.", file=sys.stderr)
             sys.exit(1)
         day_start = datetime(date.year, date.month, date.day)
+        day_end = day_start + timedelta(days=1)
         if station_tz is not None:
             day_start = day_start.replace(tzinfo=station_tz)
-        window = prepare_tide_window(preds_dt, hilo_dt, day_start, hours_shown=LIVE_WINDOW_HOURS)
+            day_end = day_end.replace(tzinfo=station_tz)
+        # the calendar day, which is 25 hours long when the clocks go
+        # back and 23 when they go on
+        window = prepare_tide_window(preds_dt, hilo_dt, day_start,
+                                     hours_shown=hours_between(day_start, day_end))
 
     w_start = window["start"]
     w_total = window["total_hours"]
@@ -560,15 +568,16 @@ def render(station_id, station_name, station_meta=None, runtime=None,
         extra += 1
     n_braille_rows = max(2, rows - ((3 + extra) if fullscreen else 7))
 
-    # --- interpolate predictions to graph columns ---
+    # --- interpolate predictions to graph columns, by the hours that pass ---
     col_heights = []
+    w_from = as_instant(w_start)
     for x in range(graph_w):
         frac = (x + 0.5) / graph_w
-        dt = w_start + timedelta(hours=frac * w_total)
+        dt = w_from + timedelta(hours=frac * w_total)
         col_heights.append(interp_height(dt, w_preds))
 
     # --- now position ---
-    now_offset = (now_local - w_start).total_seconds()
+    now_offset = hours_between(w_start, now_local) * 3600
     if 0 <= now_offset <= w_secs:
         now_col = max(0, min(graph_w - 1, int(now_offset / w_secs * (graph_w - 1))))
     else:
@@ -637,7 +646,7 @@ def render(station_id, station_name, station_meta=None, runtime=None,
     # Tick labels
     lines.append(render_tide_ticks(
         w_start, w_total, graph_w, runtime,
-        now_col=now_col, hover_col=hover_graph_col,
+        now_col=now_col, hover_col=hover_graph_col, elapsed=True,
     ))
 
     # Footer: marine conditions on the left, the data source on the

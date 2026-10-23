@@ -14,6 +14,7 @@ Notable changes, by release. Notes for the next release collect under **Unreleas
 - Maps: Fixed the live map stopping short of places beyond 80 degrees of latitude, such as Alert, Nunavut.
 - Maps: Fixed a crash when flying a long way out over a short distance, such as pressing `n` close to home at street zoom when the map started on the globe.
 - Maps: When a tile server refuses or the network is down, the map waits a moment before asking again, rather than asking on every mouse movement. Radar's temperature and wind layers wait the same way.
+- Tides: The day's chart no longer jumps at the hour the clocks change. It runs on through the night they go back, with the repeated hour shown twice on its time axis.
 - Tides: The month view no longer jumps partway through the hour the clocks repeat in autumn, and at Canadian stations it no longer runs an hour ahead through the hour they skip in spring.
 - Tides: Offline, with nothing saved for the place, tides says it could not load the tides instead of that there is no tide station nearby.
 - Tides: With a TideCheck key, a station costs one request a day whichever views are opened, instead of up to four.
