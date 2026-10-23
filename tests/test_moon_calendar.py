@@ -118,6 +118,30 @@ class TestGrid:
         row = next(line for line in body if re.search(r"\b8 ", line))
         assert re.search(r"\b8  🌘 +9  🌘", row), row
 
+    def test_a_principal_phase_gets_its_glyph_on_its_own_day(self):
+        # The new moon of 10 September 2026 comes at 23:27 Eastern; read
+        # at noon, the cycle still said waning crescent
+        body, _chip = _render(80, 9)
+        row = next(line for line in body if re.search(r"\b10 ", line))
+        assert re.search(r"\b10 +🌑", row), row
+
+    def test_the_glyphs_follow_the_principal_phase_days(self):
+        # 2026 to 2030 in New York: before, 16 principal days lacked
+        # their glyph and 11 other days had one
+        import calendar
+        from datetime import date, time
+        from zoneinfo import ZoneInfo
+        from linecast.moon.calendar import _day_phase, principal_phase_days
+        tz = ZoneInfo("America/New_York")
+        for year in range(2026, 2031):
+            for month in range(1, 13):
+                phases = principal_phase_days(year, month, tz)
+                for day in range(1, calendar.monthrange(year, month)[1] + 1):
+                    d = date(year, month, day)
+                    principal = phases.get(d)
+                    idx = _day_phase(datetime.combine(d, time(12), tzinfo=tz), principal)
+                    assert (idx % 2 == 0) == (principal is not None), d
+
     def test_paged_month_names_itself_and_the_way_back(self):
         body, _chip = _render(100, 32, month_offset=1)
         assert "October 2026" in body[0]

@@ -32,6 +32,7 @@ from linecast._timefmt import fmt_time_dt
 from linecast.terminal.color import bg, fg
 from linecast.terminal.textwidth import cells, visible_len
 from linecast.terminal.framebuffer import Framebuffer, cell_aspect, get_terminal_size
+from linecast.terminal.glyphs import moon_icon
 from linecast.terminal.live import overlay
 from linecast._i18n import base_language, full_months, table_for
 from linecast.astro.calendars import solar_hijri
@@ -42,7 +43,7 @@ from linecast.moon.i18n import _day_abbrev, _fmt_month_day, _ms, gregorian_date_
 from linecast._i18n import MONTHS, moon_name
 from linecast.astro.seasons import full_moon_name
 from linecast.moon.phase import (
-    SYNODIC_MONTH, moon_cycle_frac, moon_illumination, moon_phase,
+    SYNODIC_MONTH, moon_cycle_frac, moon_illumination,
 )
 from linecast.moon.readings import context, reading
 from linecast.terminal.textwidth import char_width
@@ -144,6 +145,21 @@ def _phase_days(first, days_in, tzinfo):
                 out[local.date()] = (idx, local)
             t = found + timedelta(days=20)
     return out
+
+
+def _day_phase(noon, principal):
+    """The phase index a day of the grid is shown with: a principal
+    phase on the day it falls on, the day its number and hover chip
+    name, and otherwise the phase between, by the cycle at noon.
+
+    moon_phase's window of half a day either side of a principal phase
+    is a mean: the Moon crosses it in ten hours or in fourteen, so read
+    at noon it could miss the phase's own day (the full moon at 00:18
+    on 26 October 2026 in New York) or name the day beside it.
+    """
+    if principal:
+        return principal[0]
+    return 2 * int(moon_cycle_frac(noon) * 4) + 1
 
 
 def _put(overlays, x, row, text, rgb, bold=False, max_x=None):
@@ -324,7 +340,7 @@ def render_calendar(now_local, lat, lng, runtime, month_offset=0,
             # On a one-row cell it sits a space after where a two-digit
             # day number ends, beside its own number rather than the
             # next day's, and a cell too narrow for both keeps the number.
-            icon = moon_phase(noon, runtime, bg_color=cell_bg)[2]
+            icon = moon_icon(_day_phase(noon, principal), runtime, bg_color=cell_bg)
             gx = cx if cell_h > 1 else x0 + 4
             _put(overlays, gx, y0 + cell_h // 2, icon, T, max_x=graph_w)
 
@@ -483,11 +499,12 @@ def _hover_chip(d, ctx, found, phase_days, mouse_pos, cols, rows):
         lit_moon = found.new_moon_name(at) if found and idx == 0 else None
         if lit_moon:
             name = lit_moon
-        icon = moon_phase(at, runtime, bg_color=TIP_BG_RGB)[2]
+        icon = moon_icon(idx, runtime, bg_color=TIP_BG_RGB)
         phase_line = (f"{icon} {name} · "
                       f"{fmt_time_dt(at, use_24h=runtime.use_24h)}")
     else:
-        idx, _name, icon = moon_phase(noon, runtime, bg_color=TIP_BG_RGB)
+        idx = _day_phase(noon, None)
+        icon = moon_icon(idx, runtime, bg_color=TIP_BG_RGB)
         name = night_name or moon_name(idx, runtime)
         phase_line = (f"{icon} {name} · "
                       f"{_ms('illuminated', runtime, pct=f'{illum * 100:.0f}')}")

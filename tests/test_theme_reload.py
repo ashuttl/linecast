@@ -236,11 +236,14 @@ class TestMoonGlyphs:
 
         _theme._apply(*LIGHT)
         runtime = RuntimeConfig(live=False, icons="nerd", lang="en", oneline=False)
-        now = datetime(2000, 1, 21, tzinfo=timezone.utc)
+        # The full moon of 21 January 2000, or a waning gibbous two days on:
+        # on the light chip each takes its opposite's shape
+        now = datetime(2000, 1, 21 if principal else 23, tzinfo=timezone.utc)
         ctx = context(now, 43.7, -70.3, runtime, None)
         phases = {now.date(): (4, now)} if principal else {}
         chip = calendar._hover_chip(now.date(), ctx, None, phases, (5, 5), 100, 30)
-        assert "\U000F0F64" in chip and "\U000F0F62" not in chip
+        shown, named = ("\U000F0F64", "\U000F0F62") if principal else ("\U000F0F67", "\U000F0F66")
+        assert shown in chip and named not in chip
 
     def test_tide_month_and_year_marks_follow_theme(self, restore_theme):
         from linecast._runtime import RuntimeConfig
