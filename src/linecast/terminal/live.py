@@ -586,6 +586,33 @@ class _Pacing:
         self.owed = 0
 
 
+def _screen_escapes(mouse):
+    """What a live loop writes to take the terminal -- the alternate
+    screen, the cursor hidden, mouse reporting -- and what it writes to
+    give it back, at its end and at ctrl-Z before it stops.
+
+    The giving back begins with the end of a synchronized update: a
+    frame cut short by a signal never sent its own _SYNC_END, and a
+    terminal would hold the rest of the screen until the update timed
+    out.
+    """
+    is_apple_terminal = os.environ.get('TERM_PROGRAM') == 'Apple_Terminal'
+    bidi_on, bidi_off = bidi_modes()
+    take = f"\033[?1049h\033[?25l{bidi_on}"
+    give_back = _SYNC_END
+    if mouse:
+        # Both legacy and SGR mouse reporting, for broad compatibility.
+        take += "\033[?1000h\033[?1002h\033[?1003h\033[?1006h"
+        give_back += "\033[?1006l\033[?1003l\033[?1002l\033[?1000l"
+        if is_apple_terminal:
+            # Alternate-scroll mode, for a terminal that does not report
+            # the wheel as mouse buttons.
+            take += "\033[?1007h"
+            give_back += "\033[?1007l"
+    give_back += f"{_AUTOWRAP_ON}{bidi_off}\033[?25h\033[?1049l"
+    return take, give_back
+
+
 def live_loop(render_fn, interval=60, mouse=False, on_open=None, scroll_step=15,
               auto_play=False, play_interval=0.6, on_action=None, on_drag=None,
               intercept=None, play_gate=None, on_wheel=None, text_mode=None,
@@ -679,8 +706,6 @@ def live_loop(render_fn, interval=60, mouse=False, on_open=None, scroll_step=15,
     # and SIGWINCH on POSIX, console modes and a poll on Windows.
     term = _term.LiveTerminal(sys.stdin.fileno())
     term.install()
-
-    is_apple_terminal = os.environ.get('TERM_PROGRAM') == 'Apple_Terminal'
 
     fd = term.fd
 
@@ -857,24 +882,7 @@ def live_loop(render_fn, interval=60, mouse=False, on_open=None, scroll_step=15,
             return 'repaint'  # even an unbound key must erase the panel
         return None
 
-    bidi_on, bidi_off = bidi_modes()
-    init = f"\033[?1049h\033[?25l{bidi_on}"
-    if mouse:
-        # Enable both legacy and SGR mouse reporting for broad compatibility.
-        init += "\033[?1000h\033[?1002h\033[?1003h\033[?1006h"
-        # Alternate-scroll mode helps terminals that don't report wheel as mouse.
-        if is_apple_terminal:
-            init += "\033[?1007h"
-    # What the loop's end writes to hand the terminal back, and ctrl-Z
-    # before it stops.  A frame cut short by a signal never sent its own
-    # _SYNC_END, and a terminal would hold the rest of the screen until
-    # the update timed out.
-    restore = _SYNC_END
-    if mouse:
-        restore += "\033[?1006l\033[?1003l\033[?1002l\033[?1000l"
-        if is_apple_terminal:
-            restore += "\033[?1007l"
-    restore += f"{_AUTOWRAP_ON}{bidi_off}\033[?25h\033[?1049l"
+    init, restore = _screen_escapes(mouse)
 
     def suspend():
         """Ctrl-Z: hand the terminal back as the loop's end does, stop,
