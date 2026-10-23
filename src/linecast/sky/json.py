@@ -23,7 +23,7 @@ def build_payload(now_local, lat, lng, runtime, location=None, facing=None,
     from linecast.sunshine.i18n import sky_phase
     from linecast.astro.ephemeris import mat_apply
     from linecast.sky.scene import (
-        FOV_DEFAULT, Scene, alt_az_of, compass_point, default_view, easily_seen,
+        FOV_DEFAULT, Scene, alt_az_of, compass_point, default_view, easily_seen, point_up,
     )
     from linecast.moon.phase import moon_phase
 
@@ -35,12 +35,12 @@ def build_payload(now_local, lat, lng, runtime, location=None, facing=None,
     def place(alt, az, up=None):
         return {"altitude": round(alt, 1), "azimuth": round(az, 1),
                 "compass": compass_point(az, runtime),
-                "up": alt > 0.0 if up is None else up}
+                "up": point_up(alt) if up is None else up}
 
     planets = []
     for key, _vec, alt, az, mag in scene.planets:
         planets.append({"name": key, **place(alt, az), "magnitude": round(mag, 1),
-                        "visible": alt > 0.0 and easily_seen(mag, alt, scene)})
+                        "visible": point_up(alt) and easily_seen(mag, alt, scene)})
 
     bright = []
     names = star_names()
@@ -50,7 +50,7 @@ def build_payload(now_local, lat, lng, runtime, location=None, facing=None,
             break
         # The catalogue is J2000; the scene's frame precesses it to date.
         alt, az = alt_az_of(mat_apply(scene.catalogue, vectors[i]))
-        if alt > 0.0:
+        if point_up(alt):
             proper, desig = names.get(i, ("", ""))
             bright.append({"name": proper or None, "designation": desig or None,
                            "magnitude": round(mag, 1), **place(alt, az)})

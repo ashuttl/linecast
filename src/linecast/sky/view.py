@@ -68,9 +68,9 @@ from linecast.sky.catalogue import (
 from linecast.sky import deep as _deep
 from linecast.sky import objects as _objects
 from linecast.sky.scene import (
-    FOV_DEFAULT, FOV_MAX, FOV_MIN, Scene, alt_az_of, camera_matrix, compass_marks,
-    compass_point, compass_points, default_view, easily_seen, extinction,
-    Lens, focal_length, horizontal_vector, project, unproject,
+    FOV_DEFAULT, FOV_MAX, FOV_MIN, POINT_RISE_SINE, Scene, alt_az_of, camera_matrix,
+    compass_marks, compass_point, compass_points, default_view, easily_seen, extinction,
+    Lens, focal_length, horizontal_vector, point_up, project, shown_altitude, unproject,
 )
 from linecast.sky.i18n import _sk, body_name
 from linecast.sunshine.i18n import clock_label, sky_phase
@@ -554,8 +554,8 @@ def _gather_stars(fb, scene, lens, frame, limit, eye_limit):
         if not (0.0 <= sx < graph_w and 0.0 <= sy < total_spy):
             continue
         up = u0 * cxv + u1 * cyv + u2 * czv
-        if up <= 0.0:
-            continue
+        if up <= POINT_RISE_SINE:
+            continue   # not risen (point_up)
         alt = math.degrees(math.asin(min(1.0, up)))
         seen = mag + extinction(alt)
         above = limit - seen
@@ -601,7 +601,7 @@ def _place_planets(fb, scene, lens, limit, eye_limit, runtime, overlays, taken, 
     to be placed beside them, as (name, col, row, ink)."""
     labels = []
     for key, vec, alt, az, mag in scene.planets:
-        if alt < -0.5:
+        if not point_up(alt):
             continue
         fade = (eye_limit + 0.8 - (mag + extinction(alt))) / 1.0
         if fade <= 0.0 or mag > limit + 0.8:
@@ -907,7 +907,7 @@ def _whats_up(scene, runtime, culture=None, *, bg_color=None):
         parts.append(f"{icon} {fmt_percent(scene.moon_illum * 100, runtime)} "
                      f"{compass_point(scene.moon_az, runtime, culture)}")
     for key, _vec, alt, az, mag in scene.planets:
-        if alt > 0.0 and easily_seen(mag, alt, scene):
+        if point_up(alt) and easily_seen(mag, alt, scene):
             where = (_sk("overhead", runtime) if alt > 80.0
                      else compass_point(az, runtime, culture))
             parts.append(f"{body_name(key, runtime)} {where}")
@@ -970,7 +970,8 @@ def _chip(mouse_pos, hits, scene, runtime, cols, rows, graph_w, graph_h, view):
         else:
             vector = star_vectors()[i]
         _alt, az = alt_az_of(mat_apply(scene.catalogue, vector))
-    where = f"{alt:.0f}° · {compass_point(az, runtime, view.culture)}"
+    up = scene.sun_up if kind == "sun" else scene.moon_up if kind == "moon" else point_up(alt)
+    where = f"{shown_altitude(alt, up)}° · {compass_point(az, runtime, view.culture)}"
     lines = [f"{tip_bg}{tip_fg} {title} ",
              f"{tip_bg}{tip_dim} {detail} ",
              f"{tip_bg}{tip_dim} {where} "]

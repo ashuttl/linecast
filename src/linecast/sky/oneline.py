@@ -17,7 +17,7 @@ def sky_oneline(now_local, lat, lng, runtime, culture=None):
     `linecast culture` setting, else the language's own.
     """
     from datetime import timezone
-    from linecast.sky.scene import Scene, compass_point, easily_seen
+    from linecast.sky.scene import Scene, compass_point, easily_seen, point_up, shown_altitude
     from linecast.sky.palette import TEXT_RGB, DIM_RGB
     from linecast._i18n import lang_of
     from linecast.sky.catalogue import resolve_culture
@@ -34,11 +34,11 @@ def sky_oneline(now_local, lat, lng, runtime, culture=None):
         _idx, _name, icon = moon_phase(scene.moment_utc, runtime, bg_color=_theme.theme_bg)
         parts.append(f"{text}{icon} {fmt_percent(scene.moon_illum * 100, runtime)} "
                      f"{compass_point(scene.moon_az, runtime, culture)} "
-                     f"{max(0.0, scene.moon_alt):.0f}°")
+                     f"{shown_altitude(scene.moon_alt, True)}°")
     for key, _vec, alt, az, mag in scene.planets:
-        if alt > 0.0 and easily_seen(mag, alt, scene):
+        if point_up(alt) and easily_seen(mag, alt, scene):
             parts.append(f"{text}{body_name(key, runtime)} "
-                         f"{compass_point(az, runtime, culture)} {alt:.0f}°")
+                         f"{compass_point(az, runtime, culture)} {shown_altitude(alt, True)}°")
     if not parts:
         parts.append(f"{dim}{sky_phase(scene.sun_alt, runtime, morning=scene.morning())}"
                      f" · {_sk('planets_none', runtime)}")

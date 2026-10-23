@@ -375,6 +375,65 @@ class TestUpByOneRule:
         assert abs((found - rise).total_seconds()) < 60
 
 
+class TestPointsUpByOneRule:
+    """A star or a planet is up, in every part of the sky, from its
+    rising by the almanacs' rule: on the horizon as it is seen, its
+    geometric altitude 34′ below 0. At Portland, Jupiter rose at about
+    01:17 on 23 October 2026; at 01:19 it is 0.27° below the true
+    horizon, and the sky said it was not up until 01:20:35."""
+
+    PORTLAND = (43.66, -70.26)
+    ET = ZoneInfo("America/New_York")
+    JUST_RISEN = datetime(2026, 10, 23, 1, 19, tzinfo=ET)
+
+    def _scene(self, moment=None):
+        return Scene((moment or self.JUST_RISEN).astimezone(timezone.utc), *self.PORTLAND)
+
+    def test_the_rule_is_the_refracted_horizon(self):
+        from linecast.astro.ephemeris import POINT_RISE_ALTITUDE_DEG
+        from linecast.sky.scene import point_up
+        assert POINT_RISE_ALTITUDE_DEG == pytest.approx(-0.5667, abs=1e-4)
+        assert point_up(-0.5) and point_up(0.0) and not point_up(-0.6)
+
+    def test_jupiter_just_risen_is_up_everywhere(self):
+        from linecast.sky.json import build_payload as sky_payload
+        from linecast.sky.oneline import sky_oneline
+        from linecast.sky.search import Target
+        from linecast.sky.view import _whats_up
+        scene = self._scene()
+        alt = next(p[2] for p in scene.planets if p[0] == "jupiter")
+        assert -0.567 < alt < 0.0
+        payload = sky_payload(self.JUST_RISEN, *self.PORTLAND, _runtime(), location="Portland")
+        jupiter = next(p for p in payload["planets"] if p["name"] == "jupiter")
+        assert jupiter["up"] and jupiter["visible"]
+        assert "Jupiter" in _whats_up(scene, _runtime())
+        line = _strip(sky_oneline(self.JUST_RISEN, *self.PORTLAND, _runtime()))
+        assert "Jupiter" in line and "-0°" not in line
+        target = Target("planet", "Jupiter", "jupiter", ["jupiter"], -10.0)
+        assert target.up(scene)
+
+    def test_a_bright_star_just_risen_is_in_the_json(self):
+        # Sirius at 00:26, 0.29° below the true horizon.
+        from linecast.sky.json import build_payload as sky_payload
+        moment = datetime(2026, 10, 23, 0, 26, tzinfo=self.ET)
+        names = [s["name"] for s in sky_payload(moment, *self.PORTLAND, _runtime(),
+                                                location="Portland")["bright_stars"]]
+        assert "Sirius" in names
+
+    def test_the_search_times_the_rising_by_the_same_rule(self):
+        from linecast.sky.scene import point_up
+        from linecast.sky.search import Target, next_rising
+        start = datetime(2026, 10, 23, 0, 0, tzinfo=self.ET)
+        jupiter = Target("planet", "Jupiter", "jupiter", ["jupiter"], -10.0)
+        found, _az = next_rising(jupiter, self._scene, start)
+
+        def alt(moment):
+            return next(p[2] for p in self._scene(moment).planets if p[0] == "jupiter")
+
+        assert point_up(alt(found)) and not point_up(alt(found - timedelta(seconds=20)))
+        assert alt(found) < 0.0
+
+
 # ---------------------------------------------------------------------------
 # The frame
 # ---------------------------------------------------------------------------

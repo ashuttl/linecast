@@ -410,6 +410,13 @@ def _moon_parallactic_deg(dt_utc, lat_deg, lng_deg):
 # up above it.
 MOON_RISE_ALTITUDE_DEG = 0.125
 
+# A star or a planet rises and sets, by the almanacs' rule, when it is
+# on the horizon as it is seen: refraction lifts it 34′ there, so its
+# geometric altitude is then 34′ below 0 (Meeus, ch. 15). A point of
+# light has no semi-diameter, as the Sun has, and no parallax worth the
+# name, as the Moon has. The sky says a star or a planet is up above it.
+POINT_RISE_ALTITUDE_DEG = -34.0 / 60.0
+
 
 def _refine_moon_crossing_utc(t0_utc, t1_utc, lat_deg, lng_deg, threshold_deg):
     """Refine a moonrise/moonset crossing between two UTC datetimes.

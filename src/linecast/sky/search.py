@@ -24,7 +24,7 @@ from linecast.terminal.textwidth import fit, pad, visible_len
 from linecast.terminal.live import nudge
 from linecast.terminal.theme import ensure_contrast, surface_bg
 from linecast.astro.ephemeris import mat_apply
-from linecast.sky.scene import alt_az_of, compass_point
+from linecast.sky.scene import alt_az_of, compass_point, point_up
 
 PANEL_MIN, PANEL_MAX, MAX_ROWS = 28, 56, 8
 
@@ -100,14 +100,14 @@ class Target:
         return alt_az_of(mat_apply(scene.catalogue, at))
 
     def up(self, scene):
-        """Whether it is above the horizon at the scene's moment: the Sun
-        and the Moon by the rule their rising and setting are timed by,
-        everything else by its centre."""
+        """Whether it is above the horizon at the scene's moment, by the
+        rule its rising and setting are timed by: the Sun's and the
+        Moon's own, and for everything else a point's (point_up)."""
         if self.kind == "sun":
             return scene.sun_up
         if self.kind == "moon":
             return scene.moon_up
-        return self.place(scene)[0] > 0.0
+        return point_up(self.place(scene)[0])
 
     def fov(self, current):
         """A field that shows the thing: a constellation framed with air

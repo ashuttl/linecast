@@ -14,9 +14,9 @@ import math
 from collections import namedtuple
 
 from linecast.astro.ephemeris import (
-    SUNRISE_DEPRESSION_DEG, _alt_az_deg, _gmst_deg, _moon_parallactic_deg, _moon_ra_dec,
-    _sun_ra_dec, mat_mul, moon_altitude, moon_axis_deg, moon_bright_limb_deg,
-    moon_illuminated_fraction, precession_at,
+    POINT_RISE_ALTITUDE_DEG, SUNRISE_DEPRESSION_DEG, _alt_az_deg, _gmst_deg,
+    _moon_parallactic_deg, _moon_ra_dec, _sun_ra_dec, mat_mul, moon_altitude, moon_axis_deg,
+    moon_bright_limb_deg, moon_illuminated_fraction, precession_at,
 )
 from linecast._geo import angle_delta
 from linecast._i18n import lang_of
@@ -258,6 +258,26 @@ def _interp(stops, value):
         if value <= x1:
             return y0 + (y1 - y0) * (value - x0) / (x1 - x0)
     return stops[-1][1]
+
+
+def point_up(alt_deg):
+    """Whether a star, a planet or anything else drawn as a point is up
+    at this geometric altitude: from its rising to its setting, on the
+    rule the almanacs time them by (POINT_RISE_ALTITUDE_DEG), as the Sun
+    and the Moon are up from theirs (Scene.sun_up, Scene.moon_up). For a
+    few minutes after it rises its altitude is still below 0°."""
+    return alt_deg > POINT_RISE_ALTITUDE_DEG
+
+
+# point_up's horizon as the sine of the altitude, for the star loop,
+# which has the sine and leaves the arcsine to the stars it keeps.
+POINT_RISE_SINE = math.sin(math.radians(POINT_RISE_ALTITUDE_DEG))
+
+
+def shown_altitude(alt_deg, up):
+    """An altitude as a whole number of degrees, at least 0 for a thing
+    that is up: just risen, its centre is still below the horizon."""
+    return f"{max(0.0, alt_deg) if up else alt_deg:.0f}"
 
 
 def extinction(alt_deg):

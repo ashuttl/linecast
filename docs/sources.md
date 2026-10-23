@@ -112,7 +112,7 @@ Bundled:
 Computed from:
 
 - **Paul Schlyter's elements and perturbations.** The planets from Mercury to Neptune, good to a couple of arcminutes for the inner planets and Jupiter and a few for Saturn and beyond, and their magnitudes. There is no light-time correction.
-- **Meeus, *Astronomical Algorithms*.** The IAU 1976 precession that turns the catalogue's J2000 positions to the equinox of the date (chapter 21), and mean sidereal time (equation 12.4). The stars are not moved by proper motion or corrected for refraction or aberration.
+- **Meeus, *Astronomical Algorithms*.** The IAU 1976 precession that turns the catalogue's J2000 positions to the equinox of the date (chapter 21), and mean sidereal time (equation 12.4). The stars are not moved by proper motion or corrected for refraction or aberration. A star or a planet counts as up from its rising, 34′ below the true horizon, where refraction lifts it into view, as the Sun counts from sunrise and the Moon from moonrise.
 - Two tables are linecast's own, with no source: the limiting magnitude by the Sun's altitude, which decides when a star comes out, and the fifteen asterisms the search offers.
 
 Checked against:
