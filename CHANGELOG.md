@@ -21,6 +21,7 @@ Notable changes, by release. Notes for the next release collect under **Unreleas
 - Tides: The month view no longer jumps partway through the hour the clocks repeat in autumn, and at Canadian stations it no longer runs an hour ahead through the hour they skip in spring.
 - Tides: Offline, with nothing saved for the place, tides says it could not load the tides instead of that there is no tide station nearby.
 - Tides: When the network stops answering, tides says sooner that it could not load the tides.
+- Tides: When the network stops answering, the NOAA predictions kept from an earlier run are shown sooner, instead of after a wait for each month in turn.
 - Tides: With a TideCheck key, a station costs one request a day whichever views are opened, instead of up to four.
 - Tides: Queensland's year view loads with 12 requests instead of 183, and Queensland predictions still show offline the day after they were last fetched.
 - Tides: Predictions for Canadian stations still show offline the day after they were last fetched.

@@ -359,6 +359,65 @@ class PredictionErrorTests(_PrivateCache):
         self.assertEqual(json.loads(cache_file.read_text()), cached)
 
 
+class UnansweredHoldTests(_PrivateCache):
+    """After a request NOAA did not answer, the next are held back a
+    moment and their kept copies stand in: on a stalled network a
+    printed chart asked again for the months it had just gone without,
+    and a month view asked month after month, ten seconds each."""
+
+    OCT = [["2026-10-23 06:12", 9.8, "H"]]
+    NOV = [["2026-11-01 07:00", 0.4, "L"]]
+
+    def setUp(self):
+        super().setUp()
+        self.asked = []
+        for first, rows in ((date(2026, 10, 1), self.OCT), (date(2026, 11, 1), self.NOV)):
+            self.expired(common.cache_dir() / f"hilo_8418150_{first:%Y%m}.json", rows)
+
+    def _network(self, answer):
+        def fetch_json(url, timeout=10):
+            self.asked.append(url)
+            if isinstance(answer, Exception):
+                raise answer
+            return answer
+        return patch.object(_http, "fetch_json", side_effect=fetch_json)
+
+    def _months(self):
+        return [noaa.fetch_month("8418150", date(2026, 10, 1), "hilo"),
+                noaa.fetch_month("8418150", date(2026, 11, 1), "hilo"),
+                noaa.fetch_month("8418150", date(2026, 10, 1), "hilo")]
+
+    def test_the_next_requests_take_the_kept_copies_without_asking(self):
+        with self._network(OSError("timed out")):
+            self.assertEqual(self._months(), [self.OCT, self.NOV, self.OCT])
+        self.assertEqual(len(self.asked), 1)
+
+    def test_a_request_answered_with_an_error_holds_nothing(self):
+        with self._network(_http.HTTPError("u", 503, "Service Unavailable")):
+            self.assertEqual(self._months(), [self.OCT, self.NOV, self.OCT])
+        self.assertEqual(len(self.asked), 3)
+
+    def test_the_hold_is_a_moment(self):
+        with self._network(OSError("timed out")):
+            noaa.fetch_month("8418150", date(2026, 10, 1), "hilo")
+        with patch.object(noaa, "_UNANSWERED_HOLD_S", 0.0), \
+             self._network({"predictions": [{"t": "2026-11-01 07:00", "v": "0.5",
+                                             "type": "L"}]}):
+            rows = noaa.fetch_month("8418150", date(2026, 11, 1), "hilo")
+        self.assertEqual(rows, [["2026-11-01 07:00", 0.5, "L"]])
+        self.assertEqual(len(self.asked), 2)
+
+    def test_every_request_to_noaa_is_held(self):
+        # the station list and the metadata were one wait after another
+        with self._network(OSError("timed out")):
+            noaa.fetch_month("8418150", date(2026, 10, 1), "hilo")
+            noaa.fetch_station_metadata_noaa("8418150")
+            noaa.fetch_flood_stage("8418150")
+            noaa._stations_memo = None
+            noaa.fetch_all_stations_noaa()
+        self.assertEqual(len(self.asked), 1)
+
+
 class YRangeTests(_PrivateCache):
     MONTHS = {
         date(2026, 7, 1): [["2026-07-01 00:30", 9.7, "H"], ["2026-07-01 06:40", -0.4, "L"]],
@@ -742,7 +801,9 @@ class ObservedExtremesTests(_PrivateCache):
     def test_noaa_out_of_reach_is_no_measurements_not_an_error(self):
         with patch.object(_http, "fetch_json", side_effect=OSError("network down")):
             self.assertEqual(noaa.fetch_observed_extremes("8418150", 2026, self.TODAY), {})
-        # and nothing was kept of the failure: the next run asks again
+        # and nothing was kept of the failure: the next run, which starts
+        # without this one's hold on NOAA, asks again
+        noaa._unanswered_at = None
         gauge = _Datagetter(self.VERIFIED, self.PRELIMINARY)
         self.assertEqual(len(self._observed(gauge)), 273)
 

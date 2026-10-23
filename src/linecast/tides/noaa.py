@@ -5,9 +5,11 @@ for NOAA's CO-OPS APIs.
 """
 
 import math
+import time
 from datetime import date, datetime, timedelta, timezone, tzinfo
 from typing import Any
 
+from linecast import _http
 from linecast._cache import location_cache_key
 from linecast._http import fetch_json_cached
 from linecast._log import log_skipped
@@ -17,6 +19,30 @@ from linecast.tides.common import (
 )
 
 PREDICTION_CACHE_MAX_AGE = 86400
+
+# A request NOAA did not answer holds the next ones back for about as
+# long as one is given to answer, and what was kept of each stands in.
+# On a network that has stopped answering, a printed chart asked again
+# for the months it had just gone without, and a month view for one
+# month after another, each with ten seconds to wait.  A request
+# answered, however slowly or with whatever error, holds nothing, and
+# one already out is waited for to the end of its own timeout.
+_UNANSWERED_HOLD_S = 15.0
+_unanswered_at = None   # time.monotonic() of the last request unanswered
+
+
+def _ask(url, timeout=10):
+    """fetch_json for NOAA's requests, under the hold above."""
+    global _unanswered_at
+    if (_unanswered_at is not None
+            and time.monotonic() - _unanswered_at < _UNANSWERED_HOLD_S):
+        raise OSError("not asked so soon after a request that went unanswered")
+    try:
+        return _http.fetch_json(url, timeout=timeout)
+    except Exception as exc:
+        if _http.unanswered(exc):
+            _unanswered_at = time.monotonic()
+        raise
 
 
 def _reference_station_coords(station):
@@ -54,7 +80,7 @@ def fetch_station_metadata_noaa(station_id: str) -> StationMeta | None:
     )
     meta = fetch_json_cached(
         cache_dir() / f"station_meta_{station_id}.json", 30 * 86400, url,
-        timeout=10, fallback=None, provider="tides/noaa",
+        timeout=10, fallback=None, provider="tides/noaa", fetch=_ask,
         transform=lambda data: _station_meta(data, station_id),
     )
     # A file from before the metadata was parsed on the way in can hold
@@ -149,7 +175,8 @@ def _fetch_prediction_rows(cache_file, url, row_builder):
     """Fetch a NOAA prediction payload and return its cache rows."""
     rows = fetch_json_cached(
         cache_file, PREDICTION_CACHE_MAX_AGE, url, timeout=10, fallback=None,
-        provider="tides/noaa", transform=lambda data: _prediction_rows(data, row_builder))
+        provider="tides/noaa", fetch=_ask,
+        transform=lambda data: _prediction_rows(data, row_builder))
     # A file from before the rows were parsed on the way in can hold
     # NOAA's own answer, left where parsing it failed.
     return rows if isinstance(rows, list) else None
@@ -227,7 +254,8 @@ def fetch_all_stations_noaa() -> list[dict[str, Any]]:
     url = "https://api.tidesandcurrents.noaa.gov/mdapi/prod/webapi/stations.json?type=tidepredictions"
     stations = fetch_json_cached(
         cache_dir() / "all_stations.json", 30 * 86400, url,
-        timeout=10, fallback=[], provider="tides/noaa", transform=_station_list)
+        timeout=10, fallback=[], provider="tides/noaa", fetch=_ask,
+        transform=_station_list)
     # A file from before the list was parsed on the way in can hold
     # mdapi's own answer, left where parsing it failed.
     if not isinstance(stations, list):
@@ -392,7 +420,8 @@ def fetch_observed_extremes(station_id: str, year: int,
         found = fetch_json_cached(
             cache_file, keep(cache_file, running),
             _observed_url(station_id, product, begin, end), timeout=15,
-            fallback=None, provider="tides/noaa", transform=_observed_rows)
+            fallback=None, provider="tides/noaa", fetch=_ask,
+            transform=_observed_rows)
         return found if isinstance(found, list) else []
 
     def measured(readings, begin, gap):
@@ -436,10 +465,10 @@ def fetch_flood_stage(station_id: str) -> float | None:
     base = f"https://api.tidesandcurrents.noaa.gov/mdapi/prod/webapi/stations/{station_id}"
     levels = fetch_json_cached(cache_dir() / f"flood_{station_id}.json", 30 * 86400,
                                f"{base}/floodlevels.json", timeout=10, fallback=None,
-                               provider="tides/noaa")
+                               provider="tides/noaa", fetch=_ask)
     datums = fetch_json_cached(cache_dir() / f"datums_{station_id}.json", 30 * 86400,
                                f"{base}/datums.json?units=english", timeout=10,
-                               fallback=None, provider="tides/noaa")
+                               fallback=None, provider="tides/noaa", fetch=_ask)
     if not isinstance(levels, dict) or not isinstance(datums, dict):
         return None
     minor = levels.get("nws_minor") or levels.get("nos_minor")
