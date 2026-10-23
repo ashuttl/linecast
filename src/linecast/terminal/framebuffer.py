@@ -32,9 +32,16 @@ def get_terminal_size(fallback=(80, 24)):
 
     shutil.get_terminal_size consults the env vars before the tty ioctl,
     which is what status-bar and tmux-pane captures expect; bare
-    os.get_terminal_size ignores them.
+    os.get_terminal_size ignores them.  A running live view asks the
+    tty, because it follows the window: exported, the env vars would
+    pin every frame to one size through any resize.
     """
     from linecast._runtime import print_viewport
+    from linecast.terminal import term as _term
+    if _term._current is not None:
+        size = _term._terminal_size()
+        if size is not None:
+            return size
     try:
         size = shutil.get_terminal_size(fallback)
     except (OSError, ValueError):

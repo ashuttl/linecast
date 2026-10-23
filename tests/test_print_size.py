@@ -78,6 +78,24 @@ def test_new_runtime_restores_terminal_dimensions(monkeypatch):
     assert framebuffer.get_terminal_size() == (120, 40)
 
 
+def test_a_live_view_follows_the_window_not_the_environment(monkeypatch):
+    """Exported COLUMNS and LINES size a printed frame; a running live
+    view asks the tty, or a resize would never reach it."""
+    from linecast.terminal import term
+    monkeypatch.setenv("COLUMNS", "60")
+    monkeypatch.setenv("LINES", "15")
+    window = [os.terminal_size((100, 30))]
+    monkeypatch.setattr(term, "_terminal_size", lambda: window[0])
+    _runtime.set_current(runtime_for("moon", ["--print"]))
+    assert framebuffer.get_terminal_size() == (60, 15)
+    monkeypatch.setattr(term, "_current", object())   # a loop is running
+    assert framebuffer.get_terminal_size() == (100, 30)
+    window[0] = os.terminal_size((120, 40))
+    assert framebuffer.get_terminal_size() == (120, 40)
+    window[0] = None   # no tty to ask (a capture): the environment again
+    assert framebuffer.get_terminal_size() == (60, 15)
+
+
 @pytest.mark.parametrize("month", [False, True])
 def test_moon_render_matches_an_equivalent_terminal(monkeypatch, month):
     from linecast.moon.calendar import render_calendar
