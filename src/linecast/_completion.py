@@ -71,7 +71,8 @@ def completion_help():
                     "command, flag, and the short names",
         epilog="Bash and zsh: source <(linecast completion bash). Fish: "
                "linecast completion fish | source. Nushell: save the script "
-               "under ~/.config/nushell/completions and `use` it from config.nu.",
+               "under ~/.config/nushell/completions and `use` it from config.nu; "
+               "it covers the short names `linecast link` has made by then.",
         formatter_class=formatter_class())
     parser.add_argument("shell", metavar="<shell>", choices=SHELLS,
                         help="bash, zsh, fish, or nu (nushell)")
@@ -250,9 +251,17 @@ def _bash_script(flags_by_command):
         f"      ;;"
         for name, words in SETTING_SUBCOMMANDS.items()
     )
+    # A short name is registered whatever owns it, since `linecast link`
+    # may come after the script is sourced, and checked when completed:
+    # another program's gets its name back, and the 124 has bash look
+    # again, finding that program's completion or its default.
     standalone = "\n".join(
         f"_linecast_complete_{cmd}() {{\n"
         f"  local cur prev\n"
+        f"  if ! _linecast_owns {cmd}; then\n"
+        f"    complete -r {cmd}\n"
+        f"    return 124\n"
+        f"  fi\n"
         f"  COMPREPLY=()\n"
         f'  cur="${{COMP_WORDS[COMP_CWORD]}}"\n'
         f'  prev=""\n'
@@ -382,6 +391,16 @@ _linecast_complete() {{
       _linecast_complete_command "$cmd"
       ;;
   esac
+}}
+
+# Whether a short name is linecast's: an alias for it, or on the PATH as
+# the same file as linecast, linked or (where links are refused) copied.
+# Sunshine, for one, installs /usr/bin/sunshine.
+_linecast_owns() {{
+  local file ours
+  [[ "${{BASH_ALIASES[$1]-}}" == "linecast "* ]] && return 0
+  file="$(type -P "$1")" && ours="$(type -P linecast)" || return 1
+  [[ "$file" -ef "$ours" ]] || cmp -s "$file" "$ours"
 }}
 
 {standalone}
@@ -549,8 +568,25 @@ _linecast() {{
     return 0
   fi
 
+  # The #compdef line claims every short name; another program's gets
+  # its name back and is completed as zsh would without this file.
+  if ! _linecast_owns "$svc"; then
+    compdef -d "$svc"
+    _normal
+    return
+  fi
   _linecast_complete_command "$svc"
   return 0
+}}
+
+# Whether a short name is linecast's: an alias for it, or on the PATH as
+# the same file as linecast, linked or (where links are refused) copied.
+# Sunshine, for one, installs /usr/bin/sunshine.
+_linecast_owns() {{
+  local file ours
+  [[ "${{aliases[$1]}}" == "linecast "* ]] && return 0
+  file="$(whence -p -- "$1")" && ours="$(whence -p linecast)" || return 1
+  [[ "$file" -ef "$ours" ]] || cmp -s "$file" "$ours"
 }}
 
 # Autoloaded from fpath, this file runs as _linecast itself and must
@@ -613,8 +649,22 @@ def _fish_script(flags_by_command):
     for cmd, flags in flags_by_command.items():
         head = f"-c linecast -f -n '__fish_seen_subcommand_from {cmd}'"
         lines.extend(_fish_flag_lines(head, flags))
+    # A short name is completed only while it is linecast's: an alias
+    # (a function that runs linecast), or on the PATH as the same file,
+    # linked or (where links are refused) copied. Sunshine, for one,
+    # installs /usr/bin/sunshine.
+    lines += [
+        "function __linecast_owns",
+        "    functions -q $argv[1]; and functions $argv[1] | string match -q -r '^\\s*linecast\\s'",
+        "    and return 0",
+        "    set -l file (command -s $argv[1]); or return 1",
+        "    set -l ours (command -s linecast); or return 1",
+        "    test (builtin realpath $file) = (builtin realpath $ours); or cmp -s $file $ours",
+        "end",
+    ]
     for cmd, flags in flags_by_command.items():
-        lines.extend(_fish_flag_lines(f"-c {cmd} -f", flags))
+        lines.extend(f"{line} -n '__linecast_owns {cmd}'"
+                     for line in _fish_flag_lines(f"-c {cmd} -f", flags))
 
     return "\n".join(lines) + "\n"
 
@@ -707,12 +757,15 @@ def _nu_script(flags_by_command):
         ['shell?: string@"nu-complete linecast-shells"'],
     ))
 
-    # The seven view commands again under their short names, as the
-    # other shells register them. Only those answer to their own name
-    # (__main__.STANDALONE); a bare `units` or `calendar` is some other
-    # program's, and an extern by that name would have nushell parse
-    # that program's arguments by linecast's signature and refuse them.
+    # The view commands again under their short names, but only those
+    # `linecast link` has made: an extern named for some other program
+    # (/usr/bin/sunshine, or a bare `units`) would have nushell parse
+    # that program's arguments by linecast's signature. A module is
+    # fixed once saved, so this is decided as it is written.
+    from linecast.link import linked_names
+    linked = linked_names()
     for cmd in COMMANDS:
-        lines.extend(_nu_extern(cmd, nu_flags[cmd]))
+        if cmd in linked:
+            lines.extend(_nu_extern(cmd, nu_flags[cmd]))
 
     return "\n".join(lines) + "\n"

@@ -34,6 +34,7 @@ Notable changes, by release. Notes for the next release collect under **Unreleas
 - Location: Place names ending in "UK" or "USA", such as `--location "London, UK"`, are found.
 - Print: A command run in the background from a shell, such as `linecast moon --oneline &`, no longer stops with "Stopped (tty output)".
 - Live views: Resizing the window resizes the view even with `COLUMNS` and `LINES` exported in the shell.
+- Completions: Shell completion leaves a short name such as `sunshine` to the program that owns it, and completes it as linecast only where `linecast link` made it or an alias points it at linecast. Reported by [@jmote](https://github.com/jmote) in [#20](https://github.com/ashuttl/linecast/issues/20).
 
 ## 2.10.3 — 2026-10-20
 

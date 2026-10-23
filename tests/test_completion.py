@@ -8,6 +8,7 @@ import sys
 import tempfile
 import unittest
 from contextlib import redirect_stderr, redirect_stdout
+from unittest.mock import patch
 
 from linecast import __main__ as cli
 from linecast import _parsers
@@ -20,8 +21,9 @@ class CompletionScriptTests(unittest.TestCase):
         self.assertEqual(available_shells(), ("bash", "zsh", "fish", "nu", "nushell"))
 
     def test_nu_completion_includes_namespace_and_standalone_commands(self):
-        script = render_completion("nu")
-        self.assertEqual(script, render_completion("nushell"))
+        with patch("linecast.link.linked_names", lambda: COMMANDS):
+            script = render_completion("nu")
+            self.assertEqual(script, render_completion("nushell"))
         self.assertIn('export extern "linecast"', script)
         self.assertIn('export extern "linecast weather"', script)
         self.assertIn('export extern "linecast tides"', script)
@@ -185,9 +187,12 @@ class CompletionScriptTests(unittest.TestCase):
         self.assertEqual(out.split(), ["sunday", "saturday"])
 
     def test_bash_completes_the_short_names(self):
+        """As an alias for linecast, the way `linecast link` suggests
+        where another program has the name."""
         out = self._run_in_shell(
             "bash", render_completion("bash"),
-            'source "$1" && COMP_WORDS=(moon --week-start "") '
+            'source "$1" && alias moon="linecast moon" '
+            '&& COMP_WORDS=(moon --week-start "") '
             '&& COMP_CWORD=2 && _linecast_complete_moon '
             '&& printf "%s\\n" "${COMPREPLY[@]}"')
         self.assertEqual(out.split(), ["monday", "sunday", "saturday"])
@@ -230,7 +235,8 @@ class CompletionScriptTests(unittest.TestCase):
         self.assertEqual(out.split(), ["--layer", "--layers"])
         out = self._run_in_shell(
             "bash", render_completion("bash"),
-            'source "$1" && COMP_WORDS=(weather --print) '
+            'source "$1" && alias weather="linecast weather" '
+            '&& COMP_WORDS=(weather --print) '
             '&& COMP_CWORD=1 && _linecast_complete_weather '
             '&& printf "%s\\n" "${COMPREPLY[@]}"')
         self.assertEqual(out.split(), ["--print"])
@@ -295,7 +301,8 @@ class CompletionScriptTests(unittest.TestCase):
         self.assertEqual(sorted(out.split()), ["saturday", "sunday"])
         out = self._run_in_shell(
             "fish", render_completion("fish"),
-            'source $1; and complete -C "moon --week-start "')
+            'source $1; and alias moon="linecast moon"; '
+            'and complete -C "moon --week-start "')
         self.assertEqual(sorted(out.split()), ["monday", "saturday", "sunday"])
 
     def test_nu_completion_loads_as_a_module(self):
@@ -311,6 +318,65 @@ class CompletionScriptTests(unittest.TestCase):
             "nu", render_completion("nu"),
             "source $1; nu-complete linecast-week-start | str join ' '")
         self.assertEqual(out, "monday sunday saturday")
+
+    def _bin(self):
+        """A PATH entry with a stand-in linecast, moon linked to it, and
+        some other program's sunshine (#20)."""
+        directory = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, directory)
+        for name, body in (("linecast", "linecast"), ("sunshine", "someone else")):
+            path = os.path.join(directory, name)
+            with open(path, "w", encoding="utf-8") as handle:
+                handle.write(f"#!/bin/sh\necho {body}\n")
+            os.chmod(path, 0o755)
+        os.symlink("linecast", os.path.join(directory, "moon"))
+        return directory
+
+    @unittest.skipIf(sys.platform == "win32", "needs links on the PATH")
+    def test_bash_completes_a_short_name_only_while_it_is_linecast(self):
+        """Another program's name is given back, and the 124 has bash
+        look again for that program's completion."""
+        out = self._run_in_shell(
+            "bash", render_completion("bash"),
+            f'PATH="{self._bin()}:$PATH"; source "$1"; '
+            'COMP_WORDS=(moon --week-start ""); COMP_CWORD=2; _linecast_complete_moon; '
+            'echo "moon: ${COMPREPLY[*]}"; '
+            'COMP_WORDS=(sunshine ""); COMP_CWORD=1; _linecast_complete_sunshine; '
+            'echo "sunshine: $? $(complete -p sunshine 2>/dev/null || echo given back)"')
+        self.assertEqual(out.splitlines(), ["moon: monday sunday saturday",
+                                            "sunshine: 124 given back"])
+
+    @unittest.skipIf(sys.platform == "win32", "needs links on the PATH")
+    def test_zsh_completes_a_short_name_only_while_it_is_linecast(self):
+        out = self._run_in_shell(
+            "zsh", render_completion("zsh"),
+            'compdef() { print -r -- compdef "$@" }; _normal() { print -r -- normal }; '
+            'compadd() { print -r -- "$@" }; '
+            f'path=("{self._bin()}" $path); source "$1"; '
+            'service=moon; words=(moon --week-start ""); CURRENT=3; _linecast; '
+            'service=sunshine; words=(sunshine ""); CURRENT=2; _linecast')
+        self.assertEqual(out.splitlines()[-3:], ["-- monday sunday saturday",
+                                                 "compdef -d sunshine", "normal"])
+
+    @unittest.skipIf(sys.platform == "win32", "needs links on the PATH")
+    def test_fish_completes_a_short_name_only_while_it_is_linecast(self):
+        out = self._run_in_shell(
+            "fish", render_completion("fish"),
+            f'set -x PATH "{self._bin()}" $PATH; source $1; '
+            'and complete -C "moon --week-start "; and echo ---; '
+            'and complete -C "sunshine --lang f"')
+        linked, other = out.split("---")
+        self.assertEqual(sorted(linked.split()), ["monday", "saturday", "sunday"])
+        self.assertNotIn("fr", other.split())
+
+    def test_nu_names_only_the_short_names_linked_when_written(self):
+        """A module is fixed once saved, and an extern for another
+        program's sunshine would have nushell parse its arguments."""
+        self.assertNotRegex(render_completion("nu"), r'export extern "(?!linecast\b)')
+        with patch("linecast.link.linked_names", lambda: ("moon",)):
+            script = render_completion("nu")
+        self.assertEqual(re.findall(r'^export extern "(?!linecast\b)([^" ]+)', script, re.M),
+                         ["moon"])
 
     def test_invalid_shell_raises(self):
         with self.assertRaises(ValueError):
@@ -366,7 +432,8 @@ class CompletionScriptTests(unittest.TestCase):
         fish = render_completion("fish")
         self.assertEqual(set(re.findall(r"^complete -c (?!linecast\b)(\S+) ", fish, re.M)),
                          expected)
-        nu = render_completion("nu")
+        with patch("linecast.link.linked_names", lambda: COMMANDS):
+            nu = render_completion("nu")
         bare = set(re.findall(r'^export extern "(?!linecast\b)([^" ]+)', nu, re.M))
         self.assertEqual(bare, expected)
 
@@ -480,7 +547,7 @@ def _fish_flags(script, command):
 
 
 def _nu_flags(script, command):
-    match = re.search(rf'^export extern "{command}" \[\n(.*?)^\]', script,
+    match = re.search(rf'^export extern "linecast {command}" \[\n(.*?)^\]', script,
                       re.M | re.S)
     return set(re.findall(r"^    (--[\w-]+)", match.group(1), re.M))
 
@@ -581,7 +648,7 @@ class CompletionTracksParserTests(unittest.TestCase):
         )
 
         # Nushell owns help itself and represents only the long spellings.
-        self.assertEqual(_nu_flags(render_completion("nu"), "linecast link"),
+        self.assertEqual(_nu_flags(render_completion("nu"), "link"),
                          {"--version", "--dir", "--remove"})
 
 

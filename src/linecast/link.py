@@ -44,6 +44,18 @@ def _is_ours(path, binary):
         return False
 
 
+def linked_names():
+    """The short names that run this linecast from the PATH, as links to
+    it or copies: the ones a completion fixed when it is written may
+    claim.  Sunshine, for one, installs /usr/bin/sunshine."""
+    import shutil
+    binary = _binary()
+    if binary is None:
+        return ()
+    return tuple(name for name in SHORT_NAMES
+                 if (path := shutil.which(name)) and _is_ours(path, binary))
+
+
 def _make(target, binary):
     """Link, or copy where links are not allowed (Windows without the
     privilege); the console-script launcher works as a copy."""

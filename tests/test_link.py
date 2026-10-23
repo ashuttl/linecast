@@ -85,3 +85,22 @@ class LinkTest(unittest.TestCase):
                 patch("sys.stderr"), self.assertRaises(SystemExit) as cm:
             link.main()
         self.assertEqual(cm.exception.code, 1)
+
+    @unittest.skipIf(sys.platform == "win32", "links without an extension are not found there")
+    def test_the_names_that_run_this_linecast_from_the_path(self):
+        """What a completion fixed when it is written may claim: the names
+        linked to this binary, not one another program has ahead of it on
+        the PATH (Sunshine's /usr/bin/sunshine, #20)."""
+        import tempfile
+        self._run()
+        elsewhere = tempfile.mkdtemp()
+        other = os.path.join(elsewhere, "sunshine")
+        with open(other, "w") as f:
+            f.write("#!/bin/sh\necho someone else\n")
+        os.chmod(other, stat.S_IRWXU)
+        with patch.dict(os.environ, {"PATH": os.pathsep.join((elsewhere, self.dir))}), \
+                patch.object(sys, "argv", [self.binary]):
+            names = link.linked_names()
+        self.assertEqual(names, tuple(n for n in link.SHORT_NAMES if n != "sunshine"))
+        with patch.object(sys, "argv", ["/x/linecast/__main__.py"]):
+            self.assertEqual(link.linked_names(), ())
