@@ -8,7 +8,7 @@ from zoneinfo import ZoneInfo
 
 from linecast._i18n import DAY_NAMES, fmt_decimal, table_for
 from linecast._timefmt import fmt_time_dt
-from linecast.astro.ephemeris import sunrise_sunset
+from linecast.astro.ephemeris import sun_crossings
 from linecast.moon.calendar import _month_title
 from linecast.terminal import live, theme
 from linecast.terminal.braille import DOT_BITS
@@ -264,7 +264,7 @@ def render_month(series, first, runtime, lat, lng, label, *, difference=False,
                     value = value - normal if value is not None and normal is not None else None
                 for sy in subpixels:
                     field.set_pixel(x, sy, field_color(value, runtime, difference))
-            for moment in sunrise_sunset(day, lat, lng, series.tz) if series.days else ():
+            for moment in sun_crossings(day, lat, lng, series.tz) if series.days else ():
                 if moment is None or moment.date() != day:
                     continue
                 hour = moment.hour + moment.minute / 60 + moment.second / 3600

@@ -843,3 +843,16 @@ def sunrise_sunset(local_date, lat_deg, lng_deg, tzinfo=None):
         end = start + timedelta(days=1)
         return (start, end) if tzinfo else (start.astimezone(), end.astimezone())
     return local(rise), local(sset)
+
+
+def sun_crossings(local_date, lat_deg, lng_deg, tzinfo=None):
+    """(sunrise, sunset) where the Sun crosses the horizon that day:
+    sunrise_sunset's, but (None, None) for a day it does not set, whose
+    midnight to midnight is the daylight it has and not a rise and a
+    set.  For the lines a month view draws at each crossing."""
+    rise, sset = sunrise_sunset(local_date, lat_deg, lng_deg, tzinfo)
+    # the span starts on the stroke of midnight, which no computed
+    # sunrise does; a sunset past midnight (Reykjavik in June) is real
+    if rise is not None and rise.time() == datetime.min.time() and sset.date() > local_date:
+        return None, None
+    return rise, sset

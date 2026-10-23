@@ -118,6 +118,21 @@ class TestSunriseSunset:
             assert set_ - rise == timedelta(days=1), day
             assert (rise.date(), rise.hour, rise.minute) == (day, 0, 0), day
 
+    def test_crossings_leave_out_the_midnight_suns_whole_day(self):
+        from datetime import date
+        from zoneinfo import ZoneInfo
+        from linecast.astro.ephemeris import sun_crossings, sunrise_sunset
+        tromso = ZoneInfo("Europe/Oslo")
+        for day in (date(2026, 6, 21), date(2026, 12, 21)):
+            assert sun_crossings(day, 69.65, 18.96, tromso) == (None, None), day
+        # an ordinary day, and a sunset after midnight, are crossings
+        portland = ZoneInfo("America/New_York")
+        assert (sun_crossings(date(2026, 10, 1), 43.66, -70.25, portland)
+                == sunrise_sunset(date(2026, 10, 1), 43.66, -70.25, portland))
+        reykjavik = ZoneInfo("Atlantic/Reykjavik")
+        rise, set_ = sun_crossings(date(2026, 6, 21), 64.15, -21.94, reykjavik)
+        assert (rise.hour, set_.date(), set_.hour) == (2, date(2026, 6, 22), 0)
+
     def test_without_a_zone_the_times_are_the_machines(self):
         from datetime import date
         from linecast.astro.ephemeris import sun_depression_utc, sunrise_sunset

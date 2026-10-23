@@ -35,7 +35,7 @@ from datetime import date, datetime, timedelta
 
 from linecast._i18n import DAY_NAMES, fmt_decimal, lang_of, table_for
 from linecast._timefmt import fmt_time_dt
-from linecast.astro.ephemeris import sunrise_sunset
+from linecast.astro.ephemeris import sun_crossings, sunrise_sunset
 from linecast.moon.calendar import _month_title
 from linecast.terminal import live as _live
 from linecast.terminal import theme as _theme
@@ -313,7 +313,7 @@ def render_month(first, predictions, hilo, runtime, *, header, footer, station_m
         inks[cell] = ink
 
     for k, day in enumerate(shown):
-        rise, set_ = sun[day]
+        rise, set_ = sun_crossings(day, lat, lng, tz) if lat is not None else (None, None)
         whole = range(4) if k == alone else None
         if rise is not None and rise.date() == day:
             mark(k, rise, SUN_RGB, whole)

@@ -4,6 +4,7 @@ Notable changes, by release. Notes for the next release collect under **Unreleas
 
 ## Unreleased
 
+- Weather and tides: The month views no longer draw a sunrise at midnight on days of the midnight sun.
 - Weather: Changing the precipitation units no longer shows the last forecast's millimetres as inches, or its inches as millimetres.
 - Weather: During polar night the chart no longer marks a sunset at midnight, or at 11 p.m. after the clocks go back, and `--json` gives those days no sunrise or sunset.
 - Weather: Under the midnight sun the chart no longer darkens or marks a sunrise at midnight, and `--json` gives those days no sunrise or sunset, as `sunshine --json` does.
