@@ -6,6 +6,8 @@ temporary directory per test.
 """
 
 import gzip
+import threading
+import time
 
 import pytest
 
@@ -125,6 +127,48 @@ class TestTileInfo:
         monkeypatch.setattr(vt, "fetch_json", fake_fetch)
         assert vt.tilejson() == TILEJSON
         assert vt.source_credit() == "OpenFreeMap"
+
+
+    def test_a_failed_read_is_held_rather_than_asked_per_tile(
+            self, cache, monkeypatch):
+        # offline on a cold cache, six tiles cost sixteen TileJSON
+        # requests: every tile of a view asked both sources itself
+        calls = []
+
+        def unreachable(url, timeout=0):
+            calls.append(url)
+            raise OSError("unreachable")
+
+        monkeypatch.setattr(vt, "fetch_json", unreachable)
+        keys = [(14, x, 5000) for x in range(6)]
+        assert vt.fetch_tiles(keys) == dict.fromkeys(keys)
+        assert calls == [vt.DEFAULT_TILEJSON_URL, vt.FALLBACK_TILEJSON_URL]
+        # the hold over, the next read asks again
+        monkeypatch.setattr(vt, "_FAIL_HOLD_S", 0.0)
+        monkeypatch.setattr(vt, "fetch_json",
+                            lambda url, timeout=0: dict(TILEJSON))
+        assert vt.tilejson() == TILEJSON
+
+    def test_reads_at_once_share_one_request(self, cache, monkeypatch):
+        calls, go = [], threading.Event()
+
+        def slow(url, timeout=0):
+            calls.append(url)
+            go.wait(1.0)
+            return dict(TILEJSON)
+
+        monkeypatch.setattr(vt, "fetch_json", slow)
+        answers = []
+        readers = [threading.Thread(target=lambda: answers.append(vt.tilejson()))
+                   for _ in range(4)]
+        for t in readers:
+            t.start()
+        time.sleep(0.05)
+        go.set()
+        for t in readers:
+            t.join(2.0)
+        assert calls == [vt.DEFAULT_TILEJSON_URL]
+        assert answers == [TILEJSON] * 4
 
 
 class TestAttribution:

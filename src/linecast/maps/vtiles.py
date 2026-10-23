@@ -60,7 +60,16 @@ _active_url: str | None = None  # the source whose TileJSON last answered
 # re-read and re-parse it from disk. Keyed by the override and the cache
 # dir it was read from; holds the source that served it and when.
 _MEMO_TTL = 300
-_memo: tuple[tuple[str | None, str], float, str, dict[str, Any]] | None = None
+_memo: tuple[tuple[str | None, str], float, str | None, dict[str, Any] | None] | None = None
+# A read that found nothing anywhere is remembered too, but only this
+# long: every tile of a view asks, and without it a view on a cold cache
+# with no network sends each of them to both sources. Short, so the
+# view's own retry after its failure hold (terminal.scenes.FAIL_HOLD)
+# reaches the network again.
+_FAIL_HOLD_S = 2.0
+# One read at a time: the tiles of a view ask at once, and the ones that
+# wait take the first one's answer rather than asking again themselves.
+_memo_lock = threading.Lock()
 
 
 def tilejson_url() -> str:
@@ -108,16 +117,21 @@ def tilejson() -> dict[str, Any] | None:
     Each source in turn: fresh cache, then the network. Only when every
     source has failed do the stale caches answer, again in source order —
     yesterday's OpenFreeMap template usually still serves, and beats
-    switching sources over a blip."""
+    switching sources over a blip. When none of that finds anything,
+    None is the answer for `_FAIL_HOLD_S` before anyone asks again."""
     global _memo
     key = (os.environ.get("LINECAST_VECTOR_TILES_URL"),
            str(cache_dir("maps")))
-    memo = _memo
-    if (memo is not None and memo[0] == key
-            and time.monotonic() - memo[1] < _MEMO_TTL):
-        return _served(memo[3], memo[2])
-    data = _tilejson_uncached()
-    if data is not None:
+    with _memo_lock:
+        memo = _memo
+        if memo is not None and memo[0] == key:
+            age = time.monotonic() - memo[1]
+            if memo[3] is None:
+                if age < _FAIL_HOLD_S:
+                    return None
+            elif age < _MEMO_TTL:
+                return _served(memo[3], memo[2])
+        data = _tilejson_uncached()
         _memo = (key, time.monotonic(), _active_url, data)
     return data
 
