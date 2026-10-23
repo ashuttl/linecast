@@ -114,13 +114,6 @@ class TestOneNull:
             output = _render(copy.deepcopy(data), cols, rows, _runtime())
             assert output and "Could not fetch" not in output
 
-    def test_the_hover_chips_render(self, name, data):
-        # the hourly chip across the chart, the daily chip down the rows
-        for col in range(1, 100, 9):
-            _render(copy.deepcopy(data), 100, 40, _runtime(), mouse_pos=(col, 5))
-        for row in range(1, 40, 3):
-            _render(copy.deepcopy(data), 100, 40, _runtime(), mouse_pos=(50, row))
-
     def test_json_serialises(self, name, data):
         payload = build_payload(copy.deepcopy(data), "Toronto", "CA", _runtime(),
                                 historical=HIST, now=NOW)
@@ -128,6 +121,61 @@ class TestOneNull:
 
     def test_oneline_renders(self, name, data):
         assert weather_oneline(copy.deepcopy(data), "Toronto", _runtime())
+
+
+# Where the chips are on the 100x40 dashboard, for the fixture at NOW.
+# The hourly chip on the chart's fifth row: at the window's first hour,
+# at the hour the "window" nulls are in (three on, of 48 across 100
+# columns), and at its last.  The daily chip on a day's row, at its
+# name, its bar and its rain: today's row is 34 and the last day's 40.
+# TestTheHoversLand checks they still land on a chip.
+HOURLY_HOVERS = ((1, 5), (7, 5), (100, 5))
+DAY_ROWS = {"today": 34, "tomorrow": 35, "last": 40}
+DAY_PARTS = (1, 30, 87)
+
+
+def _hovers(name):
+    """Where a null in *name* can be under the pointer: the hourly
+    chip's hours, and the row of the day the null is in, or today's.
+    The daily chip reads the day's hours, so an hourly null is looked
+    for there too.  None for a null no chip can show: an hour before
+    the window or after it, yesterday, or the current conditions."""
+    section, _, label = name.partition("[")
+    label = label.rstrip("]")
+    if section.startswith("hourly.") and label in ("window", "all"):
+        row = DAY_ROWS["today"]
+    elif section.startswith("daily.") and label in (*DAY_ROWS, "all"):
+        row = DAY_ROWS.get(label, DAY_ROWS["today"])
+    else:
+        return None
+    return HOURLY_HOVERS + tuple((col, row) for col in DAY_PARTS)
+
+
+HOVERED = [(name, data) for name, data in MUTATIONS if _hovers(name)]
+
+
+@pytest.mark.parametrize("name,data", HOVERED, ids=[name for name, _ in HOVERED])
+def test_the_hover_chips_render(name, data):
+    for mouse_pos in _hovers(name):
+        _render(copy.deepcopy(data), 100, 40, _runtime(), mouse_pos=mouse_pos)
+
+
+class TestTheHoversLand:
+    def test_every_hover_shows_a_chip(self):
+        plain = _render(_fixture(), 100, 40, _runtime())
+        for mouse_pos in (*HOURLY_HOVERS, *((c, r) for r in DAY_ROWS.values() for c in DAY_PARTS)):
+            hovered = _render(_fixture(), 100, 40, _runtime(), mouse_pos=mouse_pos)
+            assert hovered != plain, mouse_pos
+
+    def test_the_window_null_is_under_the_second_hover(self):
+        from linecast.weather.hourly import _prepare_hourly_window
+        data = _fixture()
+        window = _prepare_hourly_window(data["hourly"], NOW, 100)
+        col = HOURLY_HOVERS[1][0]
+        assert int((col - 1) / 99 * window["total_hours"] + 0.5) == 3
+
+    def test_every_null_a_chip_can_show_is_hovered(self):
+        assert len(HOVERED) == 2 * len(HOURLY_FIELDS) + 4 * len(DAILY_FIELDS)
 
 
 class TestWhatANullBecomes:
