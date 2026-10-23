@@ -61,9 +61,9 @@ from linecast.astro.ephemeris import (
     SUNRISE_DEPRESSION_DEG,
     _angular_separation,
     _moon_altitude_deg,
-    _moon_distance_er,
-    _moon_ra_dec,
-    _sun_ra_dec,
+    moon_distance_er,
+    moon_ra_dec,
+    sun_ra_dec,
     next_moon_phase_utc,
     sun_alt_az_deg,
 )
@@ -125,12 +125,12 @@ def _crescent_q(evening, obs):
                                moon_alt, MOON_RISE_ALTITUDE_DEG)
     best = sunset + (moonset - sunset) * 4 / 9
 
-    parallax = math.degrees(math.asin(1.0 / _moon_distance_er(best)))
+    parallax = math.degrees(math.asin(1.0 / moon_distance_er(best)))
     alt = moon_alt(best)
     arcv = (alt - parallax * math.cos(math.radians(alt))
             - sun_alt_az_deg(best, obs.lat, obs.lng)[0])
-    moon_ra, moon_dec = _moon_ra_dec(best)
-    arcl = _angular_separation(moon_ra, moon_dec, *_sun_ra_dec(best))
+    moon_ra, moon_dec = moon_ra_dec(best)
+    arcl = _angular_separation(moon_ra, moon_dec, *sun_ra_dec(best))
     width = 60.0 * 0.27245 * parallax * (1.0 - math.cos(math.radians(arcl)))
     return (arcv - (11.8371 - 6.3226 * width + 0.7319 * width ** 2
                     - 0.1018 * width ** 3)) / 10.0

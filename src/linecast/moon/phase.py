@@ -8,7 +8,7 @@ Reference: Meeus, "Astronomical Algorithms" (2nd ed.), ch. 49.
 from datetime import timedelta, timezone
 
 from linecast.astro.ephemeris import (
-    _moon_events_for_local_date, moon_illuminated_fraction, moon_phase_frac,
+    moon_events_for_local_date, moon_illuminated_fraction, moon_phase_frac,
     next_moon_phase_utc,
 )
 from linecast.terminal.glyphs import moon_icon
@@ -85,8 +85,8 @@ def upcoming_moon_events(now_local, lat, lng):
     next_set = None
     for offset in range(3):
         day = now_local.date() + timedelta(days=offset)
-        rise, sset = _moon_events_for_local_date(day, lat, lng, tzinfo,
-                                                 since=now_local)
+        rise, sset = moon_events_for_local_date(day, lat, lng, tzinfo,
+                                                since=now_local)
         if next_rise is None and rise is not None:
             next_rise = rise
         if next_set is None and sset is not None:

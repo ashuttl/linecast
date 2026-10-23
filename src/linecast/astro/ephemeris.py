@@ -17,7 +17,7 @@ from datetime import datetime, timedelta, timezone
 from functools import lru_cache
 
 
-def _julian_day(dt_utc):
+def julian_day(dt_utc):
     """Convert a UTC datetime into Julian Day.
 
     Uses the Unix epoch offset: JD 2440587.5 = 1970-01-01T00:00:00Z.
@@ -46,7 +46,7 @@ def _sun_mean_elements(d):
     return w, m
 
 
-def _obliquity(d):
+def obliquity(d):
     """Mean obliquity of the ecliptic in radians (Meeus, eq. 22.2)."""
     return math.radians(23.4393 - 3.563e-7 * d)
 
@@ -111,7 +111,7 @@ def precession_at(dt_utc):
     cell at the closest zoom, so the day is resolution enough and a live
     view that ticks by seconds reuses the same matrix all evening.
     """
-    return _precession_for_day(math.floor(_julian_day(dt_utc) - 2451545.0))
+    return _precession_for_day(math.floor(julian_day(dt_utc) - 2451545.0))
 
 
 # A 3×3 matrix here is nine floats, row-major, as precession_matrix
@@ -160,7 +160,7 @@ def precess_to_j2000(ra_deg, dec_deg, dt_utc):
                                 _vector_of(ra_deg, dec_deg)))
 
 
-def _sun_ecliptic(dt_utc):
+def sun_ecliptic(dt_utc):
     """Geocentric Sun ecliptic longitude (radians) and distance (AU).
 
     Schlyter's solar position, the companion to _moon_ecliptic. The Sun's
@@ -170,7 +170,7 @@ def _sun_ecliptic(dt_utc):
 
     Source: https://stjarnhimlen.se/comp/ppcomp.html#5
     """
-    d = _julian_day(dt_utc) - 2451543.5
+    d = julian_day(dt_utc) - 2451543.5
     w, m = _sun_mean_elements(d)
     e = 0.016709 - 1.151e-9 * d
 
@@ -180,16 +180,16 @@ def _sun_ecliptic(dt_utc):
     return math.atan2(y_v, x_v) + w, math.hypot(x_v, y_v)
 
 
-def _sun_ra_dec(dt_utc):
+def sun_ra_dec(dt_utc):
     """Geocentric Sun right ascension/declination in degrees."""
-    lon, radius = _sun_ecliptic(dt_utc)
+    lon, radius = sun_ecliptic(dt_utc)
     return _to_equatorial(lon, 0.0, radius,
-                          _obliquity(_julian_day(dt_utc) - 2451543.5))
+                          obliquity(julian_day(dt_utc) - 2451543.5))
 
 
 def sun_declination(dt_utc):
     """Sun's declination in degrees."""
-    return _sun_ra_dec(dt_utc)[1]
+    return sun_ra_dec(dt_utc)[1]
 
 
 # Schlyter's perturbation terms for the Moon, in degrees. Each is an
@@ -242,7 +242,7 @@ def _moon_ecliptic(dt_utc):
       e  — orbital eccentricity
       M  — mean anomaly (deg)
     """
-    jd = _julian_day(dt_utc)
+    jd = julian_day(dt_utc)
     # Days since the orbital elements epoch (2000-Jan-0.0 = JD 2451543.5)
     d = jd - 2451543.5
 
@@ -295,26 +295,26 @@ def _moon_ecliptic(dt_utc):
     return lon, lat, radius
 
 
-def _moon_ra_dec(dt_utc):
+def moon_ra_dec(dt_utc):
     """Geocentric Moon right ascension/declination in degrees."""
     lon, lat, _dist = _moon_ecliptic(dt_utc)
     return _to_equatorial(lon, lat, 1.0,
-                          _obliquity(_julian_day(dt_utc) - 2451543.5))
+                          obliquity(julian_day(dt_utc) - 2451543.5))
 
 
-def _moon_distance_er(dt_utc):
+def moon_distance_er(dt_utc):
     """Moon distance in Earth radii (two-body, unperturbed: ~1%)."""
     return _moon_ecliptic(dt_utc)[2]
 
 
-def _gmst_deg(dt_utc):
+def gmst_deg(dt_utc):
     """Greenwich mean sidereal time in degrees.
 
     Uses the IAU 1982 expression for GMST as a function of Julian Date.
     Reference: Meeus, "Astronomical Algorithms" (2nd ed.), eq. 12.4.
     J2000.0 epoch = JD 2451545.0; Julian century = 36525 days.
     """
-    jd = _julian_day(dt_utc)
+    jd = julian_day(dt_utc)
     t = (jd - 2451545.0) / 36525.0
     gmst = (
         280.46061837
@@ -327,7 +327,7 @@ def _gmst_deg(dt_utc):
 
 def _lst_deg(dt_utc, lng_deg):
     """Local mean sidereal time in degrees."""
-    return _norm_deg(_gmst_deg(dt_utc) + lng_deg)
+    return _norm_deg(gmst_deg(dt_utc) + lng_deg)
 
 
 def _hour_angle(dt_utc, lng_deg, ra_deg):
@@ -345,7 +345,7 @@ def _moon_altitude_deg(dt_utc, lat_deg, lng_deg):
     MOON_RISE_ALTITUDE_DEG stands in for the pair of them; moon_altitude
     gives the altitude seen from the ground.
     """
-    ra_deg, dec_deg = _moon_ra_dec(dt_utc)
+    ra_deg, dec_deg = moon_ra_dec(dt_utc)
     hour_angle = math.radians(_hour_angle(dt_utc, lng_deg, ra_deg))
 
     lat = math.radians(lat_deg)
@@ -358,7 +358,7 @@ def _moon_altitude_deg(dt_utc, lat_deg, lng_deg):
     return math.degrees(math.asin(sin_alt))
 
 
-def _moon_azimuth_deg(dt_utc, lat_deg, lng_deg):
+def moon_azimuth_deg(dt_utc, lat_deg, lng_deg):
     """Approximate Moon azimuth, degrees east of north.
 
     The companion to _moon_altitude_deg: same RA/dec and hour angle
@@ -366,7 +366,7 @@ def _moon_azimuth_deg(dt_utc, lat_deg, lng_deg):
     trig call.  Meeus measures azimuth westward from south; the +180
     turns that into the compass bearing the rest of the app speaks.
     """
-    ra_deg, dec_deg = _moon_ra_dec(dt_utc)
+    ra_deg, dec_deg = moon_ra_dec(dt_utc)
     hour_angle = math.radians(_hour_angle(dt_utc, lng_deg, ra_deg))
 
     lat = math.radians(lat_deg)
@@ -378,7 +378,7 @@ def _moon_azimuth_deg(dt_utc, lat_deg, lng_deg):
     return (math.degrees(azimuth) + 180.0) % 360.0
 
 
-def _moon_parallactic_deg(dt_utc, lat_deg, lng_deg):
+def moon_parallactic_deg(dt_utc, lat_deg, lng_deg):
     """Approximate parallactic angle of the Moon, in degrees.
 
     The angle at the Moon between the direction to the celestial pole and
@@ -389,7 +389,7 @@ def _moon_parallactic_deg(dt_utc, lat_deg, lng_deg):
     latitude. Positive east of the meridian; zero for a Moon due south of
     a northern observer.
     """
-    ra_deg, dec_deg = _moon_ra_dec(dt_utc)
+    ra_deg, dec_deg = moon_ra_dec(dt_utc)
     hour_angle = math.radians(_hour_angle(dt_utc, lng_deg, ra_deg))
 
     lat = math.radians(lat_deg)
@@ -447,8 +447,8 @@ def _refine_moon_crossing_utc(t0_utc, t1_utc, lat_deg, lng_deg, threshold_deg):
     return lo + timedelta(seconds=(hi - lo).total_seconds() / 2.0)
 
 
-def _moon_events_for_local_date(local_date, lat_deg, lng_deg, tzinfo,
-                                threshold_deg=MOON_RISE_ALTITUDE_DEG, since=None):
+def moon_events_for_local_date(local_date, lat_deg, lng_deg, tzinfo,
+                               threshold_deg=MOON_RISE_ALTITUDE_DEG, since=None):
     """Return (moonrise_local, moonset_local) for one local calendar date.
 
     The threshold is the geocentric altitude the Moon rises and sets at,
@@ -510,7 +510,7 @@ def _moon_events_for_local_date(local_date, lat_deg, lng_deg, tzinfo,
     return rise, sset
 
 
-def _moon_transits_for_local_date(local_date, lng_deg, tzinfo):
+def moon_transits_for_local_date(local_date, lng_deg, tzinfo):
     """Local instants the Moon crosses the meridian on one local date.
 
     Returns (upper, lower): the meridian transit and anti-transit as
@@ -527,8 +527,8 @@ def _moon_transits_for_local_date(local_date, lng_deg, tzinfo):
     end_utc = end_local.astimezone(timezone.utc)
 
     def offset(dt_utc, kind):
-        ra_deg, _dec = _moon_ra_dec(dt_utc)
-        h = _norm_deg(_gmst_deg(dt_utc) + lng_deg - ra_deg)
+        ra_deg, _dec = moon_ra_dec(dt_utc)
+        h = _norm_deg(gmst_deg(dt_utc) + lng_deg - ra_deg)
         return (h + 180.0) % 360.0 - 180.0 if kind == "upper" else h - 180.0
 
     found = {"upper": None, "lower": None}
@@ -579,7 +579,7 @@ def moon_phase_frac(dt_utc):
     runs ahead of and behind the mean by the better part of a day.
     """
     moon_lon, _lat, _dist = _moon_ecliptic(dt_utc)
-    sun_lon, _r = _sun_ecliptic(dt_utc)
+    sun_lon, _r = sun_ecliptic(dt_utc)
     return ((math.degrees(moon_lon - sun_lon)) % 360.0) / 360.0
 
 
@@ -593,8 +593,8 @@ def moon_illuminated_fraction(dt_utc):
     moons the Moon passes a few degrees clear of the Sun, and a sliver
     stays lit.
     """
-    moon_ra, moon_dec = _moon_ra_dec(dt_utc)
-    sun_ra, sun_dec = _sun_ra_dec(dt_utc)
+    moon_ra, moon_dec = moon_ra_dec(dt_utc)
+    sun_ra, sun_dec = sun_ra_dec(dt_utc)
     elong = math.radians(
         _angular_separation(moon_ra, moon_dec, sun_ra, sun_dec))
     return (1.0 - math.cos(elong)) / 2.0
@@ -624,8 +624,8 @@ def moon_bright_limb_deg(dt_utc):
     Moon's poles, so this is what keeps the terminator from being drawn
     at the wrong slant.
     """
-    moon_ra, moon_dec = _moon_ra_dec(dt_utc)
-    sun_ra, sun_dec = _sun_ra_dec(dt_utc)
+    moon_ra, moon_dec = moon_ra_dec(dt_utc)
+    sun_ra, sun_dec = sun_ra_dec(dt_utc)
     return _position_angle(moon_ra, moon_dec, sun_ra, sun_dec)
 
 
@@ -638,8 +638,8 @@ def moon_axis_deg(dt_utc):
     hang the maria at a visible tilt. The remaining degree and a half is
     libration, which belongs to a longer calculation than this one.
     """
-    obliq = math.degrees(_obliquity(_julian_day(dt_utc) - 2451543.5))
-    moon_ra, moon_dec = _moon_ra_dec(dt_utc)
+    obliq = math.degrees(obliquity(julian_day(dt_utc) - 2451543.5))
+    moon_ra, moon_dec = moon_ra_dec(dt_utc)
     return _position_angle(moon_ra, moon_dec, 270.0, 90.0 - obliq)
 
 
@@ -688,7 +688,7 @@ def moon_age_days(dt_utc):
     return (dt_utc - last_new).total_seconds() / 86400.0
 
 
-def _alt_az_deg(ra_deg, dec_deg, dt_utc, lat_deg, lng_deg):
+def alt_az_deg(ra_deg, dec_deg, dt_utc, lat_deg, lng_deg):
     """Altitude and azimuth (degrees east of north) of a point at *ra_deg*,
     *dec_deg*, for the observer, geocentric (Meeus, ch. 13)."""
     hour_angle = math.radians(_hour_angle(dt_utc, lng_deg, ra_deg))
@@ -706,16 +706,16 @@ def _alt_az_deg(ra_deg, dec_deg, dt_utc, lat_deg, lng_deg):
 
 def sun_alt_az_deg(dt_utc, lat_deg, lng_deg):
     """The Sun's altitude and azimuth for the observer, in degrees."""
-    ra, dec = _sun_ra_dec(dt_utc)
-    return _alt_az_deg(ra, dec, dt_utc, lat_deg, lng_deg)
+    ra, dec = sun_ra_dec(dt_utc)
+    return alt_az_deg(ra, dec, dt_utc, lat_deg, lng_deg)
 
 
 def subsolar_point(dt_utc):
     """(lat, lng) in degrees of the place with the Sun overhead: its
     declination, and the meridian it is crossing, where its hour angle
     is zero, from -180 to 180. sun_alt_az_deg gives 90° there."""
-    ra, dec = _sun_ra_dec(dt_utc)
-    return dec, (ra - _gmst_deg(dt_utc) + 540.0) % 360.0 - 180.0
+    ra, dec = sun_ra_dec(dt_utc)
+    return dec, (ra - gmst_deg(dt_utc) + 540.0) % 360.0 - 180.0
 
 
 def moon_horizontal_parallax_deg(dt_utc):
@@ -723,7 +723,7 @@ def moon_horizontal_parallax_deg(dt_utc):
     an observer with the Moon on the horizon sees it, about a degree.
     The topocentric altitude is the geocentric one less this times the
     cosine of the altitude."""
-    return math.degrees(math.asin(1.0 / _moon_distance_er(dt_utc)))
+    return math.degrees(math.asin(1.0 / moon_distance_er(dt_utc)))
 
 
 def moon_altitude(dt_utc, lat_deg, lng_deg, geocentric_deg=None):
@@ -768,7 +768,7 @@ def sun_transit_utc(local_date, lng_deg, tzinfo=None):
                           tzinfo=tzinfo)
     t = _to_utc(local_noon)
     for _ in range(3):
-        ra, _dec = _sun_ra_dec(t)
+        ra, _dec = sun_ra_dec(t)
         t -= timedelta(hours=_hour_angle(t, lng_deg, ra) / 15.0 / 1.0027379)
     return t
 

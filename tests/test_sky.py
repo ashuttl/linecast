@@ -78,10 +78,10 @@ class TestPlanets:
         assert abs(mag - 7.8) < 0.2
 
     def test_venus_at_greatest_elongation(self):
-        from linecast.astro.ephemeris import _sun_ra_dec
+        from linecast.astro.ephemeris import sun_ra_dec
         when = _utc(2025, 6, 1)
         ra, dec, mag, _dist = planet_position("venus", when)
-        sun_ra, sun_dec = _sun_ra_dec(when)
+        sun_ra, sun_dec = sun_ra_dec(when)
         r1, d1, r2, d2 = (math.radians(v) for v in (ra, dec, sun_ra, sun_dec))
         sep = math.degrees(math.acos(
             math.sin(d1) * math.sin(d2) + math.cos(d1) * math.cos(d2) * math.cos(r1 - r2)))
@@ -246,7 +246,7 @@ class TestPrecession:
         own share of it, which is what says the matrix is in the frame
         and not something else.
         """
-        from linecast.astro.ephemeris import _alt_az_deg
+        from linecast.astro.ephemeris import alt_az_deg
         from linecast.sky.catalogue import equatorial_vector, star_vectors, stars
         moment = NIGHT.astimezone(timezone.utc)
         scene = Scene(moment, LAT, LNG)
@@ -258,8 +258,8 @@ class TestPrecession:
         for i, (ra, dec, _mag, _bv) in enumerate(stars()[:40]):
             vector = star_vectors()[i]
             alt, az = alt_az_of(mat_apply(scene.catalogue, vector))
-            was_alt, was_az = _alt_az_deg(math.degrees(ra), math.degrees(dec),
-                                          moment, LAT, LNG)
+            was_alt, was_az = alt_az_deg(math.degrees(ra), math.degrees(dec),
+                                         moment, LAT, LNG)
             moved = _angle_between((az, alt), (was_az, was_alt))
             beta = math.acos(max(-1.0, min(1.0, sum(p * q for p, q
                                                     in zip(vector, pole)))))
@@ -276,7 +276,7 @@ class TestPrecession:
 class TestScene:
     def test_sun_and_moon_agree_with_the_ephemeris(self):
         from linecast.astro.ephemeris import (
-            _moon_altitude_deg, _moon_azimuth_deg, sun_alt_az_deg,
+            _moon_altitude_deg, moon_azimuth_deg, sun_alt_az_deg,
         )
         moment = NIGHT.astimezone(timezone.utc)
         scene = Scene(moment, LAT, LNG)
@@ -285,7 +285,7 @@ class TestScene:
         # The Moon sits below its geocentric place by its parallax.
         geocentric = _moon_altitude_deg(moment, LAT, LNG)
         assert 0.3 < geocentric - scene.moon_alt < 1.1
-        assert abs(scene.moon_az - _moon_azimuth_deg(moment, LAT, LNG)) < 1e-9
+        assert abs(scene.moon_az - moon_azimuth_deg(moment, LAT, LNG)) < 1e-9
 
     def test_night_is_dark_and_noon_is_not(self):
         night = Scene(NIGHT.astimezone(timezone.utc), LAT, LNG)

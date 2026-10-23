@@ -17,7 +17,7 @@ Source: https://stjarnhimlen.se/comp/ppcomp.html
 
 import math
 
-from linecast.astro.ephemeris import _julian_day, _obliquity, _sun_ecliptic
+from linecast.astro.ephemeris import julian_day, obliquity, sun_ecliptic
 
 PLANETS = ("mercury", "venus", "mars", "jupiter", "saturn", "uranus", "neptune")
 
@@ -122,9 +122,9 @@ def _heliocentric(name, d):
 def planet_position(name, dt_utc):
     """Geocentric right ascension and declination in degrees, the visual
     magnitude, and the distance from Earth in AU."""
-    d = _julian_day(dt_utc) - 2451543.5
+    d = julian_day(dt_utc) - 2451543.5
     lon, lat, r = _heliocentric(name, d)
-    sun_lon, rs = _sun_ecliptic(dt_utc)
+    sun_lon, rs = sun_ecliptic(dt_utc)
 
     xh = r * math.cos(lat) * math.cos(lon)
     yh = r * math.cos(lat) * math.sin(lon)
@@ -134,7 +134,7 @@ def planet_position(name, dt_utc):
     zg = zh
     dist = math.sqrt(xg * xg + yg * yg + zg * zg)
 
-    obliq = _obliquity(d)
+    obliq = obliquity(d)
     xe = xg
     ye = yg * math.cos(obliq) - zg * math.sin(obliq)
     ze = yg * math.sin(obliq) + zg * math.cos(obliq)

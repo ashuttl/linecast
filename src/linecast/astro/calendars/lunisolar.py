@@ -25,7 +25,7 @@ import math
 from datetime import datetime, timedelta, timezone
 from functools import lru_cache
 
-from linecast.astro.ephemeris import _sun_ecliptic, next_moon_phase_utc
+from linecast.astro.ephemeris import sun_ecliptic, next_moon_phase_utc
 from linecast._i18n import setting
 
 # The four calendars, each computed at its own meridian (hours east
@@ -69,7 +69,7 @@ _MEAN_DEG_PER_DAY = 360.0 / 365.2422
 
 
 def _sun_lon_deg(dt_utc):
-    lon, _dist = _sun_ecliptic(dt_utc)
+    lon, _dist = sun_ecliptic(dt_utc)
     return math.degrees(lon) % 360.0
 
 

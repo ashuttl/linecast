@@ -75,11 +75,11 @@ class TestMoonDisc:
         hemisphere test drew.
         """
         from datetime import timezone
-        from linecast.astro.ephemeris import _moon_parallactic_deg
+        from linecast.astro.ephemeris import moon_parallactic_deg
 
         moment = datetime(2026, 3, 5, 4, 0, tzinfo=timezone.utc)
-        north = _moon_parallactic_deg(moment, 0.5, 36.8)
-        south = _moon_parallactic_deg(moment, -0.5, 36.8)
+        north = moon_parallactic_deg(moment, 0.5, 36.8)
+        south = moon_parallactic_deg(moment, -0.5, 36.8)
         assert abs(north - south) < 2.0
 
     def test_familiar_hemisphere_view_falls_out_of_the_angle(self):
@@ -91,16 +91,16 @@ class TestMoonDisc:
         """
         from datetime import timedelta, timezone
         from linecast.astro.ephemeris import (
-            _moon_altitude_deg, _moon_parallactic_deg,
+            _moon_altitude_deg, moon_parallactic_deg,
         )
 
         day = datetime(2026, 3, 5, tzinfo=timezone.utc)
-        assert abs(_moon_parallactic_deg(
+        assert abs(moon_parallactic_deg(
             day + timedelta(hours=6, minutes=50), 43.7, -79.4)) < 5.0
-        assert abs(abs(_moon_parallactic_deg(
+        assert abs(abs(moon_parallactic_deg(
             day + timedelta(hours=14, minutes=5), -41.3, 174.8)) - 180.0) < 5.0
 
-        tilts = [_moon_parallactic_deg(day + timedelta(hours=h), 43.7, -79.4)
+        tilts = [moon_parallactic_deg(day + timedelta(hours=h), 43.7, -79.4)
                  for h in range(24)
                  if _moon_altitude_deg(day + timedelta(hours=h), 43.7, -79.4) > 0]
         assert max(tilts) - min(tilts) > 60.0

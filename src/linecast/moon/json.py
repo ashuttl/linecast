@@ -28,7 +28,7 @@ def build_payload(now_local, lat, lng, runtime, location=None, calendar=None,
     the saved setting and language the same way the panel resolves it.
     """
     from linecast._i18n import moon_name
-    from linecast.astro.ephemeris import _moon_azimuth_deg, moon_age_days, moon_altitude
+    from linecast.astro.ephemeris import moon_azimuth_deg, moon_age_days, moon_altitude
     from linecast.moon.phase import (
         SYNODIC_MONTH, moon_cycle_frac, moon_illumination,
         moon_phase, next_phase_local, upcoming_moon_events,
@@ -61,7 +61,7 @@ def build_payload(now_local, lat, lng, runtime, location=None, calendar=None,
     # As the sky has it: seen from the ground, and up by the rule its
     # rise and set are timed by.
     altitude, up = moon_altitude(moment_utc, lat, lng)
-    azimuth = _moon_azimuth_deg(moment_utc, lat, lng)
+    azimuth = moon_azimuth_deg(moment_utc, lat, lng)
 
     # The traditional calendar, resolved exactly as the panel resolves
     # it, so the two agree; null when no calendar is in effect.

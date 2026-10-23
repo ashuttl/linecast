@@ -20,7 +20,7 @@ from linecast.terminal import live as _live
 from linecast.terminal import theme as _theme
 from linecast._log import log_failure
 from linecast._i18n import FULL_DAY_NAMES
-from linecast.astro.ephemeris import _moon_events_for_local_date, sunrise_sunset
+from linecast.astro.ephemeris import moon_events_for_local_date, sunrise_sunset
 from linecast.moon.phase import moon_phase
 from linecast._i18n import fmt_decimal, table_for
 
@@ -209,7 +209,7 @@ def compute_moon_labels(window_start, total_hours, graph_w, station_meta, runtim
     day = local_start.date() - timedelta(days=1)
     last_day = local_end.date() + timedelta(days=1)
     while day <= last_day:
-        rise_dt, set_dt = _moon_events_for_local_date(day, lat, lng, tzinfo)
+        rise_dt, set_dt = moon_events_for_local_date(day, lat, lng, tzinfo)
         for event_dt, is_rise in ((rise_dt, True), (set_dt, False)):
             if event_dt is None:
                 continue

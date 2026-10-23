@@ -62,7 +62,7 @@ from linecast._parsers import moon_parser, refuse_view_flag
 from linecast.terminal import theme as _theme
 from linecast.radar.i18n import compass_point, rs
 from linecast.astro.ephemeris import (
-    _moon_azimuth_deg, _moon_parallactic_deg, _moon_ra_dec,
+    moon_azimuth_deg, moon_parallactic_deg, moon_ra_dec,
     moon_age_days, moon_altitude, moon_axis_deg, moon_bright_limb_deg, precess_to_j2000,
 )
 from linecast.moon.disc import _draw_moon_disc
@@ -494,7 +494,7 @@ def _moon_facts(now_local, lat, lng, runtime):
     # Position angles run from celestial north through east, which is
     # anticlockwise with north up; the parallactic angle then says how
     # far celestial north itself is turned from the observer's vertical.
-    parallactic = _moon_parallactic_deg(moment_utc, lat, lng)
+    parallactic = moon_parallactic_deg(moment_utc, lat, lng)
     rise, sset = upcoming_moon_events(now_local, lat, lng)
     season, season_utc = next_season_event(now_local)
     return _Facts(
@@ -502,11 +502,11 @@ def _moon_facts(now_local, lat, lng, runtime):
         illum=moon_illumination(now_local),
         age=moon_age_days(moment_utc),
         alt=alt, up=up,
-        bearing=compass_point(_moon_azimuth_deg(moment_utc, lat, lng), lang_of(runtime)),
+        bearing=compass_point(moon_azimuth_deg(moment_utc, lat, lng), lang_of(runtime)),
         limb=parallactic - moon_bright_limb_deg(moment_utc),
         axis=parallactic - moon_axis_deg(moment_utc),
         # The stars about the Moon, the Moon put in the catalogue's J2000 frame.
-        sky=(*precess_to_j2000(*_moon_ra_dec(moment_utc), moment_utc), parallactic),
+        sky=(*precess_to_j2000(*moon_ra_dec(moment_utc), moment_utc), parallactic),
         rise=rise, sset=sset,
         full=next_phase_local(moment_utc, 0.5, now_local),
         new=next_phase_local(moment_utc, 0.0, now_local),

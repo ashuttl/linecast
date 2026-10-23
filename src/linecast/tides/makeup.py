@@ -164,14 +164,14 @@ def sky_marks(first, tz):
     the Moon's turns in declination and its nearest approaches for the
     month, the Sun's turns in declination for the year; and the moments
     of the month's principal phases, whose icons the view draws."""
-    from linecast.astro.ephemeris import _moon_distance_er, _moon_ra_dec, sun_declination
+    from linecast.astro.ephemeris import moon_distance_er, moon_ra_dec, sun_declination
     from linecast.moon.calendar import principal_phase_days
     ndays = calendar.monthrange(first.year, first.month)[1]
     start = datetime(first.year, first.month, first.day, tzinfo=tz).astimezone(UTC)
     hours = ndays * 24
     times = [start + timedelta(hours=h) for h in range(-1, hours + 2)]
-    moon = _turns([_moon_ra_dec(t)[1] for t in times], hours)
-    dist = [_moon_distance_er(t) for t in times]
+    moon = _turns([moon_ra_dec(t)[1] for t in times], hours)
+    dist = [moon_distance_er(t) for t in times]
     near = [(k - 1) / hours for k in range(1, len(times) - 1)
             if dist[k] < dist[k - 1] and dist[k] <= dist[k + 1] and 0 <= k - 1 < hours]
     n = 366 if calendar.isleap(first.year) else 365

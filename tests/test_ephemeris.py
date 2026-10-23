@@ -44,7 +44,7 @@ class TestEphemerisAccuracy:
     def test_moon_position_within_a_tenth_of_a_degree(self):
         """Geocentric RA/dec against pyephem, which uses ELP2000."""
         from datetime import timezone
-        from linecast.astro.ephemeris import _moon_ra_dec
+        from linecast.astro.ephemeris import moon_ra_dec
 
         # (UTC, RA deg, dec deg)
         known = [
@@ -56,7 +56,7 @@ class TestEphemerisAccuracy:
         for stamp, ra, dec in known:
             when = datetime.strptime(stamp, "%Y-%m-%d %H:%M").replace(
                 tzinfo=timezone.utc)
-            got_ra, got_dec = _moon_ra_dec(when)
+            got_ra, got_dec = moon_ra_dec(when)
             d_ra = abs((got_ra - ra + 540.0) % 360.0 - 180.0) * math.cos(
                 math.radians(dec))
             assert math.hypot(d_ra, got_dec - dec) < 0.1, stamp
@@ -65,7 +65,7 @@ class TestEphemerisAccuracy:
         """The lit edge must face the Sun, wherever both happen to be."""
         from datetime import timezone
         from linecast.astro.ephemeris import (
-            _moon_altitude_deg, _moon_parallactic_deg, moon_bright_limb_deg,
+            _moon_altitude_deg, moon_parallactic_deg, moon_bright_limb_deg,
         )
 
         # Bearing from Moon to Sun in the alt/az frame, 0 = up, +90 = right,
@@ -80,7 +80,7 @@ class TestEphemerisAccuracy:
             when = datetime.strptime(stamp, "%Y-%m-%d %H:%M").replace(
                 tzinfo=timezone.utc)
             assert _moon_altitude_deg(when, lat, lng) > 0, stamp
-            drawn = (_moon_parallactic_deg(when, lat, lng)
+            drawn = (moon_parallactic_deg(when, lat, lng)
                      - moon_bright_limb_deg(when))
             off = abs((drawn - want + 540.0) % 360.0 - 180.0)
             assert off < 3.0, f"{stamp}: off by {off:.1f} deg"

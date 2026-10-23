@@ -27,7 +27,7 @@ from typing import NamedTuple
 
 from linecast.terminal import live as _live
 from linecast.terminal import theme as _theme
-from linecast.astro.ephemeris import _moon_events_for_local_date, next_moon_phase_utc
+from linecast.astro.ephemeris import moon_events_for_local_date, next_moon_phase_utc
 from linecast._timefmt import fmt_time_dt
 from linecast.terminal.color import bg, fg
 from linecast.terminal.textwidth import cells, visible_len
@@ -509,7 +509,7 @@ def _hover_chip(d, ctx, found, phase_days, mouse_pos, cols, rows):
         phase_line = (f"{icon} {name} · "
                       f"{_ms('illuminated', runtime, pct=f'{illum * 100:.0f}')}")
 
-    rise, sset = _moon_events_for_local_date(d, ctx.lat, ctx.lng, tzinfo)
+    rise, sset = moon_events_for_local_date(d, ctx.lat, ctx.lng, tzinfo)
 
     def _t(dt):
         return fmt_time_dt(dt, use_24h=runtime.use_24h) if dt else "—"

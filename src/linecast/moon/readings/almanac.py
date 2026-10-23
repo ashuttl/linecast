@@ -12,7 +12,7 @@ from datetime import datetime, time
 
 from linecast._timefmt import fmt_time_dt, iso_minutes
 from linecast.astro.ephemeris import (
-    _moon_events_for_local_date, _moon_transits_for_local_date,
+    moon_events_for_local_date, moon_transits_for_local_date,
 )
 from linecast.moon.i18n import _ms
 from linecast.moon.phase import moon_cycle_frac
@@ -29,8 +29,8 @@ def _solunar(ctx):
     majors; (rise, set), the minors), each None where the Moon makes
     none that day."""
     tzinfo = ctx.now_local.tzinfo
-    return (_moon_transits_for_local_date(ctx.today, ctx.lng, tzinfo),
-            _moon_events_for_local_date(ctx.today, ctx.lat, ctx.lng, tzinfo))
+    return (moon_transits_for_local_date(ctx.today, ctx.lng, tzinfo),
+            moon_events_for_local_date(ctx.today, ctx.lat, ctx.lng, tzinfo))
 
 
 class Almanac(Reading):

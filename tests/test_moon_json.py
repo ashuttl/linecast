@@ -160,14 +160,14 @@ class TestHemisphereAndAltitude:
         due south (northern hemisphere) with the bearing increasing
         through it, which is the property a compass hint depends on.
         """
-        from linecast.astro.ephemeris import _moon_altitude_deg, _moon_azimuth_deg
+        from linecast.astro.ephemeris import _moon_altitude_deg, moon_azimuth_deg
 
         samples = []
         for hour in range(24):
             t = FIXED_NOW.replace(hour=hour)
             alt = _moon_altitude_deg(t, LAT, LNG)
             if alt > 5.0:
-                samples.append((hour, _moon_azimuth_deg(t, LAT, LNG)))
+                samples.append((hour, moon_azimuth_deg(t, LAT, LNG)))
         assert len(samples) >= 3, "expected the Moon up for part of the day"
         bearings = [az for _h, az in samples]
         assert bearings == sorted(bearings), bearings
@@ -240,13 +240,13 @@ class TestAlmanacCalendarBlock:
 class TestMoonTransits:
     def test_upper_transit_crosses_the_meridian(self):
         from linecast.astro.ephemeris import (
-            _moon_azimuth_deg, _moon_altitude_deg,
-            _moon_transits_for_local_date,
+            moon_azimuth_deg, _moon_altitude_deg,
+            moon_transits_for_local_date,
         )
-        upper, lower = _moon_transits_for_local_date(
+        upper, lower = moon_transits_for_local_date(
             FIXED_NOW.date(), LNG, timezone.utc)
         assert upper is not None
-        azimuth = _moon_azimuth_deg(upper.astimezone(timezone.utc), LAT, LNG)
+        azimuth = moon_azimuth_deg(upper.astimezone(timezone.utc), LAT, LNG)
         assert min(azimuth, 360 - azimuth) > 90  # southern half of the sky
         assert abs(((azimuth - 180) + 180) % 360 - 180) < 2.0
         if lower is not None:

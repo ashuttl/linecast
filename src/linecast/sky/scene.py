@@ -14,8 +14,8 @@ import math
 from collections import namedtuple
 
 from linecast.astro.ephemeris import (
-    POINT_RISE_ALTITUDE_DEG, SUNRISE_DEPRESSION_DEG, _alt_az_deg, _gmst_deg,
-    _moon_parallactic_deg, _moon_ra_dec, _sun_ra_dec, mat_mul, moon_altitude, moon_axis_deg,
+    POINT_RISE_ALTITUDE_DEG, SUNRISE_DEPRESSION_DEG, alt_az_deg, gmst_deg,
+    moon_parallactic_deg, moon_ra_dec, sun_ra_dec, mat_mul, moon_altitude, moon_axis_deg,
     moon_bright_limb_deg, moon_illuminated_fraction, precession_at,
 )
 from linecast._geo import angle_delta
@@ -208,12 +208,12 @@ class Scene:
     def __init__(self, moment_utc, lat, lng):
         self.moment_utc = moment_utc
         self.lat, self.lng = lat, lng
-        lst = (_gmst_deg(moment_utc) + lng) % 360.0
+        lst = (gmst_deg(moment_utc) + lng) % 360.0
         self.horizontal = horizontal_matrix(lst, lat)
         self.catalogue = mat_mul(self.horizontal, precession_at(moment_utc))
 
-        sun_ra, sun_dec = _sun_ra_dec(moment_utc)
-        self.sun_alt, self.sun_az = _alt_az_deg(sun_ra, sun_dec, moment_utc, lat, lng)
+        sun_ra, sun_dec = sun_ra_dec(moment_utc)
+        self.sun_alt, self.sun_az = alt_az_deg(sun_ra, sun_dec, moment_utc, lat, lng)
         self.sun = horizontal_vector(self.sun_az, self.sun_alt)
 
         # The Moon is close enough that where you stand moves it: the
@@ -222,20 +222,20 @@ class Scene:
         # say they are, from their rising to their setting: the upper
         # limb above the horizon, lifted by refraction, which leaves the
         # centre a little below it for a few minutes after.
-        moon_ra, moon_dec = _moon_ra_dec(moment_utc)
-        geo, az = _alt_az_deg(moon_ra, moon_dec, moment_utc, lat, lng)
+        moon_ra, moon_dec = moon_ra_dec(moment_utc)
+        geo, az = alt_az_deg(moon_ra, moon_dec, moment_utc, lat, lng)
         self.moon_alt, self.moon_up = moon_altitude(moment_utc, lat, lng, geo)
         self.moon_az = az
         self.moon = horizontal_vector(az, self.moon_alt)
         self.sun_up = self.sun_alt > -SUNRISE_DEPRESSION_DEG
         self.moon_illum = moon_illuminated_fraction(moment_utc)
-        parallactic = _moon_parallactic_deg(moment_utc, lat, lng)
+        parallactic = moon_parallactic_deg(moment_utc, lat, lng)
         self.moon_limb = parallactic - moon_bright_limb_deg(moment_utc)
         self.moon_axis = parallactic - moon_axis_deg(moment_utc)
 
         self.planets = []   # (key, vector, alt, az, mag), brightest first
         for key, (ra, dec, mag, _dist) in planet_positions(moment_utc).items():
-            alt, az = _alt_az_deg(ra, dec, moment_utc, lat, lng)
+            alt, az = alt_az_deg(ra, dec, moment_utc, lat, lng)
             self.planets.append((key, horizontal_vector(az, alt), alt, az, mag))
         self.planets.sort(key=lambda p: p[4])
 
