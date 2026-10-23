@@ -157,6 +157,20 @@ def unread(data):
     _pending[:0] = data
 
 
+def in_foreground(fd):
+    """Whether this process's job has the terminal on `fd`, so a probe
+    may take it.  From a background job (`linecast moon --oneline &`)
+    the raw mode would stop the process with SIGTTOU and the read with
+    SIGTTIN, and the terminal's answers would go to the shell.  A tty
+    that is not this process's controlling terminal has no job to stop."""
+    if WINDOWS:
+        return True
+    try:
+        return os.tcgetpgrp(fd) == os.getpgrp()
+    except OSError:
+        return True
+
+
 def mark_answered():
     """Note that the terminal answered a cursor position query."""
     global answered

@@ -378,6 +378,8 @@ def _query_theme_via_osc(timeout_s: float):
         return None
 
     from linecast.terminal import term as _term
+    if not _term.in_foreground(fd_in):
+        return None
     query = _PROBE_QUERY + _term.CPR_QUERY
     fg_value = None
     bg_value = None

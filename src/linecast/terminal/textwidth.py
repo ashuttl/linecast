@@ -375,6 +375,8 @@ def calibrate_from_terminal(timeout_s=None):
     from linecast.terminal import term as _term
     if _term.answered is False:
         return   # the colour probe's cursor query went unanswered: a mute tty
+    if not _term.in_foreground(fd_in):
+        return
     _CALIBRATED = True
 
     if timeout_s is None:

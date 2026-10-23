@@ -289,6 +289,58 @@ class TestColourProbe:
         assert _unread(pty.stdin.fileno()) == b""   # nothing left for the shell
 
 
+# A shell's `linecast moon --oneline &`: the child leads a session on
+# the pty, as a shell does, and runs both probes from a process group
+# of their own, which is not the terminal's foreground.
+_BACKGROUND_CHILD = """
+import fcntl, os, signal, sys, termios
+slave = int(sys.argv[1])
+os.setsid()
+fcntl.ioctl(slave, termios.TIOCSCTTY, 0)
+pid = os.fork()
+if pid == 0:
+    os.setpgid(0, 0)
+    os.dup2(slave, 0)
+    os.dup2(slave, 1)
+    from linecast.terminal import textwidth, theme
+    textwidth.calibrate_from_terminal(timeout_s=0.2)
+    sys.stderr.write("palette %s\\n" % theme.theme_available)
+    sys.stderr.flush()
+    os._exit(0)
+_, status = os.waitpid(pid, os.WUNTRACED)
+if os.WIFSTOPPED(status):
+    sys.stderr.write("stopped by %d\\n" % os.WSTOPSIG(status))
+    os.kill(pid, signal.SIGKILL)
+    os.waitpid(pid, 0)
+else:
+    sys.stderr.write("exited\\n")
+"""
+
+
+@needs_pty
+@pytest.mark.skipif(sys.platform == "win32" or not hasattr(__import__("termios"), "TIOCSCTTY"),
+                    reason="needs a controlling terminal")
+def test_a_background_job_neither_stops_nor_asks():
+    """Raw mode from a background job stops it (SIGTTOU), and a query
+    sent from one is answered to the shell: the probes stand aside and
+    the palette falls back, as for a terminal that cannot be asked."""
+    master, slave = os.openpty()
+    env = dict(os.environ, LINECAST_THEME="auto", TERM="xterm-256color", PYTHONPATH=SRC)
+    proc = subprocess.Popen([sys.executable, "-c", _BACKGROUND_CHILD, str(slave)],
+                            stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
+                            stderr=subprocess.PIPE, env=env, pass_fds=(slave,))
+    os.close(slave)
+    try:
+        _out, err = proc.communicate(timeout=20)
+        sent = _unread(master)
+    finally:
+        if proc.poll() is None:
+            proc.kill()
+        os.close(master)
+    assert err.decode().split("\n")[:2] == ["palette False", "exited"], err
+    assert sent == b""
+
+
 # ---------------------------------------------------------------------------
 # The live loop, in a child process on a pty
 # ---------------------------------------------------------------------------
