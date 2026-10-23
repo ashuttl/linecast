@@ -30,6 +30,7 @@ MOON_PHASES = ["Nýtt tungl", "Vaxandi hálfmáni", "Fyrsti fjórðungur", "Vaxa
 
 HELP = {
     "hint_colors": "litir",
+    "hint_mode": "hamur",
     "weather_views": "spá / mánuður / ár",
     "month_colors": "hitastig / frávik frá meðaltali",
     "month_home": "fyrri almanaksmánuður",
@@ -91,6 +92,8 @@ HELP = {
 WEATHER = {
     "month_temperature": "Hitastig á klukkustund",
     "month_departure": "Frávik frá klukkustundarmeðaltali {span}",
+    "month_from_average": "{value} frá meðaltali",
+    "month_at_average": "meðaltal",
     "month_estimate": "Nýlegt líkanmat",
     "month_repeat": "Endurtekin klukkustund: meðaltal beggja gilda",
     "month_small": "Þessi sýn þarf að minnsta kosti {cols} dálka og {rows} raðir.",

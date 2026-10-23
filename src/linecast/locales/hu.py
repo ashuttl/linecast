@@ -50,6 +50,7 @@ MOON_PHASES = ["Újhold", "Növő sarló", "Első negyed", "Növő hold",
 # software labels its commands
 HELP = {
     "hint_colors": "színek",
+    "hint_mode": "mód",
     "weather_views": "előrejelzés / hónap / év",
     "month_colors": "hőmérséklet / eltérés az átlagtól",
     "month_home": "előző naptári hónap",
@@ -111,6 +112,8 @@ HELP = {
 WEATHER = {
     "month_temperature": "Óránkénti hőmérséklet",
     "month_departure": "Eltérés a(z) {span} óránkénti átlagától",
+    "month_from_average": "{value} az átlagtól",
+    "month_at_average": "átlag",
     "month_estimate": "Friss modellbecslés",
     "month_repeat": "Ismétlődő óra: a két érték átlaga",
     "month_small": "Ehhez a nézethez legalább {cols} oszlop és {rows} sor szükséges.",

@@ -28,6 +28,7 @@ MOON_PHASES = ["Nieuwe maan", "Wassende sikkel", "Eerste kwartier", "Wassende ma
 
 HELP = {
     "hint_colors": "kleuren",
+    "hint_mode": "modus",
     "weather_views": "verwachting / maand / jaar",
     "month_colors": "temperatuur / afwijking van gemiddelde",
     "month_home": "vorige kalendermaand",
@@ -89,6 +90,8 @@ HELP = {
 WEATHER = {
     "month_temperature": "Temperatuur per uur",
     "month_departure": "Afwijking van het uurgemiddelde over {span}",
+    "month_from_average": "{value} t.o.v. gemiddelde",
+    "month_at_average": "gemiddelde",
     "month_estimate": "Recente modelschatting",
     "month_repeat": "Herhaald uur: gemiddelde van beide metingen",
     "month_small": "Deze weergave vereist minstens {cols} kolommen en {rows} rijen.",

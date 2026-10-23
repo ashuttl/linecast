@@ -29,6 +29,7 @@ MOON_PHASES = ["Nymåne", "Tilltagande skära", "Första kvarteret", "Tilltagand
 
 HELP = {
     "hint_colors": "färger",
+    "hint_mode": "läge",
     "weather_views": "prognos / månad / år",
     "month_colors": "temperatur / avvikelse från medelvärde",
     "month_home": "föregående kalendermånad",
@@ -90,6 +91,8 @@ HELP = {
 WEATHER = {
     "month_temperature": "Temperatur timme för timme",
     "month_departure": "Avvikelse från timmedelvärdet {span}",
+    "month_from_average": "{value} från medelvärdet",
+    "month_at_average": "medelvärde",
     "month_estimate": "Nylig modelluppskattning",
     "month_repeat": "Upprepat klockslag: medelvärde av båda mätningarna",
     "month_small": "Den här vyn kräver minst {cols} kolumner och {rows} rader.",

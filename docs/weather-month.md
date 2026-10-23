@@ -13,7 +13,7 @@ linecast weather --month --print
 | Control | Action |
 | --- | --- |
 | `v` | Next view: forecast, month, year |
-| `c` | Temperature or departure from the hourly average |
+| `m` | Temperature or departure from the hourly average |
 | ← / → or scroll | Previous or next month |
 | Space / `n` | Previous calendar month |
 | Hover | Temperature, baseline average, and difference at that time |
@@ -22,6 +22,8 @@ linecast weather --month --print
 | `?` | Help |
 
 Days run down the chart and local clock hours across it. In a short terminal, each row holds two days, with the first in the upper half and the second in the lower half; hovering reads both. The numbers at the right are the lowest and highest hourly temperatures in the row. They remain temperatures when the chart shows departures. The braille lines mark sunrise and sunset, and the diamond marks now when viewing the current month. Legend temperatures are rounded to whole degrees; hover keeps tenths.
+
+Temperature colors are the ones the forecast uses. Within each month they run from faint at the coldest hour to strong at the warmest, so a month whose temperatures stay close together still shows its warm and cold spells.
 
 Departure colors compare each hour with its average across the ten complete years before this year, using the same local clock hour and the seven dates either side. Blue is cooler than that average, red warmer. These are Open-Meteo's historical model estimates. The baseline is identified by its years and is not a station's official climate normal.
 

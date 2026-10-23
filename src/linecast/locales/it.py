@@ -28,6 +28,7 @@ MOON_PHASES = ["Luna nuova", "Falce crescente", "Primo quarto", "Gibbosa crescen
 
 HELP = {
     "hint_colors": "colori",
+    "hint_mode": "modalità",
     "weather_views": "vista previsioni / mese / anno",
     "month_colors": "temperatura / scarto dalla media",
     "month_home": "mese precedente",
@@ -89,6 +90,8 @@ HELP = {
 WEATHER = {
     "month_temperature": "Temperatura oraria",
     "month_departure": "Scarto dalla media oraria del {span}",
+    "month_from_average": "{value} dalla media",
+    "month_at_average": "media",
     "month_estimate": "Stima recente del modello",
     "month_repeat": "Ora ripetuta: media delle due letture",
     "month_small": "Questa vista richiede almeno {cols} colonne e {rows} righe.",

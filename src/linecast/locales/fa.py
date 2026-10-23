@@ -47,6 +47,7 @@ MOON_PHASES = ["ماه نو", "هلال افزاینده", "تربیع اول", 
 # (جستجو، خروج), not by an imperative.
 HELP = {
     "hint_colors": "رنگ‌ها",
+    "hint_mode": "حالت",
     "weather_views": "نمای پیش‌بینی / ماه / سال",
     "month_colors": "دما / اختلاف با میانگین",
     "month_home": "ماه تقویمی قبل",
@@ -112,6 +113,8 @@ HELP = {
 WEATHER = {
     "month_temperature": "دمای ساعتی",
     "month_departure": "اختلاف با میانگین ساعتی {span}",
+    "month_from_average": "{value} نسبت به میانگین",
+    "month_at_average": "میانگین",
     "month_estimate": "برآورد اخیر مدل",
     "month_repeat": "ساعت تکراری: میانگین دو مقدار",
     "month_small": "این نما به حداقل {cols} ستون و {rows} ردیف نیاز دارد.",

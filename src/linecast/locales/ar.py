@@ -69,6 +69,7 @@ CHART_MONTHS = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12"]
 
 HELP = {
     "hint_colors": "الألوان",
+    "hint_mode": "الوضع",
     "weather_views": "عرض التوقعات / الشهر / السنة",
     "month_colors": "درجة الحرارة / الانحراف عن المتوسط",
     "month_home": "الشهر التقويمي السابق",
@@ -129,6 +130,8 @@ HELP = {
 WEATHER = {
     "month_temperature": "درجة الحرارة كل ساعة",
     "month_departure": "الانحراف عن المتوسط الساعي للفترة {span}",
+    "month_from_average": "{value} عن المتوسط",
+    "month_at_average": "المتوسط",
     "month_estimate": "تقدير حديث للنموذج",
     "month_repeat": "ساعة مكررة: متوسط القراءتين",
     "month_small": "يتطلب هذا العرض {cols} عمودًا و{rows} صفًا على الأقل.",

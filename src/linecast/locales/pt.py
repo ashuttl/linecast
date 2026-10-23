@@ -28,6 +28,7 @@ MOON_PHASES = ["Lua nova", "Crescente côncava", "Quarto crescente", "Crescente 
 
 HELP = {
     "hint_colors": "cores",
+    "hint_mode": "modo",
     "weather_views": "visualização previsão / mês / ano",
     "month_colors": "temperatura / desvio da média",
     "month_home": "mês anterior",
@@ -89,6 +90,8 @@ HELP = {
 WEATHER = {
     "month_temperature": "Temperatura horária",
     "month_departure": "Desvio da média horária de {span}",
+    "month_from_average": "{value} em relação à média",
+    "month_at_average": "média",
     "month_estimate": "Estimativa recente do modelo",
     "month_repeat": "Hora repetida: média das duas leituras",
     "month_small": "Esta visualização precisa de pelo menos {cols} colunas e {rows} linhas.",

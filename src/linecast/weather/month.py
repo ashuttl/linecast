@@ -163,14 +163,28 @@ def temperature_text(value, runtime, difference=False, precision=1):
     return sign + fmt_decimal(shown, precision, runtime) + runtime.temp_unit
 
 
-def field_color(value, runtime, difference=False):
+def month_span(series, first):
+    """The month's lowest and highest visible hourly temperatures, or None."""
+    values = [v for d in series.days if (d.year, d.month) == (first.year, first.month)
+              for v in series.values(d)]
+    return (min(values), max(values)) if values else None
+
+
+def field_color(value, runtime, difference=False, span=None):
     if value is None:
         return theme.surface_bg(0.025)
     if difference:
         ink = style.BLUE_RGB if value < 0 else style.RED_RGB
         return theme.lerp_rgb(theme.surface_bg(0.04), ink, min(1, abs(value) / 10) * 0.8)
+    # The forecast's color for the temperature, its ink rising from the
+    # month's coldest hour to its warmest, so a month that keeps to one
+    # stretch of the scale, or a theme whose colors sit close together,
+    # still parts its warm hours from its cold.
+    low, high = span or (value, value)
+    place = min(1, max(0, (value - low) / (high - low))) if high > low else 0.5
     actual = shown_temperature(value, runtime)
-    return theme.lerp_rgb(theme.theme_bg, style._temp_color(actual, runtime), 0.68)
+    return theme.lerp_rgb(theme.theme_bg, style._temp_color(actual, runtime),
+                          0.5 + 0.4 * place)
 
 
 def clear_ink(ink, background):
@@ -187,22 +201,27 @@ def day_label(day, runtime):
 
 
 def _legend(series, first, runtime, width, difference):
+    span = month_span(series, first)
     if difference:
         values = [-10, -5, 0, 5, 10]  # Celsius differences; units change, colors do not
     else:
-        month_values = [v for d in series.days
-                        if (d.year, d.month) == (first.year, first.month)
-                        for v in series.values(d)]
-        low, high = (min(month_values), max(month_values)) if month_values else (0, 30)
+        low, high = span or (0, 30)
         values = [low + (high - low) * k / 4 for k in range(5)]
     parts = []
-    for value in values:
+    for k, value in enumerate(values):
         label = temperature_text(value, runtime, difference, precision=0)
-        parts.append(f"{bg(*field_color(value, runtime, difference))}  {RESET} "
+        # A departure reads as a temperature unless the scale says what it
+        # is measured from: the first chip says so, and zero is the average.
+        if difference and value == 0:
+            label = _s("month_at_average", runtime)
+        elif difference and k == 0:
+            label = _s("month_from_average", runtime, value=label)
+        parts.append(f"{bg(*field_color(value, runtime, difference, span))}  {RESET} "
                      f"{fg(*style.MUTED_RGB)}{label}{RESET}")
-    if sum(map(visible_len, parts)) + 3 * (len(parts) - 1) > width:
-        parts = parts[::2]
-    return clip_styled("   ".join(parts), width) + RESET
+    for shown in (parts, parts[::2], parts[::4]):
+        if sum(map(visible_len, shown)) + 3 * (len(shown) - 1) <= width:
+            break
+    return clip_styled("   ".join(shown), width) + RESET
 
 
 def render_month(series, first, runtime, lat, lng, label, *, difference=False,
@@ -226,6 +245,13 @@ def render_month(series, first, runtime, lat, lng, label, *, difference=False,
     legends = ([chips + "   " + sun] if visible_len(chips) + 3 + visible_len(sun) <= legend_width
                else [chips, sun])
     layout = month_layout(rows, ndays, heading_rows=2, legend_rows=len(legends))
+    # A legend that wraps takes a blank row between its lines when the
+    # chart can spare one after its own gaps.
+    if len(legends) == 2:
+        roomy = month_layout(rows, ndays, heading_rows=2, legend_rows=3)
+        if roomy.legend_gap and ((roomy.days_per_row, roomy.ruled)
+                                 == (layout.days_per_row, layout.ruled)):
+            layout, legends = roomy, [legends[0], "", legends[1]]
     per_row = layout.days_per_row
     groups = [days[i:i + per_row] for i in range(0, len(days), per_row)]
     names = [day_label(now.date() if now.date() in group else group[0], runtime)
@@ -247,6 +273,7 @@ def render_month(series, first, runtime, lat, lng, label, *, difference=False,
                      for i in range(2))
     right_w = 2 + low_w + 1 + high_w if cols >= 74 else 0
     width = cols - gutter - right_w - 1
+    span = month_span(series, first)
     field = Framebuffer(width, len(groups), bg_color=field_color(None, runtime))
     bits = {}
     now_cell = None
@@ -263,7 +290,7 @@ def render_month(series, first, runtime, lat, lng, label, *, difference=False,
                     normal = series.at(day, hour, normal=True)
                     value = value - normal if value is not None and normal is not None else None
                 for sy in subpixels:
-                    field.set_pixel(x, sy, field_color(value, runtime, difference))
+                    field.set_pixel(x, sy, field_color(value, runtime, difference, span))
             for moment in sun_crossings(day, lat, lng, series.tz) if series.days else ():
                 if moment is None or moment.date() != day:
                     continue
@@ -313,11 +340,11 @@ def render_month(series, first, runtime, lat, lng, label, *, difference=False,
     midnight = datetime(first.year, first.month, first.day, tzinfo=series.tz)
     lines.append(" " * gutter + render_tide_ticks(midnight, 24, width, runtime))
     lines += [""] * layout.legend_gap
-    lines += [" " * gutter + legend for legend in legends]
+    lines += [" " * gutter + legend if legend else "" for legend in legends]
     lines += [""] * layout.footer_gap
     credit = fit(notice, cols - 10) if notice else "Open-Meteo"
     lines.append(footer(f"{fg(*style.DIM_RGB)}{credit}{RESET}", cols, runtime.lang,
-                        controls=(("c", "hint_colors"), ("←→", "months"))))
+                        controls=(("m", "hint_mode"), ("←→", "months"))))
     output = "\n".join(lines)
     if hover:
         r, x = hover

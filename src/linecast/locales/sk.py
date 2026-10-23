@@ -45,6 +45,7 @@ MOON_PHASES = ["Nov", "Dorastajúci kosák", "Prvá štvrť", "Dorastajúci Mesi
 # Commands in the infinitive, as Slovak software labels them
 HELP = {
     "hint_colors": "farby",
+    "hint_mode": "režim",
     "weather_views": "predpoveď / mesiac / rok",
     "month_colors": "teplota / odchýlka od priemeru",
     "month_home": "predchádzajúci kalendárny mesiac",
@@ -107,6 +108,8 @@ HELP = {
 WEATHER = {
     "month_temperature": "Hodinová teplota",
     "month_departure": "Odchýlka od hodinového priemeru {span}",
+    "month_from_average": "{value} od priemeru",
+    "month_at_average": "priemer",
     "month_estimate": "Nedávny modelový odhad",
     "month_repeat": "Opakovaná hodina: priemer oboch hodnôt",
     "month_small": "Tento pohľad vyžaduje aspoň {cols} stĺpcov a {rows} riadkov.",

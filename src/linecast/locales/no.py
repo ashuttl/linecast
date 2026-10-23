@@ -29,6 +29,7 @@ MOON_PHASES = ["Nymåne", "Voksende månesigd", "Første kvarter", "Voksende må
 
 HELP = {
     "hint_colors": "farger",
+    "hint_mode": "modus",
     "weather_views": "varsel / måned / år",
     "month_colors": "temperatur / avvik fra gjennomsnitt",
     "month_home": "forrige kalendermåned",
@@ -90,6 +91,8 @@ HELP = {
 WEATHER = {
     "month_temperature": "Temperatur time for time",
     "month_departure": "Avvik fra timegjennomsnittet {span}",
+    "month_from_average": "{value} fra gjennomsnittet",
+    "month_at_average": "gjennomsnitt",
     "month_estimate": "Nylig modellestimat",
     "month_repeat": "Gjentatt klokkeslett: gjennomsnitt av begge målinger",
     "month_small": "Denne visningen krever minst {cols} kolonner og {rows} rader.",

@@ -462,7 +462,9 @@ class WeatherApp(LocationMenu, _live.LiveApp):
                 self._start_year()
                 self._start_month()
             return True
-        if key == "c" and self.month_view:
+        # m switches the month between temperatures and departures; c, its
+        # first key, still does
+        if key in ("m", "c") and self.month_view:
             self.month_difference = not self.month_difference
             return True
         # c steps the year's bars through their colorings

@@ -111,6 +111,10 @@ MOON_PHASES = ["New Moon", "Waxing Crescent", "First Quarter", "Waxing Gibbous",
 
 HELP = {
     "hint_colors": "colors",
+    # The weather month view's footer hint for m, which switches the chart
+    # between hourly temperatures and their departures from the average:
+    # a short word for the display mode, not a means of travel
+    "hint_mode": "mode",
     "weather_views": "forecast / month / year view",
     "month_colors": "temperature / departure from average",
     "month_home": "previous calendar month",
@@ -175,6 +179,13 @@ HELP = {
 WEATHER = {
     "month_temperature": "Hourly temperature",
     "month_departure": "Departure from {span} hourly average",
+    # The departure legend's chips, coolest first: "−10°C from average",
+    # "−5°C", "average", "+5°C", "+10°C".  The first chip says what the
+    # numbers are measured from, so they are not read as temperatures;
+    # {value} is a signed difference with its unit.  The zero chip is
+    # the average itself, the noun month_colors uses.
+    "month_from_average": "{value} from average",
+    "month_at_average": "average",
     "month_estimate": "Recent model estimate",
     "month_repeat": "Repeated clock hour: mean of both readings",
     "month_small": "This view needs at least {cols} columns and {rows} rows.",

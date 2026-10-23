@@ -30,6 +30,7 @@ MOON_PHASES = ["삭", "초승달", "상현달", "차오르는 달",
 
 HELP = {
     "hint_colors": "색상",
+    "hint_mode": "모드",
     "weather_views": "예보 / 월 / 연 보기",
     "month_colors": "기온 / 평균과의 편차",
     "month_home": "이전 달력 월",
@@ -91,6 +92,8 @@ HELP = {
 WEATHER = {
     "month_temperature": "시간별 기온",
     "month_departure": "{span}년 시간별 평균과의 편차",
+    "month_from_average": "평균 대비 {value}",
+    "month_at_average": "평균",
     "month_estimate": "최근 모델 추정값",
     "month_repeat": "중복 시간: 두 측정값의 평균",
     "month_small": "이 보기는 최소 {cols}열, {rows}행이 필요합니다.",

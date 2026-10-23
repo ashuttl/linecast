@@ -73,6 +73,7 @@ CHART_MONTHS = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12"]
 
 HELP = {
     "hint_colors": "צבעים",
+    "hint_mode": "מצב",
     "weather_views": "תחזית / חודש / שנה",
     "month_colors": "טמפרטורה / סטייה מהממוצע",
     "month_home": "החודש הקלנדרי הקודם",
@@ -133,6 +134,8 @@ HELP = {
 WEATHER = {
     "month_temperature": "טמפרטורה שעתית",
     "month_departure": "סטייה מהממוצע השעתי של {span}",
+    "month_from_average": "{value} מהממוצע",
+    "month_at_average": "ממוצע",
     "month_estimate": "הערכה עדכנית של המודל",
     "month_repeat": "שעה חוזרת: ממוצע שתי הקריאות",
     "month_small": "תצוגה זו דורשת לפחות {cols} עמודות ו־{rows} שורות.",

@@ -31,6 +31,7 @@ MOON_PHASES = ["Neumond", "Zunehmende Sichel", "Erstes Viertel", "Zunehmender Mo
 
 HELP = {
     "hint_colors": "Farben",
+    "hint_mode": "Modus",
     "weather_views": "Vorhersage / Monat / Jahr",
     "month_colors": "Temperatur / Abweichung vom Mittel",
     "month_home": "vorheriger Kalendermonat",
@@ -92,6 +93,8 @@ HELP = {
 WEATHER = {
     "month_temperature": "Stündliche Temperatur",
     "month_departure": "Abweichung vom Stundenmittel {span}",
+    "month_from_average": "{value} vom Mittel",
+    "month_at_average": "Mittel",
     "month_estimate": "Aktuelle Modellschätzung",
     "month_repeat": "Doppelte Uhrzeit: Mittelwert beider Messwerte",
     "month_small": "Diese Ansicht benötigt mindestens {cols} Spalten und {rows} Zeilen.",

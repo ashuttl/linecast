@@ -74,7 +74,7 @@ The [gallery](docs/gallery.md) shows each one in more of its states.
 
 An hourly chart on the scale of a typical year where you are, so a mild day looks mild, with a forecast in words. Click an alert to read it. Press `v` to cycle through the forecast, month, and year views.
 
-The month shows hourly temperatures, with days down the chart and hours across it. Sunrise and sunset trace the changing daylight. Press `c` to compare each hour with the ten-year average, and hover for the numbers. Open it with `--month`, or start with the comparison using `--month-departure`.
+The month shows hourly temperatures, with days down the chart and hours across it. Sunrise and sunset trace the changing daylight. Press `m` to compare each hour with the ten-year average, and hover for the numbers. Open it with `--month`, or start with the comparison using `--month-departure`.
 
 It opens on the previous calendar month. Scroll or use the arrows to browse the past ten years and the current year so far; space or `n` returns to the previous calendar month. See [the month view](docs/weather-month.md) for how to read it.
 

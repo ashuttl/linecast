@@ -28,6 +28,7 @@ MOON_PHASES = ["Bulan baru", "Sabit awal", "Kuarter pertama", "Cembung awal",
 
 HELP = {
     "hint_colors": "warna",
+    "hint_mode": "mode",
     "weather_views": "prakiraan / bulan / tahun",
     "month_colors": "suhu / selisih dari rata-rata",
     "month_home": "bulan kalender sebelumnya",
@@ -89,6 +90,8 @@ HELP = {
 WEATHER = {
     "month_temperature": "Suhu per jam",
     "month_departure": "Selisih dari rata-rata per jam {span}",
+    "month_from_average": "{value} dari rata-rata",
+    "month_at_average": "rata-rata",
     "month_estimate": "Perkiraan model terbaru",
     "month_repeat": "Jam berulang: rata-rata kedua nilai",
     "month_small": "Tampilan ini memerlukan setidaknya {cols} kolom dan {rows} baris.",

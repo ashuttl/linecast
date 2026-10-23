@@ -30,6 +30,7 @@ MOON_PHASES = ["新月", "眉月", "上弦月", "盈凸月",
 
 HELP = {
     "hint_colors": "配色",
+    "hint_mode": "模式",
     "weather_views": "預報 / 月檢視 / 年檢視",
     "month_colors": "氣溫 / 與平均值的偏差",
     "month_home": "上一個曆月",
@@ -91,6 +92,8 @@ HELP = {
 WEATHER = {
     "month_temperature": "逐小時氣溫",
     "month_departure": "與 {span} 年逐小時平均值的偏差",
+    "month_from_average": "較平均值 {value}",
+    "month_at_average": "平均值",
     "month_estimate": "近期模型估算",
     "month_repeat": "重複時刻：兩次讀數的平均值",
     "month_small": "此檢視至少需要 {cols} 欄和 {rows} 列。",

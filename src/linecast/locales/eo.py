@@ -28,6 +28,7 @@ MOON_PHASES = ["Novluno", "Kreskanta lunarko", "Unua kvarono", "Kreskanta ĝiba 
 
 HELP = {
     "hint_colors": "koloroj",
+    "hint_mode": "reĝimo",
     "weather_views": "prognozo / monato / jaro",
     "month_colors": "temperaturo / devio de la mezumo",
     "month_home": "antaŭa kalendara monato",
@@ -89,6 +90,8 @@ HELP = {
 WEATHER = {
     "month_temperature": "Hora temperaturo",
     "month_departure": "Devio de la hora mezumo de {span}",
+    "month_from_average": "{value} rilate al la mezumo",
+    "month_at_average": "mezumo",
     "month_estimate": "Lastatempa modela takso",
     "month_repeat": "Ripetita horo: mezumo de ambaŭ valoroj",
     "month_small": "Ĉi tiu vido bezonas almenaŭ {cols} kolumnojn kaj {rows} vicojn.",

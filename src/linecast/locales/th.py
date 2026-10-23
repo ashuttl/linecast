@@ -31,6 +31,7 @@ MOON_PHASES = ["จันทร์ดับ", "จันทร์เสี้ย
 
 HELP = {
     "hint_colors": "สี",
+    "hint_mode": "โหมด",
     "weather_views": "มุมมองพยากรณ์ / เดือน / ปี",
     "month_colors": "อุณหภูมิ / ส่วนต่างจากค่าเฉลี่ย",
     "month_home": "เดือนปฏิทินก่อนหน้า",
@@ -92,6 +93,8 @@ HELP = {
 WEATHER = {
     "month_temperature": "อุณหภูมิรายชั่วโมง",
     "month_departure": "ส่วนต่างจากค่าเฉลี่ยรายชั่วโมงช่วง {span}",
+    "month_from_average": "{value} เทียบกับค่าเฉลี่ย",
+    "month_at_average": "ค่าเฉลี่ย",
     "month_estimate": "ค่าประมาณล่าสุดจากแบบจำลอง",
     "month_repeat": "ชั่วโมงที่ซ้ำ: ค่าเฉลี่ยของทั้งสองค่า",
     "month_small": "มุมมองนี้ต้องมีอย่างน้อย {cols} คอลัมน์และ {rows} แถว",

@@ -43,7 +43,7 @@ Hovering over a day's bar draws that day's hours.
   <img src="../screenshots/weather-kyoto.png" width="49%" alt="the weather in Kyoto, in Japanese">
 </p>
 
-Press `v` to cycle forecast, month, and year. The month has a row for each day and the hours across it, with sunrise and sunset as dotted lines; arrows browse months. This is September 2026 in Westbrook, Maine: first the hourly temperatures, and then, after `c`, each hour's departure from its ten-year average, blue where it was cooler and red where it was warmer. The pointer is on the afternoon of the 10th, the warmest of the month: 82°F at an hour that averages 72°F. [The month view](weather-month.md) explains how to read it.
+Press `v` to cycle forecast, month, and year. The month has a row for each day and the hours across it, with sunrise and sunset as dotted lines; arrows browse months. This is September 2026 in Westbrook, Maine: first the hourly temperatures, and then, after `m`, each hour's departure from its ten-year average, blue where it was cooler and red where it was warmer. The pointer is on the afternoon of the 10th, the warmest of the month: 82°F at an hour that averages 72°F. [The month view](weather-month.md) explains how to read it.
 
 <p>
   <img src="../screenshots/gallery/weather-month.png" width="49%" alt="the hourly temperatures of September 2026 in Westbrook, Maine, a row for each day">

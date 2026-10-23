@@ -42,6 +42,7 @@ MOON_PHASES = ["Trăng non", "Trăng lưỡi liềm đầu tháng", "Trăng thư
 
 HELP = {
     "hint_colors": "màu",
+    "hint_mode": "chế độ",
     "weather_views": "dự báo / tháng / năm",
     "month_colors": "nhiệt độ / độ lệch so với trung bình",
     "month_home": "tháng dương lịch trước",
@@ -103,6 +104,8 @@ HELP = {
 WEATHER = {
     "month_temperature": "Nhiệt độ theo giờ",
     "month_departure": "Độ lệch so với trung bình theo giờ giai đoạn {span}",
+    "month_from_average": "{value} so với trung bình",
+    "month_at_average": "trung bình",
     "month_estimate": "Ước tính gần đây từ mô hình",
     "month_repeat": "Giờ lặp lại: trung bình của hai giá trị",
     "month_small": "Chế độ xem này cần ít nhất {cols} cột và {rows} hàng.",

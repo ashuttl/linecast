@@ -31,6 +31,7 @@ MOON_PHASES = ["Новолуние", "Растущий серп", "Первая 
 
 HELP = {
     "hint_colors": "цвета",
+    "hint_mode": "режим",
     "weather_views": "прогноз / месяц / год",
     "month_colors": "температура / отклонение от среднего",
     "month_home": "предыдущий календарный месяц",
@@ -92,6 +93,8 @@ HELP = {
 WEATHER = {
     "month_temperature": "Температура по часам",
     "month_departure": "Отклонение от часового среднего за {span}",
+    "month_from_average": "{value} от среднего",
+    "month_at_average": "среднее",
     "month_estimate": "Недавняя оценка модели",
     "month_repeat": "Повторяющийся час: среднее двух значений",
     "month_small": "Для этого вида нужно не менее {cols} столбцов и {rows} строк.",

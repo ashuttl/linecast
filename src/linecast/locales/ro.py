@@ -29,6 +29,7 @@ MOON_PHASES = ["Lună nouă", "Semilună crescătoare", "Primul pătrar", "Lună
 
 HELP = {
     "hint_colors": "culori",
+    "hint_mode": "mod",
     "weather_views": "vedere prognoză / lună / an",
     "month_colors": "temperatură / abatere de la medie",
     "month_home": "luna calendaristică precedentă",
@@ -90,6 +91,8 @@ HELP = {
 WEATHER = {
     "month_temperature": "Temperatură orară",
     "month_departure": "Abatere de la media orară din {span}",
+    "month_from_average": "{value} față de medie",
+    "month_at_average": "medie",
     "month_estimate": "Estimare recentă a modelului",
     "month_repeat": "Oră repetată: media celor două valori",
     "month_small": "Această vedere necesită cel puțin {cols} coloane și {rows} rânduri.",

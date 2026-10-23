@@ -30,6 +30,7 @@ MOON_PHASES = ["Uusikuu", "Kasvava sirppi", "Ensimmäinen neljännes", "Kasvava 
 
 HELP = {
     "hint_colors": "värit",
+    "hint_mode": "tila",
     "weather_views": "ennuste / kuukausi / vuosi",
     "month_colors": "lämpötila / poikkeama keskiarvosta",
     "month_home": "edellinen kalenterikuukausi",
@@ -91,6 +92,8 @@ HELP = {
 WEATHER = {
     "month_temperature": "Tuntilämpötila",
     "month_departure": "Poikkeama vuosien {span} tuntikeskiarvosta",
+    "month_from_average": "{value} keskiarvosta",
+    "month_at_average": "keskiarvo",
     "month_estimate": "Tuore malliarvio",
     "month_repeat": "Toistuva kellonaika: molempien lukemien keskiarvo",
     "month_small": "Tämä näkymä tarvitsee vähintään {cols} saraketta ja {rows} riviä.",

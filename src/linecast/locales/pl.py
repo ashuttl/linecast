@@ -29,6 +29,7 @@ MOON_PHASES = ["Nów", "Sierp rosnący", "Pierwsza kwadra", "Garb rosnący",
 
 HELP = {
     "hint_colors": "kolory",
+    "hint_mode": "tryb",
     "weather_views": "prognoza / miesiąc / rok",
     "month_colors": "temperatura / odchylenie od średniej",
     "month_home": "poprzedni miesiąc kalendarzowy",
@@ -90,6 +91,8 @@ HELP = {
 WEATHER = {
     "month_temperature": "Temperatura godzinowa",
     "month_departure": "Odchylenie od średniej godzinowej z lat {span}",
+    "month_from_average": "{value} od średniej",
+    "month_at_average": "średnia",
     "month_estimate": "Najnowsze oszacowanie modelu",
     "month_repeat": "Powtórzona godzina: średnia obu odczytów",
     "month_small": "Ten widok wymaga co najmniej {cols} kolumn i {rows} wierszy.",

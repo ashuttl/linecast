@@ -35,6 +35,7 @@ MOON_PHASES = ["Nov", "Dorůstající srpek", "První čtvrť", "Dorůstající 
 
 HELP = {
     "hint_colors": "barvy",
+    "hint_mode": "režim",
     "weather_views": "předpověď / měsíc / rok",
     "month_colors": "teplota / odchylka od průměru",
     "month_home": "předchozí kalendářní měsíc",
@@ -96,6 +97,8 @@ HELP = {
 WEATHER = {
     "month_temperature": "Hodinová teplota",
     "month_departure": "Odchylka od hodinového průměru {span}",
+    "month_from_average": "{value} od průměru",
+    "month_at_average": "průměr",
     "month_estimate": "Nedávný modelový odhad",
     "month_repeat": "Opakovaná hodina: průměr obou hodnot",
     "month_small": "Tento pohled vyžaduje alespoň {cols} sloupců a {rows} řádků.",

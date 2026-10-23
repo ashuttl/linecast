@@ -521,7 +521,7 @@ gallery() {
         uv --directory "$REPO_DIR" run linecast weather --location "$WEATHER_PLACE"
 
     # Last month's hourly temperatures for the year view's place, as
-    # --month opens, then the same month as c shows it, each hour against
+    # --month opens, then the same month as m shows it, each hour against
     # its ten-year average, with the pointer on the afternoon of the 10th
     # so the chip that gives the hour, its average, and the difference is
     # in the frame: on 110x40, column 66, row 16. A 31-day month starts a

@@ -29,6 +29,7 @@ MOON_PHASES = ["Yeni Ay", "Büyüyen hilal", "İlk dördün", "Büyüyen şişki
 
 HELP = {
     "hint_colors": "renkler",
+    "hint_mode": "mod",
     "weather_views": "tahmin / ay / yıl görünümü",
     "month_colors": "sıcaklık / ortalamadan sapma",
     "month_home": "önceki takvim ayı",
@@ -90,6 +91,8 @@ HELP = {
 WEATHER = {
     "month_temperature": "Saatlik sıcaklık",
     "month_departure": "{span} saatlik ortalamasından sapma",
+    "month_from_average": "ortalamaya göre {value}",
+    "month_at_average": "ortalama",
     "month_estimate": "Güncel model tahmini",
     "month_repeat": "Tekrarlanan saat: iki değerin ortalaması",
     "month_small": "Bu görünüm en az {cols} sütun ve {rows} satır gerektirir.",

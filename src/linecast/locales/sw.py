@@ -29,6 +29,7 @@ MOON_PHASES = ["Mwezi mpya", "Hilali inayoongezeka", "Robo ya kwanza", "Mwezi un
 
 HELP = {
     "hint_colors": "rangi",
+    "hint_mode": "hali",
     "weather_views": "utabiri / mwezi / mwaka",
     "month_colors": "halijoto / tofauti na wastani",
     "month_home": "mwezi uliopita wa kalenda",
@@ -90,6 +91,8 @@ HELP = {
 WEATHER = {
     "month_temperature": "Halijoto ya kila saa",
     "month_departure": "Tofauti na wastani wa kila saa wa {span}",
+    "month_from_average": "{value} tofauti na wastani",
+    "month_at_average": "wastani",
     "month_estimate": "Makadirio ya hivi karibuni ya modeli",
     "month_repeat": "Saa iliyorudiwa: wastani wa vipimo viwili",
     "month_small": "Mwonekano huu unahitaji angalau safu wima {cols} na mistari {rows}.",
