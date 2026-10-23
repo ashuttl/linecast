@@ -20,6 +20,7 @@ Notable changes, by release. Notes for the next release collect under **Unreleas
 - Tides: Predictions for Canadian stations still show offline the day after they were last fetched.
 - Tides: A month or year view that fails to load, as when the network drops, is tried again after a short wait instead of staying empty until linecast is restarted.
 - Tides: Fixed the missing night shading on the chart at stations from TICON-4.
+- Tides: The chart's night shading begins and ends at sunset and sunrise, where it could be up to half an hour off.
 - Tides: `--station` accepts the five-digit codes the Canadian Hydrographic Service gives its stations, such as 00490 for Halifax.
 - Radar: When a frame can't be fetched, offline or when a source fails, radar says it is unavailable instead of showing an empty map with "0% echo", which read as clear skies.
 - Radar: The newest NEXRAD frame no longer stays empty when the Iowa Environmental Mesonet is late to publish it.

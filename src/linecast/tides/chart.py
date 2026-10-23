@@ -20,8 +20,7 @@ from linecast.terminal import live as _live
 from linecast.terminal import theme as _theme
 from linecast._log import log_failure
 from linecast._i18n import FULL_DAY_NAMES
-from linecast.astro.ephemeris import _moon_events_for_local_date
-from linecast.sunshine.solar import daylight_factor as solar_daylight_factor
+from linecast.astro.ephemeris import _moon_events_for_local_date, sunrise_sunset
 from linecast.moon.phase import moon_phase
 from linecast._i18n import fmt_decimal, table_for
 
@@ -93,41 +92,66 @@ def prepare_tide_window(predictions, hilo, start_dt, hours_shown=24):
     }
 
 
-def _solar_daylight_at(hour, doy, lat, lng, tz_offset_h):
-    """Compute daylight factor (0.0-1.0) at a local clock hour on a given day."""
-    return solar_daylight_factor(hour, doy, lat, lng, tz_offset_h)
+# How long the shading takes to turn between night and day, either
+# side of a sunrise or a sunset.
+TWILIGHT_HOURS = 40 / 60
+
+
+def _daylight_spans(lat, lng, tzinfo, first, last):
+    """The Sun's days from *first* to *last*, as (rise, set) unix times
+    from sunrise_sunset, the app's one sunrise. A day it does not set
+    runs midnight to midnight, and joins the days either side, so a
+    midnight sun is one span with no night at its midnights."""
+    spans = []
+    day = first
+    while day <= last:
+        rise, sset = sunrise_sunset(day, lat, lng, tzinfo)
+        if rise is not None:
+            r, s = rise.timestamp(), sset.timestamp()
+            if spans and r <= spans[-1][1]:
+                spans[-1] = (spans[-1][0], max(s, spans[-1][1]))
+            else:
+                spans.append((r, s))
+        day += timedelta(days=1)
+    return spans
 
 
 def compute_daylight_window(graph_w, window_start, total_hours, station_meta):
-    """Compute per-column daylight factor for a datetime window."""
+    """Per-column daylight factor for a datetime window: 1 by day, 0 by
+    night, and a ramp from TWILIGHT_HOURS before each sunrise to as long
+    after it, and the same about each sunset."""
     if not station_meta:
         return [1.0] * graph_w
 
     try:
         lat = float(station_meta["lat"])
+        lng = float(station_meta["lng"])
         # The clock a column is read on is the window's own where it has
         # a zone, summer time and all, which the metadata's offset does
         # not know; the offset is wanted only for a window without one.
-        tz_offset_h = (None if window_start.utcoffset() is not None
-                       else float(station_meta["timezonecorr"]))
+        local_start = window_start
+        if window_start.utcoffset() is None:
+            local_start = window_start.replace(tzinfo=timezone(
+                timedelta(hours=float(station_meta["timezonecorr"]))))
     except (KeyError, TypeError, ValueError) as exc:
         log_failure("tides", "daylight window", exc, fallback="no night shading")
         return [1.0] * graph_w
 
-    try:
-        lng = float(station_meta["lng"])
-    except (KeyError, TypeError, ValueError):
-        lng = None
-
+    tzinfo = local_start.tzinfo
+    local_end = hours_after(local_start, total_hours)
+    spans = _daylight_spans(lat, lng, tzinfo, local_start.date() - timedelta(days=1),
+                            local_end.date() + timedelta(days=1))
+    start = local_start.timestamp()
+    ramp = TWILIGHT_HOURS * 3600
     col_daylight = []
     for x in range(graph_w):
-        frac = (x + 0.5) / graph_w
-        col_dt = hours_after(window_start, frac * total_hours)
-        doy = col_dt.timetuple().tm_yday
-        hour = col_dt.hour + col_dt.minute / 60
-        offset = col_dt.utcoffset()
-        tz_h = tz_offset_h if offset is None else offset.total_seconds() / 3600
-        col_daylight.append(_solar_daylight_at(hour, doy, lat, lng, tz_h))
+        t = start + (x + 0.5) / graph_w * total_hours * 3600
+        best = 0.0
+        for rise, sset in spans:
+            f = min(t - rise + ramp, sset + ramp - t) / (2 * ramp)
+            if f > best:
+                best = f
+        col_daylight.append(min(1.0, best))
     return col_daylight
 
 

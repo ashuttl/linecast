@@ -97,6 +97,32 @@ def test_a_window_with_a_zone_needs_no_offset_from_the_metadata():
     assert abs(lit[-1] - (19 * 60 + 14)) < 30
 
 
+def test_night_shading_turns_at_the_apps_sunrise_and_sunset():
+    # Portland, Maine, on 3 November, when the Sun runs a quarter of an
+    # hour ahead of the clock: the shading turned at 6:44 and 16:37
+    # by a formula of its own, 25 minutes after the sunrise the
+    # sunshine view gives.
+    from zoneinfo import ZoneInfo
+    from linecast.astro.ephemeris import sunrise_sunset
+    zone = ZoneInfo("America/New_York")
+    meta = {"lat": 43.658, "lng": -70.244, "timezonecorr": -5}
+    start = datetime(2026, 11, 3, tzinfo=zone)
+    rise, sset = sunrise_sunset(start.date(), 43.658, -70.244, zone)
+    daylight = compute_daylight_window(24 * 60, start, 24, meta)
+    lit = [minute for minute, factor in enumerate(daylight) if factor >= 0.5]
+    assert abs(lit[0] - (rise - start).total_seconds() / 60) < 2
+    assert abs(lit[-1] - (sset - start).total_seconds() / 60) < 2
+
+
+def test_the_midnight_sun_has_no_night_at_its_midnights():
+    from zoneinfo import ZoneInfo
+    meta = {"lat": 69.65, "lng": 18.96}
+    start = datetime(2026, 6, 20, 12, tzinfo=ZoneInfo("Europe/Oslo"))
+    assert set(compute_daylight_window(200, start, 48, meta)) == {1.0}
+    start = datetime(2026, 12, 20, 12, tzinfo=ZoneInfo("Europe/Oslo"))
+    assert set(compute_daylight_window(200, start, 48, meta)) == {0.0}
+
+
 def test_a_ticon_gauge_has_night_shading():
     from linecast.tides.providers import TICON
     from linecast.tides.stations import _station_now, _station_tzinfo

@@ -2,10 +2,8 @@
 the sunshine views plot a day by.
 
 Both come from the ephemeris: the sunrise and sunset are
-astro.ephemeris.sunrise_sunset, the one the tides' and the weather's
-month views and the traditional hours read too, and the height is the
-same ephemeris's. The tides chart and the one-line summaries borrow
-from here as well.
+astro.ephemeris.sunrise_sunset, the app's one sunrise, which the other
+views read too, and the height is the same ephemeris's.
 """
 
 import math
@@ -140,43 +138,6 @@ def sun_elevation(lat, lng, local_hour, doy, tz_offset_h=None):
     sin_e = (math.sin(lat_r) * math.sin(dec) +
              math.cos(lat_r) * math.cos(dec) * math.cos(hour_angle))
     return math.degrees(math.asin(max(-1.0, min(1.0, sin_e))))
-
-
-def daylight_factor(local_hour, doy, lat, lng, tz_offset_h):
-    """Compute a smooth day/night brightness factor for a local clock hour.
-
-    Uses a slightly different declination formula (cosine form, with
-    23.44° tilt and day offset +10 for the winter solstice epoch) for
-    the day/night shading of the tides chart background.
-    """
-    decl = -23.44 * math.cos(math.radians(360 / 365 * (doy + 10)))
-    lat_rad = math.radians(lat)
-    decl_rad = math.radians(decl)
-
-    cos_ha = -math.tan(lat_rad) * math.tan(decl_rad)
-    if cos_ha <= -1:
-        return 1.0  # midnight sun
-    if cos_ha >= 1:
-        return 0.0  # polar night
-
-    ha = math.degrees(math.acos(cos_ha))
-
-    solar_noon = 12.0
-    if lng is not None:
-        tz_meridian = tz_offset_h * 15
-        solar_noon += (tz_meridian - lng) / 15
-
-    sunrise = solar_noon - ha / 15
-    sunset = solar_noon + ha / 15
-    transition = 40 / 60  # 40 minutes
-
-    if local_hour < sunrise - transition or local_hour > sunset + transition:
-        return 0.0
-    if sunrise + transition <= local_hour <= sunset - transition:
-        return 1.0
-    if local_hour < sunrise + transition:
-        return (local_hour - sunrise + transition) / (2 * transition)
-    return (sunset + transition - local_hour) / (2 * transition)
 
 
 def _local_today():
