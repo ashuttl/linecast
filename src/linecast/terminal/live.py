@@ -51,7 +51,7 @@ _SYNC_BEGIN = "\033[?2026h"
 _SYNC_END = "\033[?2026l"
 
 # The cursor position query sent after each frame, whose reply says the
-# terminal has read the frame (see live_loop), and how long the next
+# terminal has read the frame (see _Pacing), and how long the next
 # frame waits for it: long enough for a terminal that is genuinely
 # behind, and not long on a terminal that has yet to answer at all.
 _CPR_QUERY = _term.CPR_QUERY.decode("ascii")
@@ -545,6 +545,47 @@ class _ThemeSchedule:
         self.due = min(due) if due else float("inf")
 
 
+class _Pacing:
+    """Frames paced to the terminal.
+
+    Each frame goes out with a cursor position query after it, and the
+    next frame waits for the reply: the terminal answers once it has
+    read the frame, so a terminal slower than the loop is never handed
+    a backlog to play out after the user stops scrolling.  Input that
+    arrives during the wait is folded into the frame being held.  A
+    terminal that never answers is asked once, then left alone.
+    LINECAST_FRAME_SYNC=0 turns the pacing off (`on`).
+    """
+
+    def __init__(self):
+        self.on = _term.frame_sync_enabled()
+        self.owed = 0   # queries sent and not yet answered
+
+    def wait_s(self):
+        """How long a frame waits for the last one's reply."""
+        return _ACK_WAIT_S if _term.answered else _ACK_FIRST_WAIT_S
+
+    def ask(self):
+        """The query to send after a frame, counted as owed; empty when
+        the pacing is off."""
+        if not self.on:
+            return ""
+        self.owed += 1
+        return _CPR_QUERY
+
+    def answered(self):
+        """A reply came: the oldest query is answered."""
+        _term.mark_answered()
+        self.owed = max(0, self.owed - 1)
+
+    def give_up(self):
+        """The wait ran out.  A terminal that has never answered is not
+        asked again."""
+        if not _term.answered:
+            self.on = False
+        self.owed = 0
+
+
 def live_loop(render_fn, interval=60, mouse=False, on_open=None, scroll_step=15,
               auto_play=False, play_interval=0.6, on_action=None, on_drag=None,
               intercept=None, play_gate=None, on_wheel=None, text_mode=None,
@@ -654,17 +695,7 @@ def live_loop(render_fn, interval=60, mouse=False, on_open=None, scroll_step=15,
     modal_scroll = 0     # scroll offset within the modal
     alert_row_map = {}   # 0-based line index → [(first col, last col, alert index)]
 
-    # Each frame goes out with a cursor position query after it, and the
-    # next frame waits for the reply: the terminal answers once it has
-    # read the frame, so a terminal slower than the loop is never handed
-    # a backlog to play out after the user stops scrolling.  Input that
-    # arrives during the wait is folded into the frame being held.  A
-    # terminal that never answers is asked once, then left alone.
-    sync = _term.frame_sync_enabled()
-    acks_owed = 0
-
-    def _ack_wait():
-        return _ACK_WAIT_S if _term.answered else _ACK_FIRST_WAIT_S
+    pacing = _Pacing()
 
     def _coalesce_or_repaint():
         """The verdict for input that changed the frame: paint now, or
@@ -697,7 +728,7 @@ def live_loop(render_fn, interval=60, mouse=False, on_open=None, scroll_step=15,
         be the terminal's reply to the last frame, which changes nothing.
         """
         nonlocal offset, playing, play_frame, mouse_pos, drag_start, drag_delta
-        nonlocal active_alert, modal_scroll, acks_owed, hover_until
+        nonlocal active_alert, modal_scroll, hover_until
         action = read_key(fd, text=bool(text_mode is not None and text_mode()))
         if isinstance(action, tuple) and action[0] == 'mouse' and _bidi.mirrored():
             # The view laid this frame out from the left and the pass
@@ -708,8 +739,7 @@ def live_loop(render_fn, interval=60, mouse=False, on_open=None, scroll_step=15,
         if isinstance(action, tuple) and action[0] == 'mouse':
             hover_until = _time.monotonic() + _HOVER_IDLE_S
         if action == 'ack':
-            _term.mark_answered()
-            acks_owed = max(0, acks_owed - 1)
+            pacing.answered()
             return None
         if action == 'theme':
             return 'repaint'  # the terminal's colours changed
@@ -850,20 +880,18 @@ def live_loop(render_fn, interval=60, mouse=False, on_open=None, scroll_step=15,
         """Ctrl-Z: hand the terminal back as the loop's end does, stop,
         and on resume take it again.  The frame drawn next is drawn
         whole, as every frame is."""
-        nonlocal acks_owed
-
         def hand_back():
             # Alone in its job, the loop waits for the terminal to answer,
             # so no reply or late mouse report reaches the shell.  Under a
             # wrapper the shell may be reading the terminal already, and
             # the answer would land on its prompt: drop what has come in
-            careful = sync and term.leads_job()
+            careful = pacing.on and term.leads_job()
             sys.stdout.write(restore + (_CPR_QUERY if careful else ""))
             sys.stdout.flush()
-            term.settle(_ack_wait() if careful else 0, replies=acks_owed + 1)
+            term.settle(pacing.wait_s() if careful else 0, replies=pacing.owed + 1)
 
         term.suspend(hand_back)
-        acks_owed = 0
+        pacing.owed = 0
         sys.stdout.write(init)
         sys.stdout.flush()
 
@@ -883,14 +911,12 @@ def live_loop(render_fn, interval=60, mouse=False, on_open=None, scroll_step=15,
             # Keys and wheel notches that arrive meanwhile change the
             # state the frame is rendered from; a wakeup or a timer tick
             # is absorbed the same way, since a repaint is coming.
-            if sync and acks_owed:
-                until = _time.monotonic() + _ack_wait()
-                while acks_owed:
+            if pacing.on and pacing.owed:
+                until = _time.monotonic() + pacing.wait_s()
+                while pacing.owed:
                     left = until - _time.monotonic()
                     if left <= 0:
-                        if not _term.answered:
-                            sync = False  # this terminal does not answer
-                        acks_owed = 0
+                        pacing.give_up()
                         break
                     event = term.wait(min(0.1, left))
                     if term.suspend_pending:
@@ -936,11 +962,7 @@ def live_loop(render_fn, interval=60, mouse=False, on_open=None, scroll_step=15,
                 # restore it when the caller's overlay has not done so.
                 if "\033[?1003l" not in overlay:
                     overlay = "\033[?1003h" + overlay
-            paint = frame_paint(main_out, overlay)
-            if sync:
-                paint += _CPR_QUERY
-                acks_owed += 1
-            sys.stdout.write(paint)
+            sys.stdout.write(frame_paint(main_out, overlay) + pacing.ask())
             sys.stdout.flush()
 
             # Wait for input, resize, or timeout
@@ -989,7 +1011,7 @@ def live_loop(render_fn, interval=60, mouse=False, on_open=None, scroll_step=15,
     finally:
         _running = False
         try:
-            sys.stdout.write(restore + (_CPR_QUERY if sync else ""))
+            sys.stdout.write(restore + (_CPR_QUERY if pacing.on else ""))
             sys.stdout.flush()
         except Exception:
             pass  # tty may already be gone (SIGHUP); nothing left to restore
@@ -1004,7 +1026,7 @@ def live_loop(render_fn, interval=60, mouse=False, on_open=None, scroll_step=15,
         # meanwhile raises through this block: close() runs regardless,
         # or the shell would inherit the tty in cbreak.
         try:
-            term.settle(_ack_wait() if sync else 0, replies=acks_owed + 1)
+            term.settle(pacing.wait_s() if pacing.on else 0, replies=pacing.owed + 1)
         except Exception:
             pass
         finally:
