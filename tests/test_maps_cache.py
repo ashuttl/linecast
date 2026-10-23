@@ -191,6 +191,31 @@ class TestTheMotionSlot:
         assert started == []
 
 
+class TestTheGlobeKey:
+    """Near a pole the planet is asked for at street zoom, so its key has
+    to tell a pan or a zoom step there from the view it left."""
+
+    def test_a_zoom_step_near_the_pole_is_its_own_view(self):
+        keys = {loaders._globe_key(85.0, -62.35, z, 100, 28, "street")
+                for z in (0.08, 0.12, 0.149)}
+        assert len(keys) == 3
+
+    def test_a_pan_of_one_row_is_its_own_view(self):
+        zoom, hc = 0.12, 28
+        here = loaders._globe_key(85.0, -62.35, zoom, 100, hc, "street")
+        there = loaders._globe_key(85.0 - zoom / hc, -62.35, zoom, 100, hc,
+                                   "street")
+        assert here != there
+
+    def test_the_planet_scale_keeps_its_hundredth(self):
+        # a spin at the planet moves the centre a thirtieth of a degree
+        # a frame: still a key a frame, and float noise still one key
+        key = loaders._globe_key(40.004, -70.001, 130.0, 100, 28, "terrain")
+        assert key[:3] == (40.0, -70.0, 130.0)
+        assert key == loaders._globe_key(40.0041, -70.0012, 130.0004, 100,
+                                         28, "terrain")
+
+
 class TestAFailedViewIsHeld:
     """A view whose every tile failed is not asked for again on the
     next repaint: a map at rest repaints on every pointer motion."""

@@ -769,6 +769,23 @@ def _built_globe(lat0, lon0, zoom, gw, hc):
         _water_subpixels(wet, gw, hc) if wet is not None else None)
 
 
+def _globe_key(lat0, lon0, zoom, gw, hc, register):
+    """Cache key for a globe view, at a precision that scales with the zoom.
+
+    Near a pole the planet is asked for at street zoom too, because a
+    window that reaches past the tiles' last parallel is drawn from it.
+    A hundredth of a degree is several rows there, and a tenth of a
+    degree of zoom is the whole view, so rounding as the planet scale
+    does would hand a pan or a zoom step the view it left.  Rounded
+    three places finer than the zoom, as `_view_key` rounds a flat
+    view, and never coarser than the hundredth the planet scale has
+    always been keyed at.
+    """
+    nd = max(2, 3 + math.ceil(-math.log10(max(zoom, 1e-9))))
+    return (round(lat0, nd), round(lon0, nd), round(zoom, nd), gw, hc,
+            register, _theme.generation)
+
+
 def _get_globe(lat0, lon0, zoom, gw, hc, block, street=False):
     """A GlobeView for the view; live mode fetches in the background."""
     register = "street" if street else "terrain"
@@ -783,8 +800,7 @@ def _get_globe(lat0, lon0, zoom, gw, hc, block, street=False):
     # long way while the planet baked must not outlive the bake, but
     # it stays on screen until its textured successor has landed
     ready = globe_texture.ready(zoom, hc * 4, register)
-    key = (round(lat0, 2), round(lon0, 2), round(zoom, 1), gw, hc, register,
-           _theme.generation, ready)
+    key = _globe_key(lat0, lon0, zoom, gw, hc, register) + (ready,)
     view = _globe_cache.get(key, block, load)
     if view is None and ready:
         view = _globe_cache.peek(key[:-1] + (False,))
