@@ -93,6 +93,29 @@ class TestReverseCache:
             self._ask(-56.7801, 23.4501, lambda url, **kw: (calls.append(url), self.PAYLOAD)[1])
         assert len(calls) == 2
 
+    def test_an_answer_holds_nothing(self):
+        """An error status, or an answer that can't be read, is Nominatim
+        answering: the next place is asked, so a tide station is not
+        picked for a place left without its country."""
+        from linecast._http import HTTPError
+        calls = []
+
+        def refused(url, **_kw):
+            calls.append(url)
+            raise HTTPError(url, 503, "Service Unavailable")
+        def unreadable(url, **_kw):
+            calls.append(url)
+            return []
+
+        def named(url, **_kw):
+            calls.append(url)
+            return self.PAYLOAD
+        assert self._ask(-41.2301, 14.5601, refused) == ("", "", {})
+        assert self._ask(-41.2301, 14.5601, unreadable) == ("", "", {})
+        assert self._ask(-52.3401, 25.6701, named) == ("Westbrook, Maine", "US",
+                                                       self.PAYLOAD["address"])
+        assert len(calls) == 3
+
 
 class TestTrailingCountry:
     """Open-Meteo matches a trailing ISO code or country name, and finds

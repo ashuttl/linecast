@@ -12,7 +12,7 @@ same server, which allows one request a second.
 import time
 
 from linecast._cache import location_cache_key, read_cache, read_stale, write_cache
-from linecast._http import fetch_json
+from linecast._http import fetch_json, unanswered
 from linecast._i18n import (
     GEOCODER_UNTRANSLATED, accept_language, base_language, geocoder_language,
 )
@@ -30,10 +30,13 @@ PHOTON_LANGS = ("en", "de", "fr")
 # application; reverse geocoding and the maps' search share this gate.
 nominatim_throttle = RateLimit(1.0, "nominatim")
 
-# After a reverse lookup fails, the next ones go straight to their
-# fallback for a while.  On a stalled network each would wait out its
-# own timeout, and a command asks more than once: a weather run asked
-# three times, two of them one after the other.
+# After a reverse lookup goes unanswered, the next ones go straight to
+# their fallback for a while.  On a stalled network each would wait out
+# its own timeout, and a command asks more than once: a weather run
+# asked three times, two of them one after the other.  An answer, even
+# an error status or one that can't be read, holds nothing: it says
+# nothing of the next place, and a tide station picked for a place
+# with no country would skip the providers chosen by country.
 _FAILURE_HOLD_S = 60.0
 _failed_at = None   # time.monotonic() of the last failure
 
@@ -102,7 +105,7 @@ def reverse_geocode(lat, lng, lang=None):
         else:
             display = ""
     except Exception as exc:
-        if not held:
+        if not held and unanswered(exc):
             _failed_at = time.monotonic()
         # Offline, a name from yesterday is still the place's name, and
         # its address still matches the alert feeds' areas.
