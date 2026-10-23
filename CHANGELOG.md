@@ -4,17 +4,14 @@ Notable changes, by release. Notes for the next release collect under **Unreleas
 
 ## Unreleased
 
-- Radar: When a frame can't be fetched, offline or when a source fails, radar says it is unavailable instead of showing an empty map with "0% echo", which read as clear skies.
-- Radar: The newest NEXRAD frame no longer stays empty when the Iowa Environmental Mesonet is late to publish it.
-- Maps: The cloud cover maps downloads is cleared from the cache after a day, as radar's frames are, even if radar is never opened.
-- Radar: Dragging the map across the edge of the lower 48 no longer freezes the view while radar picks a source for the new area, and a source that stops sending radar there is replaced, as it is when radar starts.
-- Maps: On a network that hangs, the live map opens at once instead of after a wait of ten seconds or more.
-- Maps: Flicking the map several times in a row loads one view at a time rather than one for every flick, so the motion stays smooth.
-- Maps: Panning east across the 180th meridian keeps the map on screen, as panning west always did, rather than blanking it while the view reloads.
-- Maps: Fixed the live map stopping short of places beyond 80 degrees of latitude, such as Alert, Nunavut.
-- Maps: Fixed a crash when flying a long way out over a short distance, such as pressing `n` close to home at street zoom when the map started on the globe.
-- Maps: When a tile server refuses or the network is down, the map waits a moment before asking again, rather than asking on every mouse movement. Radar's temperature and wind layers wait the same way.
-- Radar: While a frame loads, the frame shown in its place is the one nearest it in time.
+- Weather: Changing the precipitation units no longer shows the last forecast's millimetres as inches, or its inches as millimetres.
+- Weather: During polar night the chart no longer marks a sunset at midnight, or at 11 p.m. after the clocks go back, and `--json` gives those days no sunrise or sunset.
+- Weather: On 29 February the comparison with the ten-year average takes in the days either side, so it draws on all ten years rather than the two or three leap days.
+- Weather and tides: The help panel lists the location menu's keys in lower case, like the rows around them.
+- Sunshine: Fixed the day view's and `--oneline`'s sunrise and sunset being an hour off between midnight and 2 a.m. on the night the clocks change.
+- Sunshine: Sunrise, sunset, and the Sun's height are more accurate, within seconds of published tables rather than a minute or two, and agree with the traditional hours shown beside them.
+- Moon and sky: Both say the Moon is up from the moment it rises, and give it the same altitude, as seen from where you stand. In `sky --json` the Sun is up from sunrise.
+- Moon: In a small month grid, each new, quarter, and full moon shows its phase on the day it falls, and no other day shows one.
 - Tides: The day's chart no longer jumps at the hour the clocks change. It runs on through the night they go back, with the repeated hour shown twice on its time axis.
 - Tides: The month view no longer jumps partway through the hour the clocks repeat in autumn, and at Canadian stations it no longer runs an hour ahead through the hour they skip in spring.
 - Tides: Offline, with nothing saved for the place, tides says it could not load the tides instead of that there is no tide station nearby.
@@ -24,27 +21,30 @@ Notable changes, by release. Notes for the next release collect under **Unreleas
 - Tides: A month or year view that fails to load, as when the network drops, is tried again after a short wait instead of staying empty until linecast is restarted.
 - Tides: Fixed the missing night shading on the chart at stations from TICON-4.
 - Tides: `--station` accepts the five-digit codes the Canadian Hydrographic Service gives its stations, such as 00490 for Halifax.
-- Weather: Changing the precipitation units no longer shows the last forecast's millimetres as inches, or its inches as millimetres.
-- Weather: During polar night the chart no longer marks a sunset at midnight, or at 11 p.m. after the clocks go back, and `--json` gives those days no sunrise or sunset.
-- Sunshine: Fixed the day view's and `--oneline`'s sunrise and sunset being an hour off between midnight and 2 a.m. on the night the clocks change.
-- Sunshine: Sunrise, sunset, and the Sun's height are more accurate, within seconds of published tables rather than a minute or two, and agree with the traditional hours shown beside them.
-- Moon and sky: Both say the Moon is up from the moment it rises, and give it the same altitude, as seen from where you stand. In `sky --json` the Sun is up from sunrise.
-- Moon: In a small month grid, each new, quarter, and full moon shows its phase on the day it falls, and no other day shows one.
-- Weather: On 29 February the comparison with the ten-year average takes in the days either side, so it draws on all ten years rather than the two or three leap days.
-- Location: Place names ending in "UK" or "USA", such as `--location "London, UK"`, are found.
-- Print: A command run in the background from a shell, such as `linecast moon --oneline &`, no longer stops with "Stopped (tty output)".
-- Live views: Resizing the window resizes the view even with `COLUMNS` and `LINES` exported in the shell.
-- Completions: Shell completion leaves a short name such as `sunshine` to the program that owns it, and completes it as linecast only where `linecast link` made it or an alias points it at linecast. Reported by [@jmote](https://github.com/jmote) in [#20](https://github.com/ashuttl/linecast/issues/20).
-- Live views: Quitting with Ctrl-C while a frame is drawing no longer leaves some terminals frozen for a moment afterwards.
-- Location: When the network stops answering, a command waits for the place's name once instead of several times over.
-- Print: Output is UTF-8 even where the locale or `PYTHONIOENCODING` asks for another encoding, instead of ending in an error.
-- Location: A damaged location cache is fetched again instead of stopping every command with an error.
-- Windows: Moon and sky times for where you are follow your computer's clock changes, instead of keeping today's offset for dates across a change.
-- Live views: A view left open wakes the computer far less often, and asks the terminal for fewer colors while it watches for a theme change.
-- Weather and tides: The help panel lists the location menu's keys in lower case, like the rows around them.
-- Doctor: A provider that answers with an error code at its root is reported as reachable, and one that is limiting requests or failing is no longer reported as ok.
-- Help: `--emoji` and `--month-temperature` are no longer listed beside `--icons emoji` and `--month`, which they repeat. Both still work.
+- Radar: When a frame can't be fetched, offline or when a source fails, radar says it is unavailable instead of showing an empty map with "0% echo", which read as clear skies.
+- Radar: The newest NEXRAD frame no longer stays empty when the Iowa Environmental Mesonet is late to publish it.
+- Radar: Dragging the map across the edge of the lower 48 no longer freezes the view while radar picks a source for the new area, and a source that stops sending radar there is replaced, as it is when radar starts.
+- Radar: While a frame loads, the frame shown in its place is the one nearest it in time.
 - Radar: `--help` says plainly that `--layer` picks radar or satellite, `--layers` adds the temperature and wind, and `--theme` is the color scale for rain and snow.
+- Maps: Downloaded cloud cover is cleared from the cache after a day, as radar's frames are, even if radar is never opened.
+- Maps: On a network that hangs, the live map opens at once instead of after a wait of ten seconds or more.
+- Maps: Flicking the map several times in a row loads one view at a time rather than one for every flick, so the motion stays smooth.
+- Maps: Panning east across the 180th meridian keeps the map on screen, as panning west always did, rather than blanking it while the view reloads.
+- Maps: Fixed the live map stopping short of places beyond 80 degrees of latitude, such as Alert, Nunavut.
+- Maps: Fixed a crash when flying a long way out over a short distance, such as pressing `n` close to home at street zoom when the map started on the globe.
+- Maps: When a tile server refuses or the network is down, the map waits a moment before asking again, rather than asking on every mouse movement. Radar's temperature and wind layers wait the same way.
+- Location: Place names ending in "UK" or "USA", such as `--location "London, UK"`, are found.
+- Location: When the network stops answering, a command waits for the place's name once instead of several times over.
+- Location: A damaged location cache is fetched again instead of stopping every command with an error.
+- Live views: Resizing the window resizes the view even with `COLUMNS` and `LINES` exported in the shell.
+- Live views: Quitting with Ctrl-C while a frame is drawing no longer leaves some terminals frozen for a moment afterwards.
+- Live views: A view left open does far less while it waits, and asks the terminal for fewer colors while it watches for a theme change.
+- Print: A command run in the background from a shell, such as `linecast moon --oneline &`, no longer stops with "Stopped (tty output)".
+- Print: Output is UTF-8 even where the locale or `PYTHONIOENCODING` asks for another encoding, instead of ending in an error.
+- Completions: Shell completion leaves a short name such as `sunshine` to the program that owns it, and completes it as linecast only where `linecast link` made it or an alias points it at linecast. Reported by [@jmote](https://github.com/jmote) in [#20](https://github.com/ashuttl/linecast/issues/20).
+- Help: `--emoji` and `--month-temperature` are no longer listed beside `--icons emoji` and `--month`, which they repeat. Both still work.
+- Doctor: A provider that answers with an error code at its root is reported as reachable, and one that is limiting requests or failing is no longer reported as ok.
+- Windows: Moon and sky times for where you are follow your computer's clock changes, instead of keeping today's offset for dates across a change.
 
 ## 2.10.3 — 2026-10-20
 
