@@ -727,6 +727,68 @@ class LocationRoutingTests(unittest.TestCase):
         self.assertEqual(picked, (OPENMETEO, "om:38.7200,-9.1400", "Lisbon"))
 
 
+class ModelAskedAheadTests(unittest.TestCase):
+    """A lookup slow to settle asks the global model ahead of its turn,
+    beside the providers before it, and takes that one answer when the
+    turn comes; a quick one asks it only in its turn, if at all."""
+
+    AHEAD = 0.05   # in place of _AHEAD_S's two seconds
+    SLOW = 0.4     # a provider waiting on the network
+
+    def _lookup(self, noaa=(None, None), model=("om:43.6800,-70.3600", None),
+                noaa_wait=0.0):
+        import time
+        events = []
+
+        def nearest_noaa(*_args):
+            events.append("noaa asked")
+            time.sleep(noaa_wait)
+            events.append("noaa answered")
+            return noaa
+
+        def coverage(*_args):
+            events.append("model asked")
+            if isinstance(model, Exception):
+                raise model
+            return model
+        with patch.object(_tides_stations, "_AHEAD_S", self.AHEAD), \
+             patch.object(_tides_noaa, "find_nearest_station", side_effect=nearest_noaa), \
+             patch.object(_tides_ticon, "find_nearest_station_ticon",
+                          return_value=(None, None)), \
+             patch.object(_tides_tidecheck, "is_available", return_value=False), \
+             patch.object(_tides_openmeteo, "find_nearest_openmeteo", side_effect=coverage), \
+             patch("linecast.sunshine.json.location_label", return_value="Portland"):
+            try:
+                picked = _tides_stations._station_for_location(43.68, -70.36, "US")
+            finally:
+                # anything asked ahead has had time to land, and anything
+                # wrongly armed has had time to fire
+                time.sleep(self.AHEAD * 4)
+        return picked, events
+
+    def test_a_slow_lookup_asks_the_model_beside_it_and_once(self):
+        picked, events = self._lookup(noaa_wait=self.SLOW)
+        self.assertEqual(picked, (OPENMETEO, "om:43.6800,-70.3600", "Portland"))
+        self.assertEqual(events, ["noaa asked", "model asked", "noaa answered"])
+
+    def test_a_station_found_first_still_wins(self):
+        picked, events = self._lookup(noaa=("8418150", "PORTLAND"), noaa_wait=self.SLOW)
+        self.assertEqual(picked, (NOAA, "8418150", "PORTLAND"))
+        self.assertIn("model asked", events)
+
+    def test_a_quick_lookup_asks_the_model_only_in_its_turn(self):
+        picked, events = self._lookup()
+        self.assertEqual(picked[0], OPENMETEO)
+        self.assertEqual(events, ["noaa asked", "noaa answered", "model asked"])
+        _picked, events = self._lookup(noaa=("8418150", "PORTLAND"))
+        self.assertNotIn("model asked", events)
+
+    def test_a_model_asked_ahead_that_could_not_be_reached_is_unreachable(self):
+        from linecast.tides.common import Unreachable
+        with self.assertRaises(Unreachable):
+            self._lookup(model=Unreachable("offline"), noaa_wait=self.SLOW)
+
+
 class LocationLabelTests(unittest.TestCase):
     """Coordinates are the last resort, not the second."""
 

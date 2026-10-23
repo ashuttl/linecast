@@ -9,6 +9,7 @@ _find_matching_stations searches every provider's list by name, for
 --station, --search and --nearby.
 """
 
+import threading
 from datetime import datetime, timezone, timedelta
 
 from linecast._geo import haversine_nm
@@ -16,6 +17,7 @@ from linecast._location import resolve_location
 from linecast._plaintext import plain_text
 from linecast._log import log_failure
 from linecast.tides.common import Unreachable, zone_info
+from linecast.tides import openmeteo
 from linecast.tides.marine import fetch_marine
 from linecast.tides.tidecheck import budget_line as tidecheck_budget_line
 from linecast.tides.providers import (
@@ -48,7 +50,8 @@ def _station_for_location(lat, lng, country_code, label=""):
     outage): in the US and its territories NOAA comes first, and abroad,
     where its stations are few and far apart, a TICON gauge within 30 nm
     does. TideCheck follows when a key is set, and Open-Meteo's global
-    model is the last resort. (None, None, None) when nothing covers the
+    model is the last resort, asked ahead of its turn when the lookup is
+    slow to settle (_Ahead). (None, None, None) when nothing covers the
     spot, and Unreachable raised when the global model, which has the
     last word on that, could not be asked.
 
@@ -77,29 +80,81 @@ def _station_for_location(lat, lng, country_code, label=""):
     order.append(OPENMETEO)
 
     unreachable = None
-    for provider in order:
-        # A provider that raises is passed over like one with no station
-        # in reach, so the ones after it, down to the global model, still
-        # get their turn.
-        try:
-            if provider.stationless:
-                station_id, station_name = provider.nearest(lat, lng, label=label)
-            else:
-                station_id, station_name = provider.nearest(lat, lng)
-        except Unreachable as exc:
-            log_failure(_provider_tag(provider), "nearest station", exc,
-                        fallback="next provider")
-            unreachable = exc
-            continue
-        except Exception as exc:
-            log_failure(_provider_tag(provider), "nearest station", exc,
-                        fallback="next provider", trace=True)
-            continue
-        if station_id is not None:
-            return provider, station_id, plain_text(station_name)
+    model = _Ahead(lat, lng, _AHEAD_S)
+    try:
+        for provider in order:
+            # A provider that raises is passed over like one with no
+            # station in reach, so the ones after it, down to the global
+            # model, still get their turn.
+            try:
+                if provider is OPENMETEO:
+                    station_id, station_name = provider.nearest(
+                        lat, lng, label=label, coverage=model.coverage)
+                elif provider.stationless:
+                    station_id, station_name = provider.nearest(lat, lng, label=label)
+                else:
+                    station_id, station_name = provider.nearest(lat, lng)
+            except Unreachable as exc:
+                log_failure(_provider_tag(provider), "nearest station", exc,
+                            fallback="next provider")
+                unreachable = exc
+                continue
+            except Exception as exc:
+                log_failure(_provider_tag(provider), "nearest station", exc,
+                            fallback="next provider", trace=True)
+                continue
+            if station_id is not None:
+                return provider, station_id, plain_text(station_name)
+    finally:
+        model.cancel()
     if unreachable is not None:
         raise unreachable
     return None, None, None
+
+
+# Open-Meteo's model has the last word on every place, and asking it is
+# the longest wait in the lookup: last year's hours, with twenty seconds
+# to come.  A lookup still going after this long asks it ahead, beside
+# the providers before it, so a network that has stopped answering costs
+# that wait once rather than after all the others; a lookup that ends
+# sooner, from the cache or with a station found, never asks it.  The
+# requests it waits on come back in about half a second.
+_AHEAD_S = 2.0
+
+
+class _Ahead:
+    """The model's coverage check for a place, started on a thread of its
+    own once *after* seconds have passed, unless its turn came first."""
+
+    def __init__(self, lat, lng, after):
+        self._place = (lat, lng)
+        self._asked = None      # the check's Future; False once it is too late
+        self._lock = threading.Lock()
+        self._timer = threading.Timer(after, self._ask)
+        self._timer.daemon = True
+        self._timer.start()
+
+    def _ask(self):
+        from linecast._fanout import Fanout
+        with self._lock:
+            if self._asked is None:
+                self._asked = Fanout().submit(openmeteo.find_nearest_openmeteo,
+                                              *self._place)
+
+    def cancel(self):
+        """Ask nothing that has not been asked already."""
+        self._timer.cancel()
+
+    def coverage(self, lat, lng):
+        """find_nearest_openmeteo's answer for the place: the check asked
+        ahead, waited for, or else asked now."""
+        self.cancel()
+        with self._lock:
+            asked = self._asked
+            self._asked = asked or False
+        if not asked:
+            return openmeteo.find_nearest_openmeteo(lat, lng)
+        return asked.result()
 
 
 def _station_details(provider, station_id, station_name):

@@ -527,8 +527,11 @@ class _OpenMeteo(TideProvider):
     def name_for_id(self, station_id):
         return "Tide model"
 
-    def nearest(self, lat, lng, label=""):
-        station_id, _ = openmeteo.find_nearest_openmeteo(lat, lng)
+    def nearest(self, lat, lng, label="", coverage=None):
+        """*coverage* answers as find_nearest_openmeteo does, for a
+        caller that has asked the model already (tides/stations.py
+        asks it ahead of its turn on a network that is slow to answer)."""
+        station_id, _ = (coverage or openmeteo.find_nearest_openmeteo)(lat, lng)
         if station_id is None:
             return None, None
         return station_id, _place_name(lat, lng, label, "tides/open-meteo", "Tide model")
