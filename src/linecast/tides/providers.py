@@ -6,6 +6,7 @@ function (as the tests do) reaches the provider. Where a provider cannot
 do something, its record says so in the method rather than by a flag.
 """
 
+import re
 import unicodedata
 from datetime import date, datetime, tzinfo
 from typing import Any
@@ -83,14 +84,14 @@ _ASCII_NORWEGIAN = str.maketrans({"æ": "ae", "ø": "o", "å": "a"})
 class TideProvider:
     """What the tides command asks of a source.
 
-    Station IDs are strings the provider recognises: NOAA's seven digits,
-    CHS's 24-hex ObjectIds, QLD's station names, HKO's three-letter codes,
-    JMA's "jma:" and a two-character code, TICON-4's "ticon:" gauge
-    names, TideCheck's slugs, Open-Meteo's "om:lat,lng", Kartverket's
-    "kv:lat,lng". Every method takes and returns the shapes the NOAA
-    pipeline was built on: (datetime, height_ft) points, (datetime,
-    height_ft, "H"/"L") extremes, and NOAA-shaped metadata dicts, whose
-    keys common.StationMeta lists.
+    Station IDs are strings the provider recognises: NOAA's seven digits
+    (or three capitals and four digits), CHS's 24-hex ObjectIds, QLD's
+    station names, HKO's three-letter codes, JMA's "jma:" and a
+    two-character code, TICON-4's "ticon:" gauge names, TideCheck's
+    slugs, Open-Meteo's "om:lat,lng", Kartverket's "kv:lat,lng". Every
+    method takes and returns the shapes the NOAA pipeline was built on:
+    (datetime, height_ft) points, (datetime, height_ft, "H"/"L") extremes,
+    and NOAA-shaped metadata dicts, whose keys common.StationMeta lists.
     """
 
     name: str = ""   # the source key: cache names and the --json payload
@@ -173,6 +174,10 @@ class TideProvider:
         return None
 
 
+# NOAA's station IDs: seven digits, or three capitals and four digits
+_NOAA_ID = re.compile(r"[0-9]{7}|[A-Z]{3}[0-9]{4}")
+
+
 def _noaa_label(station):
     name = station.get("name", "")
     state = station.get("state", "")
@@ -184,10 +189,12 @@ class _NOAA(TideProvider):
     label = "NOAA"
 
     def id_matches(self, text):
-        # Seven digits, as every station on NOAA's list has: a shorter
-        # number is someone else's, CHS's five-digit station code most
-        # likely, which its search finds
-        return len(text) == 7 and text.isascii() and text.isdigit()
+        # Seven characters, as every station on NOAA's list has: seven
+        # digits, or for 379 subordinate stations three capitals and four
+        # digits (TEC1603 is Troy, New York).  A shorter number is someone
+        # else's, CHS's five-digit station code most likely, which its
+        # search finds
+        return _NOAA_ID.fullmatch(text) is not None
 
     def name_for_id(self, station_id):
         for s in (noaa.fetch_all_stations_noaa() or []):
@@ -203,7 +210,8 @@ class _NOAA(TideProvider):
         for s in (noaa.fetch_all_stations_noaa() or []):
             state = s.get("state", "")
             haystack = (
-                f"{s.get('name', '')} {state} {US_STATE_NAMES.get(state.upper(), '')}"
+                f"{s.get('id', '')} {s.get('name', '')} {state} "
+                f"{US_STATE_NAMES.get(state.upper(), '')}"
             ).lower()
             if _matches(haystack, tokens):
                 found.append({
@@ -626,7 +634,7 @@ def provider_for_id(text: str) -> TideProvider | None:
     Most specific first: the "om:", "kv:", "jma:" and "ticon:" prefixes,
     then CHS's 24-character hex ObjectId (which can happen to be all
     digits), then HKO's codes (letters, one with a digit; never all
-    digits), then NOAA's seven digits, then TideCheck's hyphenated slugs
+    digits), then NOAA's seven characters, then TideCheck's hyphenated slugs
     (only once a key is set).  CHS's five-digit station codes are none
     of these: the search finds them.
     """

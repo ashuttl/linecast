@@ -26,6 +26,7 @@ Notable changes, by release. Notes for the next release collect under **Unreleas
 - Tides: Fixed the missing night shading on the chart at stations from TICON-4.
 - Tides: The chart's night shading begins and ends at sunset and sunrise, where it could be up to half an hour off.
 - Tides: `--station` accepts the five-digit codes the Canadian Hydrographic Service gives its stations, such as 00490 for Halifax.
+- Tides: `--station` finds the NOAA stations whose IDs begin with letters, such as TEC1603 for Troy, New York, and `--search` finds any NOAA station by its ID.
 - Radar: When a frame can't be fetched, offline or when a source fails, radar says it is unavailable instead of showing an empty map with "0% echo", which read as clear skies.
 - Radar: The newest NEXRAD frame no longer stays empty when the Iowa Environmental Mesonet is late to publish it.
 - Radar: Dragging the map across the edge of the lower 48 no longer freezes the view while radar picks a source for the new area, and a source that stops sending radar there is replaced, as it is when radar starts.

@@ -190,6 +190,7 @@ class StationSearchTests(unittest.TestCase):
          "state": "OR", "lat": 45.51, "lng": -122.67},
         {"id": "8638671", "name": "Lafayette River", "state": "VA",
          "lat": 36.89, "lng": -76.31},
+        {"id": "TEC1603", "name": "Troy", "state": "", "lat": 42.72, "lng": -73.70},
     ]
     CHS = [
         {"id": "5cebf1df3d0f4a073c4bbd1e", "code": "00065", "officialName": "Saint John",
@@ -232,6 +233,14 @@ class StationSearchTests(unittest.TestCase):
         matches = self._matches("00065")
         self.assertEqual([(m["source"], m["id"]) for m in matches],
                          [("chs", "5cebf1df3d0f4a073c4bbd1e")])
+
+    def test_a_noaa_station_is_found_by_its_id(self):
+        # as typed in any case: NOAA writes its lettered IDs in capitals
+        for query, found in (("8418150", "8418150"), ("tec1603", "TEC1603"),
+                             ("TEC1603", "TEC1603")):
+            with self.subTest(query=query):
+                self.assertEqual([(m["source"], m["id"]) for m in self._matches(query)],
+                                 [("noaa", found)])
 
     def test_qld_station_matched_by_region_token(self):
         matches = self._matches("brisbane queensland")
@@ -373,6 +382,8 @@ class ProviderRegistryTests(unittest.TestCase):
 
     def test_station_ids_route_to_their_provider(self):
         self.assertIs(provider_for_id("8418150"), NOAA)
+        for lettered in ("TEC1603", "TWC0261", "TPT2621"):
+            self.assertIs(provider_for_id(lettered), NOAA)
         self.assertIs(provider_for_id("5cebf1df3d0f4a073c4bbd1e"), CHS)
         self.assertIs(provider_for_id("123456789012345678901234"), CHS)
         self.assertIs(provider_for_id("om:43.6770,-70.3710"), OPENMETEO)
@@ -389,6 +400,10 @@ class ProviderRegistryTests(unittest.TestCase):
         self.assertIsNone(provider_for_id("00490"))
         self.assertIsNone(provider_for_id("84181500"))
         self.assertIsNone(provider_for_id("٨٤١٨١٥٠"))
+        # nor three letters and a number that is not four digits; in
+        # lower case the search finds the station
+        for text in ("TEC160", "TEC16034", "TE1603X", "tec1603"):
+            self.assertIsNone(provider_for_id(text))
 
     def test_provider_for_id_tidecheck_slug_needs_a_key(self):
         with patch("linecast.tides.tidecheck.is_available", return_value=False):
