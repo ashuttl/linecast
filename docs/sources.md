@@ -124,7 +124,7 @@ Checked against:
 
 ## Tides
 
-The station is chosen by the country of the place shown: the country's own service first, then the bundled TICON-4 gauges, then NOAA, then TideCheck if a key is set, then Open-Meteo's model everywhere. In the United States and its territories NOAA goes before the gauges. The first with a station within 100 nautical miles wins, or 30 for the gauges, and the footer names it. Nothing is converted between datums; each provider's is passed through, except as the entries below say.
+The station is chosen by the country of the place shown: the country's own service first, then the bundled TICON-4 gauges, then NOAA, then TideCheck if a key is set, then Open-Meteo's model everywhere. In the United States and its territories, and in Canada after CHS, NOAA goes before the gauges, which leave both countries out. The first with a station within 100 nautical miles wins, or 30 for the gauges, and the footer names it. Nothing is converted between datums; each provider's is passed through, except as the entries below say.
 
 Fetched:
 
