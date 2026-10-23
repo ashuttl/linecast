@@ -13,6 +13,10 @@ or panel over a frame.  The loop supports:
 - Mouse wheel scrubbing
 - Alert modal interaction (click to open, scroll to read, q/click to dismiss)
 
+Inside, live_loop() runs a _LiveLoop: the loop's state as attributes, and
+a method for each step of the loop and each kind of input.  _Pacing keeps
+the frame pacing, and _ThemeSchedule says when the theme is looked at.
+
 What the bytes the terminal sends mean -- keys, mouse reports, replies
 to its queries -- is terminal.keys.
 """
@@ -619,10 +623,12 @@ def live_loop(render_fn, interval=60, mouse=False, on_open=None, scroll_step=15,
               on_click=None, help_panel=None, clamp_offset=None):
     """Run render_fn() in a loop on the alternate screen buffer.
 
-    render_fn: callable(offset_minutes=0) returning (display_string, metadata)
-               or just display_string.
-               If mouse=True, also receives mouse_pos=(col, row) or None
-               and active_alert=int_or_None.
+    render_fn: callable(offset_minutes=0) returning display_string, or
+               (display_string, alert_row_map): {0-based row: [(first col,
+               last col, alert index)]}, the alerts a click there opens.
+               If mouse=True, also receives mouse_pos=(col, row) or None,
+               active_alert (the index of the alert whose modal is open,
+               or None) and modal_scroll.
                Scroll/arrow keys adjust offset_minutes to scrub through time.
     interval: seconds between refreshes, or a callable asked for them
               before each wait.
@@ -641,26 +647,23 @@ def live_loop(render_fn, interval=60, mouse=False, on_open=None, scroll_step=15,
     on_action: optional callback(key) for miscellaneous single-character keys
                not otherwise handled ('+', '-', 'c', 'w', …). Return a truthy
                value to trigger an immediate re-render; return falsy to leave
-               the loop waiting as before. Default None preserves existing
-               behavior exactly.
+               the loop waiting as before.
     on_drag: optional callback(dcol, drow, done) for left-button drags.
              Fired with the cumulative cell delta from the press position:
              during the drag with done=False (live preview) and once on
              release with done=True (commit). Return a truthy value to
-             trigger an immediate re-render. Requires mouse. Default None
-             preserves existing behavior exactly.
+             trigger an immediate re-render. Requires mouse.
     play_gate: optional callable() consulted before each auto-play frame
                advance. Return falsy to hold the animation on the current
                frame (the loop still re-renders every play_interval, so the
                caller can animate a buffering indicator); return truthy to
                let playback proceed. Only consulted while auto_play is on
-               and playing. Default None preserves existing behavior.
+               and playing.
     intercept: optional callback(action) consulted for every decoded keyboard
                action ('fwd', 'quit', 'key:t', …; mouse events excluded)
                BEFORE the built-in handling. Return truthy to consume the
                action and trigger a re-render — this is how a caller-drawn
-               menu takes over the arrow keys. Default None preserves
-               existing behavior exactly.
+               menu takes over the arrow keys.
     on_wheel: optional callback(direction, col, row) for mouse wheel
               events: +1 up / -1 down, and the pointer's 1-based terminal
               (col, row) — the same frame as mouse_pos — so the caller
@@ -670,20 +673,17 @@ def live_loop(render_fn, interval=60, mouse=False, on_open=None, scroll_step=15,
               zoom vs panel scroll). Return truthy to re-render; falsy
               leaves the frame alone (a clamped zoom). Return NotImplemented
               to use the loop's normal forecast/frame/modal scrolling.
-              Default None preserves existing behavior exactly.
     text_mode: optional callable() -> bool consulted before each key read.
                While truthy, printable input arrives at intercept as
                'char:<c>' plus 'key:backspace'/'key:kill'/'key:enter' —
                the plumbing for a caller-drawn text field. Escape
-               sequences (arrows, mouse) decode as usual. Default None
-               preserves existing behavior exactly.
+               sequences (arrows, mouse) decode as usual.
     on_click: optional callback(col, row) for a left click — a press
               and release on the same cell, in the same 1-based frame
               as mouse_pos. Fired on the release, before the zero-delta
               on_drag commit, so a drag is never also a click. Return
               truthy to re-render. Requires mouse and on_drag (the
               press is only tracked while a drag callback is set).
-              Default None preserves existing behavior exactly.
     help_panel: optional terminal.help.HelpPanel for the view's controls.
                 It owns `?` and input while open, without changing the
                 view's state. Text fields still receive a literal
@@ -707,7 +707,14 @@ class _LiveLoop:
     """One run of live_loop: the state a frame is rendered from, the
     handlers that change it, and the terminal it is drawn on.
 
-    The settings and hooks are live_loop's arguments, kept as they came.
+    run() takes the terminal, then goes round until the view quits:
+    _hold the frame until the terminal has read the last one, _suspend
+    if Ctrl-Z was pressed, _paint, and wait _idle for the next frame to
+    be due.  It gives the terminal back however the loop ends.  Input
+    is read by _on_input, which hands a key to _on_key and a mouse
+    report to _on_mouse, and each says what the frame needs (see
+    _on_input).  The settings and hooks are live_loop's arguments, kept
+    as they came.
     """
 
     def __init__(self, render_fn, *, interval, mouse, scroll_step, clamp_offset,
@@ -730,15 +737,17 @@ class _LiveLoop:
         self.intercept = intercept
         self.text_mode = text_mode
 
-        self.offset = 0
+        # What the frame is rendered from (render_fn's keywords)
+        self.offset = 0           # minutes scrubbed from now
         self.playing = auto_play
         self.play_frame = 0
-        self.mouse_pos = None
+        self.mouse_pos = None     # the pointer's 1-based (col, row), or None
+        self.active_alert = None  # index of alert whose modal is open, or None
+        self.modal_scroll = 0     # scroll offset within the modal
+        # The pointer's gestures, and what the last frame put under it
         self.hover_until = 0.0    # monotonic time mouse_pos is forgotten
         self.drag_start = None    # (col, row) of left-button press while on_drag is set
         self.drag_delta = (0, 0)  # last displayed drag, to finish before opening help
-        self.active_alert = None  # index of alert whose modal is open, or None
-        self.modal_scroll = 0     # scroll offset within the modal
         self.alert_row_map = {}   # 0-based line index → [(first col, last col, alert index)]
 
         self.theme = self.term = self.pacing = None
@@ -1014,9 +1023,9 @@ class _LiveLoop:
         return verdict
 
     def _on_key(self, action):
-        """A key (or None, for bytes that are none): the view's intercept
-        first, then the loop's own -- q, the modal's o, the arrows, space
-        -- then the view's on_action."""
+        """A key, or None for input that decoded as nothing: the view's
+        intercept first, then the loop's own -- q, the modal's o, the
+        arrows, space -- then the view's on_action."""
         if (self.intercept is not None and action is not None
                 and self.intercept(action)):
             return 'repaint'
