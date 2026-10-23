@@ -560,6 +560,51 @@ def test_quitting_with_a_reply_owed_waits_for_the_last_one():
     assert child.finish() == {"left": ""}
 
 
+# A frame cut short: ctrl-C lands while the second frame is half
+# written, after its synchronized-update start and before its end.
+_TORN_CHILD = """
+import json, sys
+from linecast.terminal import live as _live
+class Torn:
+    def __init__(self, stream):
+        self.stream = stream
+    def write(self, text):
+        if "TEAR" in text:
+            self.stream.write(text[:text.index("TEAR")])
+            self.stream.flush()
+            raise KeyboardInterrupt
+        return self.stream.write(text)
+    def __getattr__(self, name):
+        return getattr(self.stream, name)
+sys.stdout = Torn(sys.stdout)
+def render(offset_minutes=0, **kw):
+    sys.stderr.write("FRAME %d\\n" % offset_minutes)
+    sys.stderr.flush()
+    return "TEAR" if offset_minutes else "."
+try:
+    _live.live_loop(render, interval=60, mouse=True)
+except KeyboardInterrupt:
+    pass
+print(json.dumps({}), file=sys.stderr)
+"""
+
+
+@needs_pty
+def test_a_frame_cut_short_does_not_leave_the_screen_held():
+    """Without the end of the frame's synchronized update, a terminal
+    holds everything after it, the shell's prompt included, until the
+    update times out."""
+    child = Child(_TORN_CHILD)
+    child.until(lambda: child.frames == [0] and child.queries() == 1)
+    child.type(b"\033[1;1R")
+    child.pump(0.1)
+    child.type(WHEEL_UP)
+    child.finish()
+    begun = child.out.rindex(b"\033[?2026h")
+    assert b"\033[?2026l" in child.out[begun:], child.out[begun:]
+    assert child.out.rindex(b"\033[?2026l") < child.out.rindex(b"\033[?1049l")
+
+
 @needs_pty
 @pytest.mark.parametrize("signum", [signal.SIGINT, signal.SIGTERM])
 def test_a_second_signal_during_the_drain_still_restores_the_tty(signum):

@@ -791,8 +791,10 @@ def live_loop(render_fn, interval=60, mouse=False, on_open=None, scroll_step=15,
         if is_apple_terminal:
             init += "\033[?1007h"
     # What the loop's end writes to hand the terminal back, and ctrl-Z
-    # before it stops
-    restore = ""
+    # before it stops.  A frame cut short by a signal never sent its own
+    # _SYNC_END, and a terminal would hold the rest of the screen until
+    # the update timed out.
+    restore = _SYNC_END
     if mouse:
         restore += "\033[?1006l\033[?1003l\033[?1002l\033[?1000l"
         if is_apple_terminal:
