@@ -5,6 +5,7 @@ Notable changes, by release. Notes for the next release collect under **Unreleas
 ## Unreleased
 
 - Radar: The newest NEXRAD frame no longer stays empty when the Iowa Environmental Mesonet is late to publish it.
+- Radar: Dragging the map across the edge of the lower 48 no longer freezes the view while radar picks a source for the new area, and a source that stops sending radar there is replaced, as it is when radar starts.
 
 ## 2.10.3 — 2026-10-20
 

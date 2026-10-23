@@ -144,12 +144,13 @@ class RadarApp(LiveApp):
         self.lon = wrap_lon(self.lon + -dcol * lon_span / gw)
         # crossing the CONUS boundary re-picks the source when the one in
         # hand isn't LibreWXR: the natural moment to retry it after a
-        # fallback (a themed RainViewer is still a fallback)
+        # fallback (a themed RainViewer is still a fallback).  The pick
+        # may wait on the network, so it lands later, off this thread.
         r = _in_conus(self.lat, self.lon)
         if r != self.region:
             self.region = r
             if getattr(_frames.source(), "kind", None) != "lwxr":
-                _frames.use(get_source(self.lat, self.lon, N_FRAMES, self.theme))
+                _frames.reroute(self.lat, self.lon, N_FRAMES, self.theme)
         return True
 
     def play_gate(self):

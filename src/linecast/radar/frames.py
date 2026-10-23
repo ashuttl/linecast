@@ -7,8 +7,9 @@ auto-play gate waits on PLAY_READY of the window (or the worker
 finishing) before the animation starts. A frame that came back short of
 tiles is refused rather than memoised, and a source that cannot serve
 even the displayed frame is stepped over. The active RadarSource lives
-here too, since every fetch goes through it: use() puts one in, and
-source() reads it.
+here too, since every fetch goes through it: use() puts one in,
+reroute() picks one for a new place in the background, and source()
+reads it.
 """
 
 import atexit
@@ -33,7 +34,9 @@ PLAY_READY = 0.8  # fraction of the frame window that must be buffered
                   # stall playback forever)
 
 _source = None  # the active RadarSource, put in by use()
-_fell_back = False  # the chain has been stepped down once already
+_fell_back = False  # this route has been stepped down once already
+_route_gen = 0      # bumped by reroute(), so only the newest pick lands
+_route_lock = threading.Lock()  # guards the three above
 
 
 def source():
@@ -43,10 +46,42 @@ def source():
 
 def use(src):
     """Send every fetch through `src`: the source main() picked for the
-    location, the same index under another theme, or the one a pan
-    across the edge of the lower 48 picked."""
+    location, or the same index under another theme."""
     global _source
-    _source = src
+    with _route_lock:
+        _source = src
+
+
+def reroute(lat, lon, n_frames, theme):
+    """Pick the source for a new location without waiting for it.
+
+    The pick may fetch a source's index, which can take its whole
+    timeout, so it runs on a thread of its own; the source in hand
+    serves until the new one lands, and its landing repaints.  Only the
+    newest pick lands, and the route it starts may be stepped down once
+    again (see fall_back).  A theme chosen while the pick was out is
+    carried over to the source it lands with.
+    """
+    global _route_gen
+    with _route_lock:
+        _route_gen += 1
+        gen = _route_gen
+        was = getattr(_source, "theme", None)
+
+    def work():
+        global _source, _fell_back
+        src = _sources.get_source(lat, lon, n_frames, theme)
+        with _route_lock:
+            if gen != _route_gen:
+                return  # a later pick is out; it lands instead
+            now = getattr(_source, "theme", None)
+            if now != was and hasattr(src, "with_theme"):
+                src = src.with_theme(now)  # same index, no fetch
+            _source, _fell_back = src, False
+        debug_log(f"radar: routed to {getattr(src, 'label', src)}")
+        _nudge()
+
+    threading.Thread(target=work, daemon=True).start()
 
 
 def source_tag():
@@ -206,6 +241,7 @@ def _ensure_prefetch(bbox, gw, hc, frames, start_idx=0, layer="radar"):
         gen = _prefetch_gen
     ordered = frames[start_idx:] + frames[:start_idx]  # current frame first
     want_warnings = _warnings.covers(bbox)
+    src = _source  # the source this window was listed by
 
     def worker():
         loaded = 0
@@ -223,7 +259,7 @@ def _ensure_prefetch(bbox, gw, hc, frames, start_idx=0, layer="radar"):
         # connection to itself (and its warnings follow at once); the
         # rest of the window then fills in behind it (tile fetches share
         # one process-wide pool)
-        if not load(ordered[0]) and gen == _prefetch_gen and fall_back():
+        if not load(ordered[0]) and gen == _prefetch_gen and fall_back(src):
             # the source changed under us: this window's frames belong to
             # the old one, so leave them and let the repaint start again
             # against the new source's own index
@@ -283,26 +319,40 @@ def stand_down():
 getattr(threading, "_register_atexit", atexit.register)(stand_down)
 
 
-def fall_back():
-    """Swap the source for the next one down the chain.  True if it moved.
+def fall_back(src=None):
+    """Swap `src`, the source in use by default, for the next one down
+    the chain.  True if the source in use is no longer `src`.
 
     The displayed frame is the one the source gets every tile connection
     to itself; when even that comes back short, the host is not serving,
     and waiting on the rest of the window only spends more time to learn
-    it again.  Once per session, so a source that is merely having a bad
-    minute is not abandoned on the strength of a second one.
+    it again.  Once per route, so a source that is merely having a bad
+    minute is not abandoned on the strength of a second one.  A pan
+    across the edge of the lower 48 starts a new route (reroute), which
+    may pick the host that failed before, since its index answering says
+    nothing about its tiles, so that route may be stepped down too.
+
+    A source replaced while this looked for the next one (a new route,
+    or a theme) is left in place.
     """
     global _source, _fell_back
-    if _fell_back:
-        return False
-    nxt = _sources.demote(_source)
-    if nxt is None:
-        _fell_back = True  # nothing to fall to; stop asking
-        return False
-    debug_log(f"{source_tag()}: the displayed frame did not arrive; "
-              f"falling back to {nxt.label}")
-    _source, _fell_back = nxt, True
-    return True
+    with _route_lock:
+        src = _source if src is None else src
+        if src is not _source:
+            return True  # replaced already
+        if _fell_back:
+            return False
+        _fell_back = True
+    nxt = _sources.demote(src)  # may fetch an index: not under the lock
+    with _route_lock:
+        if src is not _source:
+            return True
+        if nxt is None:
+            return False  # nothing to fall to; stop asking
+        debug_log(f"{getattr(src, 'tag', 'radar')}: the displayed frame did not "
+                  f"arrive; falling back to {nxt.label}")
+        _source = nxt
+        return True
 
 
 def _safe_load(bbox, gw, hc, frame, layer="radar"):

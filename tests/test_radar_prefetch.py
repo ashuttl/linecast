@@ -273,6 +273,88 @@ class TestIncompleteFrames:
         # only once: a source having a bad minute is not abandoned twice
         assert rf.fall_back() is False
 
+    def test_a_new_route_may_fall_back_again(self, monkeypatch):
+        """A pan across the lower-48 line picks afresh, and may pick the
+        host that just failed: its index answers, its tiles do not.  The
+        first fall back must not leave that route stranded."""
+        import threading
+        stalled = self._source({0, 1, 2})
+        repicked = self._source({0, 1, 2})
+        healthy = self._source(set())
+        healthy.kind = "rv"
+        rf.use(stalled)
+        monkeypatch.setattr(rf, "_fell_back", False)
+        monkeypatch.setattr(rf._sources, "demote", lambda src: healthy)
+        assert rf.fall_back() is True
+
+        landed = threading.Event()
+        monkeypatch.setattr(rf._sources, "get_source", lambda *a: repicked)
+        monkeypatch.setattr(rf, "_nudge", landed.set)
+        rf.reroute(43.7, -60.0, rf.N_FRAMES, None)
+        assert landed.wait(2)
+        assert rf.source() is repicked
+        assert rf.fall_back() is True
+        assert rf.source() is healthy
+        assert rf.fall_back() is False  # still once per route
+
+    def test_only_the_newest_pick_lands(self, monkeypatch):
+        import threading
+        first, second = self._source(set()), self._source(set())
+        go_first, landed = threading.Event(), threading.Event()
+
+        def pick(lat, lon, n, theme):
+            if lat == 1:
+                go_first.wait(2)
+                return first
+            return second
+        monkeypatch.setattr(rf._sources, "get_source", pick)
+        monkeypatch.setattr(rf, "_nudge", landed.set)
+        rf.use(self._source(set()))
+        rf.reroute(1, 0, rf.N_FRAMES, None)
+        rf.reroute(2, 0, rf.N_FRAMES, None)
+        assert landed.wait(2) and rf.source() is second
+        go_first.set()
+        time.sleep(0.1)
+        assert rf.source() is second
+
+    def test_a_theme_chosen_while_the_pick_is_out_is_kept(self, monkeypatch):
+        import threading
+        release, landed = threading.Event(), threading.Event()
+
+        class Themed:
+            kind = "lwxr"
+
+            def __init__(self, theme):
+                self.theme = theme
+
+            def with_theme(self, theme):
+                return Themed(theme)
+
+        def pick(lat, lon, n, theme):
+            release.wait(2)
+            return Themed(theme)
+        monkeypatch.setattr(rf._sources, "get_source", pick)
+        monkeypatch.setattr(rf, "_nudge", landed.set)
+        rf.use(Themed("terminal"))
+        rf.reroute(43.7, -60.0, rf.N_FRAMES, "terminal")
+        rf.use(rf.source().with_theme("ember"))  # the picker, meanwhile
+        release.set()
+        assert landed.wait(2)
+        assert rf.source().theme == "ember"
+
+    def test_a_replaced_source_is_not_stepped_over(self, monkeypatch):
+        """A worker whose window was listed by the old source reports
+        its frame missing after the new one landed: that is no reason
+        to step the new one down."""
+        old, new = self._source({0}), self._source({0})
+        rf.use(new)
+        monkeypatch.setattr(rf, "_fell_back", False)
+        demoted = []
+        monkeypatch.setattr(rf._sources, "demote", lambda src: demoted.append(src))
+        assert rf.fall_back(old) is True  # the source has moved on already
+        assert demoted == [] and rf.source() is new
+        assert rf._fell_back is False
+
     def test_no_fall_back_when_the_chain_is_spent(self, monkeypatch):
         rf.use(self._source({0}))
         monkeypatch.setattr(rf, "_fell_back", False)

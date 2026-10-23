@@ -209,8 +209,7 @@ class TestDrag:
     def test_leaving_conus_repicks_a_fallback_source(
             self, app, monkeypatch):
         picks = []
-        monkeypatch.setattr(_radar_live, "get_source",
-                            lambda *a: picks.append(a) or FakeSource(None))
+        monkeypatch.setattr(rf, "reroute", lambda *a: picks.append(a))
         rf.use(FakeSource(None, kind="iem"))
         monkeypatch.setattr(_radar_live, "_in_conus",
                             lambda lat, lon: lon < -60)
@@ -223,8 +222,7 @@ class TestDrag:
     def test_librewxr_is_left_alone_across_the_boundary(
             self, app, monkeypatch):
         picks = []
-        monkeypatch.setattr(_radar_live, "get_source",
-                            lambda *a: picks.append(a))
+        monkeypatch.setattr(rf, "reroute", lambda *a: picks.append(a))
         monkeypatch.setattr(_radar_live, "_in_conus",
                             lambda lat, lon: lon < -60)
         app.region = True
@@ -232,11 +230,38 @@ class TestDrag:
         assert app.region is False
         assert picks == []
 
+    def test_the_pick_does_not_hold_up_the_drag(self, app, monkeypatch):
+        """Picking a source may fetch an index for its whole 15 s
+        timeout; the drag that crossed the line must not wait for it."""
+        import threading
+        import time
+        release = threading.Event()
+        picked = FakeSource(None, kind="lwxr")
+
+        def slow(*a):
+            release.wait(5)
+            return picked
+        monkeypatch.setattr(rf._sources, "get_source", slow)
+        monkeypatch.setattr(_radar_live, "get_source", slow)
+        monkeypatch.setattr(rf, "_nudge", lambda: None)
+        rf.use(FakeSource(None, kind="iem"))
+        monkeypatch.setattr(_radar_live, "_in_conus",
+                            lambda lat, lon: lon < -60)
+        app.region = True
+        t0 = time.monotonic()
+        assert app.on_drag(-40, 0, True)
+        assert time.monotonic() - t0 < 0.5
+        assert rf.source().kind == "iem"   # the old one serves meanwhile
+        release.set()
+        deadline = time.monotonic() + 2
+        while rf.source() is not picked and time.monotonic() < deadline:
+            time.sleep(0.01)
+        assert rf.source() is picked
+
     def test_a_themed_rainviewer_is_still_a_fallback_to_retry(
             self, app, monkeypatch):
         picks = []
-        monkeypatch.setattr(_radar_live, "get_source",
-                            lambda *a: picks.append(a) or FakeSource(None))
+        monkeypatch.setattr(rf, "reroute", lambda *a: picks.append(a))
         rf.use(FakeSource({"terminal": "terminal"}, "terminal", kind="rv"))
         monkeypatch.setattr(_radar_live, "_in_conus",
                             lambda lat, lon: lon < -60)
