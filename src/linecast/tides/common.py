@@ -73,7 +73,9 @@ class StationMeta(_StationMetaRequired, total=False):
         go through zone_info), the station's clock wherever it is given.
     source: the provider's name; TideCheck's cache checks it.
     datum: the chart datum the heights are above, where the provider
-        says ("LAT", "MSL"): TICON's gauges.
+        says ("LAT", "MSL"): TICON's gauges, and Open-Meteo's model,
+        which is above mean sea level.  The month view brightens a
+        minus tide only on a low-water datum.
     """
 
     timeZoneCode: str

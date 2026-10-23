@@ -336,6 +336,7 @@ def fetch_station_metadata_openmeteo(station_id: str) -> StationMeta | None:
         "timeZoneCode": data.get("timezone", ""),
         "observedst": False,
         "source": "openmeteo",
+        "datum": "MSL",
     }
 
 

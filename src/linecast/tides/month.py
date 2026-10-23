@@ -19,7 +19,9 @@ month of tides is usually wanted for: a morning for the tide pools, a
 low enough tide to walk out to the island.  A diamond on today's row
 marks the hour it is now.  The column at the right
 gives each day's lowest daylight low water, brighter when it falls
-below the datum, a minus tide.
+below the datum, a minus tide.  Heights above mean sea level (the
+global model's, and some TICON gauges') put every low below zero, so
+there no low is singled out.
 
 A terminal too short for a row a day gives each row two days, one to
 each half-block; the right column then names the row's better low,
@@ -238,6 +240,9 @@ def render_month(first, predictions, hilo, runtime, *, header, footer, station_m
            for d in shown}
     lows = {d: _daylight_lows(hilo, d, sun[d]) for d in shown}
     unit = runtime.height_unit
+    # Open-Meteo's model is above mean sea level wherever it stands in
+    # (by its source, too: a station kept from before it said so)
+    at_msl = meta.get("datum") == "MSL" or meta.get("source") == "openmeteo"
 
     found = []
     for group in row_days:
@@ -263,7 +268,9 @@ def render_month(first, predictions, hilo, runtime, *, header, footer, station_m
                 + " " * (height_w - visible_len(height)) + height)
         if per_row > 1:
             text = f"{d.day:>2}  {text}"
-        right.append((text, height.startswith("−")))
+        # a minus tide is a low below a low-water datum; above mean sea
+        # level every low is below zero, and none is worth singling out
+        right.append((text, height.startswith("−") and not at_msl))
     # A row is named for its first day, but today's row for today: the
     # bright label is the one read as the date
     labels = [_day_label(today if today in group else group[0], runtime)

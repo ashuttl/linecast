@@ -22,6 +22,7 @@ Notable changes, by release. Notes for the next release collect under **Unreleas
 - Tides: The month view no longer jumps partway through the hour the clocks repeat in autumn, and at Canadian stations it no longer runs an hour ahead through the hour they skip in spring.
 - Tides: Fixed the missing night shading on the chart at stations from TICON-4.
 - Tides: The chart's night shading begins and ends at sunset and sunrise, where it could be up to half an hour off.
+- Tides: Where the heights are above mean sea level, as the global tide model's are, the month view no longer brightens every low water as a minus tide. There, every low is below zero.
 - Tides: Offline, with nothing saved for the place, tides says it could not load the tides instead of that there is no tide station nearby.
 - Tides: When a station's tides cannot be fetched, the message is in your language, as the others are.
 - Tides: When the network stops answering, tides says sooner that it could not load the tides.

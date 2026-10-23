@@ -262,6 +262,14 @@ class TestTheLowsAtTheRight:
         assert f"{fg(*_palette.TEXT_RGB)}12:00p −0.4′" in rows[6]
         assert f"{fg(*_palette.MUTED_RGB)} 2:00p  0.5′" in rows[5]
 
+    def test_above_mean_sea_level_no_low_is_singled_out(self, truecolor):
+        # every low is below zero there, so a minus sign says nothing
+        for meta in ({**PORTLAND, "datum": "MSL"}, {**PORTLAND, "source": "openmeteo"}):
+            rows = self._rows(raw=True, meta=meta)
+            assert f"{fg(*_palette.MUTED_RGB)}12:00p −0.4′" in rows[6]
+        rows = self._rows(raw=True, meta={**PORTLAND, "datum": "LAT"})
+        assert f"{fg(*_palette.TEXT_RGB)}12:00p −0.4′" in rows[6]
+
     def test_two_days_to_a_row_names_the_day_of_the_better_low(self):
         rows = self._rows(rows=24)
         assert rows[5].rstrip().endswith(" 6  12:00p −0.4′")  # the 5th and 6th share a row
