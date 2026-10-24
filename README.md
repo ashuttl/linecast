@@ -95,7 +95,7 @@ The year view for Westbrook, Maine:
 
 ### Sunshine
 
-The sun on its arc through dawn, day, and dusk. Press `v` for the whole year. In either view, `t` hides the text except the location and current time; `--no-text` starts that way. `--hours` reads the day in [traditional hours](docs/hours.md): halachic, Roman, Edo, Islamic, or Swahili.
+The sun on its arc through dawn, day, and dusk. Press `v` for the whole year. In either view, `t` hides the text except the location and current time; `--no-text` starts that way. `--hours` reads the day in [traditional hours](docs/hours.md): halachic, Roman, Japanese, Islamic, or Swahili.
 
 Dawn and afternoon on the June solstice:
 

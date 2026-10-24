@@ -242,7 +242,7 @@ def weather_parser():
 
 def tides_parser():
     p = base_parser("linecast tides", BLURB["tides"],
-                      units=("heights in meters", "heights in feet"),
+                      units=("heights in metres", "heights in feet"),
                       clock=True, json=True,
                       location_help="find the nearest station to 'lat,lng' or a "
                                     "place name instead of your location")
