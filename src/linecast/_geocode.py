@@ -4,11 +4,12 @@ Nominatim turns coordinates into a place's name, its country and its
 address (reverse_geocode), in the display language or the country's
 own, which is what the alert feeds' area names are matched against.
 Open-Meteo's geocoder turns a name into coordinates (geocode), with
-Photon standing in when it does not answer.  The maps' own search is
+Photon standing in when it does not answer or finds nothing.  The maps' own search is
 maps/search.py; it shares the Nominatim gate here, since both ask the
 same server, which allows one request a second.
 """
 
+import itertools
 import time
 
 from linecast._cache import location_cache_key, read_cache, read_stale, write_cache
@@ -25,6 +26,23 @@ PHOTON_URL = "https://photon.komoot.io/api"
 # Photon translates place names into these three and nothing else;
 # asking for anything more gets an error instead of English.
 PHOTON_LANGS = ("en", "de", "fr")
+
+# What Photon and Nominatim call a settlement or an area, as against a
+# building, a business or a street: the kinds of thing a location is.
+PLACE_KINDS = frozenset((
+    "city", "town", "village", "hamlet", "municipality", "district",
+    "locality", "suburb", "quarter", "neighbourhood", "borough", "county",
+    "region", "province", "state", "country",
+))
+
+
+def places_first(results, kind):
+    """*results* with the places in them (PLACE_KINDS) ahead of the rest,
+    each in the geocoder's order.  Photon ranks "New York City Ballet"
+    and six more ahead of New York for "New York City"."""
+    results = list(results)
+    return ([r for r in results if kind(r) in PLACE_KINDS]
+            + [r for r in results if kind(r) not in PLACE_KINDS])
 
 # Nominatim's usage policy allows one request a second from an
 # application; reverse geocoding and the maps' search share this gate.
@@ -166,9 +184,10 @@ def plain_values(mapping):
 
 def photon_query(query, lang="en", timeout=10):
     """Photon's answer to a place name, reshaped to the Open-Meteo
-    geocoder's result dicts — the second source when Open-Meteo doesn't
-    answer. Photon speaks en/de/fr only; any other language asks in
-    English rather than getting an error back."""
+    geocoder's result dicts, places first — the second source when
+    Open-Meteo doesn't answer or knows nothing by the name. Photon
+    speaks en/de/fr only; any other language asks in English rather
+    than getting an error back."""
     import urllib.parse
 
     from linecast import user_agent
@@ -192,8 +211,9 @@ def photon_query(query, lang="en", timeout=10):
             "admin1": plain_text(props.get("state", "")),
             "country": plain_text(props.get("country", "")),
             "country_code": props.get("countrycode", ""),
+            "kind": props.get("type", ""),
         })
-    return results
+    return places_first(results, lambda r: r["kind"])
 
 
 # Open-Meteo reads a trailing ", XX" as a country when it is the ISO
@@ -210,10 +230,8 @@ def _iso_country(query):
     return f"{head.rstrip()}, {code}" if code and head.strip() else query
 
 
-def geocode(query, lang="en"):
-    """Geocode a place name via Open-Meteo, falling back to Photon.
-    Returns list of result dicts; raises GeocoderUnavailable when
-    neither answers."""
+def _open_meteo(query, lang):
+    """Open-Meteo's results for *query*; raises when it doesn't answer."""
     import urllib.parse
 
     url = (
@@ -225,13 +243,84 @@ def geocode(query, lang="en"):
         data = fetch_json(url, timeout=10)
     except Exception as exc:
         log_failure("location/geocoder", "geocode", exc, url=url, fallback="Photon")
+        raise
+    return [plain_values(r) for r in data.get("results") or []]
+
+
+def _folded(text):
+    """*text* as a keyboard without accents or full stops spells it:
+    São Paulo as sao paulo, St. Gallen as st gallen."""
+    import unicodedata
+    text = unicodedata.normalize("NFKD", text.replace(".", " "))
+    return " ".join("".join(ch for ch in text if not unicodedata.combining(ch))
+                    .casefold().split())
+
+
+def _names(results, name):
+    """True when one of *results* is called *name*, and not merely
+    spelled something like it."""
+    return any(_folded(r.get("name", "")) == _folded(name) for r in results)
+
+
+def _qualified(query):
+    """*query*, typed without commas, read as a name and the state or
+    country it is in, the longest name first: "Portland Oregon USA" as
+    "Portland Oregon, USA", "Portland, Oregon USA", then "Portland,
+    Oregon, USA".  The geocoder reads what follows a comma as where the
+    place is, and the whole of a query without one as the name."""
+    words = query.split()
+    for i in range(len(words) - 1, 0, -1):
+        name, where = " ".join(words[:i]), words[i:]
+        yield name, f"{name}, {' '.join(where)}"
+        if len(where) > 1:
+            yield name, f"{name}, {' '.join(where[:-1])}, {where[-1]}"
+
+
+# The readings _qualified offers past the query as typed, at most: a
+# query of four words or fewer is read every way it has.
+_QUALIFIED_TRIES = 5
+
+
+def geocode(query, lang="en"):
+    """Geocode a place name via Open-Meteo, falling back to Photon.
+    Returns list of result dicts; raises GeocoderUnavailable when
+    neither answers.
+
+    Open-Meteo matches a query without a comma as one name, so
+    "portland maine" found nothing and "Portland ME" found Portland
+    Meadows, a park in Oregon.  When nothing it found is called what
+    was typed, the query is asked again as a name and where it is
+    (_qualified); a reading that finds a place by that name wins, and
+    without one the query as typed stands, unless it found nothing.
+    What no reading finds is asked of Photon, which reads a misspelling
+    ("Pordland") and knows the café on the corner, as the location
+    menu's search does.
+    """
+    try:
+        results = _open_meteo(query, lang)
+    except Exception as exc:
         try:
             return photon_query(query, lang=lang)
         except Exception as photon_exc:
             log_failure("location/photon", "geocode", photon_exc,
                         fallback="GeocoderUnavailable")
             raise GeocoderUnavailable(str(exc)) from photon_exc
-    return [plain_values(r) for r in data.get("results") or []]
+    if "," not in query and not _names(results, query):
+        for name, reading in itertools.islice(_qualified(query), _QUALIFIED_TRIES):
+            try:
+                found = _open_meteo(reading, lang)
+            except Exception:
+                break
+            if _names(found, name):
+                return found
+            results = results or found
+    if results:
+        return results
+    try:
+        return photon_query(query, lang=lang)
+    except Exception as exc:
+        log_failure("location/photon", "geocode", exc, fallback="no match")
+        return []
 
 
 def geocode_first(query: str, lang: str = "en") -> tuple[float, float, str] | None:
@@ -248,14 +337,13 @@ def geocode_first(query: str, lang: str = "en") -> tuple[float, float, str] | No
 
 def result_label(result) -> str:
     """A geocoder result as "name, admin1, country". A region named for
-    its city is left out: "Busan, South Korea", not "Busan, Busan"."""
+    its city is left out: "Busan, South Korea", not "Busan, Busan", and
+    so is a country found as itself: "Poland", not "Poland, Poland"."""
     name = result.get("name", "")
     parts = [name]
-    admin1 = result.get("admin1", "")
-    if admin1 and admin1.casefold() != name.casefold():
-        parts.append(admin1)
-    if result.get("country"):
-        parts.append(result["country"])
+    for part in (result.get("admin1", ""), result.get("country", "")):
+        if part and part.casefold() not in {p.casefold() for p in parts}:
+            parts.append(part)
     return ", ".join(parts)
 
 

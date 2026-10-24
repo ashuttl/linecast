@@ -146,3 +146,102 @@ class TestTrailingCountry:
         assert self._asked("UK") == "UK"
         assert self._asked("London, United Kingdom") == "London, United Kingdom"
         assert self._asked("Ukiah, California") == "Ukiah, California"
+
+
+class TestReadings:
+    """A query typed without commas is read again as a name and where it
+    is, which is how the geocoder takes a state or a country."""
+
+    PLACES = {
+        "Portland": [{"name": "Portland", "admin1": "Oregon", "country": "United States"},
+                     {"name": "Portland", "admin1": "Maine", "country": "United States"}],
+        "Portland ME": [{"name": "Portland Meadows", "admin1": "Oregon",
+                         "country": "United States"}],
+        "Portland, ME": [{"name": "Portland", "admin1": "Maine", "country": "United States"}],
+        "Portland, Maine": [{"name": "Portland", "admin1": "Maine",
+                             "country": "United States"}],
+        "Portland, Oregon, US": [{"name": "Portland", "admin1": "Oregon",
+                                  "country": "United States"}],
+        "Sao Paulo, Brazil": [{"name": "São Paulo", "admin1": "São Paulo", "country": "Brazil"}],
+        "New York City": [{"name": "New York", "admin1": "New York",
+                           "country": "United States"}],
+        "St Johns, Newfoundland": [{"name": "St Johns Island",
+                                    "admin1": "Newfoundland and Labrador", "country": "Canada"}],
+    }
+
+    def _geocode(self, query, photon=()):
+        import urllib.parse
+        asked = []
+
+        def fetch(url, **_kw):
+            parts = urllib.parse.urlsplit(url)
+            params = urllib.parse.parse_qs(parts.query)
+            if parts.hostname == "photon.komoot.io":
+                asked.append(("photon", params["q"][0]))
+                return {"features": list(photon)}
+            asked.append(params["name"][0])
+            # the geocoder takes a name in any case, as the table doesn't
+            places = {name.casefold(): found for name, found in self.PLACES.items()}
+            return {"results": places.get(params["name"][0].casefold(), [])}
+        with patch.object(_geocode, "fetch_json", fetch):
+            results = _geocode.geocode(query)
+        return [_geocode.result_label(r) for r in results][:1], asked
+
+    def test_a_name_found_as_typed_is_asked_once(self):
+        assert self._geocode("Portland") == (["Portland, Oregon, United States"], ["Portland"])
+
+    def test_a_state_after_a_space_is_read_as_one(self):
+        assert self._geocode("Portland ME") == (
+            ["Portland, Maine, United States"], ["Portland ME", "Portland, ME"])
+        assert self._geocode("portland maine")[0] == ["Portland, Maine, United States"]
+
+    def test_a_name_is_matched_without_its_accents(self):
+        assert self._geocode("Sao Paulo Brazil")[0] == ["São Paulo, Brazil"]
+
+    def test_a_state_and_a_country_are_read_as_two(self):
+        label, asked = self._geocode("Portland Oregon USA")
+        assert label == ["Portland, Oregon, United States"]
+        assert asked == ["Portland Oregon USA", "Portland Oregon, US", "Portland, Oregon USA",
+                         "Portland, Oregon, US"]
+
+    def test_with_no_reading_named_so_the_query_as_typed_stands(self):
+        label, asked = self._geocode("New York City")
+        assert label == ["New York, United States"]
+        assert asked == ["New York City", "New York, City", "New, York City", "New, York, City"]
+
+    def test_a_place_found_only_by_a_reading_is_better_than_none(self):
+        assert self._geocode("St Johns Newfoundland")[0] == [
+            "St Johns Island, Newfoundland and Labrador, Canada"]
+
+    def test_a_query_with_a_comma_is_read_as_typed(self):
+        assert self._geocode("Portland, ME")[1] == ["Portland, ME"]
+
+    def test_the_readings_stop_at_a_few(self):
+        _label, asked = self._geocode("one two three four five six")
+        assert len([a for a in asked if isinstance(a, str)]) == 1 + _geocode._QUALIFIED_TRIES
+
+    def test_what_open_meteo_does_not_know_photon_is_asked(self):
+        def feature(name, kind):
+            return {"properties": {"name": name, "state": "Maine",
+                                   "country": "United States", "type": kind},
+                    "geometry": {"coordinates": [-70.26, 43.66]}}
+        label, asked = self._geocode("Portand, Maine", photon=[
+            feature("University of Southern Maine Portland Campus", "house"),
+            feature("Portland", "city")])
+        assert label == ["Portland, Maine, United States"]
+        assert asked[-1] == ("photon", "Portand, Maine")
+
+    def test_nothing_anywhere_is_no_match(self):
+        assert self._geocode("Xyzzy") == ([], ["Xyzzy", ("photon", "Xyzzy")])
+
+
+def test_a_country_found_as_itself_is_named_once():
+    assert _geocode.result_label({"name": "Poland", "admin1": "", "country": "Poland"}) == "Poland"
+    assert _geocode.result_label({"name": "Mexico City", "admin1": "Mexico City",
+                                  "country": "Mexico"}) == "Mexico City, Mexico"
+
+
+def test_places_come_before_the_things_in_them():
+    kinds = ["house", "city", "other", "town", "street", "country"]
+    assert _geocode.places_first(kinds, lambda kind: kind) == [
+        "city", "town", "country", "house", "other", "street"]

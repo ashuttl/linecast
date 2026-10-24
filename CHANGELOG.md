@@ -37,6 +37,7 @@ Fixes:
 - Maps and radar: When a tile server refuses or the network is down, the map and radar's temperature and wind layers wait a moment before asking again. Cloud cover is cleared from the cache after a day, even if radar is never opened.
 - Moon: In a small month grid, each new, quarter, and full moon shows its phase on the day it falls.
 - Location: Place names ending in "UK" or "USA", such as `--location "London, UK"`, are found. A damaged location cache no longer stops every command with an error.
+- Location: A place typed without commas, such as "portland maine" or "Kyoto Japan", is found, and "Portland ME" is Portland, Maine, not a park in Oregon. A misspelled name, or a café's, is looked up as the location menu would look it up instead of finding nothing.
 - Live views: Resizing the window resizes the view even with `COLUMNS` and `LINES` exported in the shell. A view left open does far less work while it waits.
 - Live views: Quitting with Ctrl-C while a frame is drawing no longer leaves some terminals frozen for a moment, and quitting as a download finishes no longer prints an error afterwards. The help panel in weather and tides lists the location menu's keys in lower case.
 - Print: A command run in the background, such as `linecast moon --oneline &`, no longer stops with "Stopped (tty output)". Output is UTF-8 even where the locale asks for another encoding, instead of ending in an error.
