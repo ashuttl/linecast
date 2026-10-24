@@ -213,6 +213,20 @@ class StationSearchTests(unittest.TestCase):
         matches = self._matches("portland maine")
         self.assertEqual([m["id"] for m in matches], ["8418150"])
 
+    def test_a_name_as_nearby_prints_it_is_found(self):
+        self.assertEqual([m["id"] for m in self._matches("PORTLAND, ME")], ["8418150"])
+        self.assertEqual([m["id"] for m in self._matches("portland, maine")], ["8418150"])
+
+    def test_the_station_called_so_comes_before_a_nearer_one(self):
+        # both have the words; from Westbrook the bay is the nearer
+        self.NOAA = [{"id": "8413320", "name": "Bar Harbor", "state": "ME",
+                      "lat": 44.39, "lng": -68.20},
+                     {"id": "8413999", "name": "Bar Harbor Road, Casco Bay", "state": "ME",
+                      "lat": 43.70, "lng": -70.20}]
+        self.assertEqual([m["id"] for m in self._matches("bar harbor")], ["8413999", "8413320"])
+        self.assertEqual([m["id"] for m in self._matches("Bar Harbor, ME")],
+                         ["8413320", "8413999"])
+
     def test_results_sorted_by_distance_from_location(self):
         matches = self._matches("portland")
         self.assertEqual([m["id"] for m in matches], ["8418150", "9439221"])

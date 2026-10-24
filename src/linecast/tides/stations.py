@@ -9,6 +9,7 @@ _find_matching_stations searches every provider's list by name, for
 --station, --search and --nearby.
 """
 
+import re
 import threading
 from datetime import datetime, timezone, timedelta
 
@@ -309,17 +310,20 @@ def _station_now(meta, series=None):
 def _find_matching_stations(query, cli_location=None):
     """Match stations across all providers by tokenized name/state search.
 
-    Every whitespace-separated token of *query* must appear somewhere in a
-    station's searchable text — name, state abbreviation, full state name,
-    or country — so multi-word queries like "portland maine" work.
+    Every word of *query* must appear somewhere in a station's searchable
+    text — name, state abbreviation, full state name, or country — so
+    multi-word queries like "portland maine" work.  Commas part words
+    too, so a name as --nearby prints it ("PORTLAND, ME") finds it.
 
     Returns a list of dicts {source, id, name, dist_nm}, sorted by distance
-    from the current location when one is known (alphabetically otherwise).
+    from the current location when one is known (alphabetically otherwise),
+    with a station called exactly *query* first: a name copied from
+    --nearby is that station, and not a nearer one with the words in it.
 
     An empty query matches every station, so callers can list the nearest
     stations by passing "".
     """
-    tokens = [t for t in query.lower().split() if t]
+    tokens = [t for t in re.split(r"[\s,]+", query.lower()) if t]
 
     candidates = []
     for provider in PROVIDERS.values():
@@ -344,6 +348,8 @@ def _find_matching_stations(query, cli_location=None):
             key=lambda c: (c["dist_nm"] is None, c["dist_nm"] or 0.0, c["name"]))
     else:
         candidates.sort(key=lambda c: c["name"])
+    named = query.strip().casefold()
+    candidates.sort(key=lambda c: c["name"].casefold() != named)
 
     return candidates
 
