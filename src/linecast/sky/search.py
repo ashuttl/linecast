@@ -307,6 +307,18 @@ def search(query, pool, limit=MAX_ROWS):
     return [s[3] for s in scored[:limit]]
 
 
+def nearest_name(query, pool):
+    """The target whose name is spelled most like *query*, for a query
+    that matched nothing ("betelgeuze"), or None when none is close."""
+    import difflib
+    names = {}
+    for t in pool:
+        for name in t.names + t.folded:
+            names.setdefault(name, t)
+    close = difflib.get_close_matches(_fold(query.strip().lower()), list(names), n=1, cutoff=0.8)
+    return names[close[0]] if close else None
+
+
 def next_rising(target, scene_at, now_local, hours=26):
     """When *target* next rises, as (local datetime, azimuth), or None if
     it never does. *scene_at(dt)* builds the Scene for a moment. Coarse

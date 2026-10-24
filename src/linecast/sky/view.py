@@ -40,6 +40,7 @@ arcminutes, which is finer than a cell at the closest zoom.
 """
 
 import math
+import sys
 from collections import namedtuple
 from datetime import datetime, timezone
 
@@ -1019,16 +1020,28 @@ def main():
         parser.error(str(exc))
     fov = max(FOV_MIN, min(FOV_MAX, args.fov)) if args.fov else FOV_DEFAULT
     culture, _source = resolve_culture(args.culture, lang_of(runtime))
-    aim = None
+    aim = target = rising = None
     if args.at:
-        from linecast.sky.search import search, targets
-        found = search(args.at, targets(runtime, culture), limit=1)
+        from linecast.sky.search import (
+            describe_rising, nearest_name, next_rising, search, targets,
+        )
+        pool = targets(runtime, culture)
+        found = search(args.at, pool, limit=1)
         if not found:
-            parser.error(f"nothing in the sky called {args.at!r}")
+            near = nearest_name(args.at, pool)
+            parser.error(f"nothing in the sky called {args.at!r}"
+                         + (f"; did you mean {near.label.split(' · ')[0]}?" if near else ""))
         target = found[0]
-        aim = target.place(Scene(_now().astimezone(timezone.utc), lat, lng))
+        scene = Scene(_now().astimezone(timezone.utc), lat, lng)
+        aim = target.place(scene)
         if not args.fov:
             fov = target.fov(FOV_DEFAULT)
+        if not target.up(scene):
+            # framed below the horizon it was an empty sky, said nothing of
+            rising = describe_rising(
+                target, next_rising(target, lambda dt: Scene(dt.astimezone(timezone.utc), lat, lng),
+                                    _now()),
+                runtime, culture)
 
     if runtime.json_mode:
         import json
@@ -1050,7 +1063,12 @@ def main():
         view = default_view(Scene(now.astimezone(timezone.utc), lat, lng),
                             cols, rows, facing, fov, aim=aim)._replace(culture=culture)
         _live.print_view(lambda: render(now, lat, lng, runtime, view, location_label=label))
+        if rising:
+            print(rising, file=sys.stderr)
         return
-    SkyApp(_now, lat, lng, runtime, facing=facing, fov=fov, location_label=label,
-           aim=aim, culture=culture).run()
+    app = SkyApp(_now, lat, lng, runtime, facing=facing, fov=fov, location_label=label,
+                 aim=aim, culture=culture)
+    if rising:
+        app.open_search_on(args.at, target)
+    app.run()
 

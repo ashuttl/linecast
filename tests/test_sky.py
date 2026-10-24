@@ -558,6 +558,27 @@ class TestPrinted:
         sky.main()
         assert calls == ["measure", "draw", "frame"]
 
+    def test_at_a_thing_not_up_says_when_it_rises(self, monkeypatch, capsys):
+        # framed below the horizon, it was an empty sky that said nothing
+        from linecast.sky import live as sky_live
+        from linecast.terminal import live as _live, textwidth
+
+        class Night(datetime):
+            @classmethod
+            def now(cls, tz=None):
+                return NIGHT.astimezone(tz)
+        monkeypatch.setattr(sky, "datetime", Night)
+        monkeypatch.setattr(sky, "location_tzinfo", lambda lat, lng: ZoneInfo("America/New_York"))
+        monkeypatch.setattr(textwidth, "calibrate_from_terminal", lambda: None)
+        monkeypatch.setattr(sky_live, "place_name", lambda *a, **k: "Westbrook")
+        monkeypatch.setattr(sky, "render", lambda *a, **k: "frame")
+        monkeypatch.setattr(_live, "print_frame", lambda text: None)
+        for at, said in (("Orion", "Orion rises at "), ("Vega", "")):
+            monkeypatch.setattr(sys, "argv", ["linecast-sky", "--print", "--at", at,
+                                              "--location", f"{LAT},{LNG}"])
+            sky.main()
+            assert capsys.readouterr().err.startswith(said)
+
     def test_a_named_place_is_looked_up_once(self, monkeypatch):
         from linecast import _geocode
         from linecast.terminal import live as _live, textwidth
@@ -1112,6 +1133,26 @@ class TestSearch:
         view = default_view(scene, 100, 30, aim=(alt, az))
         assert abs(view.az - az) < 1e-9
         assert 18.0 <= search("orion", pool)[0].fov(110.0) <= 120.0
+
+    def test_at_a_thing_not_up_opens_on_its_rising(self):
+        from linecast.sky.live import SkyApp
+        from linecast.sky.search import search
+        app = SkyApp(lambda: NIGHT, LAT, LNG, _runtime(live=True))
+        try:
+            app.open_search_on("Orion", search("orion", self._pool())[0])
+            assert app.search.open and app.search.query == "Orion"
+            assert app.search.note.startswith("Orion rises at ") and app.search.jump
+            app.intercept("key:enter")
+            assert not app.search.open and app.minutes > 60
+        finally:
+            app.stop()
+
+    def test_a_misspelled_name_is_offered_its_spelling(self):
+        from linecast.sky.search import nearest_name, search
+        pool = self._pool()
+        assert search("betelgeuze", pool) == []
+        assert nearest_name("Betelgeuze", pool).label.startswith("Betelgeuse")
+        assert nearest_name("xyzzy", pool) is None
 
     def test_changing_result_dismisses_the_previous_rising_offer(self):
         from linecast.sky.live import SkyApp

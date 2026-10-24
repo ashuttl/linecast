@@ -313,6 +313,14 @@ class SkyApp(LiveApp):
         self.search.jump = (rising[0], target) if rising else None
         return True
 
+    def open_search_on(self, query, target):
+        """Open on the search panel, *target* found for *query*: for
+        --at naming a thing that is not up, the panel says when it
+        rises, and Enter goes there, as if it had been searched for."""
+        self.search.start()
+        self.search.query, self.search.results = query, [target]
+        self.go_to(target)
+
     def jump(self):
         """Take the offered moment: the clock moves to a little after the
         rising, and the view turns to the thing."""
