@@ -9,7 +9,7 @@ Usage: linecast calendar [show]
        linecast calendar auto
 
 Precedence: moon's --calendar flag > this setting > the calendar
-native to the UI language (--lang zh, ja, ko, vi, th, fa, or is) >
+native to the UI language (--lang zh, ja, ko, vi, th, fa, ar, he, or is) >
 none.
 """
 
@@ -19,7 +19,7 @@ from linecast._log import exits_on_user_error
 
 _NATURAL = ("chinese with --lang zh, japanese with ja, "
             "korean with ko, vietnamese with vi, thai with th, islamic "
-            "with fa, icelandic with is; none otherwise")
+            "with fa or ar, hebrew with he, icelandic with is; none otherwise")
 
 # What the moon shows once a calendar is set; the lunisolar four
 # (chinese, japanese, korean, vietnamese) share _LUNISOLAR.

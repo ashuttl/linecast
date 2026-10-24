@@ -17,7 +17,7 @@ Changes you may notice:
 - Location: `linecast location Kyoto` sets the location, as `linecast location set Kyoto` does, and a name of several words needs no quotes.
 - Completions: Shell completion treats a short name such as `sunshine` as linecast's only when `linecast link` created it or an alias points it at linecast, so another program with the same name keeps its own completions. Reported by [@jmote](https://github.com/jmote) in [#20](https://github.com/ashuttl/linecast/issues/20).
 - Doctor: A saved setting that linecast can't read, such as `"units": "metrik"`, is marked "(ignored)" on the settings line. A service that is limiting requests or failing is no longer reported as ok.
-- Help: `--emoji` and `--month-temperature` are no longer listed, since `--icons emoji` and `--month` do the same. Both still work. Radar's `--help` explains `--layer`, `--layers`, and `--theme` more clearly.
+- Help: `--emoji` and `--month-temperature` are no longer listed, since `--icons emoji` and `--month` do the same. Both still work. Radar's `--help` explains `--layer`, `--layers`, and `--theme` more clearly, and `linecast calendar` names every language that brings its own calendar, Arabic and Hebrew among them.
 - Weather: The month view's temperature colors are easier to tell apart, and its departure legend says the numbers are measured from the average. `m` now switches between the two, and `c` still works. Reported by [@nkh](https://github.com/nkh) in [#141](https://github.com/ashuttl/linecast/issues/141).
 
 Fixes:

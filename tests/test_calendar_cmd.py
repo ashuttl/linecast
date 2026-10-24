@@ -18,6 +18,17 @@ class CalendarCommandTests(ConfigDirMixin):
             calendar_cmd._cmd_show()
         self.assertIn("hebrew  [fixed]", out.getvalue())
 
+    def test_the_auto_line_names_every_language_with_a_calendar(self):
+        # it said nothing of Arabic's Islamic or Hebrew's Hebrew
+        import re
+        from linecast._i18n import LANGUAGES, setting
+        pairs = re.findall(r"(\w+) with ([^,;]+)", calendar_cmd._NATURAL)
+        said = {(cal, lang) for cal, langs in pairs
+                for lang in re.findall(r"[\w-]+", langs.replace("--lang", "").replace(" or ", " "))}
+        native = {(setting(code, "calendar"), code.split("-")[0]) for code, _name in LANGUAGES
+                  if setting(code, "calendar")}
+        self.assertEqual(said, native)
+
     def test_icelandic_is_a_choice(self):
         out = io.StringIO()
         with redirect_stdout(out):
