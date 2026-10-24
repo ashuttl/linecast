@@ -665,7 +665,7 @@ def _main():
 
     # --search: geocode cities and exit
     if args.search:
-        print_search(args.search, lang=runtime.lang)
+        print_search(args.search, lang=runtime.lang, prog="linecast weather")
         return
 
     # country_code is "" for an override; the reverse geocode fills it in

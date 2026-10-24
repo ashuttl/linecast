@@ -1,13 +1,15 @@
 """Show or set a fixed location that overrides IP geolocation.
 
 Usage: linecast location [show]
-       linecast location set <place | lat,lng>
+       linecast location [set] <place | lat,lng>
        linecast location auto
        linecast location search <query>
 
 Precedence for every command: --location flag > WEATHER_LOCATION env >
 saved location (this command) > IP geolocation.
 """
+
+import sys
 
 from linecast._commands import formatter_class, parser_class
 from linecast._parsers import VersionAction
@@ -33,7 +35,9 @@ def _cmd_show():
 
 
 def _cmd_set(query):
-    from linecast._geocode import GeocoderUnavailable, geocode, reverse_geocode
+    from linecast._geocode import (
+        GeocoderUnavailable, geocode, result_label, reverse_geocode,
+    )
 
     latlng = _parse_latlng(query)
     if latlng is not None:
@@ -50,12 +54,7 @@ def _cmd_set(query):
             raise UserError(f'No locations matching "{query}".')
         r = results[0]
         lat, lng = r.get("latitude", 0), r.get("longitude", 0)
-        parts = [r.get("name", "")]
-        if r.get("admin1"):
-            parts.append(r["admin1"])
-        if r.get("country"):
-            parts.append(r["country"])
-        label = ", ".join(parts)
+        label = result_label(r)
         country = (r.get("country_code") or "").upper()
         lang = "en"
 
@@ -75,11 +74,20 @@ def _cmd_search(query):
     print_search(query)
 
 
+_ACTIONS = ("show", "set", "auto", "search")
+
+
 @exits_on_user_error
-def main():
+def main(argv=None):
+    argv = sys.argv[1:] if argv is None else list(argv)
+    # A place by itself is a place to set, as `linecast units metric`
+    # sets the units: `linecast location Kyoto` was an error.
+    if argv and argv[0] not in _ACTIONS and (not argv[0].startswith("-")
+                                             or _parse_latlng(argv[0])):
+        argv.insert(0, "set")
     parser = parser_class()(
         prog="linecast location",
-        usage="%(prog)s [show | set PLACE | auto | search QUERY]",
+        usage="%(prog)s [show | [set] PLACE | auto | search QUERY]",
         description="Show or set a fixed location that overrides IP geolocation",
         formatter_class=formatter_class(),
     )
@@ -87,18 +95,19 @@ def main():
     sub = parser.add_subparsers(dest="action")
     sub.add_parser("show", help="show the current location setting (default)")
     p_set = sub.add_parser("set", help="save a fixed location")
-    p_set.add_argument("query", metavar="PLACE", help="place name or 'lat,lng'")
+    # the words of a name unquoted are the name: set Portland Maine
+    p_set.add_argument("query", metavar="PLACE", nargs="+", help="place name or 'lat,lng'")
     sub.add_parser("auto", help="clear the fixed location and use IP geolocation")
     p_search = sub.add_parser("search", help="list places matching a query")
-    p_search.add_argument("query", metavar="QUERY", help="part of a place name")
-    args = parser.parse_args()
+    p_search.add_argument("query", metavar="QUERY", nargs="+", help="part of a place name")
+    args = parser.parse_args(argv)
 
     if args.action == "set":
-        _cmd_set(args.query)
+        _cmd_set(" ".join(args.query))
     elif args.action == "auto":
         _cmd_auto()
     elif args.action == "search":
-        _cmd_search(args.query)
+        _cmd_search(" ".join(args.query))
     else:
         _cmd_show()
 

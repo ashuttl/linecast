@@ -179,7 +179,7 @@ def main():
 
     if args.search:
         from linecast._geocode import print_search
-        print_search(args.search, lang=runtime.lang)
+        print_search(args.search, lang=runtime.lang, prog="linecast radar")
         return
 
     theme_arg = (args.theme

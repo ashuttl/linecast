@@ -354,8 +354,9 @@ def without_country(label: str) -> str:
     return ", ".join(parts[:2]) if len(parts) == 3 else label
 
 
-def print_search(query, lang="en"):
-    """Search cities using Open-Meteo geocoding API and print results."""
+def print_search(query, lang="en", prog=None):
+    """Search cities using Open-Meteo geocoding API and print results,
+    then how to use one: with *prog*'s --location, or by saving it."""
     try:
         results = geocode(query, lang=lang)
     except GeocoderUnavailable as exc:
@@ -369,6 +370,8 @@ def print_search(query, lang="en"):
         lng = result.get("longitude", 0)
         print(f"  {lat:.4f},{lng:.4f}  {result_label(result)}")
 
-    print("\nUsage: weather --location LAT,LNG")
-    print("   or: linecast location set LAT,LNG")
-    print("   or: export WEATHER_LOCATION=LAT,LNG")
+    if prog:
+        print(f"\nUsage: {prog} --location LAT,LNG")
+        print("   or: linecast location set LAT,LNG")
+    else:
+        print("\nUsage: linecast location set LAT,LNG")

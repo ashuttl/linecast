@@ -976,7 +976,7 @@ def main():
 
     if args.search:
         from linecast._geocode import print_search
-        print_search(args.search, lang=runtime.lang)
+        print_search(args.search, lang=runtime.lang, prog="linecast maps")
         return
 
     from linecast.terminal.textwidth import calibrate_from_terminal

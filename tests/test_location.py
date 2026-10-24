@@ -518,6 +518,36 @@ class LocationCommandTests(unittest.TestCase):
         self.assertEqual(saved["label"], "Fayette, Maine, United States")
         self.assertEqual(saved["country"], "US")
 
+    def _main(self, *argv):
+        asked = []
+        result = {"latitude": 35.0116, "longitude": 135.7681, "name": "Kyoto",
+                  "admin1": "Kyoto", "country": "Japan", "country_code": "JP"}
+
+        def geocode(query, lang="en"):
+            asked.append(query)
+            return [result]
+        with patch("linecast._geocode.geocode", geocode), \
+                patch("linecast._geocode.reverse_geocode", return_value=("Sydney", "AU", {})), \
+                patch("sys.stdout"):
+            location.main(list(argv))
+        return asked
+
+    def test_a_place_by_itself_is_set(self):
+        # as `linecast units metric` sets the units
+        self.assertEqual(self._main("Kyoto"), ["Kyoto"])
+        self.assertEqual(_config.saved_location()["label"], "Kyoto, Japan")
+        self._main("-33.87,151.21")
+        self.assertEqual(_config.saved_location()["lat"], -33.87)
+
+    def test_a_name_needs_no_quotes(self):
+        self.assertEqual(self._main("set", "Kyoto", "Japan"), ["Kyoto Japan"])
+        self.assertEqual(self._main("Kyoto", "Japan"), ["Kyoto Japan"])
+
+    def test_the_words_of_the_command_are_still_the_command(self):
+        _config.write_config({"location": {"lat": 1.0, "lng": 2.0}})
+        self.assertEqual(self._main("auto"), [])
+        self.assertIsNone(_config.saved_location())
+
     def test_set_latlng_reverse_geocodes_for_label(self):
         with patch("linecast._geocode.reverse_geocode",
                    return_value=("Fayette, Maine", "US", {})):

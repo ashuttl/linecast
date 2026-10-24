@@ -14,6 +14,7 @@ Changes you may notice:
 - Moon and sky: The Moon, stars, and planets count as up from the moment they rise, and both views give the Moon the same altitude. In `sky --json` the Sun is up from sunrise.
 - Location: A saved location is called by the name you saved it under in every view, when linecast is showing the language you saved it in.
 - Location: The location menu's search lists towns and cities before the businesses and landmarks in them, so "New York City" starts with New York.
+- Location: `linecast location Kyoto` sets the location, as `linecast location set Kyoto` does, and a name of several words needs no quotes.
 - Completions: Shell completion treats a short name such as `sunshine` as linecast's only when `linecast link` created it or an alias points it at linecast, so another program with the same name keeps its own completions. Reported by [@jmote](https://github.com/jmote) in [#20](https://github.com/ashuttl/linecast/issues/20).
 - Doctor: A saved setting that linecast can't read, such as `"units": "metrik"`, is marked "(ignored)" on the settings line. A service that is limiting requests or failing is no longer reported as ok.
 - Help: `--emoji` and `--month-temperature` are no longer listed, since `--icons emoji` and `--month` do the same. Both still work. Radar's `--help` explains `--layer`, `--layers`, and `--theme` more clearly.
