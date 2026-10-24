@@ -250,7 +250,7 @@ def render_year(lat, lng, now, runtime, tz=None, fullscreen=False,
     # The field fills the window; the month labels overlay its bottom
     # row rather than taking a row of their own, so the view ends where
     # the day view (field plus info line) does.
-    graph_w = max(30, cols)
+    graph_w = max(1, cols)
     graph_h = max(6, rows - (0 if fullscreen else 5))
     total_spy = graph_h * 2
 

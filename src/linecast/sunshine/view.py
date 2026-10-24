@@ -115,7 +115,7 @@ def render(lat, lng, doy, now_hour, fullscreen=False, offset_minutes=0, runtime=
         hours = None
 
     # --- dimensions: fill the terminal ---
-    graph_w = max(30, cols)
+    graph_w = max(1, cols)
     reserve = ((2 if hours else 1) if fullscreen else 6) if show_text else (0 if fullscreen else 5)
     graph_h = max(6, rows - reserve)
     total_spy = graph_h * 2
@@ -369,17 +369,21 @@ def _info_line(lat, lng, doy, sunrise, sunset, width, runtime, now_hour=None, of
 
     left = f"{amber}{icons['sun_icon']} {text}{rise_txt}"
     if offset_minutes:
-        center = f"{text}{fmt_time(now_hour, runtime.use_24h)}"
+        centers = [f"{text}{fmt_time(now_hour, runtime.use_24h)}"]
     elif polar:
-        center = (f"{text}{day_len_str} "
-                  f"{dim}· {polar_name(polar, runtime)}")
+        centers = [f"{text}{day_len_str} {dim}· {polar_name(polar, runtime)}"]
     else:
-        center = f"{text}{day_len_str} {dim}({delta_str})"
+        centers = [f"{text}{day_len_str} {dim}({delta_str})"]
     right = f"{text}{set_txt} {purple}{icons['sunset_icon']}"
 
     lw = visible_len(left)
-    cw = visible_len(center)
     rw = visible_len(right)
+    # In a narrow window the center gives way, the change first and
+    # then the length, so the times at either end are never cut off.
+    if not offset_minutes:
+        centers += [f"{text}{day_len_str}", ""]
+    center = next((c for c in centers if lw + visible_len(c) + rw + 2 <= width), "")
+    cw = visible_len(center)
 
     # Yalda, the night of 30 Azar that closes the year's shortest day,
     # is named after the day length: it is the day this line is about.
@@ -397,6 +401,9 @@ def _info_line(lat, lng, doy, sunrise, sunset, width, runtime, now_hour=None, of
             center += f" {dim}· {sky}"
             cw = visible_len(center)
 
+    if lw + cw + rw + 2 > width:
+        # narrower than the two times: the sunrise alone, then nothing
+        return f"{RESET}{left if lw <= width else ''}{RESET}"
     total_gap = max(0, width - lw - cw - rw)
     left_gap = max(1, total_gap // 2)
     right_gap = max(1, total_gap - left_gap)

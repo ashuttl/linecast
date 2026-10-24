@@ -39,6 +39,7 @@ Fixes:
 - Maps: Panning east across the 180th meridian keeps the map on screen, and flicking the map several times in a row loads one view at a time, so the motion stays smooth.
 - Maps and radar: When a tile server refuses or the network is down, the map and radar's temperature and wind layers wait a moment before asking again. Cloud cover is cleared from the cache after a day, even if radar is never opened.
 - Moon: In a small month grid, each new, quarter, and full moon shows its phase on the day it falls.
+- Sunshine: In a narrow window, the line under the arc leaves out the change in day length, then the day length, instead of running past the edge and cutting off the sunset. Below 30 columns, the view fits the window.
 - Location: Place names ending in "UK" or "USA", such as `--location "London, UK"`, are found. A damaged location cache no longer stops every command with an error.
 - Location: A place typed without commas, such as "portland maine" or "Kyoto Japan", is found, and "Portland ME" is Portland, Maine, not a park in Oregon. A misspelled name, or a café's, is looked up as the location menu would look it up instead of finding nothing.
 - Live views: Resizing the window resizes the view even with `COLUMNS` and `LINES` exported in the shell. A view left open does far less work while it waits.
