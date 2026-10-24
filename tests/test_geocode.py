@@ -249,3 +249,23 @@ def test_places_come_before_the_things_in_them():
     kinds = ["house", "city", "other", "town", "street", "country"]
     assert _geocode.places_first(kinds, lambda kind: kind) == [
         "city", "town", "country", "house", "other", "street"]
+
+
+def test_a_search_that_finds_nothing_ends_as_a_location_that_does():
+    # it printed the line on stdout and exited 0
+    import pytest
+    from linecast._log import UserError
+    with patch.object(_geocode, "geocode", lambda query, lang="en": []), \
+            pytest.raises(UserError, match='No locations matching "Xyzzy"'):
+        _geocode.print_search("Xyzzy", prog="linecast weather")
+
+
+def test_a_search_names_the_command_it_ran_from(capsys):
+    found = [{"name": "Kyoto", "admin1": "Kyoto", "country": "Japan",
+              "latitude": 35.0211, "longitude": 135.7538}]
+    with patch.object(_geocode, "geocode", lambda query, lang="en": found):
+        _geocode.print_search("Kyoto", prog="linecast radar")
+        assert "Usage: linecast radar --location LAT,LNG" in capsys.readouterr().out
+        _geocode.print_search("Kyoto")
+        out = capsys.readouterr().out
+    assert "--location" not in out and "Usage: linecast location set LAT,LNG" in out

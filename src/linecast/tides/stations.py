@@ -16,7 +16,7 @@ from datetime import datetime, timezone, timedelta
 from linecast._geo import haversine_nm
 from linecast._location import resolve_location
 from linecast._plaintext import plain_text
-from linecast._log import log_failure
+from linecast._log import UserError, log_failure
 from linecast.tides.common import Unreachable, zone_info
 from linecast.tides import openmeteo
 from linecast.tides.marine import fetch_marine
@@ -363,9 +363,9 @@ def _search_stations(query, metric=False, limit=20, cli_location=None):
     # The bundled gauges always answer an empty query, so only a search
     # finds nothing
     if not matches and not nearby:
-        print(f"No stations matching \"{query}\". "
-              "Try `linecast tides --nearby` to list the nearest stations.")
-        return
+        # as a --station that finds nothing ends: on stderr, status 1
+        raise UserError(f"No stations matching \"{query}\". "
+                        "Try `linecast tides --nearby` to list the nearest stations.")
 
     if nearby:
         matches = [c for c in matches if c["dist_nm"] is not None] or matches

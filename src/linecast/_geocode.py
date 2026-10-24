@@ -364,8 +364,8 @@ def print_search(query, lang="en", prog=None):
     except GeocoderUnavailable as exc:
         raise UserError(f"Search failed: {exc}") from exc
     if not results:
-        print(f'No locations matching "{query}".')
-        return
+        # as a --location that finds nothing ends: on stderr, status 1
+        raise UserError(f'No locations matching "{query}".')
 
     for result in results:
         lat = result.get("latitude", 0)

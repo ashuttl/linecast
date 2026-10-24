@@ -134,3 +134,14 @@ def test_help_describes_print_dimensions(view):
     assert "--width COLS|PERCENT%" in help_text
     assert "--height ROWS|PERCENT%" in help_text
     assert "50%" in help_text
+
+
+@pytest.mark.parametrize("parser", ["weather_parser", "tides_parser", "sunshine_parser",
+                                    "moon_parser", "sky_parser"])
+def test_json_and_oneline_are_one_or_the_other(parser, capsys):
+    # the JSON was printed and the line dropped without a word
+    for args in (["--json", "--oneline"], ["--oneline", "--json"]):
+        with pytest.raises(SystemExit) as error:
+            getattr(_parsers, parser)().parse_args(args)
+        assert error.value.code == 2
+        assert "--oneline cannot be combined with --json" in capsys.readouterr().err

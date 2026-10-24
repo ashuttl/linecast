@@ -213,6 +213,18 @@ class StationSearchTests(unittest.TestCase):
         matches = self._matches("portland maine")
         self.assertEqual([m["id"] for m in matches], ["8418150"])
 
+    def test_a_search_that_finds_nothing_ends_as_a_station_that_does(self):
+        from linecast._log import UserError
+        with _no_bundled_stations(), \
+             patch.object(_tides_noaa, "fetch_all_stations_noaa", return_value=self.NOAA), \
+             patch.object(_tides_chs, "fetch_all_stations_chs", return_value=self.CHS), \
+             patch.object(_tides_qld, "fetch_all_stations_qld", return_value=self.QLD), \
+             patch.object(_tides_tidecheck, "is_available", return_value=False), \
+             patch.object(_tides_stations, "resolve_location",
+                          return_value=(44.41, -70.03, "US")), \
+             self.assertRaises(UserError):
+            _tides_stations._search_stations("xyzzy")
+
     def test_a_name_as_nearby_prints_it_is_found(self):
         self.assertEqual([m["id"] for m in self._matches("PORTLAND, ME")], ["8418150"])
         self.assertEqual([m["id"] for m in self._matches("portland, maine")], ["8418150"])

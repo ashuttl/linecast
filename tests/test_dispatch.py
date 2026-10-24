@@ -107,6 +107,16 @@ class Argv0DispatchTests(unittest.TestCase):
     def test_python_m_linecast_is_not_dispatched(self):
         self._expect_help("/somewhere/linecast/__main__.py")
 
+    def test_a_misspelled_command_is_offered_the_nearest(self):
+        for typed, said in (("wether", "Did you mean 'linecast weather'?"), ("xyz", None)):
+            err = StringIO()
+            with mock.patch.object(sys, "argv", ["linecast", typed]), redirect_stderr(err), \
+                    self.assertRaises(SystemExit) as exit_:
+                cli.main()
+            self.assertEqual(exit_.exception.code, 1)
+            self.assertEqual(said in err.getvalue() if said else "Did you mean" in err.getvalue(),
+                             bool(said))
+
     def test_help_names_every_command(self):
         out = self._help_output("/usr/bin/linecast")
         for name in (*cli.COMMANDS, "completion"):

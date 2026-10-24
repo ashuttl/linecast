@@ -157,7 +157,11 @@ def _main():
 
     cmd = args[0]
     if cmd not in COMMANDS and cmd not in HIDDEN:
+        import difflib
         print(f"linecast: unknown command '{cmd}'", file=sys.stderr)
+        near = difflib.get_close_matches(cmd, list(COMMANDS), n=1)
+        if near:
+            print(f"Did you mean 'linecast {near[0]}'?", file=sys.stderr)
         print("Run 'linecast --help' for usage.", file=sys.stderr)
         sys.exit(1)
 

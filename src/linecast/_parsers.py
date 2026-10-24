@@ -79,6 +79,9 @@ class ViewParser(parser_class()):
         ns = super().parse_args(args, namespace)
         if getattr(ns, "prose", False) and ns.json_mode:
             self.error("--prose cannot be combined with --json")
+        if ns.oneline and ns.json_mode:
+            # the JSON was printed and the line dropped without a word
+            self.error("--oneline cannot be combined with --json")
         if ns.width is not None or ns.height is not None:
             if getattr(ns, "prose", False):
                 self.error("--width and --height size a view; cannot use with --prose")
