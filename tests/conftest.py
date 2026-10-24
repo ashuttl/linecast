@@ -148,9 +148,12 @@ def _private_home(monkeypatch, tmp_path):
     monkeypatch.setattr(_geocode, "_failed_at", None)
     from linecast.tides import noaa as _noaa
     monkeypatch.setattr(_noaa, "_unanswered_at", None)
-    # Nor the zone another test's lookup found for a place.
+    # Nor the zone another test's lookup found for a place, nor the one
+    # a radar main() was told to tell its times in.
     from linecast import _location
     monkeypatch.setattr(_location, "_zones", {})
+    from linecast.radar import ui as _radar_ui
+    monkeypatch.setattr(_radar_ui, "_zone", None)
 
 
 # ---------------------------------------------------------------------------

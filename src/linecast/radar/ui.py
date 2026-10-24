@@ -53,8 +53,19 @@ def _get_basemap(bbox, graph_w, height_cells):
     return bm
 
 
+# The zone radar tells the time in: the place's, when it is pinned
+# (sky, sunshine and moon tell its time too), else the machine's.
+_zone = None
+
+
+def use_zone(tz):
+    """Tell radar's times in *tz*, or None for the machine's zone."""
+    global _zone
+    _zone = tz
+
+
 def _fmt_local(dt_utc, use_24h=False):
-    return fmt_time_dt(dt_utc.astimezone(), use_24h=use_24h)
+    return fmt_time_dt(dt_utc.astimezone(_zone), use_24h=use_24h)
 
 
 _place_cache = Memo(keep=64)

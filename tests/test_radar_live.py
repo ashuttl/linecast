@@ -365,6 +365,43 @@ class TestPrinted:
         _radar_live.main()
         assert calls == ["measure", "spin", "draw", "frame"]
 
+    def test_a_place_set_elsewhere_has_its_own_clock(self, monkeypatch):
+        """Radar told a Tokyo frame's time on the machine's clock, where
+        sky and sunshine tell Tokyo's."""
+        import sys
+        from datetime import datetime, timezone
+        from zoneinfo import ZoneInfo
+        from linecast import _geocode
+        from linecast.radar import ui as _ui
+        from linecast.terminal import textwidth
+
+        class QuietSpinner:
+            def __init__(self, *a, **k):
+                pass
+
+            start = stop = lambda self: None
+
+        told = []
+        frame_time = datetime(2026, 10, 24, 11, 30, tzinfo=timezone.utc)
+        monkeypatch.setattr(textwidth, "calibrate_from_terminal", lambda: None)
+        monkeypatch.setattr(_radar_live, "Spinner", QuietSpinner)
+        monkeypatch.setattr(_location, "country_for_defaults", lambda *a: None)
+        monkeypatch.setattr(_location, "location_tzinfo", lambda lat, lon: ZoneInfo("Asia/Tokyo"))
+        monkeypatch.setattr(_geocode, "place_label", lambda lat, lon, name, lang: "Tokyo")
+        monkeypatch.setattr(_radar_live, "get_source", lambda *a: FakeSource())
+        monkeypatch.setattr(rf, "use", lambda source: None)
+        monkeypatch.setattr(_radar_live, "render_radar",
+                            lambda *a, **k: told.append(_ui._fmt_local(frame_time)) or ("", False))
+        monkeypatch.setattr(_radar_live, "print_frame", lambda out: None)
+        monkeypatch.setattr(sys, "argv", ["linecast-radar", "--print",
+                                          "--location", "35.68,139.69"])
+        _radar_live.main()
+        monkeypatch.setattr(_location, "location_is_pinned", lambda cli=None: False)
+        monkeypatch.setattr(_location, "get_location", lambda: (35.68, 139.69, "JP"))
+        monkeypatch.setattr(sys, "argv", ["linecast-radar", "--print"])
+        _radar_live.main()
+        assert told == ["8:30p", _ui.fmt_time_dt(frame_time.astimezone())]
+
     def test_the_name_is_looked_up_while_the_source_is(self, monkeypatch):
         """The header's place name and the source's index are both waits
         before the frame; on a stalled network they were one after the

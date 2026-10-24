@@ -34,6 +34,7 @@ Fixes:
 - Tides: With a TideCheck key, each station uses one request a day of your allowance, whichever views you open, instead of up to four. Queensland's year view loads much faster.
 - Radar: The newest NEXRAD frame no longer stays empty when the Iowa Environmental Mesonet is late to publish it. While a frame loads, the frame nearest it in time stands in.
 - Radar: Dragging the map across the edge of the lower 48 no longer freezes the view, and a source that stops sending radar for an area is replaced.
+- Radar: For a location set somewhere else, such as `--location Tokyo`, frame times and warning expiries are in that place's time, as sky and sunshine show it, instead of your computer's.
 - Maps: Fixed a crash when flying a long way out over a short distance, such as pressing `n` near home at street zoom after starting on the globe. The live map reaches places beyond 80 degrees of latitude, such as Alert, Nunavut.
 - Maps: Panning east across the 180th meridian keeps the map on screen, and flicking the map several times in a row loads one view at a time, so the motion stays smooth.
 - Maps and radar: When a tile server refuses or the network is down, the map and radar's temperature and wind layers wait a moment before asking again. Cloud cover is cleared from the cache after a day, even if radar is never opened.

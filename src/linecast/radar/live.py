@@ -226,7 +226,12 @@ def main():
     spin = Spinner(rs("loading", runtime.lang))
     spin.start()
     try:
-        lat, lon, _country, location_name, runtime = place_for(args, runtime)
+        lat, lon, _country, location_name, runtime = place_for(args, runtime, zone=True)
+        # a place set somewhere else has its own clock, which the frames'
+        # times are told in, as sky and sunshine tell theirs
+        from linecast._location import location_is_pinned, location_tzinfo
+        from linecast.radar import ui as _ui
+        _ui.use_zone(location_tzinfo(lat, lon) if location_is_pinned(args.location) else None)
 
         # The place's name is for the header, and the source's index is
         # what the first frame waits on: neither waits for the other.
