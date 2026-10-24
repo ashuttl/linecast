@@ -19,6 +19,7 @@ Changes you may notice:
 - Doctor: A saved setting that linecast can't read, such as `"units": "metrik"`, is marked "(ignored)" on the settings line. A service that is limiting requests or failing is no longer reported as ok.
 - Help: `--emoji` and `--month-temperature` are no longer listed, since `--icons emoji` and `--month` do the same. Both still work. Radar's `--help` explains `--layer`, `--layers`, and `--theme` more clearly, and `linecast calendar` names every language that brings its own calendar, Arabic and Hebrew among them.
 - Command line: A search that finds nothing, with `linecast location search`, `--search`, or `tides --search`, says so on stderr and exits with status 1, as `--location` and `--station` do. `--json` with `--oneline` is an error instead of printing the JSON alone, and a mistyped command such as `linecast wether` is offered the nearest one.
+- Weather: `--oneline` names the humidity or the dew point, and gives it only when the dashboard's header would, when the air is very damp, very dry, or muggy, instead of always ending in "💧32%", which read as a chance of rain.
 - Weather: The month view's temperature colors are easier to tell apart, and its departure legend says the numbers are measured from the average. The departure view gives each day's average departure at the right, in blue or red, instead of its low and high. `m` now switches between temperatures and departures, and `c` still works. Reported by [@nkh](https://github.com/nkh) in [#141](https://github.com/ashuttl/linecast/issues/141).
 
 Fixes:

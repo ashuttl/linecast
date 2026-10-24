@@ -86,11 +86,19 @@ class TestWeatherOneline:
         assert "mph" in plain
         assert "°F" in plain
 
-    def test_humidity_shown(self):
+    def test_the_moisture_is_named_where_the_header_names_it(self):
+        # a bare "💧32%" read as the chance of rain
         rt = self._runtime()
-        line = weather_oneline(self._sample_data(), "Portland", rt)
-        plain = _strip_ansi(line)
-        assert "32%" in plain
+        data = self._sample_data()
+        for humidity, dew, said in ((50, 40, None), (85, 50, "Humidity 85%"),
+                                    (20, 10, "Humidity 20%"), (80, 65, "Dew pt 65°F")):
+            data["current"].update(relative_humidity_2m=humidity, dew_point_2m=dew)
+            plain = _strip_ansi(weather_oneline(data, "Portland", rt))
+            assert "💧" not in plain and "%" not in plain.replace(said or "", "")
+            assert plain.endswith(said) if said else plain.endswith("Wind 8mph")
+        rt = self._runtime(lang="fr")
+        data["current"].update(relative_humidity_2m=85, dew_point_2m=50)
+        assert _strip_ansi(weather_oneline(data, "Paris", rt)).endswith("Humidité 85\u00a0%")
 
     def test_localized_description(self):
         rt = self._runtime(lang="fr")

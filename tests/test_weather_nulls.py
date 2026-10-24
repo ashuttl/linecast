@@ -10,6 +10,7 @@ parsers get the same for the fields their feeds have sent null in.
 
 import copy
 import json
+import re
 from datetime import datetime
 from pathlib import Path
 from unittest.mock import patch
@@ -196,7 +197,8 @@ class TestWhatANullBecomes:
         data = _fixture()
         data["current"]["temperature_2m"] = None
         line = weather_oneline(data, "Toronto", _runtime())
-        assert "0°" not in line
+        # a muggy fixture names its dew point, "Dew pt 20°C", after
+        assert not re.search(r"(?<![\d.])0°", line)
         header = _render(data, 100, 40, _runtime()).split("\n")[0]
         assert "0°F" not in header
 
