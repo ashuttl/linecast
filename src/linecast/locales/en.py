@@ -41,7 +41,8 @@ SETTINGS = {
     "duration": {"d": "{v}d", "h": "{v}h", "m": "{v}m", "s": "{v}s", "join": " ", "pad": True},
     # Which counts take which plural form, as CLDR draws the lines, for
     # the keys with _one, _few, and _many forms: "east_slavic" (Russian,
-    # Ukrainian), "polish", "czech", "romanian", "hebrew", "arabic". Arabic also uses
+    # Ukrainian), "polish", "czech", "romanian", "icelandic", "hebrew",
+    # "arabic". Arabic also uses
     # zero, two, and other; Hebrew uses two and other. A language that needs
     # a rule of its own can ask for one.  Default "one_many": 1 is one,
     # everything else many.

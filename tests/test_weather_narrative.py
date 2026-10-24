@@ -1820,6 +1820,17 @@ class TestDegreesAsWords:
         assert self._diff("ro", 4) == (
             "Maxima de azi va fi cu 4\u00a0grade mai ridicată decât cea de ieri")
 
+    def test_romanian_counts_degrees_as_its_days_are_counted(self):
+        # 101 to 119 take no "de", as 1 to 19 don't: a 101°F afternoon
+        # was "101 de grade", where the day counts said "101 zile"
+        from linecast.weather.narrative import _degrees
+        rt = _runtime(lang="ro", celsius=False, metric=False)
+        said = {n: _degrees(n, rt, signed=True) for n in (0, 1, 19, 20, 100, 101, 119, 120)}
+        assert said == {0: "0\u00a0grade", 1: "1\u00a0grad", 19: "19\u00a0grade",
+                        20: "20\u00a0de grade", 100: "100\u00a0de grade",
+                        101: "101\u00a0grade", 119: "119\u00a0grade",
+                        120: "120\u00a0de grade"}
+
 
 class TestAgreementAndTheClock:
     """Templates agree with their nouns in every language that inflects,

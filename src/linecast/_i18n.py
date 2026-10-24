@@ -338,11 +338,13 @@ def plural_category(lang, n):
     2–4 and 22–24 as few, the rest (11–14 among them) as many; Polish
     the same but with only 1 as one; Czech 1, 2–4, and the rest;
     Romanian 1, then few to 19 and again from 101 to 119, with "de"
-    before the noun beyond ("21 de zile", "101 zile"). A fraction is many in the
-    Slavic languages and few in Romanian. Every other language has one
-    and many, except Hebrew (one, two, other) and Arabic (zero, one,
-    two, few, many, other). A language names its rule in its "plural" setting:
-    east_slavic, polish, czech, romanian, or the default one_many."""
+    before the noun beyond ("21 de zile", "101 zile"); Icelandic one for
+    every whole number ending in 1 but 11 ("21 dagur"). A fraction is
+    many in the Slavic languages and Icelandic and few in Romanian.
+    Every other language has one and many, except Hebrew (one, two,
+    other) and Arabic (zero, one, two, few, many, other). A language
+    names its rule in its "plural" setting: east_slavic, polish, czech,
+    romanian, icelandic, or the default one_many."""
     whole = float(n) == int(n)
     n = abs(int(n)) if whole else n
     rule = setting(lang, "plural")
@@ -382,6 +384,8 @@ def plural_category(lang, n):
         if not whole:
             return "many"
         return "one" if n == 1 else "few" if n in (2, 3, 4) else "many"
+    if rule == "icelandic":
+        return "one" if whole and n % 10 == 1 and n % 100 != 11 else "many"
     if rule == "romanian":
         if whole and n == 1:
             return "one"

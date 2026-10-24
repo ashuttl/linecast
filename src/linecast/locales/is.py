@@ -9,6 +9,7 @@ SETTINGS = {
     "calendar": "icelandic",
     "decimal": ",",
     "metric_wind": "m/s",
+    "plural": "icelandic",
 }
 
 

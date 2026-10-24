@@ -131,7 +131,8 @@ from datetime import datetime, timedelta
 
 from linecast.terminal import theme as _theme
 from linecast._i18n import (
-    base_language, fallbacks, fmt_decimal, has_text, lang_of, sentence_24h,
+    base_language, fallbacks, fmt_decimal, has_text, lang_of, plural_category,
+    sentence_24h,
     table_for,
 )
 from linecast.terminal.color import RESET
@@ -189,30 +190,12 @@ def _degrees(n, runtime, signed=False):
 
 def _number_form(count, runtime, base):
     """The variant suffix a count takes in the display language, among
-    the variants the language has for `base`."""
-    lang = runtime.lang
-    if lang == "is":
-        # Icelandic: one for every number ending in 1 but 11
-        if count % 10 == 1 and count % 100 != 11 and _has(base + "_one", runtime):
-            return "_one"
-        return ""
-    if lang in ("ru", "uk", "pl"):
-        # Slavic: one for 1, 21, 31 (not 11; and in Polish only 1); few
-        # for 2 to 4, 22 to 24 (not 12 to 14), where the base has a few
-        one = count % 10 == 1 and count % 100 != 11 and (lang != "pl" or count == 1)
-        if one and _has(base + "_one", runtime):
-            return "_one"
-        if (count % 10 in (2, 3, 4) and count % 100 not in (12, 13, 14)
-                and _has(base + "_few", runtime)):
-            return "_few"
-        return ""
-    if count == 1 and _has(base + "_one", runtime):
-        return "_one"
-    if 2 <= count <= 4 and _has(base + "_few", runtime):
-        return "_few"
-    if count >= 20 and _has(base + "_many", runtime):
-        return "_many"
-    return ""
+    the variants the language has for `base`: its plural category's
+    ("_one", "_few", "_many") where the table has that form, else none.
+    The language's plural rule decides, as it does for every other
+    count: Romanian's 101 is "101 grade", not "101 de grade"."""
+    suffix = "_" + plural_category(runtime.lang, count)
+    return suffix if _has(base + suffix, runtime) else ""
 
 
 def _prose_sep(runtime):

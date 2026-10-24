@@ -1160,6 +1160,18 @@ class TestRelativeDays:
         for diff, text in expected.items():
             assert relative_day(diff, runtime) == text, diff
 
+    def test_icelandic_counts_every_one_but_eleven_as_one(self):
+        # as the forecast's degrees always did: "21 stigi", and now the days
+        from linecast._i18n import plural_category
+        from linecast.sunshine.i18n import relative_day
+        assert [plural_category("is", n) for n in (1, 11, 21, 31, 101, 111, 2, 0, 1.5)] == [
+            "one", "many", "one", "one", "one", "many", "many", "many", "many"]
+        runtime = SimpleNamespace(lang="is")
+        expected = {1: "eftir 1 dag", 11: "eftir 11 daga", 21: "eftir 21 dag",
+                    -21: "fyrir 21 degi", -3: "fyrir 3 dögum"}
+        for diff, text in expected.items():
+            assert relative_day(diff, runtime) == text, diff
+
     def test_the_moon_counts_romanian_days_the_same_way(self):
         from linecast.moon.i18n import _ms
         runtime = SimpleNamespace(lang="ro")
