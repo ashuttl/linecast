@@ -187,6 +187,17 @@ def field_color(value, runtime, difference=False, span=None):
                           0.5 + 0.4 * place)
 
 
+def departure_figure(value, runtime):
+    """A day's mean departure from the average, signed, in whole degrees
+    and the field's own inks: blue below, red above, deeper as it grows,
+    and muted where the day kept to the average."""
+    shown = round(shown_temperature(value, runtime, difference=True))
+    text = ("+" if shown > 0 else "") + fmt_decimal(shown, 0, runtime) + "°"
+    hue = style.BLUE_RGB if value < 0 else style.RED_RGB
+    ink = theme.lerp_rgb(style.MUTED_RGB, hue, min(1, abs(value) / 5))
+    return f"{fg(*ink)}{text}"
+
+
 def clear_ink(ink, background):
     """Keep the fine Sun and hover marks visible on either theme."""
     if theme.contrast_ratio(ink, background) >= 2.5:
@@ -256,22 +267,27 @@ def render_month(series, first, runtime, lat, lng, label, *, difference=False,
     groups = [days[i:i + per_row] for i in range(0, len(days), per_row)]
     names = [day_label(now.date() if now.date() in group else group[0], runtime)
              for group in groups]
-    extremes = []
+    # The figures at each row's right: its lowest and highest hour, or in
+    # the departure view how far the row ran from the average, the mean
+    # of its hours' departures.
+    figures = []
     for group in groups:
-        values = [v for day in group for v in series.values(day)]
-        if not values:
-            extremes.append(("", ""))
+        if difference:
+            gaps = [value - normal for day in group for hour in range(24)
+                    if (value := series.at(day, hour)) is not None
+                    and (normal := series.at(day, hour, normal=True)) is not None]
+            figures.append((departure_figure(sum(gaps) / len(gaps), runtime) + RESET,)
+                           if gaps else ())
             continue
-        labels = []
-        for value in (min(values), max(values)):
-            shown = shown_temperature(value, runtime)
-            reading = (f"{fg(*style.MUTED_RGB)}{round(shown)}°" if difference
-                       else style._colored_temp(shown, runtime, suffix="°"))
-            labels.append(reading + RESET)
-        extremes.append(tuple(labels))
-    low_w, high_w = (max((visible_len(pair[i]) for pair in extremes if pair[i]), default=3)
-                     for i in range(2))
-    right_w = 2 + low_w + 1 + high_w if cols >= 74 else 0
+        values = [v for day in group for v in series.values(day)]
+        figures.append(tuple(style._colored_temp(shown_temperature(value, runtime), runtime,
+                                                 suffix="°") + RESET
+                             for value in (min(values), max(values))) if values else ())
+    columns = 1 if difference else 2
+    widths = [max((visible_len(row[i]) for row in figures if row), default=3)
+              for i in range(columns)]
+    # One figure takes half the room of two, and fits a narrower window.
+    right_w = 2 + sum(widths) + columns - 1 if cols >= (60 if difference else 74) else 0
     width = cols - gutter - right_w - 1
     span = month_span(series, first)
     field = Framebuffer(width, len(groups), bg_color=field_color(None, runtime))
@@ -333,9 +349,8 @@ def render_month(series, first, runtime, lat, lng, label, *, difference=False,
         left = " " + names[r]
         left += " " * (gutter - visible_len(left))
         line = f"{fg(*ink)}{left}{RESET}" + body
-        if right_w and extremes[r][0]:
-            low, high = extremes[r]
-            line += f"  {pad(low, low_w, '>')} {pad(high, high_w, '>')}"
+        if right_w and figures[r]:
+            line += "  " + " ".join(pad(figure, w, ">") for figure, w in zip(figures[r], widths))
         lines.append(line)
     midnight = datetime(first.year, first.month, first.day, tzinfo=series.tz)
     lines.append(" " * gutter + render_tide_ticks(midnight, 24, width, runtime))

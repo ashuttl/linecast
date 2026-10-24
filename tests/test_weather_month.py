@@ -281,3 +281,50 @@ def test_new_strings_exist_in_every_language_with_matching_placeholders():
                     def fields(value):
                         return {f for _, f, _, _ in Formatter().parse(value) if f}
                     assert fields(translated) == fields(english), (code, key)
+
+
+def _departures(size, difference, celsius=True):
+    """October 2026 against a 2025 October of 10°C every hour: the 1st
+    3° warmer, the 2nd 3° colder, the 3rd on the average."""
+    archive = payload(datetime(2025, 10, 1, tzinfo=timezone.utc), [10] * (31 * 24))
+    current = payload(datetime(2026, 10, 1, tzinfo=timezone.utc),
+                      [13] * 24 + [7] * 24 + [10.2] * 24)
+    series = month.Temperatures.build([archive, current], (2016, 2025))
+    with patch.object(month, "get_terminal_size", return_value=size):
+        output = month.render_month(series, date(2026, 10, 1), runtime(celsius=celsius),
+                                    43, -70, "Portland", difference=difference,
+                                    now=datetime(2026, 10, 4, tzinfo=timezone.utc))
+    lines = re.sub(r"\x1b\[[0-9;]*m", "", output).splitlines()
+    return [next(line for line in lines if line.startswith(f" {name}"))
+            for name in ("Thu  1", "Fri  2", "Sat  3")]
+
+
+def test_the_departure_view_gives_each_day_its_mean_departure():
+    # nkh in #141: "the average difference per day", in place of the
+    # day's low and high, which read as departures
+    rows = _departures((100, 40), True)
+    assert [row.split()[-1] for row in rows] == ["+3°", "−3°", "0°"]
+    rows = _departures((100, 40), True, celsius=False)
+    assert [row.split()[-1] for row in rows] == ["+5°", "−5°", "0°"]
+    rows = _departures((100, 40), False)
+    assert [row.split()[-2:] for row in rows] == [["13°", "13°"], ["7°", "7°"], ["10°", "10°"]]
+
+
+def test_a_departure_is_inked_as_the_field_is():
+    from linecast.terminal import theme
+    from linecast.terminal.color import fg
+    from linecast.weather import style
+    rt = runtime(celsius=True)
+    with patch.object(color, "color_mode", return_value="truecolor"):
+        assert month.departure_figure(3, rt) == (
+            f"{fg(*theme.lerp_rgb(style.MUTED_RGB, style.RED_RGB, 0.6))}+3°")
+        assert month.departure_figure(-12, rt) == f"{fg(*style.BLUE_RGB)}−12°"
+        assert month.departure_figure(0.2, rt) == (
+            f"{fg(*theme.lerp_rgb(style.MUTED_RGB, style.RED_RGB, 0.04))}0°")
+
+
+@pytest.mark.parametrize("difference, narrowest", [(True, 60), (False, 74)])
+def test_one_figure_fits_a_narrower_window_than_two(difference, narrowest):
+    for cols in (narrowest - 1, narrowest):
+        rows = _departures((cols, 40), difference)
+        assert rows[0].rstrip().endswith("°") == (cols == narrowest), cols
