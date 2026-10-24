@@ -51,7 +51,8 @@ def _cmd_set(query):
         except GeocoderUnavailable as exc:
             raise UserError(f"Search failed: {exc}") from exc
         if not results:
-            raise UserError(f'No locations matching "{query}".')
+            from linecast._location import not_found
+            raise UserError(not_found(query))
         r = results[0]
         lat, lng = r.get("latitude", 0), r.get("longitude", 0)
         label = result_label(r)

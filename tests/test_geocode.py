@@ -231,6 +231,10 @@ class TestReadings:
         assert label == ["Portland, Maine, United States"]
         assert asked[-1] == ("photon", "Portand, Maine")
 
+    def test_numbers_are_not_asked_of_photon(self):
+        # which found "Isar Flusskilometer 91,0" in Bavaria for 91,0
+        assert self._geocode("91,0") == ([], ["91,0"])
+
     def test_nothing_anywhere_is_no_match(self):
         assert self._geocode("Xyzzy") == ([], ["Xyzzy", ("photon", "Xyzzy")])
 

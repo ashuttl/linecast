@@ -654,6 +654,16 @@ class ParseLatLngTests(unittest.TestCase):
             with self.assertRaises(UserError):
                 _location.resolve_location("91,0")
 
+    def test_coordinates_off_the_planet_are_called_that(self):
+        with patch("linecast._geocode.geocode_first", return_value=None):
+            for text in ("100,200", "-91, 0"):
+                with self.assertRaises(UserError) as caught:
+                    _location.resolve_location(text)
+                self.assertIn("not on the planet", str(caught.exception))
+            with self.assertRaises(UserError) as caught:
+                _location.resolve_location("Atlantis")
+            self.assertEqual(str(caught.exception), 'No locations matching "Atlantis".')
+
     def test_a_third_number_is_not_dropped(self):
         with patch("linecast._geocode.geocode_first",
                    return_value=(1.0, 2.0, "Somewhere")) as geo:

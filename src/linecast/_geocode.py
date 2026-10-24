@@ -314,7 +314,9 @@ def geocode(query, lang="en"):
             if _names(found, name):
                 return found
             results = results or found
-    if results:
+    # Photon finds something for anything: "91,0" was a river marker
+    # in Bavaria. A name has a letter in it.
+    if results or not any(ch.isalpha() for ch in query):
         return results
     try:
         return photon_query(query, lang=lang)

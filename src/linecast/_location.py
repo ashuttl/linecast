@@ -2,6 +2,7 @@
 
 import math
 import os
+import re
 import sys
 from datetime import tzinfo
 
@@ -233,7 +234,7 @@ def resolve_location(
             # The main ends the run with it, after the caller's finally
             # blocks have run -- so a spinner on the same line is
             # cleared before the message lands.
-            raise UserError(f'No locations matching "{override}".')
+            raise UserError(not_found(override))
         lat, lng, label = hit
     return (lat, lng, "", label) if return_label else (lat, lng, "")
 
@@ -284,6 +285,15 @@ def parse_latlng(text: str) -> tuple[float, float] | None:
     if not (-90 <= lat <= 90 and -180 <= lng <= 180):
         return None
     return lat, lng
+
+
+def not_found(text: str) -> str:
+    """The line for a place no geocoder knows, which for a pair of
+    numbers off the planet ("100,200") says why."""
+    if re.fullmatch(r"\s*[-+]?[\d.]+\s*,\s*[-+]?[\d.]+\s*", text):
+        return (f'"{text}" is not on the planet: latitude runs from -90 to 90, '
+                "and longitude from -180 to 180.")
+    return f'No locations matching "{text}".'
 
 
 def location_is_pinned(cli_location: str | None = None) -> bool:
