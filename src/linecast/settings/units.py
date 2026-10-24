@@ -35,7 +35,7 @@ def _cmd_show():
 def _cmd_set(units):
     remember("units", units)
     if units == "metric":
-        print("Units set to metric (celsius, km/h or m/s, mm, metres)")
+        print("Units set to metric (celsius, km/h or m/s, mm, meters)")
     else:
         print("Units set to imperial (fahrenheit, mph, inches, feet)")
 
@@ -50,7 +50,7 @@ def main():
     run("linecast units", "%(prog)s [show | metric | imperial | auto]",
         "Show or set the preferred measurement units",
         (("show", "show the current units setting (default)"),
-         ("metric", "celsius, km/h (m/s in some languages), mm, and metres everywhere"),
+         ("metric", "celsius, km/h (m/s in some languages), mm, and meters everywhere"),
          ("imperial", "fahrenheit, mph, inches, and feet everywhere"),
          ("auto", "clear the saved units and use your country's")),
         _cmd_set, _cmd_auto, _cmd_show)

@@ -245,7 +245,7 @@ def weather_parser():
 
 def tides_parser():
     p = base_parser("linecast tides", BLURB["tides"],
-                      units=("heights in metres", "heights in feet"),
+                      units=("heights in meters", "heights in feet"),
                       clock=True, json=True,
                       location_help="find the nearest station to 'lat,lng' or a "
                                     "place name instead of your location")
@@ -343,7 +343,7 @@ def sky_parser():
 def radar_parser():
     p = base_parser("linecast radar", BLURB["radar"],
                       units=("metric units: celsius, km/h (m/s in the languages "
-                             "that use it), kilometres",
+                             "that use it), kilometers",
                              "imperial units: fahrenheit, mph, miles"),
                       wind=True, clock=True, oneline=False)
     p.add_argument("--search", metavar="QUERY", default=None,
@@ -376,7 +376,7 @@ def radar_parser():
 
 def maps_parser():
     p = base_parser("linecast maps", BLURB["maps"],
-                      units=("metric units: kilometres and metres",
+                      units=("metric units: kilometers and meters",
                              "imperial units: miles and feet"),
                       oneline=False)
     p.add_argument("--no-text", action="store_true",

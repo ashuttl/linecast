@@ -30,7 +30,7 @@ The Moon is usually not over the equator. In the course of a month it swings nor
 
 The Sun raises both kinds of tide in the same way. Its pull on the tides is a little under half the Moon's, and its tides keep the Sun's time: one comes exactly twice a day and the other exactly once.
 
-Every tide is a sum of these parts, in proportions that differ from place to place. A place's tide is usually described as a list of constituents, each one a steady wave with its own period. The largest have names. M2 is the Moon's twice-a-day tide and S2 is the Sun's. N2 is the change in the Moon's tide as the Moon comes nearer and goes farther on its oval orbit. K1, O1 and P1 between them are the once-a-day tides of the Moon's declination and the Sun's. Grouped by cause, the three places look like this. Each figure is an amplitude in metres, which is half the swing between high and low water.
+Every tide is a sum of these parts, in proportions that differ from place to place. A place's tide is usually described as a list of constituents, each one a steady wave with its own period. The largest have names. M2 is the Moon's twice-a-day tide and S2 is the Sun's. N2 is the change in the Moon's tide as the Moon comes nearer and goes farther on its oval orbit. K1, O1 and P1 between them are the once-a-day tides of the Moon's declination and the Sun's. Grouped by cause, the three places look like this. Each figure is an amplitude in meters, which is half the swing between high and low water.
 
 | | Portland | Tokyo | Quarry Bay |
 |---|---|---|---|
@@ -142,7 +142,7 @@ One caution applies to the Portland figures. Measurements in the Gulf of Maine a
 
 ## How the figures were made
 
-The constituents for each place were fitted by least squares, with linecast's harmonic code (`src/linecast/tides/harmonic.py`), to a year of the agency's own hourly predictions for 2026: NOAA's for Portland (station 8418150), the Hong Kong Observatory's for Quarry Bay, and the Japan Meteorological Agency's for Tokyo. Twenty constituents were fitted. For Portland the fit can be checked, because NOAA publishes the station's constituents, and the six used here agree with NOAA's to the millimetre. For the other two places the figures are the fit's and not the agencies'.
+The constituents for each place were fitted by least squares, with linecast's harmonic code (`src/linecast/tides/harmonic.py`), to a year of the agency's own hourly predictions for 2026: NOAA's for Portland (station 8418150), the Hong Kong Observatory's for Quarry Bay, and the Japan Meteorological Agency's for Tokyo. Twenty constituents were fitted. For Portland the fit can be checked, because NOAA publishes the station's constituents, and the six used here agree with NOAA's to the millimeter. For the other two places the figures are the fit's and not the agencies'.
 
 The fit removes the 18.6-year cycle, so the amplitudes in the tables are long-run averages. In 2026 itself the once-a-day constituents are 10 to 17% larger than the figures given, and the form ratios as experienced that year are higher: about 1.4 at Quarry Bay.
 
@@ -159,7 +159,7 @@ The year-by-year figures use the same fitted constituents with the corrections f
 Books and manuals, all free to read:
 
 - Pugh, D. T. (1987). *Tides, Surges and Mean Sea-Level: A Handbook for Engineers and Scientists*. John Wiley & Sons. [PDF from the University of Southampton](https://eprints.soton.ac.uk/19157/1/sea-level.pdf). The two species of tide and how they depend on latitude (pp. 69–70), the Sun's tidal forces as 0.46 of the Moon's (p. 65), the constituents and the Moon's and Sun's shares of K1 (Table 4:1, pp. 102–104), the 13.66-day and 14.77-day cycles and the Sun's once-a-day tide vanishing at the equinoxes (pp. 107–113), the 18.6-year factors (Table 4:3, p. 109), the form factor and its four classes (pp. 116–117), and the age of the tide (p. 97).
-- Kowalik, Z. and Luick, J. L. (2019). *Modern Theory and Practice of Tide Analysis and Tidal Power*. Austides Consulting. [PDF from the University of Alaska Fairbanks](https://www.uaf.edu/cfos/files/research-projects/people/kowalik/Book2019_tides.pdf). The equilibrium amplitudes of the constituents in metres (Table I.5, p. 34).
+- Kowalik, Z. and Luick, J. L. (2019). *Modern Theory and Practice of Tide Analysis and Tidal Power*. Austides Consulting. [PDF from the University of Alaska Fairbanks](https://www.uaf.edu/cfos/files/research-projects/people/kowalik/Book2019_tides.pdf). The equilibrium amplitudes of the constituents in meters (Table I.5, p. 34).
 - Schureman, P. (1958). *Manual of Harmonic Analysis and Prediction of Tides*. U.S. Coast and Geodetic Survey Special Publication No. 98. [PDF from NOAA](https://tidesandcurrents.noaa.gov/publications/SpecialPubNo98.pdf). The formulas linecast's harmonic code uses.
 - Courtier, A. (1939). Classification of tides in four types. *The International Hydrographic Review* 16 (1). [Journal page](https://journals.lib.unb.ca/index.php/ihr/article/view/27428). The origin of the four classes, building on van der Stok (1897).
 
