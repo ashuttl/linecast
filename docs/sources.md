@@ -11,8 +11,8 @@ A saved location was resolved to coordinates when it was saved, so reading it ba
 Fetched:
 
 - **[ipinfo.io](https://ipinfo.io/)**, then **[ipwho.is](https://ipwho.is/)**, then **[GeoJS](https://www.geojs.io/)**. Where the machine is, from its address, when no location is saved or given. Only the coordinates and the country are taken. The accuracy is that of the service's database: usually the city, and sometimes the wrong one, which is why the README suggests saving a location.
-- **[Open-Meteo geocoding API](https://open-meteo.com/en/docs/geocoding-api)**. A place name to coordinates, asked in the display language. The first result is taken, and `linecast location search` lists the rest. Open-Meteo also gives the time zone.
-- **[Photon](https://photon.komoot.io/)**, on OpenStreetMap's data. Stands in when Open-Meteo's geocoder does not answer. It names places in English, German, and French only.
+- **[Open-Meteo geocoding API](https://open-meteo.com/en/docs/geocoding-api)**. A place name to coordinates, asked in the display language. The first result is taken, and `linecast location search` lists the rest. Open-Meteo reads the words after a comma as the state or country a place is in, so a name typed without commas, such as "portland maine", is asked again with one. Open-Meteo also gives the time zone.
+- **[Photon](https://photon.komoot.io/)**, on OpenStreetMap's data. Stands in when Open-Meteo's geocoder does not answer or finds nothing by the name, and finds places for the location menu as you type, towns and cities first. It names places in English, German, and French only.
 - **[Nominatim](https://nominatim.org/)**. Coordinates to a name, held to one request a second as its policy asks. Its country for the point decides the alert feed, the air quality scale, the tide service, the prayer convention, and the Hebrew calendar's diaspora days.
 
 Checked against: nothing outside the services themselves; a location is what they say it is. A scheduled test suite asks each of them live.

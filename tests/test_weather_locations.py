@@ -449,3 +449,16 @@ def test_the_menu_keys_are_cased_like_the_help_rows_around_them(lang, rows):
     view = _weather_live.WeatherApp({}, [], {}, 43, -70, SimpleNamespace(lang=lang),
                                     location_name='Portland', country='US', historical={})
     assert [text for _key, text in view.help_rows()] == rows
+
+
+def test_the_search_puts_the_place_before_what_is_in_it():
+    from linecast.weather import locations
+    hits = [Result('New York City Ballet', 'New York', 40.77, -73.98, 'house'),
+            Result('New York City Hall', 'New York', 40.71, -74.01, 'house'),
+            Result('New York', 'New York, United States', 40.71, -74.01, 'city')]
+    with patch.object(locations, 'photon_search', lambda *a, **kw: list(hits)):
+        found = locations._suggestions('New York City', 43.68, -70.37, 7, 'en')
+    assert [r.name for r in found] == ['New York', 'New York City Ballet', 'New York City Hall']
+    with patch.object(locations, 'nominatim_search', lambda *a, **kw: list(hits)):
+        found = locations._answers('New York City', 'en')
+    assert found[0].name == 'New York'

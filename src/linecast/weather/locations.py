@@ -9,10 +9,11 @@ from linecast.terminal.color import RESET, bg, fg
 from linecast.terminal.textwidth import pad, visible_len
 from linecast.terminal.textwidth import fit
 from linecast.maps.i18n import ms
-from linecast.maps.search import ATTRIBUTION, Result
+from linecast.maps.search import ATTRIBUTION, Result, nominatim_search, photon_search
 from linecast.maps.ui import SearchState
 from linecast._paths import config_root
 from linecast._log import log_failure
+from linecast._geocode import places_first
 from linecast.weather.locations_i18n import ls
 
 LIMIT = 10
@@ -72,8 +73,26 @@ class RecentLocations:
                                for p in self.places])
 
 
+def _suggestions(query, lat, lon, zoom, lang):
+    """Photon's suggestions as you type, places first.  A location is a
+    town more often than a café in it, and for "New York City" Photon
+    ranked seven of the city's institutions ahead of the city; a few
+    more are asked for than the map asks, so the city is among them."""
+    return places_first(photon_search(query, lat, lon, zoom, lang, limit=12),
+                        lambda r: r.kind)
+
+
+def _answers(query, lang):
+    """Nominatim's answer to the query sent with Enter, places first."""
+    return places_first(nominatim_search(query, lang), lambda r: r.kind)
+
+
 class LocationSearch(SearchState):
-    """The map's geocoder, with an explicit choice after every query."""
+    """The map's geocoders, places first, with an explicit choice after
+    every query."""
+
+    def __init__(self, refresh=None, fetch=None, one_shot=None):
+        super().__init__(refresh, fetch or _suggestions, one_shot or _answers)
 
     def submit(self, lang='en'):
         if self.status != 'pending':
