@@ -87,8 +87,10 @@ def build_payload(now_local, lat, lng, runtime, location=None, calendar=None,
         "events": events,
         "next_full": next_full,
         # Traditional Old Farmer's Almanac name for that full moon,
-        # e.g. "Harvest" or "Blue"
-        "next_full_name": full_moon_name(full_dt, SYNODIC_MONTH),
+        # e.g. "Harvest" or "Blue"; null south of the equator for one
+        # the tradition leaves unnamed there
+        "next_full_name": full_moon_name(full_dt, SYNODIC_MONTH,
+                                         southern=lat is not None and lat < 0),
         "next_new": next_new,
         "day_of_year": now_local.timetuple().tm_yday,
         "days_in_year": 366 if isleap(now_local.year) else 365,

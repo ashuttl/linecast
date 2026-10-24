@@ -80,7 +80,7 @@ Computed from:
 
 - **Paul Schlyter's [low-precision ephemeris](https://stjarnhimlen.se/comp/ppcomp.html)**, itself a simplification of Meeus. Sunshine, the Moon, the sky, the traditional hours, and the calendars: the Sun to about a hundredth of a degree, the Moon to about six arcminutes, which puts a new or full moon up to five minutes early or ten late, and the Moon's distance within a percent. There is no nutation, no aberration, no ΔT, and no observer height.
 - **Meeus, J., *Astronomical Algorithms* (2nd ed.)**. The equinoxes and solstices (chapter 27), valid from 1000 to 3000 and good to a minute or so, with ΔT taken off so the instants are UTC, and the bright limb's angle on the Moon's disc (equation 48.5).
-- **The Old Farmer's Almanac**. The full moons' names: the Harvest Moon nearest the September equinox, the Hunter's Moon after it, and a Blue Moon the second in a month.
+- **The Old Farmer's Almanac**. The full moons' names: the Harvest Moon nearest the September equinox, the Hunter's Moon after it, and a Blue Moon the second in a month. South of the equator the Harvest Moon is the one nearest the March equinox, the autumn there; the monthly names follow North American seasons and are left off.
 
 Bundled:
 

@@ -596,8 +596,9 @@ def _corners(moon, found, ctx, offset_minutes):
     # tradition's calendar keeps the plain phase name — Harvest Moon
     # is the almanac's name, not the Kaulana Mahina's or the 农历's.
     full_label = moon_name(4, runtime)
-    if lang == "en" and (found is None or found.full_moon_names):
-        folk_name = full_moon_name(moon.full, SYNODIC_MONTH)
+    folk_name = (full_moon_name(moon.full, SYNODIC_MONTH, southern=lat < 0)
+                 if lang == "en" and (found is None or found.full_moon_names) else None)
+    if folk_name:
         full_label = ("Blue Moon" if folk_name == "Blue"
                       else f"Full {folk_name} Moon")
     # The Icelandic almanac prints a named moon's name at the new moon

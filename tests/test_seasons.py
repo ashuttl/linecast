@@ -83,3 +83,21 @@ class TestFullMoonNames:
         full = next_moon_phase_utc(_utc(2029, 3, 20), 0.5).astimezone(manila)
         assert (full.month, full.day) == (3, 30)
         assert full_moon_name(full, SYNODIC) == "Blue"
+
+    def test_south_of_the_equator_the_autumn_is_march(self):
+        # Sydney was given the Hunter's Moon in October, its spring.
+        # 2026: the Apr 2 full moon is 13 days from the Mar 20 equinox,
+        # nearer than Mar 3's 17.
+        assert full_moon_name(_utc(2026, 4, 2, 2), SYNODIC, southern=True) == "Harvest"
+        assert full_moon_name(_utc(2026, 5, 1, 17), SYNODIC, southern=True) == "Hunter's"
+        assert full_moon_name(_utc(2027, 3, 22, 10), SYNODIC, southern=True) == "Harvest"
+        assert full_moon_name(_utc(2026, 9, 26, 16), SYNODIC, southern=True) is None
+        assert full_moon_name(_utc(2026, 10, 26, 4), SYNODIC, southern=True) is None
+
+    def test_south_of_the_equator_the_months_go_unnamed(self):
+        # the monthly names are North America's seasons: a Snow Moon
+        # in a Sydney February, a Strawberry Moon in its winter
+        assert full_moon_name(_utc(2026, 1, 3), SYNODIC, southern=True) is None
+        assert full_moon_name(_utc(2026, 6, 29), SYNODIC, southern=True) is None
+        # a Blue Moon is the calendar's, either side of the equator
+        assert full_moon_name(_utc(2023, 8, 31, 1), SYNODIC, southern=True) == "Blue"

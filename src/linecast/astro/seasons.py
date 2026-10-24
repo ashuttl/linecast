@@ -10,7 +10,11 @@ Full moon names follow the Old Farmer's Almanac: one traditional name
 per month, except that the full moon nearest the September equinox is
 the Harvest Moon, the one after it is the Hunter's Moon, and a second
 full moon in a calendar month is a Blue Moon.  The names are a North
-American tradition and are applied worldwide, as the almanac does.
+American tradition.  South of the equator the autumn equinox is in
+March, and the Harvest Moon is the full moon nearest it, as almanacs
+and astronomers there have it; the monthly names follow North American
+seasons, are not used there, and are left off rather than shifted by
+six months, which no tradition does.
 """
 
 import math
@@ -120,14 +124,18 @@ FULL_MOON_NAMES = (
 )
 
 
-def full_moon_name(full_local, synodic_days):
-    """Traditional name for the full moon at *full_local* (aware datetime).
+def full_moon_name(full_local, synodic_days, southern=False):
+    """Traditional name for the full moon at *full_local* (aware datetime),
+    or None for a full moon the tradition has no name for.
 
     *synodic_days* is the caller's synodic month length, so the nearest-
-    full-moon windows stay consistent with its phase math.
+    full-moon windows stay consistent with its phase math.  *southern*
+    reads the autumn by the March equinox and leaves the monthly names
+    off: Sydney's October full moon was the Hunter's Moon.
     """
     full_utc = full_local.astimezone(timezone.utc)
-    eq = season_event_utc(full_utc.year, SEPTEMBER_EQUINOX)
+    autumn = MARCH_EQUINOX if southern else SEPTEMBER_EQUINOX
+    eq = season_event_utc(full_utc.year, autumn)
     delta = (full_utc - eq).total_seconds() / 86400.0
     half = synodic_days / 2.0
     if abs(delta) <= half:
@@ -142,4 +150,4 @@ def full_moon_name(full_local, synodic_days):
             else prev_utc.astimezone(full_local.tzinfo))
     if (prev.year, prev.month) == (full_local.year, full_local.month):
         return "Blue"             # second full moon this calendar month
-    return FULL_MOON_NAMES[full_local.month - 1]
+    return None if southern else FULL_MOON_NAMES[full_local.month - 1]

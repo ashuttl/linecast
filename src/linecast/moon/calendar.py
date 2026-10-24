@@ -493,8 +493,10 @@ def _hover_chip(d, ctx, found, phase_days, mouse_pos, cols, rows):
     if principal:
         idx, at = principal
         name = night_name or moon_name(idx, runtime)
-        if idx == 4 and lang == "en" and (found is None or found.full_moon_names):
-            mn = full_moon_name(at, SYNODIC_MONTH)
+        mn = (full_moon_name(at, SYNODIC_MONTH, southern=ctx.lat < 0)
+              if idx == 4 and lang == "en" and (found is None or found.full_moon_names)
+              else None)
+        if mn:
             name = "Blue Moon" if mn == "Blue" else f"Full {mn} Moon"
         lit_moon = found.new_moon_name(at) if found and idx == 0 else None
         if lit_moon:

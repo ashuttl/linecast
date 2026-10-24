@@ -23,14 +23,14 @@ def _strip_ansi(text):
     return re.sub(r"\x1b[()][0-9A-Za-z]", "", text)
 
 
-def _render(cols, rows, lang="en", fullscreen=False, offset_minutes=0):
+def _render(cols, rows, lang="en", fullscreen=False, offset_minutes=0, at=(43.7, -79.4)):
     from linecast.moon.view import render
     from linecast._runtime import RuntimeConfig
 
     runtime = RuntimeConfig(live=False, icons="emoji", lang=lang,
                             oneline=False)
     with patch("linecast.moon.view.get_terminal_size", return_value=(cols, rows)):
-        output = render(NOW, 43.7, -79.4, runtime, fullscreen=fullscreen,
+        output = render(NOW, *at, runtime, fullscreen=fullscreen,
                         offset_minutes=offset_minutes)
     return _strip_ansi(output).split("\n")
 
@@ -72,6 +72,12 @@ class TestCorners:
         assert lines[_info_row(lines, "Full Pink Moon")].startswith(" Full Pink Moon")
         assert lines[-1].rstrip().endswith("in 14.8d")
         assert "Spring equinox" in lines[-1]
+
+    def test_south_of_the_equator_the_april_full_moon_is_the_harvest(self):
+        # Toronto's Pink Moon is Sydney's Harvest Moon, its autumn's
+        lines = _render(140, 40, fullscreen=True, at=(-33.87, 151.21))
+        assert lines[_info_row(lines, "Full Harvest Moon")].startswith(" Full Harvest Moon")
+        assert not any("Pink" in line for line in lines)
 
     def test_the_moon_is_in_the_middle(self):
         cx, cy, _radius = _disc(140, 40, fullscreen=True)
