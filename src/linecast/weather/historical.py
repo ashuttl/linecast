@@ -1,9 +1,12 @@
 """Historical weather averages from Open-Meteo Archive API.
 
 Fetches the past 10 years of daily highs and lows, computes the mean
-high/low temperatures and precipitation for one calendar date, and
-averages each year's hottest and coldest day, which give the hourly
-temperature graph its scale under --temp-range climate or auto.
+high/low temperatures and precipitation for a calendar date, taken
+over the fortnight around it (smooth_by_date), and averages each
+year's hottest and coldest day, which give the hourly temperature
+graph its scale under --temp-range climate or auto.  The dashboard,
+the year view and the month view all take a date's average that way,
+so they agree on it.
 
 The Archive API is free, requires no key, and the data is immutable
 for past dates — so we cache aggressively (7 days).
@@ -43,6 +46,11 @@ _RETRY_STATUSES = frozenset({429, 500, 502, 503, 504})
 # Per terminal character row, not per braille dot. At this resolution a
 # 10°C daily swing still has two rows in which to show its shape.
 _AUTO_MAX_CELSIUS_PER_ROW = 5.0
+# A date's average takes in the week either side of it in every year.
+# Ten samples of one date wander by several degrees from day to day: at
+# Portland, Maine the station's own ten Octobers put the 23rd's average
+# low 3°F above the fortnight's.
+SMOOTH_DAYS = 7
 
 
 @dataclass(frozen=True)
@@ -219,8 +227,27 @@ def fetch_year_to_date(lat, lng, today, celsius=False, metric=False, stale=None)
     )
 
 
+def smooth_by_date(sums, counts):
+    """For each of the 366 day slots (day_slot), the mean of what was
+    summed into `sums` over `counts` values, taken over the slots within
+    SMOOTH_DAYS of it, round the year's end; None where none had one.
+    29 February, which ten years hold two or three times, is averaged
+    with the days around it in every year like any other date."""
+    n = len(sums)
+    out = []
+    for s in range(n):
+        total = count = 0
+        for k in range(s - SMOOTH_DAYS, s + SMOOTH_DAYS + 1):
+            total += sums[k % n]
+            count += counts[k % n]
+        out.append(total / count if count else None)
+    return tuple(out)
+
+
 def _compute_averages(data, month: int, day: int) -> Optional[HistoricalAverages]:
-    """Extract matching month-day rows from archive response and average them."""
+    """The averages for the date `month`/`day` in an archive answer: its
+    highs, lows and precipitation over the fortnight around it in every
+    year (smooth_by_date), and each year's hottest and coldest day."""
     # The archive writes null for a day it has no value for and for a
     # whole block it could not produce; a partial answer still yields
     # the years it has, as the forecast's nulls do (issue #112).
@@ -233,14 +260,8 @@ def _compute_averages(data, month: int, day: int) -> Optional[HistoricalAverages
     if not times:
         return None
 
-    # Feb 29 comes round two or three times in ten years, so its average
-    # takes in the days either side of it in every year, as the year
-    # view's band does: leap day is compared with ten years, not two.
-    wanted = {(2, 28), (2, 29), (3, 1)} if (month, day) == (2, 29) else {(month, day)}
-    sum_hi = 0.0
-    sum_lo = 0.0
-    sum_precip = 0.0
-    count = 0
+    target = day_slot(date(2000, month, day))
+    sum_hi, sum_lo, sum_pr, counts = ([0.0] * 366 for _ in range(4))
     years = set()
 
     dropped = 0
@@ -251,9 +272,8 @@ def _compute_averages(data, month: int, day: int) -> Optional[HistoricalAverages
         # times are "YYYY-MM-DD" strings, or null for a day the archive
         # could not date
         try:
-            parts = t.split("-")
-            y, m, d = int(parts[0]), int(parts[1]), int(parts[2])
-        except (AttributeError, IndexError, ValueError) as exc:
+            d = date.fromisoformat(t)
+        except (TypeError, ValueError) as exc:
             dropped += 1
             bad = exc
             continue
@@ -261,27 +281,28 @@ def _compute_averages(data, month: int, day: int) -> Optional[HistoricalAverages
         hi = _at(highs, i)
         lo = _at(lows, i)
         if hi is not None:
-            year_highs[y] = max(hi, year_highs.get(y, hi))
+            year_highs[d.year] = max(hi, year_highs.get(d.year, hi))
         if lo is not None:
-            year_lows[y] = min(lo, year_lows.get(y, lo))
-
-        if (m, d) in wanted:
-            pr = _at(precips, i)
-            if hi is not None and lo is not None:
-                sum_hi += hi
-                sum_lo += lo
-                sum_precip += (pr if pr is not None else 0)
-                count += 1
-                years.add(y)
+            year_lows[d.year] = min(lo, year_lows.get(d.year, lo))
+        if hi is None or lo is None:
+            continue
+        s = day_slot(d)
+        pr = _at(precips, i)
+        sum_hi[s] += hi
+        sum_lo[s] += lo
+        sum_pr[s] += pr if pr is not None else 0
+        counts[s] += 1
+        if min(abs(s - target), 366 - abs(s - target)) <= SMOOTH_DAYS:
+            years.add(d.year)
     log_skipped("weather/climate", "daily dates", dropped, len(times), bad)
 
-    if count == 0:
+    avg_high = smooth_by_date(sum_hi, counts)[target]
+    if avg_high is None:
         return None
-
     return HistoricalAverages(
-        avg_high=round(sum_hi / count, 1),
-        avg_low=round(sum_lo / count, 1),
-        avg_precip=round(sum_precip / count, 2),
+        avg_high=round(avg_high, 1),
+        avg_low=round(smooth_by_date(sum_lo, counts)[target], 1),
+        avg_precip=round(smooth_by_date(sum_pr, counts)[target], 2),
         years=len(years),
         year_high=(round(sum(year_highs.values()) / len(year_highs), 1)
                    if year_highs else None),

@@ -22,7 +22,7 @@ from linecast.tides.chart import render_tide_ticks
 from linecast.tides.month import sun_legend
 from linecast.weather import style
 from linecast.weather.header import location_chip, location_control
-from linecast.weather.historical import day_slot, history_span
+from linecast.weather.historical import day_slot, history_span, smooth_by_date
 from linecast.weather.i18n import _s
 
 
@@ -85,14 +85,11 @@ class Temperatures:
                     sums[day_slot(day)][hour] += values[hour]
                     counts[day_slot(day)][hour] += 1
             days[day] = tuple(values)
-        normals = []
-        for slot in range(366):
-            row = []
-            for hour in range(24):
-                near = [(slot + k) % 366 for k in range(-7, 8)]
-                count = sum(counts[s][hour] for s in near)
-                row.append(sum(sums[s][hour] for s in near) / count if count else None)
-            normals.append(tuple(row))
+        # each clock hour's average over the fortnight around the date,
+        # as the dashboard and the year view take theirs
+        columns = [smooth_by_date([row[hour] for row in sums], [row[hour] for row in counts])
+                   for hour in range(24)]
+        normals = [tuple(column[slot] for column in columns) for slot in range(366)]
         return cls(days, repeated, tuple(normals), span, tz, recent=recent or {})
 
     def with_recent(self, now):

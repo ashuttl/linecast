@@ -46,11 +46,9 @@ from linecast.terminal.theme import ensure_contrast, lerp_rgb, surface_bg
 from linecast.weather import style as _style
 from linecast.weather.daily import mostly_snow
 from linecast.weather.forecast import _at
-from linecast.weather.historical import day_slot
+from linecast.weather.historical import day_slot, smooth_by_date
 from linecast.weather.i18n import _s, _wmo_icons, precip_unit_label
 
-# Days either side of a date that its average is taken over.
-_SMOOTH_DAYS = 7
 # A leap year, so every month and day has a slot.
 _LEAP = 2000
 # The share of the chart's rows the precipitation panel takes.
@@ -104,18 +102,6 @@ class Climate:
     month_precip: tuple  # mean total for each month, January first
 
 
-def _smooth(sums, counts):
-    n = len(sums)
-    out = []
-    for s in range(n):
-        total = count = 0
-        for k in range(s - _SMOOTH_DAYS, s + _SMOOTH_DAYS + 1):
-            total += sums[k % n]
-            count += counts[k % n]
-        out.append(total / count if count else None)
-    return tuple(out)
-
-
 def climate_from_archive(data, span):
     """The Climate in an archive answer (historical.fetch_history), or
     None when it holds no temperatures."""
@@ -162,7 +148,7 @@ def climate_from_archive(data, span):
         totals = [total for (y, mm), (total, k) in months.items()
                   if mm == m and k >= calendar.monthrange(y, m)[1] - 2]
         month_precip.append(sum(totals) / len(totals) if totals else None)
-    return Climate(tuple(span), _smooth(sum_hi, n_hi), _smooth(sum_lo, n_lo),
+    return Climate(tuple(span), smooth_by_date(sum_hi, n_hi), smooth_by_date(sum_lo, n_lo),
                    tuple(top), tuple(bottom), tuple(month_precip))
 
 

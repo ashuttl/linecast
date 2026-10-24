@@ -1,6 +1,6 @@
 """Tests for historical weather comparison feature."""
 
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from unittest.mock import patch
 
 from linecast.weather.historical import (
@@ -30,16 +30,17 @@ class TestComputeAverages:
             }
         }
 
-    def test_single_matching_day(self):
+    def test_a_date_takes_in_the_fortnight_around_it(self):
         data = self._make_data([
             ("2023-03-27", 60.0, 40.0, 0.1),
             ("2023-03-28", 65.0, 42.0, 0.0),
+            ("2023-04-20", 90.0, 70.0, 1.0),  # weeks away: not the date's
         ])
         result = _compute_averages(data, 3, 27)
         assert result is not None
-        assert result.avg_high == 60.0
-        assert result.avg_low == 40.0
-        assert result.avg_precip == 0.1
+        assert result.avg_high == 62.5
+        assert result.avg_low == 41.0
+        assert result.avg_precip == 0.05
         assert result.years == 1
 
     def test_multiple_years_averaged(self):
@@ -47,7 +48,7 @@ class TestComputeAverages:
             ("2020-07-04", 80.0, 60.0, 0.0),
             ("2021-07-04", 90.0, 70.0, 0.5),
             ("2022-07-04", 85.0, 65.0, 0.2),
-            ("2021-07-05", 75.0, 55.0, 0.0),  # different date, should be ignored
+            ("2021-07-20", 75.0, 55.0, 0.0),  # sixteen days on: ignored
         ])
         result = _compute_averages(data, 7, 4)
         assert result is not None
@@ -55,6 +56,39 @@ class TestComputeAverages:
         assert result.avg_high == round((80 + 90 + 85) / 3, 1)
         assert result.avg_low == round((60 + 70 + 65) / 3, 1)
         assert result.avg_precip == round((0.0 + 0.5 + 0.2) / 3, 2)
+
+    def test_the_fortnight_is_the_week_either_side(self):
+        for away, counted in ((7, True), (8, False), (-7, True), (-8, False)):
+            other = date(2021, 7, 4) + timedelta(days=away)
+            data = self._make_data([("2020-07-04", 80.0, 60.0, 0.0),
+                                    (other.isoformat(), 90.0, 70.0, 0.0)])
+            assert _compute_averages(data, 7, 4).avg_high == (85.0 if counted else 80.0), away
+        # and round the year's end
+        data = self._make_data([("2020-12-31", 30.0, 20.0, 0.0), ("2021-01-03", 40.0, 30.0, 0.0)])
+        assert _compute_averages(data, 1, 1).avg_high == 35.0
+
+    def test_the_dashboard_and_the_year_view_agree_on_a_date(self):
+        """The header's "avg" was one date's ten samples, where the year
+        view's band took the fortnight's: they could differ by degrees
+        on the same day."""
+        import random
+        from linecast.weather import year
+        from linecast.weather.historical import day_slot
+        rng = random.Random(23)
+        rows = []
+        for y in range(2016, 2026):
+            d = date(y, 1, 1)
+            while d.year == y:
+                rows.append((d.isoformat(), 50 + rng.gauss(0, 8), 35 + rng.gauss(0, 8), 0.1))
+                d += timedelta(days=1)
+        data = self._make_data(rows)
+        climate = year.climate_from_archive(data, (2016, 2025))
+        for month, day in ((1, 1), (2, 29), (7, 4), (10, 23), (12, 31)):
+            slot = day_slot(date(2000, month, day))
+            result = _compute_averages(data, month, day)
+            assert result.avg_high == round(climate.normal_high[slot], 1)
+            assert result.avg_low == round(climate.normal_low[slot], 1)
+            assert result.years == 10
 
     def test_no_matching_day(self):
         data = self._make_data([
@@ -172,8 +206,8 @@ class TestComputeAverages:
         assert result.years == 10
         assert result.avg_high == 42.0 and result.avg_low == 22.0
         assert result.avg_precip == 0.2
-        # An ordinary date is still its own day alone
-        assert _compute_averages(self._make_data(rows), 2, 28).avg_high == 40.0
+        # as every other date does
+        assert _compute_averages(self._make_data(rows), 2, 28).avg_high == 42.0
 
 
 # ---------------------------------------------------------------------------
@@ -314,7 +348,7 @@ class TestFetchHistorical:
         """The shared year-span payload is filtered to the target day client-side."""
         mock_data = {
             "daily": {
-                "time": ["2024-03-27", "2024-03-28", "2025-03-27", "2025-03-28"],
+                "time": ["2024-03-27", "2024-06-27", "2025-03-27", "2025-06-27"],
                 "temperature_2m_max": [60.0, 90.0, 62.0, 92.0],
                 "temperature_2m_min": [40.0, 70.0, 42.0, 72.0],
                 "precipitation_sum": [0.0, 1.0, 0.0, 1.0],
@@ -322,9 +356,9 @@ class TestFetchHistorical:
         }
         with patch("linecast.weather.historical.fetch_json_cached", return_value=mock_data):
             march_27 = fetch_historical(40.7, -74.0, date(2026, 3, 27))
-            march_28 = fetch_historical(40.7, -74.0, date(2026, 3, 28))
+            june_27 = fetch_historical(40.7, -74.0, date(2026, 6, 27))
         assert march_27.years == 2 and march_27.avg_high == 61.0
-        assert march_28.years == 2 and march_28.avg_high == 91.0
+        assert june_27.years == 2 and june_27.avg_high == 91.0
 
     def test_cache_max_age_is_long(self):
         """Historical data doesn't change — cache should be at least 24h."""
