@@ -1,11 +1,14 @@
 """The vendored climate-family grid terrain colour climbs by.
 
-One global raster, 0.1° and 67 KB, baked from the Beck et al. (2023)
+One global raster, 0.1° and 68 KB, baked from the Beck et al. (2023)
 Köppen-Geiger classification by scripts/build_climate_grid.py: each
 cell holds the hypsometric ramp family of the ground there — 0 humid,
-1 semiarid, 2 arid, 3 polar.  Shipping it in the wheel instead of
-tiling it is the point: climate is smooth, static and tiny, so the
-first frame of the globe is already right, offline included.
+1 semiarid, 2 arid, 3 polar.  RESOLVE's tundra biome is polar too,
+whatever its climate: Köppen files Arctic ground with Julys above
+10°C alongside the boreal forest, though no trees grow on much of
+it.  Shipping it in the wheel instead of tiling it is the point:
+climate is smooth, static and tiny, so the first frame of the globe
+is already right, offline included.
 
 Ocean cells were flood-filled from the nearest land at bake time, so
 sampling never misses — a shoreline sub-pixel straddling the surf gets
@@ -17,9 +20,9 @@ from linecast._log import log_failure
 
 HUMID, SEMIARID, ARID, POLAR = range(4)
 
-# CC-BY credit for the source classification, kept terse so the
-# footer's widest rung still fits an 80-column terminal
-ATTRIBUTION = "Köppen © Beck et al."
+# CC-BY credits for the classification and the tundra, kept terse so
+# the footer's widest rung still fits an 80-column terminal
+ATTRIBUTION = "Köppen © Beck et al. · © RESOLVE"
 
 _grid = None      # (w, h, bytes) once loaded; a failed load stays None
 _tried = False
