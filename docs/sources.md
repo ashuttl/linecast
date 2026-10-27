@@ -186,6 +186,6 @@ Bundled:
 
 - **[Köppen-Geiger grid](https://doi.org/10.6084/m9.figshare.21789074)**, Beck et al. (2023), for 1991 to 2020 at a tenth of a degree (CC BY 4.0). Picks the terrain's color ramp: humid, semi-arid, arid, or polar.
 - **NASA [Black Marble 2016](https://science.nasa.gov/earth/earth-observatory/earth-at-night/maps/)** (Suomi NPP VIIRS). The globe's night lights. It is a historical composite, not live lighting and not a map of outages; [NIGHT_LIGHTS.md](../src/linecast/data/NIGHT_LIGHTS.md) has the credits and the format.
-- **Natural Earth.** The borders, from the radar's basemap.
+- **Natural Earth.** The borders, from the radar's basemap. The ice, from the 1:10m glaciated areas at a tenth of a degree, on the globe and on flat maps zoomed out past the vector tiles' zoom 7, below which their own ice is coarse. Everything south of 60°S is drawn as ice.
 
 Checked against: the terrarium decoding round-trips Everest's 8,848 m, sea level, and a depth, and the globe's subsolar point is checked at the equinoxes and solstices. No fetched elevation, tile, or route is compared with a reference outside the app.

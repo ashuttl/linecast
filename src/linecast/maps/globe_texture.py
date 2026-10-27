@@ -48,6 +48,7 @@ from linecast import _cache
 from linecast.terminal import live as _live
 from linecast.terminal import theme as _theme
 from linecast.maps import climate as _climate
+from linecast.maps import glaciers as _glaciers
 from linecast.maps import globe as _globe
 from linecast.maps import paint
 from linecast.maps import style
@@ -616,7 +617,7 @@ def _shade(elev, lakes, w, h):
         buf = paint.build_terrain_buffer(
             band, (0.0, -(hi - lo) * 90.0 / h, 360.0, (hi - lo) * 90.0 / h),
             w, hi - lo, water=lakes[lo:hi],
-            cover=_globe.ice_cover(lls, band, ice_id),
+            cover=_glaciers.grid_for_lls(lls, ice_id),
             climate=_climate.grid_for_lls(lls) or ())
         for row in buf[y0 - lo:y1 - lo]:
             for i in range(3):
@@ -675,7 +676,9 @@ def _digest(z, register):
     """
     parts = [_FORMAT, z, register,
              _stat_key(data_path(f"globe_canvas_{z}.bin")),
-             _stat_key(data_path("basemap.json.gz"))]
+             _stat_key(data_path("basemap.json.gz")),
+             _stat_key(data_path("climate.png")),
+             _stat_key(data_path("glaciers.png"))]
     if register != "street":
         parts += [color_mode(), paint.HYPSO_FAMILIES,
                   paint.BATHY_STOPS, paint.LAKE_FILL,

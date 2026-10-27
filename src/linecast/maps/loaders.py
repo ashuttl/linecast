@@ -25,6 +25,7 @@ from concurrent.futures import ThreadPoolExecutor
 from linecast.terminal import theme as _theme
 from linecast.maps import builtup as _builtup
 from linecast.maps import climate as _climate
+from linecast.maps import glaciers as _glaciers
 from linecast.maps import globe as _globe
 from linecast.maps import globe_now
 from linecast.maps import globe_texture
@@ -404,7 +405,8 @@ def _water_subpixels(water, gw, hc):
     return out
 
 
-def _tile_water(bbox, gw, hc, window=None, camera=None, missing=None):
+def _tile_water(bbox, gw, hc, window=None, camera=None, missing=None,
+                tile_ice=True):
     """(inland water dot mask, river layer) for the view, or (None, None).
 
     Terrain mode's one network dependency beyond the elevation tiles,
@@ -415,7 +417,8 @@ def _tile_water(bbox, gw, hc, window=None, camera=None, missing=None):
     polygons are rasterised onto its sphere; the bbox still says what
     scale the view is drawn at, which is what picks the band.
 
-    `missing`, a list, collects the tiles that did not arrive.
+    `missing`, a list, collects the tiles that did not arrive, and
+    `tile_ice` False leaves the tiles' ice out of the land cover.
     """
     try:
         band, tiles = streets.fetch_view(
@@ -425,7 +428,7 @@ def _tile_water(bbox, gw, hc, window=None, camera=None, missing=None):
         if not any(tiles.values()):
             return None, None, None, None
         return streets.build_water_view(bbox, gw, hc, tiles, band,
-                                              RIVER_STROKE, camera)
+                                              RIVER_STROKE, camera, tile_ice)
     except Exception as exc:
         log_failure("maps/vtiles", "inland water", exc, fallback="sea-level-only terrain")
         return None, None, None, None
@@ -500,6 +503,13 @@ def _get_elevation(bbox, gw, hc, block, window=None):
     camera = None if _globe.affine_ok(cam.lat, cam.zoom, gw, hc) else cam
 
     def load():
+        # Below GLACIER_TILE_ZOOM the vendored grid is the view's ice
+        # and the tiles' is left out — decided once, here, from the
+        # source zoom the style asks for, so exactly one of them draws.
+        wbbox, whc = window if window is not None else (bbox, hc)
+        z = _style.z_eff(wbbox, whc)
+        grid_ice = (_style.z_src(z, _style.band_for(z))
+                    < _style.GLACIER_TILE_ZOOM and _glaciers.available())
         # fetch at 2x and box-average down: point-sampled elevation makes
         # the hillshade step visibly at cell edges; averaging anti-aliases
         # tone transitions and blends shorelines. The fine grid also yields
@@ -510,7 +520,7 @@ def _get_elevation(bbox, gw, hc, block, window=None):
         missing = []
         with ThreadPoolExecutor(max_workers=2) as pool:
             water_job = pool.submit(_tile_water, bbox, gw, hc, window, camera,
-                                    missing)
+                                    missing, not grid_ice)
             builtup_job = pool.submit(_builtup_layer, bbox, gw, hc, camera)
             fine = elevation_grid(bbox, gw * 2, hc * 4, camera=camera,
                                   missing=missing)
@@ -532,6 +542,23 @@ def _get_elevation(bbox, gw, hc, block, window=None):
                                        or crow[x] in settlement):
                         crow[x] = next(gid for lo, gid in grades
                                        if f >= lo)
+        if grid_ice:
+            ice_id = _style.COVER_ORDER.index("ice") + 1
+            if camera is None:
+                ice = _glaciers.grid_for_bbox(bbox, gw, hc * 2, ice_id)
+            else:
+                ice = _glaciers.grid_for_lls(
+                    _globe.geometry(cam.lat, cam.lon, cam.zoom,
+                                    gw, hc * 2)[0], ice_id)
+            if ice is not None and cover is None:
+                cover = ice
+            elif ice is not None:
+                # over the natural classes and under settlement, the
+                # order COVER_ORDER paints the tiles' own ice in
+                for crow, irow in zip(cover, ice):
+                    for x, v in enumerate(irow):
+                        if v and crow[x] < v:
+                            crow[x] = v
         if ocean is not None:
             # The OSM coastline outranks the elevation data over the
             # sea, without appeal: coastal DEMs report tidal water as a
@@ -788,8 +815,7 @@ def _built_globe(lat0, lon0, zoom, gw, hc):
     wet = _globe.lake_mask(lat0, lon0, zoom, gw * 2, hc * 4)
     return _globe.GlobeView(
         grid, _coast_dots(fine, gw, hc, wet, min_dots=0), zs, atmo,
-        _globe.ice_cover(lls, grid,
-                         _style.COVER_ORDER.index("ice") + 1),
+        _glaciers.grid_for_lls(lls, _style.COVER_ORDER.index("ice") + 1),
         _globe.border_layer(lat0, lon0, zoom, gw, hc, BORDER_STROKE),
         lls, glow,
         _water_subpixels(wet, gw, hc) if wet is not None else None)
