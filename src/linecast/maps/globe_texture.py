@@ -259,28 +259,33 @@ def _row_getters(lat0, zoom, w, h, tw, th):
     out = []
     kx, ky = tw / 360.0, th / 180.0
     last = th - 1
-    for b_row in _globe.relative(lat0, zoom, w, h):
-        # the disk's samples are one run per row, so the row's texels
-        # are one comprehension rather than a test per sample
-        x0, n = 0, len(b_row)
-        while x0 < n and b_row[x0] is None:
-            x0 += 1
-        n -= x0
-        while n and b_row[x0 + n - 1] is None:
-            n -= 1
-        idx = [min(last, int((90.0 - b[0]) * ky)) * tw
-               + int((b[1] + 180.0) * kx) % tw
-               for b in b_row[x0:x0 + n]]
-        if len(idx) > 1:
-            out.append((x0, len(idx), itemgetter(*idx)))
-        elif idx:
+    for x0, lats, dlons in _globe.turned(lat0, zoom, w, h).rows:
+        # the disk's samples are one run per row, handed over as two
+        # lists, so the row's texels are two comprehensions rather
+        # than a test per sample
+        n = len(lats)
+        if not n:
+            out.append((x0, 0, None))
+            continue
+        rows = [int((90.0 - lat) * ky) for lat in lats]
+        # a sample on the south pole itself reads one row past the
+        # plane, and is clamped to the last.  Latitude runs one way
+        # from the run's centre to either end, so the pole can be
+        # only at an end or at the centre, and four looks decide
+        # whether the whole row needs the clamp
+        if (rows[0] > last or rows[-1] > last or rows[n >> 1] > last
+                or rows[(n - 1) >> 1] > last):
+            rows = [last if r > last else r for r in rows]
+        idx = [r * tw + int((d + 180.0) * kx) % tw
+               for r, d in zip(rows, dlons)]
+        if n > 1:
+            out.append((x0, n, itemgetter(*idx)))
+        else:
             # itemgetter of one index returns the texel itself, not a
             # one-texel sequence, and every caller here joins what it
             # gets back; the lambda is what makes the one-sample row
             # (a pole, or the last row of the disk) the same shape
             out.append((x0, 1, lambda p, i=idx[0]: (p[i],)))
-        else:
-            out.append((x0, 0, None))
     return out
 
 

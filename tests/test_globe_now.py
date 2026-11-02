@@ -101,6 +101,28 @@ class TestCityLights:
             globe_now.city_lights_globe(20.0, lon0, 125.0, 80, 44)
         assert len(globe_now._lights_cache) == globe_now._LIGHTS_KEEP
 
+    def test_the_night_side_is_the_whole_mapping_where_it_is_dark(self):
+        # apply() asks a view's lights for the night side alone; what
+        # it gets must be exactly the whole mapping's entries under
+        # the terminator's threshold, sampled fresh rather than cut
+        # from a mapping already in hand
+        from linecast.maps import night_lights
+        from linecast.maps.globe import geometry
+        lls, zs, _rhos = geometry(20.0, -30.0, 125.0, 80, 44)
+        day = globe_now.daylight(lls, (0.0, 60.0))
+        levels = night_lights.load()
+        fresh = globe_now.CityLights(levels, lls, 125.0 / 44, zs)
+        night = fresh.under(day)
+        whole = dict(globe_now.CityLights(levels, lls, 125.0 / 44, zs).items())
+        want = {k: v for k, v in whole.items()
+                if day[k[1]][k[0]] is not None
+                and day[k[1]][k[0]] <= globe_now._LIGHTS_DAY}
+        assert night == want
+        assert night and len(night) < len(whole)
+        # once the whole mapping is in hand it answers for the night
+        # too, and apply() skips the lit ones itself
+        assert fresh == whole and fresh.under(day) == whole
+
 
 class TestApply:
     def test_day_leaves_the_ground_alone(self):

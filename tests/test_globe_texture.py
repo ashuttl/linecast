@@ -211,6 +211,22 @@ class TestSampling:
         assert not shot.land[0][0] and not shot.water[0][0]
         assert shot.elev[self.HC][self.GW // 2] == 100
 
+    def test_the_pole_on_a_sample_reads_the_last_row(self):
+        # an odd grid centred on the south pole puts the pole on the
+        # centre sample: latitude -90, a texel row one past the plane
+        # until it is clamped to the last.  Every getter must read its
+        # run out of the plane, and that one the last row.
+        w = h = 21
+        plane = bytes(self.FW * (self.FH - 1)) + bytes([7]) * self.FW
+        getters = globe_texture._row_getters(-90.0, self.ZOOM, w, h,
+                                             self.FW, self.FH)
+        for _x0, n, get in getters:
+            if n:
+                assert len(get(plane)) == n
+        x0, n, get = getters[h // 2]
+        assert x0 <= w // 2 < x0 + n
+        assert get(plane)[w // 2 - x0] == 7
+
 
 def _dots(layer):
     """A braille layer expanded back to a (row, column) set of dots."""
