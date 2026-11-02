@@ -199,6 +199,40 @@ class TestTheStreetsBeforeTheGround:
         assert hover_at(dx0 + 2, dy0) == ""   # the frame's cell answers nothing
 
 
+class TestInPassing:
+    """While the camera moves, one view builds at a time and the newest
+    request takes the slot, so the ground goes first."""
+
+    def _render(self, win, moving):
+        return maps._render_terrain(win, False, (0, 0), None, maps._Marks(),
+                                    "en", None, moving=moving)
+
+    def test_the_streets_wait_for_the_ground(self, monkeypatch):
+        asked = []
+        monkeypatch.setattr(maps, "_get_elevation",
+                            lambda *a, **k: maps._EMPTY_TERRAIN)
+        monkeypatch.setattr(maps, "_get_street",
+                            lambda *a, **k: asked.append(1) or (None, None, None))
+        self._render(_window(CLOSE), moving=True)
+        assert asked == []
+
+    def test_and_are_asked_for_once_it_is_in_hand(self, monkeypatch):
+        asked = []
+        monkeypatch.setattr(maps, "_get_street",
+                            lambda *a, **k: asked.append(1) or (None, None, None))
+        self._render(_window(CLOSE), moving=True)
+        assert asked == [1]
+
+    def test_at_rest_the_two_are_asked_for_together(self, monkeypatch):
+        asked = []
+        monkeypatch.setattr(maps, "_get_elevation",
+                            lambda *a, **k: maps._EMPTY_TERRAIN)
+        monkeypatch.setattr(maps, "_get_street",
+                            lambda *a, **k: asked.append(1) or (None, None, None))
+        self._render(_window(CLOSE), moving=False)
+        assert asked == [1]
+
+
 class TestTheViewInHand:
     def test_streets_that_land_later_join_the_view(self, monkeypatch):
         # the ground landed first and was stored without its streets;

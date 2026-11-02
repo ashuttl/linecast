@@ -847,7 +847,14 @@ def _render_terrain(win, block, pan_offset, mouse_pos, marks, lang,
     # a frame draws whichever of the two has landed
     roads = _roads(win)
     streets = slabels = None
-    if roads:
+    if roads and (not moving or source is not None or elev is not None):
+        # In passing the ground goes first.  The moving builds share
+        # one slot and the newest request takes it
+        # (loaders._motion_build), so a frame that asked for both
+        # would hand it to the streets every time and the ground would
+        # never be built again.  The streets are asked for once the
+        # ground under them is in hand; at rest the two go to the
+        # network side by side.
         streets, slabels = _street_lines(win, block, lang, reserved, source)
     terrain = None
     if source is not None:
