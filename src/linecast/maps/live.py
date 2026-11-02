@@ -449,7 +449,7 @@ class MapApp(LiveApp):
 
     def __init__(self, runtime, lat, lon, location_name, zoom, view, sky,
                  profile, origin=None, dest=None, fit=False, show_text=True,
-                 show_labels=True, spin=False):
+                 show_labels=True, spin=False, no_text=False):
         self.runtime = runtime
         self.home = (lat, lon)      # the marker
         self.start = (lat, lon, zoom)   # where n and space go back to
@@ -469,8 +469,10 @@ class MapApp(LiveApp):
         self.clouds = sky       # c: this hour's cloud cover
         # --view now hid the text and the labels for the planet; the
         # first frame on the ground gives them back, unless the reader
-        # has taken them in hand with t or l meanwhile
+        # has taken them in hand with t or l meanwhile.  Text the
+        # reader hid themselves (--no-text) stays hidden.
         self._sky_sugar = sky and not show_text
+        self._no_text = no_text
         self._hinted = False    # the hint for a view with its text hidden
         self.search = ui.SearchState()
         self.routes = ui.RouteState(profile=profile, home=(lat, lon))
@@ -883,7 +885,8 @@ class MapApp(LiveApp):
             # off the planet and onto the ground: the launch sugar is
             # spent, and the header, the footer and the names come back
             self._sky_sugar = False
-            self.text = self.show_labels = True
+            self.text = not self._no_text
+            self.show_labels = True
             gw, hc = self._fit()
         if self._spin_pending:
             if not _globe.is_globe(self.zoom, self.lat):
@@ -1069,7 +1072,8 @@ def main():
         sys.setswitchinterval(0.001)
         MapApp(runtime, lat, lon, location_name, args.zoom, args.view, sky,
                args.profile, origin=origin, dest=dest, fit=fit,
-               show_text=show_text, show_labels=not sky, spin=sky).run()
+               show_text=show_text, show_labels=not sky, spin=sky,
+               no_text=args.no_text).run()
     else:
         found = note = None
         home = (lat, lon)   # the marker stays home when the route is framed

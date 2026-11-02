@@ -1519,6 +1519,20 @@ class TestNowSugar:
         app.render()
         assert app.show_labels is False
 
+    def test_no_text_with_the_sugar_keeps_the_text_hidden(self, frames):
+        # `--view now --no-text`: the labels were the sugar's to hide
+        # and come back; the text was the reader's and stays put
+        runtime = types.SimpleNamespace(lang="en", live=True)
+        app = MapApp(runtime, 43.68, -70.37, "Westbrook", 120, "terrain", True,
+                     "car", show_text=False, show_labels=False, spin=True,
+                     no_text=True)
+        app.camera.clock = Clock()
+        app.render()
+        app.camera.jump_to(43.68, -70.37, 1.0)
+        app.render()
+        assert app.text is False and app.show_labels is True
+        assert frames[-1]["show_text"] is False
+
     def test_no_text_alone_is_not_the_sugar(self, frames):
         runtime = types.SimpleNamespace(lang="en", live=True)
         app = MapApp(runtime, 43.68, -70.37, "Westbrook", 120, "terrain", False,
