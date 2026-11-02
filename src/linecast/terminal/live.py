@@ -187,6 +187,7 @@ class FramePainter:
 
     def __init__(self):
         self.rows = None     # the displayed rows of the last frame written
+        self.resets = None   # _row_resets of them
         self.size = None     # the terminal's size when they were written
         self.drawn = False   # whether an overlay drew over them
 
@@ -199,24 +200,32 @@ class FramePainter:
         """What to write for this frame, as one string."""
         body, floating, size = _frame_parts(body, floating)
         rows = body.split("\n")
+        resets = _row_resets(rows)
         drawn = bool(_ADDRESSES.search(floating))
         whole = (self.rows is None or size != self.size or self.drawn
                  or len(rows) != len(self.rows))
         if whole:
             painted = frame_body(body)
         else:
-            painted = self._changed(rows)
-        self.rows, self.size, self.drawn = rows, size, drawn
+            painted = self._changed(rows, resets)
+        self.rows, self.resets = rows, resets
+        self.size, self.drawn = size, drawn
         return (f"{_SYNC_BEGIN}{_AUTOWRAP_OFF}{_clear_below(len(rows), size)}{painted}"
                 f"\033[0m{floating}\033[0m{_AUTOWRAP_ON}{_SYNC_END}")
 
-    def _changed(self, rows):
-        """The rows of `rows` that differ from the last frame's, addressed."""
-        prev = self.rows
-        resets = _row_resets(rows)
+    def _changed(self, rows, resets):
+        """The rows of `rows` that differ from the last frame's, addressed.
+
+        `resets` is _row_resets of them.
+        """
+        prev, was_reset = self.rows, self.resets
         # Rows are grouped into runs that carry a colour across their
         # boundary; a run with any row changed in it is written whole,
         # from a reset, which is the state its first row starts from.
+        # So is a run whose first row did not start from one last
+        # frame: the row above it carried a colour down then and ends
+        # reset now, and the row's text, unchanged, is on screen in
+        # that colour.
         out = []
         start = 0
         n = len(rows)
@@ -224,7 +233,8 @@ class FramePainter:
             end = start
             while end + 1 < n and not resets[end]:
                 end += 1
-            if any(rows[i] != prev[i] for i in range(start, end + 1)):
+            if ((start and not was_reset[start - 1])
+                    or any(rows[i] != prev[i] for i in range(start, end + 1))):
                 out.append("\033[0m")
                 out.extend(f"\033[{i + 1};1H\033[K{rows[i]}"
                            for i in range(start, end + 1))

@@ -164,6 +164,19 @@ class TestFramePainter:
         assert "\033[4;1H\033[Kd" in out
         assert "\033[1;1H" not in out
 
+    def test_a_row_whose_colour_stops_carrying_repaints_the_row_below(self, monkeypatch):
+        # the second row set a colour it never reset, so the third was
+        # drawn in it; now the second ends on a reset, and the third,
+        # its text unchanged, is written again in the default rendition
+        p = self._painter(monkeypatch)
+        p.paint("a\n\033[31mb\nc")
+        out = p.paint("a\n\033[31mb\033[0m\nc")
+        assert "\033[2;1H\033[K\033[31mb\033[0m" in out
+        assert "\033[3;1H\033[Kc" in out
+        assert "\033[1;1H" not in out
+        # and once it is, the frame after writes nothing
+        assert "\033[K" not in p.paint("a\n\033[31mb\033[0m\nc")
+
     def test_a_row_that_ends_reset_stands_alone(self, monkeypatch):
         p = self._painter(monkeypatch)
         p.paint("a\n\033[31mb\033[0m\nc")
