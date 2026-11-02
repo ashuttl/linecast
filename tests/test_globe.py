@@ -375,21 +375,6 @@ class TestAtmosphere:
         assert night[1] - bg[1] >= night[2] - bg[2]
 
 
-class TestIce:
-    def test_antarctica_and_greenland_dome_are_ice(self):
-        lls = [[(-75.0, 0.0), (72.0, -40.0), (72.0, -40.0), (45.0, 7.0)]]
-        elev = [[300.0, 2500.0, 900.0, 2500.0]]
-        cover = _globe.ice_cover(lls, elev, 7)
-        # Antarctic coast, Greenland dome: ice; Greenland's low coast
-        # and an Alpine summit at 45N: not
-        assert list(cover[0]) == [7, 7, 0, 0]
-
-    def test_no_ice_in_view_means_no_grid(self):
-        lls = [[(10.0, 0.0), None]]
-        elev = [[500.0, None]]
-        assert _globe.ice_cover(lls, elev, 7) is None
-
-
 def _lake_square(lat, lon, half):
     """One square lake, as the vendored data spells a polygon."""
     return [[[(lon - half, lat - half), (lon + half, lat - half),

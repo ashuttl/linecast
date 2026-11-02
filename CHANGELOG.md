@@ -4,6 +4,11 @@ Notable changes, by release. Notes for the next release collect under **Unreleas
 
 ## Unreleased
 
+- Maps: The globe and zoomed-out terrain maps show more of the world's glaciers, such as the icefields along Alaska's southern coast and in the Himalaya, Andes, and Alps, and show them offline.
+- Maps: Terrain maps draw tundra, such as Alaska's North Slope, Canada's Barren Grounds, and the Scandinavian mountains, in tundra colors instead of the green of the forest.
+
+## 2.11.0 — 2026-10-24
+
 Much of this release is about what linecast does when things go wrong. When the network is slow or stops answering, or a service is down, linecast gives up sooner and says what it couldn't load, instead of showing an empty view or a misleading message. A view that failed to load tries again by itself, and when a server refuses a request, maps and radar wait before asking again instead of asking on every mouse movement.
 
 The Sun and the Moon are now computed the same way in every view. Sunrise and sunset agree across weather, tides, maps, and sunshine, and the moon and sky views agree on when the Moon is up.

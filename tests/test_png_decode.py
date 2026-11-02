@@ -284,7 +284,8 @@ class TestBounds:
     def test_bundled_images_still_decode(self):
         data = Path(__file__).parent.parent / "src/linecast/data"
         for name, size in (("moon_albedo.png", (512, 256)),
-                           ("climate.png", (3600, 1800))):
+                           ("climate.png", (3600, 1800)),
+                           ("glaciers.png", (3600, 1800))):
             w, h, out = decode_rgba((data / name).read_bytes())
             assert (w, h) == size
             assert len(out) == w * h * 4

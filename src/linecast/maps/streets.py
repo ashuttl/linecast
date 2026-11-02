@@ -995,7 +995,8 @@ def _despeckle_cover(grid, dw, dh):
     return out
 
 
-def land_cover_grid(view, bbox, graph_w, height_cells, camera=None):
+def land_cover_grid(view, bbox, graph_w, height_cells, camera=None,
+                    tile_ice=True):
     """Sub-pixel land-cover classes — terrain mode's colour story.
 
     (hc*2) x gw of indices into style.COVER_ORDER (0 = no cover),
@@ -1003,6 +1004,9 @@ def land_cover_grid(view, bbox, graph_w, height_cells, camera=None):
     sub-pixel.  The resolution matches the terrain colour buffer rather
     than the dot grid: cover is a fill, never a stroke, so it earns no
     more.
+
+    `tile_ice` False leaves the tiles' ice out, for a view whose ice
+    comes from the vendored glacier grid (style.GLACIER_TILE_ZOOM).
     """
     dw, dh = graph_w, height_cells * 2
     grid = [bytearray(dw) for _ in range(dh)]
@@ -1015,7 +1019,7 @@ def land_cover_grid(view, bbox, graph_w, height_cells, camera=None):
         else:
             key = ("urban" if cls in style.COVER_URBAN_LANDUSE
                    else None)
-        if key is None:
+        if key is None or (key == "ice" and not tile_ice):
             continue
         for rings in assemble_polygons(feat["geometry"]):
             groups.setdefault(key, []).append(
@@ -1031,7 +1035,7 @@ def land_cover_grid(view, bbox, graph_w, height_cells, camera=None):
 
 
 def build_water_view(bbox, graph_w, height_cells, tiles, band, color,
-                     camera=None):
+                     camera=None, tile_ice=True):
     """(inland water dot mask, waterway layer, land cover grid, ocean
     dot mask) — terrain mode's half.
 
@@ -1054,7 +1058,8 @@ def build_water_view(bbox, graph_w, height_cells, tiles, band, color,
     return (water,
             water_lines(view, bbox, graph_w, height_cells, band, color,
                         water, camera),
-            land_cover_grid(view, bbox, graph_w, height_cells, camera),
+            land_cover_grid(view, bbox, graph_w, height_cells, camera,
+                            tile_ice),
             ocean)
 
 

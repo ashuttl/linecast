@@ -602,6 +602,15 @@ _theme.on_reload(_rebuild_cover)
 # bounded edges, no naturalistic mixing
 COVER_BLEND = 1.0
 
+# The source zoom from which the tiles' own ice is drawn.  Below it
+# the tiles' ice is patchy and the despeckle wears away the narrow
+# icefields (measured over the Gulf of Alaska at z3: a third of
+# them), so the vendored glacier grid (maps/glaciers.py) is the ice
+# there and the tiles' is left out.  Measured over the Alps, z6
+# tiles and the grid agree on how much ice there is and z7 tiles
+# draw a fifth as much: z7 is where the tiles' finer outlines start.
+GLACIER_TILE_ZOOM = 7
+
 # Urbanness inferred from street fabric.  Much of the world maps its
 # streets long before it maps a single landuse polygon (downtown
 # Portland, Maine has none), and a dense weave of minor and service
