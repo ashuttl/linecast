@@ -95,6 +95,33 @@ class TestGeometryCache:
             _globe.geometry(float(lat0), 0.0, 125.0, 8, 8)
         assert len(_globe._geometry_cache) == _globe._GEOMETRY_KEEP
 
+    def test_mirrored_columns_share_a_latitude(self):
+        # the projection works the left half of each row and mirrors
+        # it: the column across the disk's centre must have the same
+        # latitude and the opposite longitude offset, on an even grid
+        # and on an odd one with a centre column of its own
+        for w, h in ((40, 40), (41, 41)):
+            for lat0 in (0.0, 37.0, -89.0):
+                base = _globe.relative(lat0, 90.0, w, h)
+                assert len(base) == h and all(len(row) == w for row in base)
+                for row in base:
+                    for x in range(w // 2):
+                        b, m = row[x], row[w - 1 - x]
+                        if b is None:
+                            assert m is None
+                        else:
+                            assert m[0] == b[0] and m[1] == -b[1]
+
+    def test_rows_agree_with_the_grid(self):
+        # the sampler's form of the same grid: one run per row, two
+        # lists, matching the tuple grid sample for sample
+        hit = _globe.turned(37.0, 90.0, 41, 40)
+        base = hit.base
+        for row, (x0, lats, dlons) in zip(base, hit.rows):
+            assert [b for b in row if b is not None] == list(zip(lats, dlons))
+            assert all(b is None for b in row[:x0])
+            assert all(b is None for b in row[x0 + len(lats):])
+
 
 class TestMemoRaces:
     """The view workers share these memos; concurrent misses must not

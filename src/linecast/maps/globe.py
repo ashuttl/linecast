@@ -16,6 +16,7 @@ map into a sphere.  Space gets a one-sub-pixel breath of atmosphere.
 """
 
 import math
+import operator
 import struct
 import threading
 import zlib
@@ -127,15 +128,24 @@ def forward(lat, lon, lat0, lon0):
     return ux, uy, cos_c
 
 
-# geometry() memo: (lat0, zoom, w, h) -> (base, zs, rhos), where base
-# holds each sample's (lat, longitude east of the view centre).  A
-# spin or a sideways drag changes only lon0, and lon0 is a constant
-# offset on the grid — so those frames skip the projection entirely.
+# The inverse projection in two halves, memoised apart.
+#
+# The disk — where each sample of a w×h grid sits on the unit sphere,
+# in view space — depends on the zoom and the grid and on nothing the
+# camera does.  Turning the planet under it is a rotation about the
+# view's horizontal axis by lat0 and a longitude offset by lon0.  So
+# three memos: the disk per grid (_disk_cache), the turned grid per
+# (lat0, grid) (_geometry_cache), and lon0 applied on the way out,
+# because lon0 is a constant offset on the turned grid.  A spin or a
+# sideways drag changes only lon0 and skips the trigonometry; a
+# vertical drag pays the rotation and nothing more.
+#
 # Six rather than four: the terrain register asks for three grids per
 # view now — the window's own sub-pixels for the sun, and the built
 # view's sub-pixels and dots — and a zoom step has the grid it is
 # leaving still on screen while the one it is going to is built.
 _GEOMETRY_KEEP = 6
+_disk_cache = Memo(keep=_GEOMETRY_KEEP)
 _geometry_cache = Memo(keep=_GEOMETRY_KEEP)
 # the view workers run geometry() and the border and lake trig side by
 # side (a drag starts one per key), so the memos' lookup and
@@ -144,9 +154,95 @@ _geometry_cache = Memo(keep=_GEOMETRY_KEEP)
 # not
 _memo_lock = threading.Lock()
 
+# A disk's row: the first visible column, how many columns are visible,
+# the row's height on the projection plane, and the plane abscissa and
+# sphere depth of the visible run's left half — the centre sample
+# included when the run is odd.  The right half is the mirror image,
+# and a mirrored sample has the same latitude and the opposite
+# longitude offset, so the trig is done once per pair.
+DiskRow = namedtuple("DiskRow", "x0 n uy ux z")
+Disk = namedtuple("Disk", "rows zs rhos")
+
+
+def _disk(zoom, w, h, aspect):
+    """The w×h grid on the unit sphere, before any turn: see DiskRow.
+
+    zs and rhos are the whole grid — the viewing cosine (None in
+    space) and the distance from the disk centre in radii (space
+    included; the atmosphere needs the near-misses).
+    """
+    r = _radius(zoom, h)
+    rx = r * aspect
+    sqrt = math.sqrt
+    # columns mirror exactly about the centre: (x + 0.5 - w/2) is a
+    # half-integer, and its negation is the same half-integer the
+    # other way, so ux and ux² agree to the bit across the disk
+    uxs = [(x + 0.5 - w / 2.0) / rx for x in range(w)]
+    ux2 = [ux * ux for ux in uxs]
+    rows, zs, rhos = [], [], []
+    for y in range(h):
+        uy = (h / 2.0 - y - 0.5) / r
+        uy2 = uy * uy
+        rho2 = [u2 + uy2 for u2 in ux2]
+        rhos.append(list(map(sqrt, rho2)))
+        x0 = 0
+        while x0 < w and rho2[x0] > 1.0:
+            x0 += 1
+        n = w - 2 * x0
+        if n <= 0:
+            rows.append(DiskRow(0, 0, uy, (), ()))
+            zs.append([None] * w)
+            continue
+        z = [sqrt(1.0 - q) for q in rho2[x0:x0 + n]]
+        zs.append([None] * x0 + z + [None] * x0)
+        half = (n + 1) // 2
+        rows.append(DiskRow(x0, n, uy, uxs[x0:x0 + half], z[:half]))
+    return Disk(rows, zs, rhos)
+
+
+def _memo_disk(zoom, w, h, aspect):
+    key = (zoom, w, h, aspect)
+    with _memo_lock:
+        hit = _disk_cache.get(key)
+    if hit is None:
+        hit = _disk(zoom, w, h, aspect)
+        with _memo_lock:
+            _disk_cache.put(key, hit)
+    return hit
+
+
+class Turned:
+    """A grid turned to a centre latitude: the planet about longitude 0.
+
+    `rows` holds, per grid row, (x0, lats, dlons): the first visible
+    column, and the latitude and the longitude east of the view centre
+    of each visible sample, as two lists — the shape a sampler wants.
+    `base` is the same as a grid of (lat, dlon) tuples with None in
+    space, built on first use and kept.  `zs` and `rhos` are the
+    disk's.  Shared between callers: read it, don't write it.
+    """
+    __slots__ = ("rows", "zs", "rhos", "_base")
+
+    def __init__(self, rows, zs, rhos):
+        self.rows = rows
+        self.zs = zs
+        self.rhos = rhos
+        self._base = None
+
+    @property
+    def base(self):
+        base = self._base
+        if base is None:
+            w = len(self.zs[0]) if self.zs else 0
+            base = [[None] * x0 + list(zip(lats, dlons))
+                    + [None] * (w - x0 - len(lats))
+                    for x0, lats, dlons in self.rows]
+            self._base = base
+        return base
+
 
 def _project(lat0, zoom, w, h, aspect=1.0):
-    """The w×h grid inverted about longitude 0: (base, zs, rhos).
+    """The w×h grid inverted about longitude 0, as a Turned.
 
     Latitude comes back through atan2 rather than asin.  The two agree
     exactly on paper — the three components of a unit vector — but a
@@ -154,35 +250,36 @@ def _project(lat0, zoom, w, h, aspect=1.0):
     its digits to the flat top of the sine, and atan2 against the
     horizontal component keeps them.  It costs nothing: the horizontal
     component is a hypot of two numbers already in hand.
+
+    Every sub-pixel of every vertical drag frame comes through here,
+    so the arithmetic runs as whole-row passes of C functions rather
+    than a Python loop per sample, and over the left half of each row
+    only: the sample mirrored about the disk's centre has the same
+    depth and so the same latitude, and the opposite longitude offset,
+    because atan2 is odd in its first argument.
     """
-    r = _radius(zoom, h)
-    rx = r * aspect
+    disk = _memo_disk(zoom, w, h, aspect)
     sin0, cos0 = (math.sin(math.radians(lat0)),
                   math.cos(math.radians(lat0)))
-    sqrt, hypot, atan2, degrees = (math.sqrt, math.hypot, math.atan2,
-                                   math.degrees)
-    base, zs, rhos = [], [], []
-    for y in range(h):
-        uy = (h / 2.0 - y - 0.5) / r
-        b_row, z_row, rho_row = [], [], []
-        for x in range(w):
-            ux = (x + 0.5 - w / 2.0) / rx
-            rho2 = ux * ux + uy * uy
-            rho_row.append(sqrt(rho2))
-            if rho2 > 1.0:
-                b_row.append(None)
-                z_row.append(None)
-                continue
-            z = sqrt(1.0 - rho2)
-            north = uy * cos0 + z * sin0
-            equator = z * cos0 - uy * sin0
-            b_row.append((degrees(atan2(north, hypot(ux, equator))),
-                          degrees(atan2(ux, equator))))
-            z_row.append(z)
-        base.append(b_row)
-        zs.append(z_row)
-        rhos.append(rho_row)
-    return base, zs, rhos
+    hypot, atan2, degrees, neg = math.hypot, math.atan2, math.degrees, operator.neg
+    rows = []
+    for x0, n, uy, ux, z in disk.rows:
+        if not n:
+            rows.append((0, [], []))
+            continue
+        uyc, uys = uy * cos0, uy * sin0
+        north = [uyc + zz * sin0 for zz in z]
+        equator = [zz * cos0 - uys for zz in z]
+        lats = list(map(degrees, map(atan2, north, map(hypot, ux, equator))))
+        dlons = list(map(degrees, map(atan2, ux, equator)))
+        # the right half, outward from the centre: the left half's
+        # samples in reverse, without the centre one of an odd run
+        mirror = lats[:n // 2]
+        mirror.reverse()
+        west = dlons[:n // 2]
+        west.reverse()
+        rows.append((x0, lats + mirror, dlons + list(map(neg, west))))
+    return Turned(rows, disk.zs, disk.rhos)
 
 
 def _memo_project(lat0, zoom, w, h):
@@ -197,6 +294,11 @@ def _memo_project(lat0, zoom, w, h):
     return hit
 
 
+def turned(lat0, zoom, w, h):
+    """The grid at this centre latitude, as a Turned.  Shared; read it."""
+    return _memo_project(lat0, zoom, w, h)
+
+
 def relative(lat0, zoom, w, h):
     """Each sample's (lat, longitude east of the view centre), or None.
 
@@ -206,7 +308,7 @@ def relative(lat0, zoom, w, h):
     be worked out once and kept.  Shared between callers: read it,
     don't write it.
     """
-    return _memo_project(lat0, zoom, w, h)[0]
+    return _memo_project(lat0, zoom, w, h).base
 
 
 def geometry(lat0, lon0, zoom, w, h):
@@ -221,10 +323,14 @@ def geometry(lat0, lon0, zoom, w, h):
     shared with other calls for the same view — read them, don't
     write them.
     """
-    base, zs, rhos = _memo_project(lat0, zoom, w, h)
-    lls = [[None if b is None else (b[0], wrap_lon(lon0 + b[1]))
-            for b in b_row] for b_row in base]
-    return lls, zs, rhos
+    hit = _memo_project(lat0, zoom, w, h)
+    lls = []
+    for x0, lats, dlons in hit.rows:
+        after = w - x0 - len(lats)
+        lls.append([None] * x0
+                   + list(zip(lats, [wrap_lon(lon0 + d) for d in dlons]))
+                   + [None] * after)
+    return lls, hit.zs, hit.rhos
 
 
 # ---------------------------------------------------------------------------
@@ -1036,13 +1142,31 @@ def shade_buffer(buf, shade, atmo, bg):
                           int(bg[2] + (_ATMOSPHERE[2] - bg[2]) * a))
 
 
+# atmosphere() memo, keyed by the rhos grid itself: a disk's rhos are
+# one shared list for as long as the disk is memoised, and every frame
+# of a drag asks for the same rim over it.  Identity is checked as
+# well as the key, so a grid of a test's own never answers for a
+# disk's.
+_atmosphere_cache = Memo(keep=_GEOMETRY_KEEP)
+
+
 def atmosphere(rhos, zoom, h):
-    """Per-sample rim alpha: 1 at the limb fading to 0 a breath out."""
+    """Per-sample rim alpha: 1 at the limb fading to 0 a breath out.
+
+    Shared between calls for the same grid: read it, don't write it.
+    """
+    key = (id(rhos), zoom, h)
+    with _memo_lock:
+        hit = _atmosphere_cache.get(key)
+    if hit is not None and hit[0] is rhos:
+        return hit[1]
     width = 2.5 / _radius(zoom, h)
     out = []
     for rho_row in rhos:
         out.append([max(0.0, 1.0 - (rho - 1.0) / width)
                     if rho > 1.0 else 0.0 for rho in rho_row])
+    with _memo_lock:
+        _atmosphere_cache.put(key, (rhos, out))
     return out
 
 

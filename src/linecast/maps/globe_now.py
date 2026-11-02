@@ -29,12 +29,13 @@ filtered to the screen resolution rather than inferred from population.
 import math
 import threading
 import time
+from collections.abc import Mapping
 from datetime import datetime, timezone
 
 from linecast.maps import night_lights as _night_lights
 from linecast.radar import tiles
 from linecast._xyz import mend_xyz, stitch_xyz
-from linecast.maps.globe import _aspect, _source_zoom, bilinear_taps, geometry
+from linecast.maps.globe import _MERCATOR_LAT, _aspect, _source_zoom, geometry
 from linecast._png import decode_rgba
 from linecast._log import log_failure
 from linecast.terminal.scenes import FAIL_HOLD, FAIL_HOLD_MAX, Memo
@@ -468,7 +469,7 @@ def clouds(lls, canvas):
     edge ever shows.  The same noise wobbles the fade band off its
     parallels.
     """
-    buf = canvas[0]
+    buf, cw, ch, org_x, org_y, world = canvas
     cover = _cloud.get("cover")
     noise = _noise_grid() if cover is not None else None
     white = _cloud.get("white") or _CAP_WHITE
@@ -477,16 +478,50 @@ def clouds(lls, canvas):
     sect_w = 360.0 / _CAP_SECT
     blend = 90.0 - _CAP_BLEND0
     cols, rows = _NOISE_COLS, _NOISE_ROWS
+    # maps.globe.bilinear_taps, written out: the same arithmetic in
+    # the same order, without a tuple per sample between the taps and
+    # the read.  Every sub-pixel of every drag frame with the clouds
+    # on comes through here.
+    log, sin, radians = math.log, math.sin, math.radians
+    four_pi = 4 * math.pi
+    lat_max = _MERCATOR_LAT
+    ch1 = ch - 1.0
+    cw4 = cw * 4
     out = []
     for row in lls:
         o = []
-        for ll, tap in zip(row, bilinear_taps(row, canvas)):
-            if tap is None:
+        for ll in row:
+            if ll is None:
                 o.append(0.0)
                 continue
-            j00, j01, j10, j11, tx, ty = tap
-            a = ((buf[j00 + 3] * (1 - tx) + buf[j01 + 3] * tx) * (1 - ty)
-                 + (buf[j10 + 3] * (1 - tx) + buf[j11 + 3] * tx) * ty) / 255.0
+            lat = ll[0]
+            # samples poleward of the tiles' edge clamp to their last ring
+            if lat > lat_max:
+                lat = lat_max
+            elif lat < -lat_max:
+                lat = -lat_max
+            sn = sin(radians(lat))
+            fx = (ll[1] + 180.0) / 360.0 * world - org_x - 0.5
+            fy = (0.5 - log((1 + sn) / (1 - sn)) / four_pi) * world - org_y - 0.5
+            if fy < 0.0:
+                fy = 0.0
+            elif fy > ch1:
+                fy = ch1
+            ix = int(fx)
+            x0 = ix % cw
+            x1 = (x0 + 1) % cw
+            y0 = int(fy)
+            y1 = y0 + 1
+            if y1 >= ch:
+                y1 = ch - 1
+            b0 = y0 * cw4
+            b1 = y1 * cw4
+            tx = fx - ix
+            ty = fy - y0
+            a = ((buf[b0 + x0 * 4 + 3] * (1 - tx) + buf[b0 + x1 * 4 + 3] * tx)
+                 * (1 - ty)
+                 + (buf[b1 + x0 * 4 + 3] * (1 - tx) + buf[b1 + x1 * 4 + 3] * tx)
+                 * ty) / 255.0
             alat = ll[0] if ll[0] > 0.0 else -ll[0]
             if cover is not None and alat > edge0:
                 fx = (ll[1] + 180.0) % 360.0 / _NOISE_STEP
@@ -542,11 +577,70 @@ _LIGHTS_KEEP = 4
 _lights_cache = Memo(keep=_LIGHTS_KEEP)
 _lights_lock = threading.Lock()  # view workers ask concurrently
 
+# a city burns through only where the day factor is below this; past
+# it the sun outshines the lights, and apply() leaves the ground alone
+_LIGHTS_DAY = 0.7
+
+
+class CityLights(Mapping):
+    """A globe view's city lights, sampled when the night asks for them.
+
+    A mapping of (x, y) to glow over the view's sub-pixel grid, read
+    the way a dict is.  The whole disk is sampled only when the whole
+    mapping is asked for; apply() asks for the night side alone
+    (`under`), which is the only side a light is drawn on, so a drag
+    frame prices half the planet's lights instead of all of them, and
+    a view in full daylight prices none.  Shared between calls for the
+    same view: read it, don't write it.
+    """
+    __slots__ = ("_levels", "_lls", "_dpp", "_zs", "_all")
+
+    def __init__(self, levels, lls, degrees_per_pixel, zs):
+        self._levels = levels
+        self._lls = lls
+        self._dpp = degrees_per_pixel
+        self._zs = zs
+        self._all = None
+
+    def _everything(self):
+        if self._all is None:
+            self._all = _night_lights.sample(self._levels, self._lls,
+                                             self._dpp, self._zs)
+        return self._all
+
+    def under(self, day):
+        """The lights where `day` (as daylight() reports it) is night.
+
+        The whole mapping when it is already in hand — apply() skips
+        the lit ones itself — and the night side sampled afresh
+        otherwise.  Fresh is cheaper than kept here: a drag never
+        repeats a view, and the sun moves under a view that stays.
+        """
+        if self._all is not None:
+            return self._all
+        return _night_lights.sample(self._levels, self._lls, self._dpp,
+                                    self._zs, day, _LIGHTS_DAY)
+
+    def items(self):
+        return self._everything().items()
+
+    def __getitem__(self, key):
+        return self._everything()[key]
+
+    def __contains__(self, key):
+        return key in self._everything()
+
+    def __iter__(self):
+        return iter(self._everything())
+
+    def __len__(self):
+        return len(self._everything())
+
 
 def city_lights_globe(lat0, lon0, zoom, gw, h):
-    """{(x, y): glow} on the gw×h sub-pixel grid, orthographic.
+    """The CityLights of the gw×h sub-pixel grid, orthographic.
 
-    Memoised per view: the dict is shared between calls, so read it.
+    Memoised per view: the mapping is shared between calls, so read it.
     """
     levels = _night_lights.load()
     key = (lat0, lon0, zoom, gw, h, id(levels), _aspect())
@@ -555,7 +649,7 @@ def city_lights_globe(lat0, lon0, zoom, gw, h):
     if hit is not None:
         return hit
     lls, zs, _rhos = geometry(lat0, lon0, zoom, gw, h)
-    hit = _night_lights.sample(levels, lls, zoom / h, zs)
+    hit = CityLights(levels, lls, zoom / h, zs)
     with _lights_lock:
         _lights_cache.put(key, hit)
     return hit
@@ -585,15 +679,18 @@ def apply(buf, day, cloud, lights, night=None):
     """
     if night is None:
         night = _NIGHT
+    # a missing sky is a constant row of noon, or of clear air: one
+    # loop over every sample, without a test per sample for which
+    # facts the caller supplied
+    width = len(buf[0]) if buf else 0
+    noon, clear = [1.0] * width, [0.0] * width
     for y, row in enumerate(buf):
-        d_row = day[y] if day is not None else None
-        c_row = cloud[y] if cloud is not None else None
-        for x, px in enumerate(row):
-            d = d_row[x] if d_row is not None else 1.0
+        d_row = day[y] if day is not None else noon
+        c_row = cloud[y] if cloud is not None else clear
+        for x, (px, d, c) in enumerate(zip(row, d_row, c_row)):
             if d is None or px is None:
                 continue
             r, g, b = px
-            c = c_row[x] if c_row is not None else 0.0
             if c > 0.02:
                 a = c * 0.85
                 r += (_CLOUD_DAY[0] - r) * a
@@ -611,9 +708,13 @@ def apply(buf, day, cloud, lights, night=None):
             row[x] = (int(r), int(g), int(b))
     if day is None:
         return
-    for (x, y), w in lights.items():
+    # a CityLights is asked for the night side alone; a plain dict (the
+    # flat map's) is read whole, and the day side skipped here
+    under = getattr(lights, "under", None)
+    items = under(day).items() if under is not None else lights.items()
+    for (x, y), w in items:
         d = day[y][x]
-        if d is None or d > 0.7 or buf[y][x] is None:
+        if d is None or d > _LIGHTS_DAY or buf[y][x] is None:
             continue
         r, g, b = buf[y][x]
         a = w * (1.0 - d) * 0.9

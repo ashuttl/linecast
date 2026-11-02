@@ -68,12 +68,16 @@ def _bilinear(level, lat, lon):
     return top * (1 - ty) + bottom * ty
 
 
-def sample(levels, lls, degrees_per_pixel, zs=None):
+def sample(levels, lls, degrees_per_pixel, zs=None, day=None, below=None):
     """Sparse {(x, y): glow} with bilinear and continuous level filtering.
 
     Orthographic foreshortening and converging meridians enlarge the
     geographic footprint. An area-equivalent mip level softens those
     regions too. This is a display approximation, not radiance analysis.
+
+    With `day` (a per-sample day factor, None in space) only the
+    samples whose factor is below `below` are sampled: the rest are
+    the ones the sun outshines, and a drag frame need not price them.
     """
     if not levels:
         return {}
@@ -82,20 +86,50 @@ def sample(levels, lls, degrees_per_pixel, zs=None):
     if opacity == 0.0:
         return {}
     last = len(levels) - 1
+    cos, radians, log2, sqrt, floor = (math.cos, math.radians, math.log2,
+                                       math.sqrt, math.floor)
     out = {}
+    # _bilinear is written out twice below, the same arithmetic in the
+    # same order: every night-side sub-pixel of every drag frame with
+    # the sun on comes through here, and the two calls a sample were a
+    # tenth of the time
     for y, row in enumerate(lls):
+        z_row = zs[y] if zs is not None else None
+        d_row = day[y] if day is not None else None
         for x, ll in enumerate(row):
             if ll is None:
                 continue
+            if d_row is not None:
+                d = d_row[x]
+                if d is None or d > below:
+                    continue
             lat, lon = ll
-            area = max(.01, abs(math.cos(math.radians(lat))))
-            if zs is not None:
-                area *= max(.05, zs[y][x])
-            lod = min(last, max(0.0, math.log2(base / math.sqrt(area))))
+            area = max(.01, abs(cos(radians(lat))))
+            if z_row is not None:
+                area *= max(.05, z_row[x])
+            lod = min(last, max(0.0, log2(base / sqrt(area))))
             lo = int(lod)
-            value = _bilinear(levels[lo], lat, lon)
+            w, h, pixels = levels[lo]
+            fx = (lon + 180.0) % 360.0 * w / 360.0 - .5
+            ix = floor(fx)
+            x0, x1, tx = ix % w, (ix + 1) % w, fx - ix
+            fy = min(h - 1.0, max(0.0, (90.0 - lat) * h / 180.0 - .5))
+            y0 = int(fy)
+            a, b, ty = y0 * w, min(h - 1, y0 + 1) * w, fy - y0
+            top = pixels[a + x0] * (1 - tx) + pixels[a + x1] * tx
+            bottom = pixels[b + x0] * (1 - tx) + pixels[b + x1] * tx
+            value = top * (1 - ty) + bottom * ty
             if lo < last:
-                value += (_bilinear(levels[lo + 1], lat, lon) - value) * (lod - lo)
+                w, h, pixels = levels[lo + 1]
+                fx = (lon + 180.0) % 360.0 * w / 360.0 - .5
+                ix = floor(fx)
+                x0, x1, tx = ix % w, (ix + 1) % w, fx - ix
+                fy = min(h - 1.0, max(0.0, (90.0 - lat) * h / 180.0 - .5))
+                y0 = int(fy)
+                a, b, ty = y0 * w, min(h - 1, y0 + 1) * w, fy - y0
+                top = pixels[a + x0] * (1 - tx) + pixels[a + x1] * tx
+                bottom = pixels[b + x0] * (1 - tx) + pixels[b + x1] * tx
+                value += (top * (1 - ty) + bottom * ty - value) * (lod - lo)
             # Lift concentrated light enough to read against the night
             # terrain, while sub-code-value averages stay dark.
             if value > 1.0:
