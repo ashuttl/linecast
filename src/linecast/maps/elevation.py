@@ -31,8 +31,10 @@ BATHY_ZOOM = 10
 ATTRIBUTION = "Terrain: Mapzen/AWS (SRTM, GMTED, ETOPO1)"
 
 # decoded tiles, so a pan re-decodes only the column it uncovered: a
-# view is at most a 4x3 stitch, and sixteen 256 KB decodes is 4 MB
-_decoded = DecodeMemo(cap=16)
+# view is built with a margin around the window and is at most a 5x4
+# stitch, with a few z10 tiles more where the bathymetry is merged
+# in, and twenty-four 256 KB decodes is 6 MB
+_decoded = DecodeMemo(cap=24)
 
 
 def tile_url(z, x, y):
@@ -161,38 +163,40 @@ def _resample(bbox, w, h, z, timeout, camera=None, missing=None):
         need.add(y0)
         need.add(y1)
 
+    # decode_meters, written out: this runs for every sample of every
+    # canvas row the output touches, and the call was most of its cost
     hrows = {}
     for cy in need:
         base = cy * cw * 4
         out = []
+        app = out.append
         for i0, i1, t in cols:
             a = b = None
-            if canvas[base + i0 + 3]:  # alpha 0 = tile missing
-                j = base + i0
-                a = decode_meters(canvas[j], canvas[j + 1], canvas[j + 2])
-            if canvas[base + i1 + 3]:
-                j = base + i1
-                b = decode_meters(canvas[j], canvas[j + 1], canvas[j + 2])
+            j = base + i0
+            if canvas[j + 3]:  # alpha 0 = tile missing
+                a = canvas[j] * 256 + canvas[j + 1] + canvas[j + 2] / 256.0 - 32768.0
+            j = base + i1
+            if canvas[j + 3]:
+                b = canvas[j] * 256 + canvas[j + 1] + canvas[j + 2] / 256.0 - 32768.0
             if a is None:
-                out.append(b)
+                app(b)
             elif b is None:
-                out.append(a)
+                app(a)
             else:
-                out.append(a + (b - a) * t)
+                app(a + (b - a) * t)
         hrows[cy] = out
 
     grid = []
     for y0, y1, t in rows:
-        r0, r1 = hrows[y0], hrows[y1]
         row = []
-        for x in range(w):
-            a, b = r0[x], r1[x]
+        app = row.append
+        for a, b in zip(hrows[y0], hrows[y1]):
             if a is None:
-                row.append(b)
+                app(b)
             elif b is None:
-                row.append(a)
+                app(a)
             else:
-                row.append(a + (b - a) * t)
+                app(a + (b - a) * t)
         grid.append(row)
     return grid
 

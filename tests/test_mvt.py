@@ -285,6 +285,16 @@ class TestGeometry:
         (feat,) = decode_tile(tile)["test"]["features"]
         assert feat["geometry"] == [[(5, 5)], [(8, 5)]]
 
+    def test_a_delta_past_the_zigzag_table_still_decodes(self):
+        # the hot loop reads deltas from a table of the first 65536
+        # zigzag codes; a tile with an extent of its own can carry a
+        # bigger one, and gets the arithmetic instead
+        geom = geom_ints([("move", [(70000, -70000)]), ("line", [(1, 2)])])
+        tile = make_tile(make_layer(features=[
+            make_feature(ftype=2, geometry=geom)]))
+        (feat,) = decode_tile(tile)["test"]["features"]
+        assert feat["geometry"] == [[(70000, -70000), (70001, -69998)]]
+
     def test_multilinestring_cursor_persists(self):
         # second line's MoveTo is a delta from the first line's end
         geom = geom_ints([("move", [(0, 0)]), ("line", [(10, 0)]),

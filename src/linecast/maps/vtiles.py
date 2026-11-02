@@ -263,6 +263,13 @@ def projector(z: int, tx: int, ty: int, extent: int, bbox: tuple[float, float, f
     multiplies and two dict reads.  A terrain view projects a quarter
     of a million vertices; that is the difference between a camera you
     can afford at every zoom and one you cannot.
+
+    The projector carries a second form of itself as `project.ring`,
+    which takes a whole part's (x, y) list and gives the list of its
+    projections.  It is the same arithmetic through the same tables,
+    so the two agree to the bit; what it saves is a Python call per
+    vertex, a fifth of the flat projector's cost and a tenth of the
+    sphere's.
     """
     n = float(1 << z)
     if camera is not None:
@@ -271,24 +278,48 @@ def projector(z: int, tx: int, ty: int, extent: int, bbox: tuple[float, float, f
         turns: dict[float, tuple[float, float]] = {}
         lats: dict[float, tuple[float, float, float]] = {}
 
+        def turn(px):
+            lon = (tx + px / extent) / n * 360.0 - 180.0
+            d = math.radians(lon) - lam0
+            t = turns[px] = (math.sin(d), math.cos(d))
+            return t
+
+        def lat(py):
+            wy = (ty + py / extent) / n
+            phi = math.atan(math.sinh(math.pi * (1.0 - 2.0 * wy)))
+            cos_p, sin_p = math.cos(phi), math.sin(phi)
+            u = lats[py] = (rx * cos_p,
+                            half_h - r * cos0 * sin_p,
+                            r * sin0 * cos_p)
+            return u
+
         def project_sphere(px, py):
             t = turns.get(px)
             if t is None:
-                lon = (tx + px / extent) / n * 360.0 - 180.0
-                d = math.radians(lon) - lam0
-                t = turns[px] = (math.sin(d), math.cos(d))
+                t = turn(px)
             u = lats.get(py)
             if u is None:
-                wy = (ty + py / extent) / n
-                phi = math.atan(math.sinh(math.pi * (1.0 - 2.0 * wy)))
-                cos_p, sin_p = math.cos(phi), math.sin(phi)
-                u = lats[py] = (rx * cos_p,
-                                half_h - r * cos0 * sin_p,
-                                r * sin0 * cos_p)
+                u = lat(py)
             sin_d, cos_d = t
             kx, y0, ky = u
             return (half_w + kx * sin_d, y0 + ky * cos_d)
 
+        def project_sphere_ring(pts):
+            out = []
+            app = out.append
+            for px, py in pts:
+                t = turns.get(px)
+                if t is None:
+                    t = turn(px)
+                u = lats.get(py)
+                if u is None:
+                    u = lat(py)
+                sin_d, cos_d = t
+                kx, y0, ky = u
+                app((half_w + kx * sin_d, y0 + ky * cos_d))
+            return out
+
+        project_sphere.ring = project_sphere_ring
         return project_sphere
     minlon, minlat, maxlon, maxlat = bbox
     lon_span = (maxlon - minlon) or 1e-12
@@ -301,25 +332,47 @@ def projector(z: int, tx: int, ty: int, extent: int, bbox: tuple[float, float, f
     cols: dict[float, float] = {}
     rows: dict[float, float] = {}
 
+    def col(px):
+        lon = (tx + px / extent) / n * 360.0 - 180.0
+        # a view spanning the antimeridian holds wrapped tiles,
+        # whose longitudes come back on the far side of the world
+        if lon < minlon - 180.0:
+            lon += 360.0
+        elif lon > maxlon + 180.0:
+            lon -= 360.0
+        x = cols[px] = (lon - minlon) / lon_span * dw
+        return x
+
+    def row(py):
+        wy = (ty + py / extent) / n
+        lat = math.degrees(math.atan(math.sinh(
+            math.pi * (1.0 - 2.0 * wy))))
+        y = rows[py] = (maxlat - lat) / lat_span * dh
+        return y
+
     def project(px, py):
         x = cols.get(px)
         if x is None:
-            lon = (tx + px / extent) / n * 360.0 - 180.0
-            # a view spanning the antimeridian holds wrapped tiles,
-            # whose longitudes come back on the far side of the world
-            if lon < minlon - 180.0:
-                lon += 360.0
-            elif lon > maxlon + 180.0:
-                lon -= 360.0
-            x = cols[px] = (lon - minlon) / lon_span * dw
+            x = col(px)
         y = rows.get(py)
         if y is None:
-            wy = (ty + py / extent) / n
-            lat = math.degrees(math.atan(math.sinh(
-                math.pi * (1.0 - 2.0 * wy))))
-            y = rows[py] = (maxlat - lat) / lat_span * dh
+            y = row(py)
         return (x, y)
 
+    def project_ring(pts):
+        out = []
+        app = out.append
+        for px, py in pts:
+            x = cols.get(px)
+            if x is None:
+                x = col(px)
+            y = rows.get(py)
+            if y is None:
+                y = row(py)
+            app((x, y))
+        return out
+
+    project.ring = project_ring
     return project
 
 

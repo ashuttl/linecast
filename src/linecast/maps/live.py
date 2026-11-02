@@ -1057,6 +1057,16 @@ def main():
     origin = _endpoint(args.from_, "--from") if args.from_ else None
 
     if runtime.live:
+        # A view builds on a worker thread while the loop paints, and
+        # the two share one interpreter.  Each time the loop asks for
+        # it back, after a write to the terminal or a wait on input,
+        # it can wait the whole switch interval, 5 ms by default, and
+        # a frame does that several times over.  At a millisecond the
+        # frames painted over a build come closer together, and a
+        # build with nobody waiting on it is not interrupted at all.
+        # Set here, for the live map only: a printed frame has no loop
+        # to share with, and the other live views build little.
+        sys.setswitchinterval(0.001)
         MapApp(runtime, lat, lon, location_name, args.zoom, args.view, sky,
                args.profile, origin=origin, dest=dest, fit=fit,
                show_text=show_text, show_labels=not sky, spin=sky).run()

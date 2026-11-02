@@ -475,3 +475,31 @@ class TestDecodedTileMemo:
         assert list(memo._hits) == ["b"]
         memo.get("b", b"y" * 6, len)  # same bytes: served, not re-added
         assert memo._size == 6
+
+    def test_kept_entries_outlast_a_view_wider_than_the_memo(self):
+        """A view of more tiles than the memo holds keeps the ones it
+        found there: the misses are decoded and let go rather than
+        pushing the hits out, so the next build hits the same ones."""
+        from linecast._png import DecodeMemo
+        memo = DecodeMemo(cap=2)
+        calls = []
+
+        def decode(d):
+            calls.append(d)
+            return d * 2
+
+        tiles = [(k, bytes([k])) for k in range(3)]
+        for key, data in tiles:
+            memo.get(key, data, decode)
+        assert list(memo._hits) == [1, 2]     # plain LRU: the first is gone
+        for _ in range(2):
+            kept = frozenset(k for k, d in tiles if memo.has(k, d))
+            assert kept == {1, 2}
+            del calls[:]
+            for key, data in tiles:
+                memo.get(key, data, decode, keep=kept)
+            assert calls == [b"\x00"]          # one miss, and it is let go
+            assert list(memo._hits) == [1, 2]
+        # an entry no view is keeping still goes when room is needed
+        memo.get(3, b"\x03", decode, keep=frozenset({2}))
+        assert list(memo._hits) == [2, 3]

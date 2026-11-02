@@ -183,6 +183,33 @@ class TestFilters:
                 i = (y * 4 + x) * 4
                 assert list(out[i:i + 3]) == [val, val, val]
 
+    @pytest.mark.parametrize("color_type,bpp", [(4, 2), (2, 3), (6, 4)])
+    @pytest.mark.parametrize("ftype", [1, 2, 3, 4])
+    def test_every_filter_at_every_pixel_width(self, color_type, bpp, ftype):
+        """The unfilter walks the channels as separate streams a pixel
+        apart, so each filter is checked where the pixel is wider than
+        a byte, on rows of noise, against the encoder's inverse."""
+        import random
+        rnd = random.Random(ftype * 10 + bpp)
+        width, height = 37, 5
+        rows = [[rnd.randrange(256) for _ in range(width * bpp)]
+                for _ in range(height)]
+        png = _make_png(width, height, color_type, rows, bpp=bpp,
+                        ftypes=[ftype] * height)
+        w, h, out = decode_rgba(png)
+        assert (w, h) == (width, height)
+        for y, row in enumerate(rows):
+            for x in range(width):
+                px = row[x * bpp:(x + 1) * bpp]
+                if color_type == 4:
+                    want = [px[0], px[0], px[0], px[1]]
+                elif color_type == 2:
+                    want = px + [255]
+                else:
+                    want = px
+                i = (y * width + x) * 4
+                assert list(out[i:i + 4]) == want, (ftype, bpp, y, x)
+
 
 class TestErrors:
     def test_rejects_non_png_bytes(self):
