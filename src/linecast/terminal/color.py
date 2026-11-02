@@ -260,41 +260,74 @@ def _bg_for_mode(mode, r, g, b):
 # fg and bg are the hot path of every compose, and most calls repeat a
 # few hundred colours.  The caches above key on clamped ints, so each
 # call still clamped three channels first — about 60% of compose time.
-# These memos key on the raw arguments instead, plus the colour mode
-# (tests swap it), so a repeated colour costs one dict probe.  Nothing
+# These memos key on the raw (r, g, b) tuple instead, so a repeated
+# colour costs one dict probe, and the map composers probe them
+# directly with the tuple a cell already holds (escape_tables), which
+# saves them the call.  Each table holds one colour mode's escapes and
+# is emptied when the mode changes, which only the tests do.  Nothing
 # here depends on the theme, so a reload leaves them alone; they are
 # cleared when full.
-_FG_MEMO = {}
-_BG_MEMO = {}
 _MEMO_LIMIT = 16384
 
 
+class _EscapeMemo(dict):
+    """{(r, g, b): escape} for the colour mode in force.
+
+    A miss clamps the channels, builds the escape and keeps it; a full
+    table is emptied first.  Indexing is the whole interface: `d[rgb]`
+    hits at dict speed and misses into __missing__.
+    """
+    __slots__ = ("_build",)
+
+    def __init__(self, build):
+        super().__init__()
+        self._build = build
+
+    def __missing__(self, rgb):
+        if len(self) >= _MEMO_LIMIT:
+            self.clear()
+        r, g, b = rgb
+        code = self[rgb] = self._build(_MEMO_MODE, _channel(r), _channel(g),
+                                       _channel(b))
+        return code
+
+
+_FG_MEMO = _EscapeMemo(_fg_for_mode)
+_BG_MEMO = _EscapeMemo(_bg_for_mode)
+_MEMO_MODE = _COLOR_MODE
+
+
+def escape_tables():
+    """The (fg, bg) escape tables for the colour mode now in force.
+
+    For a loop that paints thousands of cells a frame: `fgs[rgb]` is the
+    escape fg(*rgb) would return, without the call.  The tables are
+    emptied when the colour mode has changed since they were filled.
+    """
+    global _MEMO_MODE
+    if _MEMO_MODE != _COLOR_MODE:
+        _FG_MEMO.clear()
+        _BG_MEMO.clear()
+        _MEMO_MODE = _COLOR_MODE
+    return _FG_MEMO, _BG_MEMO
+
+
 def fg(r, g, b):
-    key = (_COLOR_MODE, r, g, b)
+    if _MEMO_MODE != _COLOR_MODE:
+        escape_tables()
     try:
-        code = _FG_MEMO.get(key)
+        return _FG_MEMO[(r, g, b)]
     except TypeError:    # an unhashable channel; _channel makes it 0
         return _fg_for_mode(_COLOR_MODE, _channel(r), _channel(g), _channel(b))
-    if code is None:
-        if len(_FG_MEMO) >= _MEMO_LIMIT:
-            _FG_MEMO.clear()
-        code = _FG_MEMO[key] = _fg_for_mode(
-            _COLOR_MODE, _channel(r), _channel(g), _channel(b))
-    return code
 
 
 def bg(r, g, b):
-    key = (_COLOR_MODE, r, g, b)
+    if _MEMO_MODE != _COLOR_MODE:
+        escape_tables()
     try:
-        code = _BG_MEMO.get(key)
+        return _BG_MEMO[(r, g, b)]
     except TypeError:
         return _bg_for_mode(_COLOR_MODE, _channel(r), _channel(g), _channel(b))
-    if code is None:
-        if len(_BG_MEMO) >= _MEMO_LIMIT:
-            _BG_MEMO.clear()
-        code = _BG_MEMO[key] = _bg_for_mode(
-            _COLOR_MODE, _channel(r), _channel(g), _channel(b))
-    return code
 
 
 # ---------------------------------------------------------------------------

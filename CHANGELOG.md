@@ -6,6 +6,7 @@ Notable changes, by release. Notes for the next release collect under **Unreleas
 
 - Maps: The globe and zoomed-out terrain maps show more of the world's glaciers, such as the icefields along Alaska's southern coast and in the Himalaya, Andes, and Alps, and show them offline.
 - Maps: Terrain maps draw tundra, such as Alaska's North Slope, Canada's Barren Grounds, and the Scandinavian mountains, in tundra colors instead of the green of the forest.
+- Maps: Each frame takes less time to draw, so panning and zooming respond sooner.
 
 ## 2.11.0 — 2026-10-24
 

@@ -205,10 +205,11 @@ def test_actual_map_composers_keep_their_rendition_in_every_color_mode(
               (7, 0): ('é', (200, 210, 220), False)}
     if street:
         lines = paint.compose_map(fills, layer, labels, 10, 2,
-                                        hot={(2, 0)}, hot_glyphs={(7, 0)})
+                                        hot={(2, 0)}, hot_glyphs={(7, 0)},
+                                        compact=False)
     else:
         lines = paint.compose_terrain(None, fills, labels, 10, 2,
-                                            strokes=[layer])
+                                            strokes=[layer], compact=False)
     original = '\n'.join(lines) + '\x00\x1b[2;3H\x1b[1mhover\x1b[0m'
     packed = paint.compact_colors(original)
     assert rendition_signature(packed) == rendition_signature(original)
@@ -228,13 +229,18 @@ def _snapshot_frames(monkeypatch, compact):
     The snapshot module already builds a view out of hand-made tiles and
     a synthetic hemisphere; borrowing its cases is how these tests get a
     map that a real composer painted without a network.  `compact` False
-    renders the frame as it was before this pass existed.
+    renders the frame as it was before this pass existed: the composers
+    spell every cell out, and the frame is joined without a pass.
     """
     import test_render_snapshots as snapshots
     from linecast.maps import view as maps
 
     if not compact:
-        monkeypatch.setattr(maps, 'compact_colors', lambda out: out)
+        for composer in (paint.compose_map, paint.compose_terrain):
+            monkeypatch.setitem(composer.__kwdefaults__, 'compact', False)
+        monkeypatch.setattr(maps, 'compact_frame',
+                            lambda header, lines, foot:
+                            '\n'.join([header, *lines, foot]))
     frames = {}
     monkeypatch.setattr(snapshots, 'assert_snapshot',
                         lambda name, out: frames.__setitem__(

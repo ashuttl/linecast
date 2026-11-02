@@ -16,9 +16,9 @@ from linecast.maps import globe_now
 from linecast.maps import hover
 from linecast.maps import style as _style
 from linecast.terminal.color import (
-    bg, fg, RESET, BOLD, color_mode, interp_stops, BG_PRIMARY,
+    RESET, BOLD, color_mode, escape_tables, interp_stops, BG_PRIMARY,
 )
-from linecast.terminal.framebuffer import halfblock
+from linecast.terminal.framebuffer import HALF_BLOCK
 from linecast.radar.basemap import BORDER
 from linecast.terminal.theme import lerp_rgb, themed
 from linecast.radar.ui import MARKER as _MARKER_RAW
@@ -55,7 +55,18 @@ def compact_colors(output):
     over the body and is copied through as it stands.
     """
     body, sep, floating = output.partition('\x00')
-    colors = {}
+    packed = _compact_into(body, {})
+    return output if packed is None else f'{packed}{sep}{floating}'
+
+
+def _compact_into(text, colors):
+    """`text` with the colour setters that repeat `colors` dropped.
+
+    `colors` is the escape in effect per slot ("38" or "48") on the way
+    in, and is left as it stands on the way out, so a pass over one
+    stretch of a frame can seed the pass over the next.  None instead
+    when `text` holds an escape this pass does not know.
+    """
     unfamiliar = False
 
     def compact(match):
@@ -70,8 +81,39 @@ def compact_colors(output):
             unfamiliar |= len(code) < 3 or not code.startswith('\x1b[')
         return code
 
-    packed = _MAP_ESCAPE.sub(compact, body)
-    return output if unfamiliar else f'{packed}{sep}{floating}'
+    packed = _MAP_ESCAPE.sub(compact, text)
+    return None if unfamiliar else packed
+
+
+def compact_frame(header, lines, foot):
+    """`header`, the map `lines` and `foot` joined, as compact_colors
+    would leave them, given lines a composer has already compacted.
+
+    The composers leave out the repeats inside the map, which is nearly
+    all of a frame.  What remains is the header and the footer, which
+    are short, and the colours that cross from one stretch into the
+    next: the header's last colour into the first map row, and the
+    map's into the footer.  A composed row ends with RESET, so while
+    there is a RESET to end it nothing crosses out of the map.
+
+    One difference from the pass over the whole frame: an unfamiliar
+    escape in the header or the footer leaves that line untouched,
+    where compact_colors would have left the whole frame untouched,
+    map and all.  Neither line is built from anything that could hold
+    one.
+    """
+    colors = {}
+    packed = _compact_into(header, colors)
+    header = header if packed is None else packed
+    if colors and lines:
+        packed = _compact_into(lines[0], colors)
+        if packed is not None:
+            lines = [packed, *lines[1:]]
+    if lines and RESET:
+        colors.clear()
+    packed = _compact_into(foot, colors)
+    foot = foot if packed is None else packed
+    return "\n".join([header, *lines, foot])
 
 
 # Hypsometric bands above sea level (meters) — *bands*, not a gradient:
@@ -330,20 +372,51 @@ def build_terrain_buffer(elev, bbox, w, h, water=None, cover=None,
     return buf
 
 
-def _cell_avg(top, bot):
-    """A cell's one background colour: its two sub-pixels averaged."""
-    return ((top[0] + bot[0]) // 2, (top[1] + bot[1]) // 2,
-            (top[2] + bot[2]) // 2)
-
-
 def _contrast_ink(cell_bg):
     """Dark ink on a light ground, light ink on a dark one."""
     lum = 0.2126 * cell_bg[0] + 0.7152 * cell_bg[1] + 0.0722 * cell_bg[2]
     return LABEL_DARK if lum > 120 else LABEL_LIGHT
 
 
+def _by_row(cells):
+    """`cells`, keyed by (col, row), regrouped by row.
+
+    A dict comes back as {row: {col: value}} and a set as {row: set of
+    cols}, so a composer's inner loop asks for a column of the row in
+    hand instead of building a (col, row) key for every cell.
+    """
+    rows = {}
+    if isinstance(cells, dict):
+        for (cx, cy), value in cells.items():
+            row = rows.get(cy)
+            if row is None:
+                row = rows[cy] = {}
+            row[cx] = value
+    else:
+        for cx, cy in cells:
+            row = rows.get(cy)
+            if row is None:
+                row = rows[cy] = set()
+            row.add(cx)
+    return rows
+
+
+# Both composers write a row the way compact_colors would leave it.
+# The foreground and background escape in effect are kept in hand, and
+# a cell's escape is written only when it is not the one in effect; a
+# BOLD or a RESET forgets both, as any other CSI does in that pass.
+# Only the standalone truecolor and 256-colour setters are tracked at
+# all: a 16-colour SGR is one of the escapes that pass keeps and
+# forgets on, so in that mode every escape is written.  Each row ends
+# with RESET, so no colour crosses from one row into the next, and
+# compact_frame can treat the rows as settled.
+#
+# The escapes come from the tables behind fg and bg, indexed by the
+# colour tuple a cell already holds; `fgs[rgb]` is fg(*rgb) without the
+# call, and these loops make tens of thousands of them a frame.
+
 def compose_terrain(basemap, terrain, overlays, graph_w, height_cells,
-                    coast=None, strokes=None, borders=None):
+                    coast=None, strokes=None, borders=None, *, compact=True):
     """Terrain fill with braille geography *on top* (inverse of radar).
 
     The coastline comes from `coast` — sea-level contour masks derived
@@ -364,57 +437,111 @@ def compose_terrain(basemap, terrain, overlays, graph_w, height_cells,
     coastline and under everything in `strokes`.  A border is the one
     line on this map that is a convention rather than a thing on the
     ground, and it yields to anything that is.
+
+    `compact` False writes every cell's escapes in full.  The default
+    leaves out the ones that repeat the colour in effect, which is what
+    compact_colors would do to the joined rows.
     """
+    fgs, bgs = escape_tables()
+    reset, bold = RESET, BOLD
+    tracked = compact and color_mode() in ("truecolor", "256")
+    forgets = bool(bold or reset)   # the bold idiom is a barrier in the pass
+    half = HALF_BLOCK
+    bg_primary = BG_PRIMARY
+    border = BORDER
+    ov_rows = _by_row(overlays) if overlays else {}
     lines = []
+    cur_fg = cur_bg = None
     for cy in range(height_cells):
         top_row = terrain[cy * 2]
         bot_row = terrain[cy * 2 + 1]
+        ov_row = ov_rows.get(cy)
+        bm_dots = bm_color = None
+        if basemap is not None:
+            bm_dots, bm_color = basemap.dots[cy], basemap.color[cy]
+        bd_row = borders.dots[cy] if borders is not None else None
+        coast_row = coast[cy] if coast is not None else None
+        stroke_rows = ([(layer.dots[cy], layer.color[cy]) for layer in strokes]
+                       if strokes else None)
         parts = []
+        append = parts.append
         for cx in range(graph_w):
-            ut = top_row[cx] or BG_PRIMARY
-            ub = bot_row[cx] or BG_PRIMARY
-            ov = overlays.get((cx, cy))
-            bmask = (basemap.dots[cy][cx] if basemap is not None
-                     and basemap.color[cy][cx] == BORDER else 0)
-            if borders is not None:
-                bmask |= borders.dots[cy][cx]
-            cmask = coast[cy][cx] if coast is not None else 0
+            if not tracked:
+                cur_fg = cur_bg = None
+            ut = top_row[cx] or bg_primary
+            ub = bot_row[cx] or bg_primary
+            ov = ov_row.get(cx) if ov_row is not None else None
+            bmask = (bm_dots[cx] if bm_dots is not None
+                     and bm_color[cx] == border else 0)
+            if bd_row is not None:
+                bmask |= bd_row[cx]
+            cmask = coast_row[cx] if coast_row is not None else 0
             smask, sink = 0, None
-            if strokes is not None:
-                for layer in strokes:
-                    m = layer.dots[cy][cx]
+            if stroke_rows is not None:
+                for dots_row, color_row in stroke_rows:
+                    m = dots_row[cx]
                     if m:
                         smask |= m
-                        c = layer.color[cy][cx]
+                        c = color_row[cx]
                         if c is not None:
                             sink = c
-            if ov is not None or bmask or cmask or smask:
-                avg = _cell_avg(ut, ub)
-                cell_bg = bg(*avg)
-                if ov is not None:
-                    ch, ink = ov[0], ov[1]
-                    if ink is None:  # contrast-picked label ink
-                        ink = _contrast_ink(avg)
-                    if len(ov) > 2 and ov[2]:
-                        parts.append(f"{cell_bg}{fg(*ink)}{BOLD}{ch}{RESET}")
-                    else:
-                        parts.append(f"{cell_bg}{fg(*ink)}{ch}")
+            if ov is None and not (bmask or cmask or smask):
+                # the half-block cell: the top colour behind, the bottom
+                # as the ▄, or a space when the two are the same
+                code = bgs[ut]
+                if code != cur_bg:
+                    append(code)
+                    cur_bg = code
+                if ut == ub:
+                    append(" ")
                 else:
-                    if sink is not None:
-                        stroke = sink
-                    else:
-                        stroke = COAST_STROKE if cmask else BORDER_STROKE
-                    parts.append(f"{cell_bg}{fg(*stroke)}"
-                                 f"{chr(0x2800 + (bmask | cmask | smask))}")
+                    code = fgs[ub]
+                    if code != cur_fg:
+                        append(code)
+                        cur_fg = code
+                    append(half)
                 continue
-            parts.append(halfblock(ut, ub))
-        parts.append(RESET)
+            # a glyph or a stroke sits on the cell's one average colour
+            avg = ((ut[0] + ub[0]) // 2, (ut[1] + ub[1]) // 2,
+                   (ut[2] + ub[2]) // 2)
+            code = bgs[avg]
+            if code != cur_bg:
+                append(code)
+                cur_bg = code
+            if ov is not None:
+                ch, ink = ov[0], ov[1]
+                if ink is None:  # contrast-picked label ink
+                    ink = _contrast_ink(avg)
+                code = fgs[ink]
+                if code != cur_fg:
+                    append(code)
+                    cur_fg = code
+                if len(ov) > 2 and ov[2]:
+                    append(f"{bold}{ch}{reset}")
+                    if forgets:
+                        cur_fg = cur_bg = None
+                else:
+                    append(ch)
+                continue
+            if sink is not None:
+                stroke = sink
+            else:
+                stroke = COAST_STROKE if cmask else BORDER_STROKE
+            code = fgs[stroke]
+            if code != cur_fg:
+                append(code)
+                cur_fg = code
+            append(chr(0x2800 + (bmask | cmask | smask)))
+        append(reset)
+        if reset:
+            cur_fg = cur_bg = None
         lines.append("".join(parts))
     return lines
 
 
 def compose_map(fills, layer, overlays, graph_w, height_cells,
-                strokes=None, hot=None, hot_glyphs=None, ink_dusk=None):
+                strokes=None, hot=None, hot_glyphs=None, ink_dusk=None, *,
+                compact=True):
     """Street-mode composer: area fills under one ranked braille layer.
 
     fills:    (hc*2) x gw sub-pixel RGB grid.  An entry may be None,
@@ -438,6 +565,9 @@ def compose_map(fills, layer, overlays, graph_w, height_cells,
               apart from `hot` because a label crossing a hovered road
               shares cells with it while belonging to something else
               entirely: lighting a cell asks what is printed in it.
+    compact:  False writes every cell's escapes in full; the default
+              leaves out the ones that repeat the colour in effect,
+              which is what compact_colors would do to the joined rows.
 
     A sibling of compose_terrain, not a replacement: terrain resolves a
     basemap, a coast mask and an ordered strokes list per cell, street
@@ -449,73 +579,134 @@ def compose_map(fills, layer, overlays, graph_w, height_cells,
     left unpainted entirely — that is the 16-colour "mixed land/water
     cell" rule, where the coast stroke carries the boundary instead of
     a half-and-half block.  And in `none` mode every cell without a
-    glyph or a braille dot is a literal space: halfblock() with empty
-    escapes returns a bare ▄ that would flood the screen, and the line
-    map that results is the mode's whole character.
+    glyph or a braille dot is a literal space: a half-block with empty
+    escapes is a bare ▄ that would flood the screen, and the line map
+    that results is the mode's whole character.
     """
     plain = color_mode() == "none"
     ribbon_ink = _style.ink("motorway")
+    ribbon_blend = _style.RIBBON_BLEND
+    fgs, bgs = escape_tables()
+    reset, bold = RESET, BOLD
+    tracked = compact and color_mode() in ("truecolor", "256")
+    forgets = bool(bold or reset)   # the bold idiom is a barrier in the pass
+    half = HALF_BLOCK
+    highlight = hover.highlight
+    dim_ink = globe_now.dim_ink
+    ov_rows = _by_row(overlays) if overlays else {}
+    ribbon_rows = _by_row(layer.ribbon) if layer.ribbon else {}
+    hot_rows = _by_row(hot) if hot else {}
+    glyph_rows = _by_row(hot_glyphs) if hot_glyphs else {}
     lines = []
+    cur_fg = cur_bg = None
     for cy in range(height_cells):
         top_row = fills[cy * 2]
         bot_row = fills[cy * 2 + 1]
+        dots_row = layer.dots[cy]
+        color_row = layer.color[cy]
+        ov_row = ov_rows.get(cy)
+        rib_row = ribbon_rows.get(cy)
+        hot_row = hot_rows.get(cy)
+        glyph_row = glyph_rows.get(cy)
+        dusk_row = ink_dusk[cy] if ink_dusk is not None else None
+        stroke_rows = ([(extra.dots[cy], extra.color[cy]) for extra in strokes]
+                       if strokes else None)
         parts = []
+        append = parts.append
         for cx in range(graph_w):
+            if not tracked:
+                cur_fg = cur_bg = None
             ut, ub = top_row[cx], bot_row[cx]
-            if (cx, cy) in layer.ribbon:
+            if rib_row is not None and cx in rib_row:
                 # Blend toward the motorway ink itself, never the cell's
                 # winning stroke — a route crossing here must not tint
                 # the ribbon cyan.
                 if ut is not None:
-                    ut = lerp_rgb(ut, ribbon_ink, _style.RIBBON_BLEND)
+                    ut = lerp_rgb(ut, ribbon_ink, ribbon_blend)
                 if ub is not None:
-                    ub = lerp_rgb(ub, ribbon_ink, _style.RIBBON_BLEND)
-            ov = overlays.get((cx, cy))
-            mask = layer.dots[cy][cx]
-            stroke = layer.color[cy][cx]
-            for extra in (strokes or ()):
-                m = extra.dots[cy][cx]
-                if m:
-                    mask |= m
-                    if extra.color[cy][cx] is not None:
-                        stroke = extra.color[cy][cx]
+                    ub = lerp_rgb(ub, ribbon_ink, ribbon_blend)
+            ov = ov_row.get(cx) if ov_row is not None else None
+            mask = dots_row[cx]
+            stroke = color_row[cx]
+            if stroke_rows is not None:
+                for extra_dots, extra_color in stroke_rows:
+                    m = extra_dots[cx]
+                    if m:
+                        mask |= m
+                        c = extra_color[cx]
+                        if c is not None:
+                            stroke = c
             painted = ut is not None and ub is not None
             if ov is None and not mask:
-                parts.append(halfblock(ut, ub) if painted and not plain
-                             else " ")
+                if painted and not plain:
+                    code = bgs[ut]
+                    if code != cur_bg:
+                        append(code)
+                        cur_bg = code
+                    if ut == ub:
+                        append(" ")
+                    else:
+                        code = fgs[ub]
+                        if code != cur_fg:
+                            append(code)
+                            cur_fg = code
+                        append(half)
+                else:
+                    append(" ")
                 continue
             if painted:
-                avg = _cell_avg(ut, ub)
-                cell_bg = bg(*avg)
+                avg = ((ut[0] + ub[0]) // 2, (ut[1] + ub[1]) // 2,
+                       (ut[2] + ub[2]) // 2)
+                code = bgs[avg]
+                if code != cur_bg:
+                    append(code)
+                    cur_bg = code
             else:
-                avg, cell_bg = BG_PRIMARY, ""
-            lit = hot is not None and (cx, cy) in hot
+                avg = BG_PRIMARY
             if ov is not None:                  # a glyph always beats braille
                 # The cell is a character, so it answers to the glyph
                 # half of the highlight and not to the ink half: a road
                 # passing behind someone else's label lights the road,
                 # never the letter it happens to run under.
-                lit = hot_glyphs is not None and (cx, cy) in hot_glyphs
+                lit = glyph_row is not None and cx in glyph_row
                 ch, ink = ov[0], ov[1]
                 if ink is None:                 # contrast-picked label ink
                     ink = _contrast_ink(avg)
                 if lit:
-                    ink = hover.highlight(ink)
+                    ink = highlight(ink)
+                code = fgs[ink]
+                if code != cur_fg:
+                    append(code)
+                    cur_fg = code
                 if lit or (len(ov) > 2 and ov[2]):
-                    parts.append(f"{cell_bg}{fg(*ink)}{BOLD}{ch}{RESET}")
+                    append(f"{bold}{ch}{reset}")
+                    if forgets:
+                        cur_fg = cur_bg = None
                 else:
-                    parts.append(f"{cell_bg}{fg(*ink)}{ch}")
+                    append(ch)
                 continue
-            if lit:
-                lift = hover.highlight(stroke)
-                parts.append(f"{cell_bg}{fg(*lift) if lift else ''}{BOLD}"
-                             f"{chr(0x2800 + mask)}{RESET}")
+            if hot_row is not None and cx in hot_row:
+                lift = highlight(stroke)
+                if lift:
+                    code = fgs[lift]
+                    if code != cur_fg:
+                        append(code)
+                        cur_fg = code
+                append(f"{bold}{chr(0x2800 + mask)}{reset}")
+                if forgets:
+                    cur_fg = cur_bg = None
                 continue
-            if ink_dusk is not None:
-                stroke = globe_now.dim_ink(stroke, ink_dusk[cy][cx])
-            stroke_fg = fg(*stroke) if stroke is not None else ""
-            parts.append(f"{cell_bg}{stroke_fg}{chr(0x2800 + mask)}")
-        parts.append(RESET)
+            if dusk_row is not None:
+                stroke = dim_ink(stroke, dusk_row[cx])
+            if stroke is not None:
+                code = fgs[stroke]
+                if code != cur_fg:
+                    append(code)
+                    cur_fg = code
+            append(chr(0x2800 + mask))
+        append(reset)
+        if reset:
+            cur_fg = cur_bg = None
         lines.append("".join(parts))
     return lines
 

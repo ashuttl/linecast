@@ -56,7 +56,7 @@ from linecast.terminal.framebuffer import cell_aspect, get_terminal_size
 from linecast.terminal.textwidth import fit, pad, visible_len
 from linecast.terminal.live import overlay
 from linecast.maps.i18n import ms
-from linecast.maps.paint import MARKER, compact_colors, compose_map, compose_terrain
+from linecast.maps.paint import MARKER, compact_frame, compose_map, compose_terrain
 from linecast.maps.loaders import (
     SHORE_LAND, SHORE_WATER, TerrainView, _EMPTY_TERRAIN, _get_clouds, _get_elevation,
     _get_globe, _get_street_tiles, _sphere, _terrain_buffer, _terrain_cache, _view_key,
@@ -1581,13 +1581,14 @@ def render_map(lat, lon, location_name, zoom, marker=None, runtime=None,
         foot = _help.footer(foot, cols, lang)
     foot = pad(foot, cols)
 
-    out = "\n".join([header, *map_lines, foot] if show_text else map_lines)
     # A cell's two halves each carry a colour, and neighbouring cells
-    # are often the same colour: compact_colors drops the escapes that
-    # ask for the colour already in effect.  It runs here, before the
-    # overlay channel, so the body it reads is the body and nothing
-    # else -- and so --print sends the shorter frame too.
-    out = compact_colors(out)
+    # are often the same colour.  The composers leave out the escapes
+    # that ask for the colour already in effect; compact_frame does the
+    # same for the header and the footer and joins the three.  It runs
+    # here, before the overlay channel, so the body it reads is the
+    # body and nothing else -- and so --print sends the shorter frame too.
+    out = (compact_frame(header, map_lines, foot) if show_text
+           else "\n".join(map_lines))
     # One floating thing at a time, through the one overlay channel;
     # Search sits above the steps panel; the live loop owns help.
     if search is not None and search.open:
