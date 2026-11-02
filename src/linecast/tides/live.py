@@ -401,8 +401,9 @@ class TidesApp(LocationMenu, _live.LiveApp):
                                            offset_minutes=self.months, location_menu=True,
                                            right=right)
 
+            foot = _help.footer(source, cols, lang, controls=(("v", "hint_view"),))
             return render_makeup(key[2], data, self.runtime, header=header,
-                                 footer=_help.footer(source, cols, lang, controls=(("v", "hint_view"),)),
+                                 footer=foot,
                                  station_tz=self.station_tz, now_local=now_local,
                                  mouse_pos=mouse_pos)
         from linecast.tides import year as _year
