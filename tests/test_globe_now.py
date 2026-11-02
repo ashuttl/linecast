@@ -123,6 +123,28 @@ class TestCityLights:
         # too, and apply() skips the lit ones itself
         assert fresh == whole and fresh.under(day) == whole
 
+    def test_a_view_asked_twice_is_at_rest_and_samples_once_more(self, monkeypatch):
+        # a drag frame asks its view's lights once; a view asked again
+        # is being repainted where it stands, and from then on answers
+        # from the whole mapping rather than sampling the night side
+        # on every pointer move, toast and clock tick
+        from linecast.maps import night_lights
+        from linecast.maps.globe import geometry
+        lls, zs, _rhos = geometry(20.0, -30.0, 125.0, 80, 44)
+        day = globe_now.daylight(lls, (0.0, 60.0))
+        lights = globe_now.CityLights(night_lights.load(), lls, 125.0 / 44, zs)
+        real, calls = night_lights.sample, []
+        monkeypatch.setattr(night_lights, "sample",
+                            lambda *a, **k: calls.append(1) or real(*a, **k))
+        first = lights.under(day)
+        second = lights.under(day)
+        third = lights.under(day)
+        assert calls == [1, 1]
+        assert second is third
+        assert {k: v for k, v in second.items()
+                if day[k[1]][k[0]] is not None
+                and day[k[1]][k[0]] <= globe_now._LIGHTS_DAY} == first
+
 
 class TestApply:
     def test_day_leaves_the_ground_alone(self):

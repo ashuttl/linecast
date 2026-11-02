@@ -593,7 +593,7 @@ class CityLights(Mapping):
     a view in full daylight prices none.  Shared between calls for the
     same view: read it, don't write it.
     """
-    __slots__ = ("_levels", "_lls", "_dpp", "_zs", "_all")
+    __slots__ = ("_levels", "_lls", "_dpp", "_zs", "_all", "_asked")
 
     def __init__(self, levels, lls, degrees_per_pixel, zs):
         self._levels = levels
@@ -601,6 +601,7 @@ class CityLights(Mapping):
         self._dpp = degrees_per_pixel
         self._zs = zs
         self._all = None
+        self._asked = False   # whether a night side has been sampled
 
     def _everything(self):
         if self._all is None:
@@ -612,12 +613,19 @@ class CityLights(Mapping):
         """The lights where `day` (as daylight() reports it) is night.
 
         The whole mapping when it is already in hand — apply() skips
-        the lit ones itself — and the night side sampled afresh
-        otherwise.  Fresh is cheaper than kept here: a drag never
-        repeats a view, and the sun moves under a view that stays.
+        the lit ones itself — and the night side sampled afresh the
+        first time otherwise.  Fresh is cheaper than kept for a drag
+        frame, which never repeats a view.  A view asked a second time
+        is one at rest, repainted for a pointer, a toast or the clock,
+        and the sun moves under it: from then on it answers from the
+        whole mapping, sampled once, rather than pricing the night
+        side again on every repaint.
         """
         if self._all is not None:
             return self._all
+        if self._asked:
+            return self._everything()
+        self._asked = True
         return _night_lights.sample(self._levels, self._lls, self._dpp,
                                     self._zs, day, _LIGHTS_DAY)
 
