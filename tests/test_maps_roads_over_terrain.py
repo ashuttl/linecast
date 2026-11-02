@@ -132,6 +132,73 @@ class TestTheFrame:
         assert err is None and len(lines) == HC
 
 
+def _overscan_window(zoom):
+    """A live window cut from an overscan a margin wider than itself."""
+    bbox = bbox_for(43.66, -70.26, zoom, GW, HC)
+    frame, at = maps._overscan.plan(bbox, GW, HC)
+    return maps._Window.of(bbox, GW, HC, frame, at)
+
+
+def _street_view_in(frame, col, row):
+    """A street view the size of `frame`, with one dot at its (col, row)."""
+    dots = [[0] * frame.gw for _ in range(frame.hc)]
+    dots[row][col] = 0x01
+    layer = _Layer(dots)
+    layer.color = [[(200, 200, 200)] * frame.gw for _ in range(frame.hc)]
+    return (None, layer, {(col, row): ("Q", (255, 255, 255))})
+
+
+class TestTheStreetsBeforeTheGround:
+    """The streets are built for the frame, as the ground is, and are
+    cut for the window the same way whether or not the ground has
+    landed: switching registers over a window that has its street map
+    already draws them before the elevation arrives."""
+
+    def test_the_streets_land_in_the_window_not_the_frame(self, monkeypatch):
+        win = _overscan_window(CLOSE)
+        assert win.cropping
+        dx0, dy0 = win.at
+        monkeypatch.setattr(maps, "_get_elevation",
+                            lambda *a, **k: maps._EMPTY_TERRAIN)
+
+        def street(*a, **k):
+            fills, layer, _labels = _street_view_in(win.frame, dx0 + 2, dy0)
+            return fills, layer, {(dx0 + 5, dy0 + 1): ("Q", (255, 255, 255))}
+        monkeypatch.setattr(maps, "_get_street", street)
+        lines, _r, _h, loading, _e = maps._render_terrain(
+            win, False, (0, 0), None, maps._Marks(), "en", None)
+        assert loading
+        # the dot and the name at the window's own cells, a margin in
+        # from where the frame holds them
+        assert _plain(lines[0]).index("\u2801") == 2
+        assert _plain(lines[1])[5] == "Q"
+
+    def test_the_pointer_reads_the_road_through_the_crop(self, monkeypatch):
+        from linecast.maps.hover import HoverIndex
+        win = _overscan_window(CLOSE)
+        fgw, fhc = win.frame.gw, win.frame.hc
+        dx0, dy0 = win.at
+        owner = [[None] * fgw for _ in range(fhc)]
+        owner[dy0][dx0 + 2] = 0     # the road, at the frame's own cell
+        index = HoverIndex(owner, [("primary", "Main Street")], {}, {},
+                           [[0] * fgw for _ in range(fhc)])
+        monkeypatch.setattr(maps, "_get_elevation",
+                            lambda *a, **k: maps._EMPTY_TERRAIN)
+
+        def street(*a, **k):
+            fills, layer, _labels = _street_view_in(win.frame, dx0 + 2, dy0)
+            layer.hover = index
+            return fills, layer, {}
+        monkeypatch.setattr(maps, "_get_street", street)
+        monkeypatch.setattr(maps._hover, "readout", lambda h, lang: "Main Street")
+
+        def hover_at(col, row):   # window cells; the pointer is 1-based
+            return maps._render_terrain(win, False, (0, 0), (col + 1, row + 2),
+                                        maps._Marks(), "en", None)[2]
+        assert hover_at(2, 0) == " · Main Street"
+        assert hover_at(dx0 + 2, dy0) == ""   # the frame's cell answers nothing
+
+
 class TestTheViewInHand:
     def test_streets_that_land_later_join_the_view(self, monkeypatch):
         # the ground landed first and was stored without its streets;

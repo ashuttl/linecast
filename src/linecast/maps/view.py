@@ -859,7 +859,7 @@ def _render_terrain(win, block, pan_offset, mouse_pos, marks, lang,
         _last_terrain[0] = (tuple(obbox), ogw, ohc, terrain, coast, rivers,
                             elev, borders, shore, streets, slabels)
     exact = None
-    if terrain is not None and win.cropping:
+    if win.cropping and (terrain is not None or streets is not None):
         # The window out of the margin.  At the built view's own centre
         # that is the sub-cells it already holds at the planned offset,
         # and nothing more is needed: an orthographic view about the
@@ -871,6 +871,7 @@ def _render_terrain(win, block, pan_offset, mouse_pos, marks, lang,
         # in motion takes the slice and is briefly out of register.
         exact = _exact_crop(win.frame, bbox, graph_w, height_cells, win.at,
                             moving)
+    if terrain is not None and win.cropping:
         if exact is not None:
             terrain = exact.grid(terrain, BG_PRIMARY)
             elev = exact.grid(elev, None)
@@ -886,16 +887,6 @@ def _render_terrain(win, block, pan_offset, mouse_pos, marks, lang,
                 coast = exact.dots(coast)
             rivers = exact.layer(rivers)
             borders = exact.layer(borders)
-            if streets is not None:
-                # the street map's own crop: names moved by where their
-                # ground now is, the hover index read through the map
-                hover = getattr(streets, "hover", None)
-                slabels, moved = exact.overlays(slabels or {})
-                ink_source = exact.ink_source(streets.dots)
-                streets = exact.layer(streets)
-                if hover is not None:
-                    streets.hover = _overscan.ResampledHover(
-                        hover, exact, moved, ink_source, streets.dots)
         else:
             dx0, dy0 = win.at
             terrain = _overscan.crop_grid(terrain, dx0, dy0 * 2, graph_w,
@@ -908,15 +899,30 @@ def _render_terrain(win, block, pan_offset, mouse_pos, marks, lang,
                                           height_cells)
             borders = _overscan.crop_layer(borders, dx0, dy0, graph_w,
                                            height_cells)
-            if streets is not None:
-                hover = getattr(streets, "hover", None)
-                slabels = _overscan.crop_overlays(slabels or {}, dx0, dy0,
-                                                  graph_w, height_cells)
-                streets = _overscan.crop_layer(
-                    streets, dx0, dy0, graph_w, height_cells,
-                    hover=(_overscan.CroppedHover(hover, dx0, dy0, graph_w,
-                                                  height_cells, slabels)
-                           if hover is not None else None))
+    if streets is not None and win.cropping:
+        # The street map's own crop, the same cut as the ground's,
+        # whether or not that ground has landed yet: the lines are
+        # built for the frame too, and drawn over a stand-in they
+        # would otherwise sit a margin off the window.  Names moved by
+        # where their ground now is, the hover index read through the
+        # map.
+        hover = getattr(streets, "hover", None)
+        if exact is not None:
+            slabels, moved = exact.overlays(slabels or {})
+            ink_source = exact.ink_source(streets.dots)
+            streets = exact.layer(streets)
+            if hover is not None:
+                streets.hover = _overscan.ResampledHover(
+                    hover, exact, moved, ink_source, streets.dots)
+        else:
+            dx0, dy0 = win.at
+            slabels = _overscan.crop_overlays(slabels or {}, dx0, dy0,
+                                              graph_w, height_cells)
+            streets = _overscan.crop_layer(
+                streets, dx0, dy0, graph_w, height_cells,
+                hover=(_overscan.CroppedHover(hover, dx0, dy0, graph_w,
+                                              height_cells, slabels)
+                       if hover is not None else None))
     if terrain is None and loading and _last_terrain[0] is not None:
         prev = _last_terrain[0]
         stand_in = _terrain_stand_in(prev, bbox, graph_w, height_cells,
