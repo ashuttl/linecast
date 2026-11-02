@@ -136,7 +136,7 @@ def _start_destination(work):
             if nxt is not None:
                 _start_destination(nxt)
 
-    threading.Thread(target=run, daemon=True).start()
+    threading.Thread(target=run, daemon=True, name="destination load").start()
 
 
 def _motion_build(cache, key, load):
@@ -187,7 +187,8 @@ def _start_motion_build(cache, key, load):
         if nxt is not None:
             _start_motion_build(*nxt)
 
-    threading.Thread(target=worker, daemon=True).start()
+    threading.Thread(target=worker, daemon=True,
+                     name=f"{cache.name} load").start()
 
 
 # The newest real view each flat register has *landed*, as
@@ -267,7 +268,8 @@ def _mend(cache, key, load, newest, short, before=None):
             return
         _nudge_repaint()
 
-    threading.Thread(target=worker, daemon=True).start()
+    threading.Thread(target=worker, daemon=True,
+                     name=f"{cache.name} load").start()
 
 
 def _view_key(bbox, gw, hc):
@@ -905,7 +907,7 @@ def _get_clouds(zoom, hc, block):
         if changed:
             _nudge_repaint()
 
-    threading.Thread(target=worker, daemon=True).start()
+    threading.Thread(target=worker, daemon=True, name="clouds load").start()
     return canvas
 
 

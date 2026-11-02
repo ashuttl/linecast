@@ -605,6 +605,10 @@ class TestEveryLayerIsTheCameras:
         monkeypatch.setattr(maps, "get_terminal_size", lambda: (80, 24))
         monkeypatch.setattr(maps, "_get_elevation",
                             lambda *a, **k: maps._EMPTY_TERRAIN)
+        # the close frame carries the street map's lines over the
+        # ground, and would start a street load of its own otherwise
+        monkeypatch.setattr(maps, "_get_street",
+                            lambda *a, **k: (None, None, None))
         maps._last_terrain[0] = None
         route = Route([(8.0, 46.0), (9.0, 47.0)], 1.0, 1.0, [], "car")
         maps.render_map(46.8, 8.2, "Alps", 10.0, block=False,

@@ -21,6 +21,7 @@ import os
 import socket
 import sys
 import tempfile
+import threading
 from contextlib import contextmanager
 from pathlib import Path
 from unittest.mock import patch
@@ -251,3 +252,27 @@ def _no_network(request, monkeypatch):
     monkeypatch.setattr(socket.socket, "connect_ex", _blocked)
     monkeypatch.setattr(socket, "create_connection", _blocked)
     monkeypatch.setattr(http.client.HTTPConnection, "connect", _blocked)
+
+
+@pytest.fixture(autouse=True)
+def _no_stray_loads(_no_network):
+    """A loader's thread may not outlive the test that started it.
+
+    A non-blocking load runs on a thread of its own (terminal.scenes,
+    maps.loaders), and one left running reaches into the tests after
+    it: it calls whatever the modules' names point at by then, which
+    may be another test's stand-ins, and it may meet the network in
+    the gap between one test's block and the next's. The loaders name
+    their threads "... load". Any started by the test are joined here,
+    while its network block still holds, so a load that was only ever
+    going to fail does so now; one still running after that fails the
+    test.
+    """
+    before = set(threading.enumerate())
+    yield
+    for thread in threading.enumerate():
+        if thread in before or not thread.name.endswith(" load"):
+            continue
+        thread.join(5.0)
+        if thread.is_alive():
+            pytest.fail(f"the test left a {thread.name!r} thread running")

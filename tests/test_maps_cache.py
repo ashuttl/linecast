@@ -53,7 +53,7 @@ def motion(monkeypatch):
     started = []
 
     class Thread:
-        def __init__(self, target=None, args=(), daemon=False):
+        def __init__(self, target=None, args=(), daemon=False, name=None):
             self.target = target
             started.append(self)
 
@@ -372,7 +372,7 @@ def mending(monkeypatch):
     started = []
 
     class Thread:
-        def __init__(self, target=None, args=(), daemon=False):
+        def __init__(self, target=None, args=(), daemon=False, name=None):
             self.target = target
             started.append(self)
 

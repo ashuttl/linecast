@@ -293,5 +293,6 @@ class SceneCache:
             if hit is not None:
                 nudge()
 
-        threading.Thread(target=worker, daemon=True).start()
+        threading.Thread(target=worker, daemon=True,
+                         name=f"{self.name} load").start()
         return self.empty

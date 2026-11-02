@@ -541,6 +541,10 @@ class TestTheNewestViewStandsIn:
             self, monkeypatch):
         monkeypatch.setattr(maps, "_get_elevation",
                             lambda *a, **k: maps._EMPTY_TERRAIN)
+        # close in, the terrain frame asks the street loader for its
+        # lines as well; left real it would start a load of its own
+        monkeypatch.setattr(maps, "_get_street",
+                            lambda *a, **k: (None, None, None))
         gw, hc = maps.map_cells((COLS, ROWS))
         _here, west, east = self._windows(gw, hc)
         elev = [[120.0] * gw for _ in range(hc * 2)]
