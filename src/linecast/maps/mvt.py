@@ -114,6 +114,30 @@ def _unzigzag(n):
     return (n >> 1) ^ -(n & 1)
 
 
+# Every geometry parameter is a zigzag-coded delta, and a tile holds
+# tens of thousands of them: the hot loop reads them out of one table
+# rather than shifting, masking and negating each.  The table covers
+# every delta a tile of the usual extent can hold; a value past it is
+# a long multipoint or a tile with an extent of its own, and
+# _geometry does that one by arithmetic (_ZigzagAny).
+_ZIGZAG_LEN = 1 << 16
+_zigzag = None
+
+
+def _zigzag_table():
+    global _zigzag
+    if _zigzag is None:
+        _zigzag = [(n >> 1) ^ -(n & 1) for n in range(_ZIGZAG_LEN)]
+    return _zigzag
+
+
+class _ZigzagAny:
+    """The zigzag table's interface over every integer."""
+
+    def __getitem__(self, n):
+        return (n >> 1) ^ -(n & 1)
+
+
 def _value(buf):
     """Tile.Value message -> str | float | int | bool | None.
 
@@ -149,6 +173,14 @@ def _geometry(cmds):
     ClosePath takes no parameters and does not move the cursor (the
     closing edge back to the ring's first vertex is implied).
     """
+    try:
+        return _walk_geometry(cmds, _zigzag_table())
+    except IndexError:
+        # a delta past the table, so once more by arithmetic
+        return _walk_geometry(cmds, _ZigzagAny())
+
+
+def _walk_geometry(cmds, zigzag):
     parts, part, x, y = [], [], 0, 0
     i, n = 0, len(cmds)
     while i < n:
@@ -161,18 +193,16 @@ def _geometry(cmds):
                 raise ValueError("truncated geometry")
             if cid == 1:  # MoveTo; count > 1 means MultiPoint
                 for j in range(i, end, 2):
-                    dx, dy = cmds[j], cmds[j + 1]
-                    x += (dx >> 1) ^ -(dx & 1)
-                    y += (dy >> 1) ^ -(dy & 1)
+                    x += zigzag[cmds[j]]
+                    y += zigzag[cmds[j + 1]]
                     if part:
                         parts.append(part)
                     part = [(x, y)]
             else:  # LineTo
                 append = part.append
                 for j in range(i, end, 2):
-                    dx, dy = cmds[j], cmds[j + 1]
-                    x += (dx >> 1) ^ -(dx & 1)
-                    y += (dy >> 1) ^ -(dy & 1)
+                    x += zigzag[cmds[j]]
+                    y += zigzag[cmds[j + 1]]
                     append((x, y))
             i = end
         elif cid == 7:  # ClosePath
@@ -274,11 +304,13 @@ def decode_tile(data: bytes) -> dict[str, dict[str, Any]]:
 def ring_sign(ring: list[tuple[int, int]]) -> int:
     """2x signed shoelace area in tile coords (y down), closing edge
     included.  > 0 exterior, < 0 hole (v2 winding), 0 degenerate."""
+    if not ring:
+        return 0
     s = 0
-    for i in range(len(ring)):
-        x1, y1 = ring[i]
-        x2, y2 = ring[(i + 1) % len(ring)]
-        s += x1 * y2 - x2 * y1
+    px, py = ring[-1]   # the closing edge first, then each in turn
+    for x, y in ring:
+        s += px * y - x * py
+        px, py = x, y
     return s
 
 

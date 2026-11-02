@@ -258,11 +258,14 @@ def decode_view(tiles):
     decoded tile, so the same decode serves every view that needs it.
     """
     view = []
-    for key, data in sorted(tiles.items()):
-        if not data:
-            continue
+    tiles = sorted(item for item in tiles.items() if item[1])
+    # the tiles this view finds decoded stay decoded through it: a
+    # view of more tiles than the memo holds would otherwise push each
+    # of them out before it came back, and decode the lot every build
+    kept = frozenset(key for key, data in tiles if _decoded.has(key, data))
+    for key, data in tiles:
         try:
-            view.append((key, _decoded.get(key, data, decode_tile)))
+            view.append((key, _decoded.get(key, data, decode_tile, keep=kept)))
         except Exception as exc:
             # A damaged tile fails the decoder in more ways than a
             # ValueError (a flipped bit gave TypeError, AttributeError,
@@ -291,8 +294,7 @@ def class_grid(view, bbox, graph_w, height_cells, band, camera=None):
         if cls is None:
             continue
         for rings in assemble_polygons(feat["geometry"]):
-            pr = [_closed([project(x, y) for x, y in ring])
-                  for ring in rings]
+            pr = [_closed(project.ring(ring)) for ring in rings]
             if cls == BUILDING and not _big_enough(pr):
                 continue
             groups[cls].append(pr)
@@ -332,8 +334,8 @@ def _water_class_mask(view, bbox, graph_w, height_cells, classes,
         if feat["tags"].get("class") not in classes:
             continue
         for rings in assemble_polygons(feat["geometry"]):
-            _fill_rings(grid, [_closed([project(x, y) for x, y in ring])
-                               for ring in rings], 1, dw, dh)
+            _fill_rings(grid, [_closed(project.ring(ring)) for ring in rings],
+                        1, dw, dh)
     return grid
 
 
@@ -835,7 +837,7 @@ def draw_lines(layer, view, bbox, graph_w, height_cells, band, palette,
             else:
                 part_owner = len(feats)
                 feats.append((key, ""))
-            pts = [project(x, y) for x, y in part]
+            pts = project.ring(part)
             if key in style.SHADOWED:
                 deferred.append(
                     (pts, color, rank, weight, dash, part_owner))
@@ -881,7 +883,7 @@ def water_lines(view, bbox, graph_w, height_cells, band, color, water=None,
         weight = weights[band]
         rank = style.LINE_STYLES[key][3]
         for part in feat["geometry"]:
-            stroke_polyline(layer, [project(x, y) for x, y in part],
+            stroke_polyline(layer, project.ring(part),
                             color, rank, weight, hide=hide)
     return layer
 
@@ -915,13 +917,11 @@ def _stamp_aeroways(grid, view, bbox, dw, dh, value, camera=None):
             continue
         if feat["type"] == POLYGON:
             for rings in assemble_polygons(feat["geometry"]):
-                _fill_rings(grid, [_closed([project(x, y)
-                                            for x, y in ring])
-                                   for ring in rings], value, dw, dh)
+                _fill_rings(grid, [_closed(project.ring(ring)) for ring in rings],
+                            value, dw, dh)
         elif feat["type"] == LINESTRING:
             for part in feat["geometry"]:
-                _stamp_line(grid, [project(x, y) for x, y in part],
-                            value, dw, dh,
+                _stamp_line(grid, project.ring(part), value, dw, dh,
                             thick=2 if cls == "runway" else 1)
 
 
@@ -942,8 +942,7 @@ def _street_density_urban(grid, view, bbox, dw, dh, value, camera=None):
         if feat["tags"].get("class") not in style.URBAN_STREET_CLASS:
             continue
         for part in feat["geometry"]:
-            _stamp_line(dots, [project(x, y) for x, y in part], 1,
-                        dw, dh)
+            _stamp_line(dots, project.ring(part), 1, dw, dh)
 
     integ = [[0] * (dw + 1)]
     for y in range(dh):
@@ -1023,8 +1022,7 @@ def land_cover_grid(view, bbox, graph_w, height_cells, camera=None,
             continue
         for rings in assemble_polygons(feat["geometry"]):
             groups.setdefault(key, []).append(
-                [_closed([project(x, y) for x, y in ring])
-                 for ring in rings])
+                [_closed(project.ring(ring)) for ring in rings])
     for i, key in enumerate(style.COVER_ORDER):
         for rings in groups.get(key, ()):
             _fill_rings(grid, rings, i + 1, dw, dh)
