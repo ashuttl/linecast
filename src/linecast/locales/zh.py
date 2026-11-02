@@ -33,7 +33,6 @@ HELP = {
     "hint_mode": "模式",
     "weather_views": "预报 / 月视图 / 年视图",
     "month_colors": "气温 / 与平均值的偏差",
-    "month_home": "上一个日历月",
     "history_refresh": "刷新逐小时历史数据",
     "hint_help": "帮助",
     "key_wheel": "滚轮",

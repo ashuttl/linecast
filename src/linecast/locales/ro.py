@@ -32,7 +32,6 @@ HELP = {
     "hint_mode": "mod",
     "weather_views": "vedere prognoză / lună / an",
     "month_colors": "temperatură / abatere de la medie",
-    "month_home": "luna calendaristică precedentă",
     "history_refresh": "actualizează istoricul orar",
     "hint_help": "ajutor",
     "key_wheel": "rotiță",

@@ -32,7 +32,6 @@ HELP = {
     "hint_mode": "mod",
     "weather_views": "tahmin / ay / yıl görünümü",
     "month_colors": "sıcaklık / ortalamadan sapma",
-    "month_home": "önceki takvim ayı",
     "history_refresh": "saatlik geçmişi yenile",
     "hint_help": "yardım",
     "key_wheel": "tekerlek",

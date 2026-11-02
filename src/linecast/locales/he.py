@@ -76,7 +76,6 @@ HELP = {
     "hint_mode": "מצב",
     "weather_views": "תחזית / חודש / שנה",
     "month_colors": "טמפרטורה / סטייה מהממוצע",
-    "month_home": "החודש הקלנדרי הקודם",
     "history_refresh": "רענון היסטוריה שעתית",
     "hint_help": "עזרה",
     "key_wheel": "גלגלת",

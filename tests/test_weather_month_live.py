@@ -39,19 +39,32 @@ def test_v_cycles_forecast_month_year_and_preserves_color_choice(app):
         assert fetch.call_count == 1
 
 
+def shown(app):
+    """The first of the month the app draws."""
+    with patch.object(month, 'render_month', return_value='frame') as draw:
+        app._render_month(None)
+    return draw.call_args.args[1].isoformat()
+
+
 def test_month_navigation_and_reset_do_not_scroll_the_forecast(app):
     app.month_view = True
-    assert app.month_first.isoformat() == '2026-09-01'
-    assert app.intercept('fwd') and app.month_first.isoformat() == '2026-10-01'
-    app.intercept('fwd')
-    assert app.month_first.isoformat() == '2026-10-01'
+    assert shown(app) == '2026-10-01'
+    assert app.intercept('fwd') and shown(app) == '2026-10-01'
+    assert app.intercept('back') and shown(app) == '2026-09-01'
     app.on_wheel(1, 30, 20)
-    assert app.month_first.isoformat() == '2026-09-01'
-    app.month_first = datetime(2016, 1, 1).date()
-    app.intercept('back')
-    assert app.month_first.isoformat() == '2016-01-01'
+    assert shown(app) == '2026-08-01'
+    for _ in range(200):
+        app.intercept('back')
+    assert shown(app) == '2016-01-01'
     app.intercept('reset')
-    assert app.month_first.isoformat() == '2026-09-01'
+    assert shown(app) == '2026-10-01'
+
+
+def test_a_month_left_open_follows_the_calendar(app):
+    app.month_view = True
+    assert shown(app) == '2026-10-01'
+    with patch.object(live, 'local_now', return_value=datetime(2026, 11, 1)):
+        assert shown(app) == '2026-11-01'
 
 
 def test_slow_request_uses_existing_toast_without_blocking_and_only_in_month(app):
@@ -166,10 +179,12 @@ def test_direct_flags_and_one_frame_output(flag, mode, monkeypatch):
     with patch.object(live, 'place_for', return_value=(43, -70, 'US', 'Westbrook', rt)), \
          patch.object(live, 'gather',
                       return_value={'data': {'timezone': 'UTC'}, 'name': 'Westbrook'}), \
+         patch.object(live, 'local_now', return_value=NOW), \
          patch.object(hourly_history, 'fetch_month', return_value=('series', True)), \
          patch.object(month, 'render_month', return_value='frame') as render, \
          patch.object(live._live, 'print_frame') as output:
         live._main()
+    assert render.call_args.args[1].isoformat() == '2026-10-01'
     assert render.call_args.kwargs['difference'] == (mode == 'departure')
     output.assert_called_once_with('frame')
 

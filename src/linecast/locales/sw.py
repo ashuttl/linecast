@@ -32,7 +32,6 @@ HELP = {
     "hint_mode": "hali",
     "weather_views": "utabiri / mwezi / mwaka",
     "month_colors": "halijoto / tofauti na wastani",
-    "month_home": "mwezi uliopita wa kalenda",
     "history_refresh": "sasisha historia ya kila saa",
     "hint_help": "msaada",
     "key_wheel": "gurudumu",

@@ -32,7 +32,6 @@ HELP = {
     "hint_mode": "modus",
     "weather_views": "varsel / måned / år",
     "month_colors": "temperatur / avvik fra gjennomsnitt",
-    "month_home": "forrige kalendermåned",
     "history_refresh": "oppdater timehistorikk",
     "hint_help": "hjelp",
     "key_wheel": "hjul",

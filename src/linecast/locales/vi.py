@@ -45,7 +45,6 @@ HELP = {
     "hint_mode": "chế độ",
     "weather_views": "dự báo / tháng / năm",
     "month_colors": "nhiệt độ / độ lệch so với trung bình",
-    "month_home": "tháng dương lịch trước",
     "history_refresh": "làm mới lịch sử theo giờ",
     "hint_help": "trợ giúp",
     "key_wheel": "con lăn",

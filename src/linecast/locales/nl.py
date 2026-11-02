@@ -31,7 +31,6 @@ HELP = {
     "hint_mode": "modus",
     "weather_views": "verwachting / maand / jaar",
     "month_colors": "temperatuur / afwijking van gemiddelde",
-    "month_home": "vorige kalendermaand",
     "history_refresh": "uurhistorie vernieuwen",
     "hint_help": "help",
     "key_wheel": "wiel",

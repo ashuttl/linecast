@@ -31,7 +31,6 @@ HELP = {
     "hint_mode": "modalità",
     "weather_views": "vista previsioni / mese / anno",
     "month_colors": "temperatura / scarto dalla media",
-    "month_home": "mese precedente",
     "history_refresh": "aggiorna lo storico orario",
     "hint_help": "aiuto",
     "key_wheel": "rotella",

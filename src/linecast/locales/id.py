@@ -31,7 +31,6 @@ HELP = {
     "hint_mode": "mode",
     "weather_views": "prakiraan / bulan / tahun",
     "month_colors": "suhu / selisih dari rata-rata",
-    "month_home": "bulan kalender sebelumnya",
     "history_refresh": "perbarui riwayat per jam",
     "hint_help": "bantuan",
     "key_wheel": "roda",

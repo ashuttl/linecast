@@ -33,7 +33,6 @@ HELP = {
     "hint_mode": "mode",
     "weather_views": "vue prévisions / mois / année",
     "month_colors": "température / écart à la moyenne",
-    "month_home": "mois civil précédent",
     "history_refresh": "actualiser l’historique horaire",
     "hint_help": "aide",
     "key_wheel": "molette",

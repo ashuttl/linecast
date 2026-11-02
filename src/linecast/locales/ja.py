@@ -35,7 +35,6 @@ HELP = {
     "hint_mode": "モード",
     "weather_views": "予報 / 月表示 / 年表示",
     "month_colors": "気温 / 平均からの偏差",
-    "month_home": "前の暦月に戻る",
     "history_refresh": "時間別の履歴を更新",
     "hint_help": "ヘルプ",
     "key_wheel": "ホイール",

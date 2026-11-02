@@ -1,6 +1,6 @@
 # The weather month view
 
-Press `v` in weather to cycle forecast → month → year. The month opens on the previous calendar month. Open it directly with:
+Press `v` in weather to cycle forecast → month → year. The month opens on the current month, with the hours still to come left blank. Open it directly with:
 
 ```sh
 linecast weather --month
@@ -15,7 +15,7 @@ linecast weather --month --print
 | `v` | Next view: forecast, month, year |
 | `m` | Temperature or departure from the hourly average |
 | ← / → or scroll | Previous or next month |
-| Space / `n` | Previous calendar month |
+| Space / `n` | Current month |
 | Hover | Temperature, baseline average, and difference at that time |
 | `r` | Retry or refresh the hourly archive, using a fresh cache when available |
 | `l` or click the place | Change location |

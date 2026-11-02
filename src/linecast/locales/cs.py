@@ -38,7 +38,6 @@ HELP = {
     "hint_mode": "režim",
     "weather_views": "předpověď / měsíc / rok",
     "month_colors": "teplota / odchylka od průměru",
-    "month_home": "předchozí kalendářní měsíc",
     "history_refresh": "obnovit hodinovou historii",
     "hint_help": "nápověda",
     "key_wheel": "kolečko",

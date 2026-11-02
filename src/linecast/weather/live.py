@@ -107,8 +107,7 @@ class WeatherApp(LocationMenu, _live.LiveApp):
         self.year_view = year_view
         self.month_view = bool(month_view)
         self.month_difference = month_view == "departure"
-        from linecast.tides.month import month_of
-        self.month_first = month_of(local_now(data).date(), -1)
+        self.months = 0            # the month on screen, counted from this one
         self._month = None
         self._month_asked = None
         self._month_worker = None
@@ -317,15 +316,14 @@ class WeatherApp(LocationMenu, _live.LiveApp):
                     and self._month_worker and self._month_worker.is_alive())
 
     def _step_month(self, count):
-        from datetime import date
-        from linecast.tides.month import month_of
         from linecast.weather.historical import history_span
         today = local_now(self.data).date()
-        self.month_first = max(date(history_span(today.year)[0], 1, 1),
-                               min(today.replace(day=1), month_of(self.month_first, count)))
+        oldest = (history_span(today.year)[0] - today.year) * 12 - today.month + 1
+        self.months = max(oldest, min(0, self.months + count))
         return True
 
     def _render_month(self, mouse_pos):
+        from linecast.tides.month import month_of
         from linecast.weather.month import render_month
         from linecast.weather.i18n import _s
         self._step_month(0)
@@ -337,8 +335,9 @@ class WeatherApp(LocationMenu, _live.LiveApp):
         if not self._month_busy() and self._month_asked and not self._month_asked[3]:
             notice = _s("month_partial" if series else "month_unavailable", self.runtime)
             notice += " " + _s("retry_key", self.runtime)
-        return render_month(series, self.month_first, self.runtime, self.lat, self.lng,
-                            self.location_name, difference=self.month_difference,
+        return render_month(series, month_of(now.date(), self.months), self.runtime,
+                            self.lat, self.lng, self.location_name,
+                            difference=self.month_difference,
                             mouse_pos=mouse_pos, now=now, location_menu=True, notice=notice)
 
     def _month_toast(self, cols, rows):
@@ -409,8 +408,7 @@ class WeatherApp(LocationMenu, _live.LiveApp):
             if action in ("fwd", "back"):
                 return self._step_month(1 if action == "fwd" else -1)
             if action == "reset":
-                from linecast.tides.month import month_of
-                self.month_first = month_of(local_now(self.data).date(), -1)
+                self.months = 0
                 return True
         # The year view scrubs nothing; the arrows would move the
         # forecast behind it.
@@ -718,7 +716,6 @@ def _main():
         ).run()
     elif args.month:
         from linecast.terminal.textwidth import calibrate_from_terminal
-        from linecast.tides.month import month_of
         from linecast.weather.hourly_history import fetch_month
         from linecast.weather.month import render_month
         from linecast.weather.i18n import _s
@@ -728,7 +725,7 @@ def _main():
         calibrate_from_terminal()
         notice = "" if complete else _s("month_partial" if series else "month_unavailable", runtime)
         _live.print_frame(render_month(
-            series, month_of(now.date(), -1), runtime, lat, lng, location_name,
+            series, now.date().replace(day=1), runtime, lat, lng, location_name,
             difference=args.month == "departure", now=now, notice=notice))
     elif args.year:
         from linecast.terminal.textwidth import calibrate_from_terminal

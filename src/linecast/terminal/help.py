@@ -85,7 +85,7 @@ CONTROLS = {
                 ('hover', 'help_hover'), ('click', 'alert'), ('o', 'browser'),
                 ('r', 'refresh'), ('v', 'weather_views')],
     'weather_year': [('hover', 'help_hover'), ('v', 'weather_views'), ('c', 'bar_colors')],
-    'weather_month': [('wheel / ←→', 'months'), ('space / n', 'month_home'),
+    'weather_month': [('wheel / ←→', 'months'), ('space / n', 'now'),
                       ('hover', 'help_hover'), ('v', 'weather_views'),
                       ('m', 'month_colors'), ('r', 'history_refresh')],
     'tides': [('wheel / ←→', 'time30'), ('space / n', 'now'), ('hover', 'help_hover'),

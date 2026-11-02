@@ -34,7 +34,6 @@ HELP = {
     "hint_mode": "hamur",
     "weather_views": "spá / mánuður / ár",
     "month_colors": "hitastig / frávik frá meðaltali",
-    "month_home": "fyrri almanaksmánuður",
     "history_refresh": "uppfæra tímagögn",
     "hint_help": "hjálp",
     "key_wheel": "hjól",

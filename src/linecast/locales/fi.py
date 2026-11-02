@@ -33,7 +33,6 @@ HELP = {
     "hint_mode": "tila",
     "weather_views": "ennuste / kuukausi / vuosi",
     "month_colors": "lämpötila / poikkeama keskiarvosta",
-    "month_home": "edellinen kalenterikuukausi",
     "history_refresh": "päivitä tuntihistoria",
     "hint_help": "ohje",
     "key_wheel": "rulla",

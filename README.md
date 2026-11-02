@@ -76,7 +76,7 @@ An hourly chart on the scale of a typical year where you are, so a mild day look
 
 The month shows hourly temperatures, with days down the chart and hours across it. Sunrise and sunset trace the changing daylight. Press `m` to compare each hour with the ten-year average, and hover for the numbers. Open it with `--month`, or start with the comparison using `--month-departure`.
 
-It opens on the previous calendar month. Scroll or use the arrows to browse the past ten years and the current year so far; space or `n` returns to the previous calendar month. See [the month view](docs/weather-month.md) for how to read it.
+It opens on the current month, with the hours still to come left blank. Scroll or use the arrows to browse the past ten years and the current year so far; space or `n` returns to the current month. See [the month view](docs/weather-month.md) for how to read it.
 
 ![weather dashboard](screenshots/weather.png)
 

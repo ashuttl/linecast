@@ -118,7 +118,6 @@ HELP = {
     "hint_mode": "mode",
     "weather_views": "forecast / month / year view",
     "month_colors": "temperature / departure from average",
-    "month_home": "previous calendar month",
     "history_refresh": "refresh hourly history",
     "hint_help": "help",
     "key_wheel": "wheel",

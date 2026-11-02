@@ -31,7 +31,6 @@ HELP = {
     "hint_mode": "reĝimo",
     "weather_views": "prognozo / monato / jaro",
     "month_colors": "temperaturo / devio de la mezumo",
-    "month_home": "antaŭa kalendara monato",
     "history_refresh": "ĝisdatigi horan historion",
     "hint_help": "helpo",
     "key_wheel": "rado",

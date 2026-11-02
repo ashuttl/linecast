@@ -520,18 +520,19 @@ gallery() {
         -o "$GALLERY_DIR/weather-day.png" \
         uv --directory "$REPO_DIR" run linecast weather --location "$WEATHER_PLACE"
 
-    # Last month's hourly temperatures for the year view's place, as
-    # --month opens, then the same month as m shows it, each hour against
+    # Last month's hourly temperatures for the year view's place, a step
+    # back from the current month --month opens on so that every day has
+    # its hours, then the same month as m shows it, each hour against
     # its ten-year average, with the pointer on the afternoon of the 10th
     # so the chip that gives the hour, its average, and the difference is
     # in the frame: on 110x40, column 66, row 16. A 31-day month starts a
     # row higher, and the pointer is then on the 11th. As in weather_year,
     # the pointer stops once on the way.
     printf 'Capturing the weather month view…\n'
-    "$CAPTURE_TOOL" -s 110x40 -w 15 --font "$CAPTURE_FONT" \
+    "$CAPTURE_TOOL" -s 110x40 -w 15 --font "$CAPTURE_FONT" --press Left --sleep 1 \
         -o "$GALLERY_DIR/weather-month.png" \
         uv --directory "$REPO_DIR" run linecast weather --month --location "$WEATHER_YEAR_PLACE"
-    "$CAPTURE_TOOL" -s 110x40 -w 15 --font "$CAPTURE_FONT" \
+    "$CAPTURE_TOOL" -s 110x40 -w 15 --font "$CAPTURE_FONT" --press Left --sleep 1 \
         --hover 100x12 --sleep 0.5 --hover 70x16 --sleep 0.7 --hover 66x16 --sleep 1.5 \
         -o "$GALLERY_DIR/weather-month-departure.png" \
         uv --directory "$REPO_DIR" run linecast weather --month-departure --location "$WEATHER_YEAR_PLACE"

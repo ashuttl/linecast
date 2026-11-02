@@ -34,7 +34,6 @@ HELP = {
     "hint_mode": "Modus",
     "weather_views": "Vorhersage / Monat / Jahr",
     "month_colors": "Temperatur / Abweichung vom Mittel",
-    "month_home": "vorheriger Kalendermonat",
     "history_refresh": "stündliche Wetterhistorie aktualisieren",
     "hint_help": "Hilfe",
     "key_wheel": "Rad",

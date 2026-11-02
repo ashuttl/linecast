@@ -50,7 +50,6 @@ HELP = {
     "hint_mode": "حالت",
     "weather_views": "نمای پیش‌بینی / ماه / سال",
     "month_colors": "دما / اختلاف با میانگین",
-    "month_home": "ماه تقویمی قبل",
     "history_refresh": "تازه‌سازی تاریخچهٔ ساعتی",
     "hint_help": "راهنما",
     "key_wheel": "چرخ ماوس",

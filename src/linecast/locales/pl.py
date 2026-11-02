@@ -32,7 +32,6 @@ HELP = {
     "hint_mode": "tryb",
     "weather_views": "prognoza / miesiąc / rok",
     "month_colors": "temperatura / odchylenie od średniej",
-    "month_home": "poprzedni miesiąc kalendarzowy",
     "history_refresh": "odśwież historię godzinową",
     "hint_help": "pomoc",
     "key_wheel": "kółko",

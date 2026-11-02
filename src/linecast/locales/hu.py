@@ -53,7 +53,6 @@ HELP = {
     "hint_mode": "mód",
     "weather_views": "előrejelzés / hónap / év",
     "month_colors": "hőmérséklet / eltérés az átlagtól",
-    "month_home": "előző naptári hónap",
     "history_refresh": "óránkénti előzmények frissítése",
     "hint_help": "súgó",
     "key_wheel": "görgő",

@@ -33,7 +33,6 @@ HELP = {
     "hint_mode": "모드",
     "weather_views": "예보 / 월 / 연 보기",
     "month_colors": "기온 / 평균과의 편차",
-    "month_home": "이전 달력 월",
     "history_refresh": "시간별 기록 새로 고침",
     "hint_help": "도움말",
     "key_wheel": "휠",

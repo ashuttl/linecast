@@ -26,7 +26,6 @@ HELP = {
     "hint_mode": "modo",
     "weather_views": "vista previsión / mes / año",
     "month_colors": "temperatura / desviación de la media",
-    "month_home": "mes natural anterior",
     "history_refresh": "actualizar historial horario",
     "hint_help": "ayuda",
     "key_wheel": "rueda",
