@@ -503,6 +503,37 @@ class TestAViewShortOfATileIsBuiltAgain:
             loaders._terrain_landed[0] = None
 
 
+class TestOneToneTowns:
+    """From BUILTUP_FLAT_BAND the settlement raster paints one violet,
+    over the cells the vector story already marked urban as over bare
+    ground, so a town is never two tones of it."""
+
+    BBOX = (-70.26, 43.66, -70.25, 43.665)   # a few streets: past the band
+
+    def test_urban_cells_take_the_one_tone(self, mending, monkeypatch):
+        from linecast.maps import style
+        gw, hc = 8, 4
+        assert style.band_for(style.z_eff(self.BBOX, hc)) >= style.BUILTUP_FLAT_BAND
+        urban = style.COVER_ORDER.index("urban") + 1
+        suburb = style.COVER_ORDER.index("suburb") + 1
+        cover = [bytearray([urban, 0] * (gw // 2)) for _ in range(hc * 2)]
+        monkeypatch.setattr(loaders, "elevation_grid",
+                            lambda bbox, w, h, camera=None, missing=None:
+                            [[12.0] * w for _ in range(h)])
+        monkeypatch.setattr(loaders, "_tile_water",
+                            lambda *a: (None, None, cover, None))
+        monkeypatch.setattr(loaders, "_builtup_layer",
+                            lambda *a: [[100] * gw for _ in range(hc * 2)])
+        loaders._elev_cache.clear()
+        try:
+            view = loaders._get_elevation(self.BBOX, gw, hc, True)
+            assert all(set(row) == {suburb} for row in view.cover)
+        finally:
+            loaders._elev_cache.clear()
+            loaders._terrain_built[0] = None
+            loaders._terrain_landed[0] = None
+
+
 class TestTheRasterWithoutTiles:
     """The settlement raster is asked beside the street tiles, but not
     when no TileJSON could be had: then there is no tile to fetch, the
