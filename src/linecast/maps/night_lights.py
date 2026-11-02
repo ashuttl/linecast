@@ -55,19 +55,6 @@ def load():
         return ()
 
 
-def _bilinear(level, lat, lon):
-    w, h, pixels = level
-    fx = (lon + 180.0) % 360.0 * w / 360.0 - .5
-    ix = math.floor(fx)
-    x0, x1, tx = ix % w, (ix + 1) % w, fx - ix
-    fy = min(h - 1.0, max(0.0, (90.0 - lat) * h / 180.0 - .5))
-    y0 = int(fy)
-    a, b, ty = y0 * w, min(h - 1, y0 + 1) * w, fy - y0
-    top = pixels[a + x0] * (1 - tx) + pixels[a + x1] * tx
-    bottom = pixels[b + x0] * (1 - tx) + pixels[b + x1] * tx
-    return top * (1 - ty) + bottom * ty
-
-
 def sample(levels, lls, degrees_per_pixel, zs=None, day=None, below=None):
     """Sparse {(x, y): glow} with bilinear and continuous level filtering.
 
@@ -89,10 +76,10 @@ def sample(levels, lls, degrees_per_pixel, zs=None, day=None, below=None):
     cos, radians, log2, sqrt, floor = (math.cos, math.radians, math.log2,
                                        math.sqrt, math.floor)
     out = {}
-    # _bilinear is written out twice below, the same arithmetic in the
-    # same order: every night-side sub-pixel of every drag frame with
-    # the sun on comes through here, and the two calls a sample were a
-    # tenth of the time
+    # The bilinear read is written out in the loop rather than called:
+    # every night-side sub-pixel of every drag frame with the sun on
+    # comes through here, and the calls a sample were a tenth of the
+    # time.  Longitude wraps, latitude clamps to the last row.
     for y, row in enumerate(lls):
         z_row = zs[y] if zs is not None else None
         d_row = day[y] if day is not None else None
@@ -109,18 +96,13 @@ def sample(levels, lls, degrees_per_pixel, zs=None, day=None, below=None):
                 area *= max(.05, z_row[x])
             lod = min(last, max(0.0, log2(base / sqrt(area))))
             lo = int(lod)
-            w, h, pixels = levels[lo]
-            fx = (lon + 180.0) % 360.0 * w / 360.0 - .5
-            ix = floor(fx)
-            x0, x1, tx = ix % w, (ix + 1) % w, fx - ix
-            fy = min(h - 1.0, max(0.0, (90.0 - lat) * h / 180.0 - .5))
-            y0 = int(fy)
-            a, b, ty = y0 * w, min(h - 1, y0 + 1) * w, fy - y0
-            top = pixels[a + x0] * (1 - tx) + pixels[a + x1] * tx
-            bottom = pixels[b + x0] * (1 - tx) + pixels[b + x1] * tx
-            value = top * (1 - ty) + bottom * ty
-            if lo < last:
-                w, h, pixels = levels[lo + 1]
+            # the level the lod sits in, then the one above it where
+            # there is one, blended by the fraction between them
+            value = 0.0
+            for lv in (lo, lo + 1):
+                if lv > last:
+                    break
+                w, h, pixels = levels[lv]
                 fx = (lon + 180.0) % 360.0 * w / 360.0 - .5
                 ix = floor(fx)
                 x0, x1, tx = ix % w, (ix + 1) % w, fx - ix
@@ -129,7 +111,10 @@ def sample(levels, lls, degrees_per_pixel, zs=None, day=None, below=None):
                 a, b, ty = y0 * w, min(h - 1, y0 + 1) * w, fy - y0
                 top = pixels[a + x0] * (1 - tx) + pixels[a + x1] * tx
                 bottom = pixels[b + x0] * (1 - tx) + pixels[b + x1] * tx
-                value += (top * (1 - ty) + bottom * ty - value) * (lod - lo)
+                if lv == lo:
+                    value = top * (1 - ty) + bottom * ty
+                else:
+                    value += (top * (1 - ty) + bottom * ty - value) * (lod - lo)
             # Lift concentrated light enough to read against the night
             # terrain, while sub-code-value averages stay dark.
             if value > 1.0:

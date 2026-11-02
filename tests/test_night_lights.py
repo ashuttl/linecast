@@ -9,13 +9,21 @@ from linecast.maps import globe as _globe
 from linecast.maps import globe_now
 
 
+def _read(level, lat, lon):
+    """One level's bilinear value at (lat, lon), read back through
+    sample()'s curve: a single level pins the lod to it, and a source
+    pixel per screen pixel keeps the opacity at one."""
+    out = _night_lights.sample((level,), [[(lat, lon)]], 0.5 * 360.0 / level[0])
+    return out[0, 0] ** (1 / .65) * 255.0 if out else 0.0
+
+
 def test_bundled_raster_locates_cities_and_keeps_remote_ground_dark():
     levels = _night_lights.load()
     assert len(levels) == 7
     for lat, lon in ((40.7, -74), (51.5, -.1), (35.7, 139.7)):
-        assert _night_lights._bilinear(levels[0], lat, lon) > 150
+        assert _read(levels[0], lat, lon) > 150
     for lat, lon in ((75, -40), (-80, 0), (0, -130), (24, 15)):
-        assert _night_lights._bilinear(levels[0], lat, lon) < 5
+        assert _read(levels[0], lat, lon) < 5
     assert all(0 <= v <= 255 for _, _, pixels in levels for v in pixels)
 
 
@@ -28,9 +36,10 @@ def test_coarse_levels_preserve_mean_instead_of_promoting_peak_light():
 
 def test_bilinear_wraps_longitude_and_clamps_latitude():
     level = (4, 2, bytes((0, 40, 120, 200, 20, 60, 140, 220)))
-    assert [_night_lights._bilinear(level, 0, lon) for lon in (-180, 180, 540)] == [110]*3
-    assert _night_lights._bilinear(level, 90, -135) == 0
-    assert _night_lights._bilinear(level, -90, -135) == 20
+    assert len({_read(level, 0, lon) for lon in (-180, 180, 540)}) == 1
+    assert _read(level, 0, -180) == pytest.approx(110)
+    assert _read(level, 90, -135) == 0
+    assert _read(level, -90, -135) == pytest.approx(20)
 
 
 def test_poles_and_space_have_no_invented_lights():
