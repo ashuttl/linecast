@@ -659,6 +659,11 @@ AEROWAY_COVER = ("runway", "taxiway", "apron")
 # also re-grades urban ground the vector story already claimed, so one
 # city never mixes graded and flat violet.
 COVER_BUILTUP_GRADES = ((84, "core"), (48, "urban"), (18, "suburb"))
+# From this band the raster's pixel is a block of cells, and three
+# grades of it are blotches on a town rather than the shape of a city:
+# the raster paints its lightest grade alone, one tone under the
+# streets the terrain register carries from ROADS_BAND.
+BUILTUP_FLAT_BAND = 4
 
 
 # ---------------------------------------------------------------------------
@@ -794,6 +799,16 @@ CLASS_BANDS = {"country": (0, 2), "state": (1, 3),
 # 2 is the last band where the tiles say more about where the towns
 # are, and it is the first band that keeps them.
 GAZETTEER_BAND = 2
+
+# The band from which the terrain register carries the street map's
+# line work -- its roads, rails and water edges, with their names and
+# their hover -- over the shaded ground.  Zoomed in to a town the
+# relief is a few metres and the hillshade says nothing, and a map of
+# a flat city with no streets on it is a lavender field; the roads are
+# what a reader orients by there, as they are on a satellite view.
+# Band 3 is where the primary roads join the motorways and trunks:
+# about a third of a degree of latitude on a 43-row map.
+ROADS_BAND = 3
 
 SHIELD_MAX_REF = 6           # ref_length above this is not a shield
 SHIELD_CLASSES = ("motorway", "trunk")

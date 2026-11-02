@@ -5,6 +5,7 @@ Notable changes, by release. Notes for the next release collect under **Unreleas
 ## Unreleased
 
 - Maps: Daylight and clouds show on the globe and at continental scale and fade out as you zoom in, so a close-in map is never dark or clouded over without a terminator in frame to say why. Press `S` or `c` as before; the header names them while they show.
+- Maps: Zoomed in to a town, the terrain map carries the street map's roads, railways, and names over the shaded ground, and the pointer names a road as it does on the street map. The built-up tint is one tone there instead of three. A flat city used to be a lavender field with nothing to steer by.
 - Maps: `--view now` brings the header, footer, and labels back when you zoom in to the ground. With the text hidden, the first thing you do to the map shows the keys that bring it back.
 - Live views: Each frame sends the terminal only the rows that changed, so moving the pointer over a map or watching a toast costs a fraction of what it did.
 - Maps: The globe and zoomed-out terrain maps show more of the world's glaciers, such as the icefields along Alaska's southern coast and in the Himalaya, Andes, and Alps, and show them offline.

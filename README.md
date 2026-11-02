@@ -183,7 +183,7 @@ Streets or terrain; press `v` to switch, `/` to search, `D` for directions. Zoom
   <img src="screenshots/maps-terrain.png" width="49%" alt="terrain map of New Zealand, with the seafloor around it">
 </p>
 
-The map decides what to say at every zoom. At block level it names the shops; at city scale, the cove and the bridge; at the state, only the highways and the towns:
+The map decides what to say at every zoom. At block level it names the shops; at city scale, the cove and the bridge; at the state, only the highways and the towns. Zoomed in to a town, the terrain map carries the street map's roads and names over the relief:
 
 <p>
   <img src="screenshots/maps-zoom-blocks.png" width="32%" alt="Portland, Maine, at block level">

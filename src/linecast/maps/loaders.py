@@ -534,6 +534,9 @@ def _get_elevation(bbox, gw, hc, block, window=None):
                 cover = [bytearray(gw) for _ in range(hc * 2)]
             grades = [(lo, _style.COVER_ORDER.index(k) + 1)
                       for lo, k in _style.COVER_BUILTUP_GRADES]
+            if _style.band_for(z) >= _style.BUILTUP_FLAT_BAND:
+                # one tone: the lightest grade from the lowest floor
+                grades = [(grades[-1][0], grades[-1][1])]
             settlement = {gid for _, gid in grades}
             floor = grades[-1][0]
             for crow, brow in zip(cover, bu):

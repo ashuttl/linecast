@@ -275,7 +275,9 @@ class _ShiftedLayer:
 # The newest real view in each register, and the ground every frame is
 # cut from: street as (bbox, graph_w, height_cells, fills, layer,
 # labels), terrain as (bbox, graph_w, height_cells, fill buffer, coast,
-# rivers, elevation, borders, the land and water bits).  The bbox and
+# rivers, elevation, borders, the land and water bits, and from
+# style.ROADS_BAND the street map's layer and labels, or None until
+# they land).  The bbox and
 # the size are the *overscan's* — a view is built a margin wider than
 # the window that asked for it — so a frame whose window falls inside
 # one of these needs nothing fetched at all: at the built view's own
@@ -594,7 +596,8 @@ def _take_landing(view, graph_w, height_cells):
     lbbox, lgw, lhc, lview = landed
     _last_terrain[0] = (
         lbbox, lgw, lhc, _terrain_buffer(lview, lbbox, lgw, lhc),
-        lview.coast, lview.rivers, lview.elev, lview.borders, lview.shore)
+        lview.coast, lview.rivers, lview.elev, lview.borders, lview.shore,
+        None, None)
 
 
 def _flat_frame(view, bbox, graph_w, height_cells, block, motion, cap=None):
@@ -875,10 +878,78 @@ def _load_register(loader, win, block, source, what):
         return empty, False, str(exc)
 
 
+def _roads(win):
+    """Whether this window carries the street map's lines over the
+    ground (style.ROADS_BAND): close in, and drawn from the tiles."""
+    return (not win.wide and style.band_for(style.z_eff(win.bbox, win.height_cells))
+            >= style.ROADS_BAND)
+
+
+def _street_lines(win, block, lang, reserved, source):
+    """(layer, labels) of the street map over `win`'s frame, or (None, None)
+    while they are on their way.
+
+    The same build the street register makes for the frame, under the
+    same key, so switching registers over one window asks for nothing
+    twice.  Live, a view not yet built starts building and answers
+    None; when it lands, the view in hand (`source`) is given it, so
+    every crop after that carries it without asking again.
+    """
+    if source is not None and len(source) > 10 and source[9] is not None:
+        return source[9], source[10]
+    frame = win.frame
+    hint = _overscan.window_hint(frame, win.graph_w, win.height_cells)
+    try:
+        _fills, layer, labels = _get_street(frame.bbox, frame.gw, frame.hc, block,
+                                            lang, reserved or (), window=hint)
+    except Exception as exc:
+        log_failure("maps/vtiles", "street lines over terrain", exc,
+                    fallback="the ground alone")
+        return None, None
+    if layer is None:
+        return None, None
+    if source is not None and _last_terrain[0] is source:
+        _last_terrain[0] = source[:9] + (layer, labels)
+    return layer, labels
+
+
+def _ground_inks(labels):
+    """The street map's labels re-inked for the shaded ground.
+
+    Their inks were chosen against the street map's dark fills: greys
+    at a few brightnesses that read as a ladder of emphasis there and
+    as mist on a lavender town.  Over terrain a grey takes the
+    contrast ink the composer picks per cell, as the gazetteer's names
+    do; a coloured ink -- a shield's, a water name's -- is the thing's
+    own and stays.
+    """
+    out = {}
+    for cell, ov in labels.items():
+        ink = ov[1]
+        if ink is not None and max(ink) - min(ink) < 40:
+            ov = (ov[0], None, *ov[2:])
+        out[cell] = ov
+    return out
+
+
+def _stand_in_layer(prev, layer, bbox, graph_w, height_cells):
+    """A braille layer of the last view carried into this window the
+    way its ground is (`_reproject_terrain`), or None."""
+    if layer is None:
+        return None
+    at = _translation(prev, bbox, graph_w, height_cells)
+    if at is not None:
+        return _shift_cut(layer, at[0], at[1], graph_w, height_cells)
+    m = _reprojection(prev, bbox, graph_w, height_cells)
+    if m is None:
+        return None
+    return _ShiftedLayer(*m.dots(layer.dots, layer.color))
+
+
 def _render_terrain(win, block, pan_offset, mouse_pos, marks, lang,
                     route_layer, show_labels=True, sun=False, clouds=False,
                     source=None, moving=False, show_crosshairs=True,
-                    rotation_labels=None):
+                    rotation_labels=None, reserved=None):
     """(map lines, readout, hover, loading, err) for the hillshaded view.
 
     The terrain register at every zoom.  There is one geometry now —
@@ -900,15 +971,22 @@ def _render_terrain(win, block, pan_offset, mouse_pos, marks, lang,
                                         _TERRAIN_LOAD)
     elev, coast, rivers = view.elev, view.coast, view.rivers
     borders, shore = view.borders, view.shore
+    # close in, the street map's lines and names ride over the ground
+    # (style.ROADS_BAND); they are asked for alongside the ground, and
+    # a frame draws whichever of the two has landed
+    roads = _roads(win)
+    streets = slabels = None
+    if roads:
+        streets, slabels = _street_lines(win, block, lang, reserved, source)
     terrain = None
     if source is not None:
         (_obbox, _ogw, _ohc, terrain, coast, rivers, elev, borders,
-         shore) = source
+         shore) = source[:9]
     elif elev is not None:
         obbox, ogw, ohc = win.frame
         terrain = _terrain_buffer(view, obbox, ogw, ohc, win.wide)
         _last_terrain[0] = (tuple(obbox), ogw, ohc, terrain, coast, rivers,
-                            elev, borders, shore)
+                            elev, borders, shore, streets, slabels)
     exact = None
     if terrain is not None and win.cropping:
         # The window out of the margin.  At the built view's own centre
@@ -937,6 +1015,16 @@ def _render_terrain(win, block, pan_offset, mouse_pos, marks, lang,
                 coast = exact.dots(coast)
             rivers = exact.layer(rivers)
             borders = exact.layer(borders)
+            if streets is not None:
+                # the street map's own crop: names moved by where their
+                # ground now is, the hover index read through the map
+                hover = getattr(streets, "hover", None)
+                slabels, moved = exact.overlays(slabels or {})
+                ink_source = exact.ink_source(streets.dots)
+                streets = exact.layer(streets)
+                if hover is not None:
+                    streets.hover = _overscan.ResampledHover(
+                        hover, exact, moved, ink_source, streets.dots)
         else:
             dx0, dy0 = win.at
             terrain = _overscan.crop_grid(terrain, dx0, dy0 * 2, graph_w,
@@ -949,11 +1037,27 @@ def _render_terrain(win, block, pan_offset, mouse_pos, marks, lang,
                                           height_cells)
             borders = _overscan.crop_layer(borders, dx0, dy0, graph_w,
                                            height_cells)
+            if streets is not None:
+                hover = getattr(streets, "hover", None)
+                slabels = _overscan.crop_overlays(slabels or {}, dx0, dy0,
+                                                  graph_w, height_cells)
+                streets = _overscan.crop_layer(
+                    streets, dx0, dy0, graph_w, height_cells,
+                    hover=(_overscan.CroppedHover(hover, dx0, dy0, graph_w,
+                                                  height_cells, slabels)
+                           if hover is not None else None))
     if terrain is None and loading and _last_terrain[0] is not None:
-        stand_in = _terrain_stand_in(_last_terrain[0], bbox, graph_w,
-                                     height_cells, win.wide)
+        prev = _last_terrain[0]
+        stand_in = _terrain_stand_in(prev, bbox, graph_w, height_cells,
+                                     win.wide)
         if stand_in is not None:
             terrain, coast, rivers, borders = stand_in
+            if roads and streets is None:
+                # the lines go with the ground they were drawn on; the
+                # names stay behind, as the street register's do
+                streets = _stand_in_layer(prev, prev[9] if len(prev) > 9 else None,
+                                          bbox, graph_w, height_cells)
+                slabels = None
     # One list, one placement, at every zoom: the vendored gazetteer
     # through the window's own camera (`maps.places`).  It used to be
     # the flat basemap's rectangle of candidates below the hand-off and
@@ -965,7 +1069,10 @@ def _render_terrain(win, block, pan_offset, mouse_pos, marks, lang,
     # the names are cut for the window, and a stand-in keeps them at
     # every zoom rather than only past the tiles.
     cities = {}
-    if show_labels:
+    if show_labels and slabels is None:
+        # with the street map's names on the ground the gazetteer's
+        # stand down, as they do in the street register past
+        # style.GAZETTEER_BAND: the tiles name the towns and the roads
         cities = _places.terrain_overlays(
             _globe.Camera.for_bbox(bbox, graph_w, height_cells),
             style.band_for(style.z_eff(bbox, height_cells)), lang,
@@ -1000,9 +1107,14 @@ def _render_terrain(win, block, pan_offset, mouse_pos, marks, lang,
             glow=(atmo, glow_lls) if glow_lls is not None else None,
             weight=sky)
     if not show_labels:
-        coast = rivers = borders = None
+        coast = rivers = borders = streets = None
+        slabels = None
 
-    overlays = dict(cities)
+    # the pointer over a road or a name answers as it does on the
+    # street map; over bare ground the elevation answers below
+    hover, _hot, _hot_glyphs = _hover_at(streets, mouse_pos, pan_offset, lang)
+    overlays = _ground_inks(slabels) if slabels else {}
+    overlays.update(cities)
 
     dx, dy = pan_offset
     if dx or dy:
@@ -1011,19 +1123,21 @@ def _render_terrain(win, block, pan_offset, mouse_pos, marks, lang,
             coast = shift_grid(coast, dx, dy, 0)
         rivers = _shift_layer(rivers, dx, dy)
         borders = _shift_layer(borders, dx, dy)
+        streets = _shift_layer(streets, dx, dy)
         route_layer = _shift_layer(route_layer, dx, dy)
     overlays = _place_marks(overlays, marks, dx, dy, graph_w, height_cells,
                             False, show_crosshairs)
     readout = _elev_readout(elev, mouse_pos, dx, dy, graph_w, height_cells,
                             lang, centre=not (sky > 0.0 or win.wide))
 
-    # rivers under the route, which is the order the strokes list means:
-    # a route along a river valley owns the cells it shares.
-    strokes = [s for s in (rivers, route_layer) if s is not None] or None
+    # rivers under the streets under the route, which is the order the
+    # strokes list means: a route along a river valley owns the cells
+    # it shares, and a road crossing a river owns the crossing.
+    strokes = [s for s in (rivers, streets, route_layer) if s is not None] or None
     lines = compose_terrain(None, terrain, overlays, graph_w,
                             height_cells, coast=coast, strokes=strokes,
                             borders=borders)
-    return lines, readout, "", loading, err
+    return lines, readout, hover, loading, err
 
 
 def _terrain_stand_in(prev, bbox, graph_w, height_cells, wide):
@@ -1054,7 +1168,7 @@ def _terrain_stand_in(prev, bbox, graph_w, height_cells, wide):
     if m is None:
         return None
     (_pbbox, _pgw, _phc, pfill, pcoast, privers, _pelev, pborders,
-     _pshore) = prev
+     _pshore) = prev[:9]
     coast = m.dots(pcoast)[0] if pcoast is not None else None
     borders = (_ShiftedLayer(*m.dots(pborders.dots, pborders.color))
                if pborders is not None else None)
@@ -1436,12 +1550,15 @@ def prefetch_view(lat, lon, zoom, view, graph_w, height_cells, lang,
                 frame = _overscan.window_frame(bbox, graph_w,
                                                height_cells)
             hint = _overscan.window_hint(frame, graph_w, height_cells)
+            m_lat, m_lon = marker if marker else (lat, lon)
             if view == "street":
-                m_lat, m_lon = marker if marker else (lat, lon)
                 _get_street(frame.bbox, frame.gw, frame.hc, True, lang,
                             _street_reserved(frame, m_lat, m_lon), hint)
             else:
                 _get_terrain(frame.bbox, frame.gw, frame.hc, True, hint)
+                if _roads(_Window.of(bbox, graph_w, height_cells, frame, _at)):
+                    _get_street(frame.bbox, frame.gw, frame.hc, True, lang,
+                                _street_reserved(frame, m_lat, m_lon), hint)
         except Exception as exc:
             log_failure("maps/prefetch", "destination", exc,
                         fallback="the view loads on arrival")
@@ -1552,8 +1669,10 @@ def render_map(lat, lon, location_name, zoom, marker=None, runtime=None,
         if route_layer is not None and win.cropping:
             route_layer = _overscan.crop_layer(
                 route_layer, at[0], at[1], graph_w, height_cells)
-        extra = ({"reserved": _street_reserved(frame, m_lat, m_lon) if show_text else ()}
-                 if view == "street" else {})
+        # the cells the street build routes its names around, for
+        # either register: terrain carries the street map's names too,
+        # close in (style.ROADS_BAND)
+        extra = {"reserved": _street_reserved(frame, m_lat, m_lon) if show_text else ()}
     map_lines, readout, hover, loading, err = paint(
         win, block, pan_offset, mouse_pos, marks, lang, route_layer,
         show_labels=show_labels, sun=sun, clouds=clouds, source=source,

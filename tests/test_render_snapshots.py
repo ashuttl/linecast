@@ -385,7 +385,7 @@ class TestMapsSnapshot:
         return RuntimeConfig(live=False, icons="emoji", lang="en",
                              oneline=False)
 
-    def _render(self, view, fetch_patch, zoom=0.02):
+    def _render(self, view, fetch_patch, zoom=0.02, *patches):
         from linecast.terminal import color as _color
         from linecast.terminal import theme as _theme
         from linecast.maps import view as maps
@@ -399,6 +399,7 @@ class TestMapsSnapshot:
             patch.dict(maps.compose_map.__globals__,
                        {"color_mode": lambda: "truecolor"}),
             fetch_patch,
+            *patches,
         ]
         for ctx in stack:
             ctx.__enter__()
@@ -428,8 +429,12 @@ class TestMapsSnapshot:
             return maps.TerrainView(grid, _loaders._coast_dots(fine, gw, hc),
                                     None, None, None)
 
+        # and no street lines over it: at this zoom terrain carries the
+        # street map's roads and names (style.ROADS_BAND), which another
+        # snapshot pins; this one is the ground alone
         output = self._render(
-            "terrain", patch.object(maps, "_get_elevation", elevation))
+            "terrain", patch.object(maps, "_get_elevation", elevation), 0.02,
+            patch.object(maps, "_get_street", lambda *a, **k: (None, None, None)))
         assert_snapshot("maps_terrain_80x24.txt", output)
 
     def test_maps_globe_80x24(self):
