@@ -22,6 +22,7 @@ to its queries -- is terminal.keys.
 """
 
 import os
+import re
 import sys
 import threading
 import time as _time
@@ -91,6 +92,22 @@ def frame_body(text):
                    for row, line in enumerate(text.split("\n"), 1))
 
 
+def _frame_parts(body, floating):
+    """(displayed body, displayed floating, terminal size): a frame laid
+    out for the screen, the overlay's shadows resolved against it."""
+    width = _mirror_width()
+    body, floating = _bidi.display(body, width), _bidi.display(floating, width)
+    from linecast.terminal.composition import resolve_shadows
+    from linecast.terminal.framebuffer import get_terminal_size
+    return body, resolve_shadows(body, floating), get_terminal_size()
+
+
+def _clear_below(rows, size):
+    """The erase of everything under a frame of `rows` rows, or "" when
+    the frame fills the screen (see frame_paint)."""
+    return f"\033[{rows + 1};1H\033[J" if rows < size[1] else ""
+
+
 def frame_paint(body, floating=""):
     r"""Everything the live loop writes for one frame, as one string.
 
@@ -110,15 +127,109 @@ def frame_paint(body, floating=""):
     for the duration of the repaint, visible through tmux when updates
     are not presented atomically.
     """
+    body, floating, size = _frame_parts(body, floating)
     rows = body.count("\n") + 1
-    width = _mirror_width()
-    body, floating = _bidi.display(body, width), _bidi.display(floating, width)
-    from linecast.terminal.composition import resolve_shadows
-    from linecast.terminal.framebuffer import get_terminal_size
-    floating = resolve_shadows(body, floating)
-    clear_below = f"\033[{rows + 1};1H\033[J" if rows < get_terminal_size()[1] else ""
-    return (f"{_SYNC_BEGIN}{_AUTOWRAP_OFF}{clear_below}{frame_body(body)}"
+    return (f"{_SYNC_BEGIN}{_AUTOWRAP_OFF}{_clear_below(rows, size)}{frame_body(body)}"
             f"\033[0m{floating}\033[0m{_AUTOWRAP_ON}{_SYNC_END}")
+
+
+# A cursor address inside an overlay: the overlay draws on the screen,
+# rather than only switching a mode, as the mouse-tracking escapes do.
+_ADDRESSES = re.compile(r"\033\[\d+;\d+H")
+# The last escape sequence in a row, and the resets a row may end on.
+_LAST_ESCAPE = re.compile(r"\033\[[0-?]*[ -/]*[@-~](?=[^\033]*$)")
+_RESETS = ("\033[0m", "\033[m")
+
+
+def _row_resets(rows):
+    """For each row, whether the rendition is reset where it ends.
+
+    A row that sets no colour of its own leaves the rendition as the row
+    before it left it; the state before the first row is reset, since
+    every frame ends on a reset.  What this decides is which rows can be
+    repainted alone: a row whose start is reset owes nothing to the row
+    above it, and a run of rows that carry a colour across their
+    boundary is repainted together or not at all.
+    """
+    out = []
+    reset = True
+    for row in rows:
+        m = _LAST_ESCAPE.search(row)
+        if m is not None:
+            reset = m[0] in _RESETS
+        out.append(reset)
+    return out
+
+
+class FramePainter:
+    r"""The live loop's frames, written as the rows that changed.
+
+    A frame is the whole screen, and most frames differ from the one
+    before in a row or two: the header's readout under a moving pointer,
+    a toast, a clock.  A terminal is handed every row of every frame
+    all the same, two hundred kilobytes of colour escapes for a terrain
+    map, and what it spends drawing them is time the next frame waits
+    for.  So the painter keeps the rows of the last frame it wrote and
+    writes the rows that differ, each addressed as frame_body addresses
+    them, inside the same synchronized update.
+
+    Rows are compared as they will be displayed, and a row is written on
+    its own only when the row above it ends on a reset (_row_resets), so
+    that a row never depends on a colour the terminal was left in by
+    some other row.  The whole frame is written when there is nothing to
+    compare it with -- the first frame, and the first after the
+    terminal was handed back and taken again (`forget`) -- when the
+    terminal has changed size, and when the last frame had something
+    floating over the rows, since the rows under an overlay are not what
+    the body says they are.  A frame's own overlay is drawn after its
+    rows, as it always was; the frame after it is written whole.
+    """
+
+    def __init__(self):
+        self.rows = None     # the displayed rows of the last frame written
+        self.size = None     # the terminal's size when they were written
+        self.drawn = False   # whether an overlay drew over them
+
+    def forget(self):
+        """The screen is no longer what was last written: write the next
+        frame whole."""
+        self.rows = None
+
+    def paint(self, body, floating=""):
+        """What to write for this frame, as one string."""
+        body, floating, size = _frame_parts(body, floating)
+        rows = body.split("\n")
+        drawn = bool(_ADDRESSES.search(floating))
+        whole = (self.rows is None or size != self.size or self.drawn
+                 or len(rows) != len(self.rows))
+        if whole:
+            painted = frame_body(body)
+        else:
+            painted = self._changed(rows)
+        self.rows, self.size, self.drawn = rows, size, drawn
+        return (f"{_SYNC_BEGIN}{_AUTOWRAP_OFF}{_clear_below(len(rows), size)}{painted}"
+                f"\033[0m{floating}\033[0m{_AUTOWRAP_ON}{_SYNC_END}")
+
+    def _changed(self, rows):
+        """The rows of `rows` that differ from the last frame's, addressed."""
+        prev = self.rows
+        resets = _row_resets(rows)
+        # Rows are grouped into runs that carry a colour across their
+        # boundary; a run with any row changed in it is written whole,
+        # from a reset, which is the state its first row starts from.
+        out = []
+        start = 0
+        n = len(rows)
+        while start < n:
+            end = start
+            while end + 1 < n and not resets[end]:
+                end += 1
+            if any(rows[i] != prev[i] for i in range(start, end + 1)):
+                out.append("\033[0m")
+                out.extend(f"\033[{i + 1};1H\033[K{rows[i]}"
+                           for i in range(start, end + 1))
+            start = end + 1
+        return "".join(out)
 
 
 def _mirror_width():
@@ -761,6 +872,7 @@ class _LiveLoop:
 
         self.theme = self.term = self.pacing = None
         self.init = self.restore = ""
+        self.painter = FramePainter()
 
     def run(self):
         """Take the terminal, paint frames until the view quits, and give
@@ -808,6 +920,8 @@ class _LiveLoop:
         self.term.set_cbreak()
         sys.stdout.write(self.init)
         sys.stdout.flush()
+        # a fresh alternate screen holds nothing of the last frame
+        self.painter.forget()
 
     def _hold(self):
         """Hold the next frame until the terminal has read the last one
@@ -853,6 +967,7 @@ class _LiveLoop:
         pacing.owed = 0
         sys.stdout.write(self.init)
         sys.stdout.flush()
+        self.painter.forget()
 
     def _paint(self):
         """Render the frame from the state as it stands, and write it."""
@@ -890,7 +1005,7 @@ class _LiveLoop:
             # restore it when the caller's overlay has not done so.
             if "\033[?1003l" not in floating:
                 floating = "\033[?1003h" + floating
-        sys.stdout.write(frame_paint(body, floating) + self.pacing.ask())
+        sys.stdout.write(self.painter.paint(body, floating) + self.pacing.ask())
         sys.stdout.flush()
 
     def _idle(self):

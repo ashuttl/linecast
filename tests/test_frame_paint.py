@@ -120,3 +120,96 @@ class TestFramePaint:
         grid = painted(first + second, cols=6, rows=4)
         assert [''.join(cell[0] for cell in row) for row in grid] == [
             "header", "? help", "      ", "      "]
+
+
+class TestFramePainter:
+    """The live loop writes the rows that changed, and whole frames
+    only where a part would not be the screen."""
+
+    def _painter(self, monkeypatch, lines=6):
+        from linecast.terminal.live import FramePainter
+        monkeypatch.setenv("COLUMNS", "20")
+        monkeypatch.setenv("LINES", str(lines))
+        return FramePainter()
+
+    def test_the_first_frame_is_written_whole(self, monkeypatch):
+        p = self._painter(monkeypatch)
+        assert p.paint("a\nb\nc") == frame_paint("a\nb\nc")
+
+    def test_an_unchanged_frame_writes_no_rows(self, monkeypatch):
+        p = self._painter(monkeypatch)
+        p.paint("a\nb\nc")
+        out = p.paint("a\nb\nc")
+        assert "\033[K" not in out
+        assert out.startswith(_SYNC_BEGIN) and out.endswith(_SYNC_END)
+
+    def test_only_the_changed_row_is_written(self, monkeypatch):
+        p = self._painter(monkeypatch)
+        p.paint("a\nb\nc")
+        out = p.paint("a\nB\nc")
+        assert "\033[2;1H\033[KB" in out
+        assert "\033[1;1H" not in out and "\033[3;1H" not in out
+        # from a reset, the state the row starts from in a whole frame
+        assert out.index("\033[0m") < out.index("\033[2;1H")
+
+    def test_rows_that_carry_a_colour_are_written_together(self, monkeypatch):
+        # the second row sets a colour it never resets, so the rows
+        # under it inherit it: a change to the third repaints the second
+        # with it, and the fourth, which inherits it too
+        p = self._painter(monkeypatch)
+        p.paint("a\n\033[31mb\nc\nd")
+        out = p.paint("a\n\033[31mb\nC\nd")
+        assert "\033[2;1H\033[K\033[31mb" in out
+        assert "\033[3;1H\033[KC" in out
+        assert "\033[4;1H\033[Kd" in out
+        assert "\033[1;1H" not in out
+
+    def test_a_row_that_ends_reset_stands_alone(self, monkeypatch):
+        p = self._painter(monkeypatch)
+        p.paint("a\n\033[31mb\033[0m\nc")
+        out = p.paint("a\n\033[31mb\033[0m\nC")
+        assert "\033[3;1H\033[KC" in out
+        assert "\033[2;1H" not in out
+
+    def test_a_resized_terminal_gets_the_whole_frame(self, monkeypatch):
+        p = self._painter(monkeypatch)
+        p.paint("a\nb\nc")
+        monkeypatch.setenv("COLUMNS", "30")
+        assert p.paint("a\nb\nc") == frame_paint("a\nb\nc")
+
+    def test_a_frame_of_another_height_is_written_whole(self, monkeypatch):
+        p = self._painter(monkeypatch)
+        p.paint("a\nb\nc\nd")
+        out = p.paint("a\nb")
+        assert out == frame_paint("a\nb")
+        assert "\033[3;1H\033[J" in out   # and the rows below are erased
+
+    def test_the_frame_after_an_overlay_is_written_whole(self, monkeypatch):
+        p = self._painter(monkeypatch)
+        p.paint("a\nb\nc")
+        with_chip = p.paint("a\nb\nc", "\033[2;3Hchip")
+        assert "\033[2;3Hchip" in with_chip
+        assert "\033[1;1H" not in with_chip    # the body was unchanged
+        after = p.paint("a\nb\nc")
+        assert frame_body("a\nb\nc") in after    # the rows under it come back
+
+    def test_a_mode_switch_alone_is_not_an_overlay(self, monkeypatch):
+        p = self._painter(monkeypatch)
+        p.paint("a\nb\nc", "\033[?1003h")
+        out = p.paint("a\nb\nc", "\033[?1003h")
+        assert "\033[K" not in out
+
+    def test_forget_writes_the_next_frame_whole(self, monkeypatch):
+        p = self._painter(monkeypatch)
+        p.paint("a\nb\nc")
+        p.forget()
+        assert p.paint("a\nb\nc") == frame_paint("a\nb\nc")
+
+    def test_the_screen_matches_a_whole_repaint(self, monkeypatch):
+        from test_maps_color_runs import painted
+        p = self._painter(monkeypatch, lines=4)
+        first = p.paint("header\nchart\nchart\n? help")
+        second = p.paint("header\nchart\nCHART\n? help")
+        grid = painted(first + second, cols=6, rows=4)
+        assert [''.join(cell[0] for cell in row) for row in grid] == [
+            "header", "chart ", "CHART ", "? help"]
