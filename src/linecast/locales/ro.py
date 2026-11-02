@@ -355,6 +355,8 @@ MAPS = {
     "help_view": "străzi · teren",
     "help_labels": "etichete și linii",
     "help_sky": "lumina zilei · nori",
+    "sky_daylight": "lumina zilei",
+    "sky_clouds": "nori",
     "help_spin": "rotește globul",
     "help_directions": "traseu",
     "help_origin": "setează punctul de plecare",

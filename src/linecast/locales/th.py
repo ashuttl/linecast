@@ -357,6 +357,8 @@ MAPS = {
     "help_view": "ถนน · ภูมิประเทศ",
     "help_labels": "ป้ายชื่อและเส้น",
     "help_sky": "แสงกลางวันและเมฆ",
+    "sky_daylight": "แสงกลางวัน",
+    "sky_clouds": "เมฆ",
     "help_spin": "หมุนลูกโลก",
     "help_directions": "เส้นทาง",
     "help_origin": "ตั้งจุดเริ่มต้น",

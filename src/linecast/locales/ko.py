@@ -392,6 +392,8 @@ MAPS = {
     "help_view": "거리 · 지형",
     "help_labels": "라벨과 선",
     "help_sky": "낮과 밤 · 구름",
+    "sky_daylight": "낮과 밤",
+    "sky_clouds": "구름",
     "help_spin": "지구본 회전",
     "help_directions": "경로",
     "help_origin": "출발지 설정",

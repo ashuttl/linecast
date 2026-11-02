@@ -370,6 +370,8 @@ MAPS = {
     "help_view": "شوارع · تضاريس",
     "help_labels": "تسميات وخطوط",
     "help_sky": "ضوء النهار · الغيوم",
+    "sky_daylight": "ضوء النهار",
+    "sky_clouds": "الغيوم",
     "help_spin": "تدوير الكرة الأرضية",
     "help_directions": "اتجاهات",
     "help_origin": "تحديد نقطة الانطلاق",

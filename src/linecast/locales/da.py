@@ -346,6 +346,8 @@ MAPS = {
     "help_view": "gadekort · terræn",
     "help_labels": "etiketter & linjer",
     "help_sky": "dagslys · skyer",
+    "sky_daylight": "dagslys",
+    "sky_clouds": "skyer",
     "help_spin": "drej globussen",
     "help_directions": "rute",
     "help_origin": "vælg start",

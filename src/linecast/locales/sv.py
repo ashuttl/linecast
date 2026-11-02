@@ -345,6 +345,8 @@ MAPS = {
     "help_view": "gatukarta · terräng",
     "help_labels": "etiketter & linjer",
     "help_sky": "dagsljus · moln",
+    "sky_daylight": "dagsljus",
+    "sky_clouds": "moln",
     "help_spin": "snurra jordgloben",
     "help_directions": "rutt",
     "help_origin": "välj startpunkt",

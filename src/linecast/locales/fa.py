@@ -419,6 +419,8 @@ MAPS = {
     "help_view": "خیابان · عوارض زمین",
     "help_labels": "برچسب\u200cها و خطوط",
     "help_sky": "روشنایی روز · ابرها",
+    "sky_daylight": "روشنایی روز",
+    "sky_clouds": "ابرها",
     "help_spin": "چرخاندن کره",
     "help_directions": "مسیریابی",
     "help_origin": "تعیین مبدأ",

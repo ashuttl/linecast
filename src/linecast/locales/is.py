@@ -357,6 +357,8 @@ MAPS = {
     "help_view": "götukort · landslag",
     "help_labels": "merkingar & línur",
     "help_sky": "dagsbirta · ský",
+    "sky_daylight": "dagsbirta",
+    "sky_clouds": "ský",
     "help_spin": "snúa hnettinum",
     "help_directions": "leið",
     "help_origin": "velja upphafsstað",

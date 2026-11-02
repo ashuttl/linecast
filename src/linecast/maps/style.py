@@ -296,6 +296,21 @@ BAND_EDGES = (4.0, 6.0, 8.0, 10.5, 11.5, 13.0, 14.5)   # 7 cuts -> B0..B7
 # have names.  Terrain opens wide, which is where relief reads.
 DEFAULT_ZOOM = {"street": 0.05, "terrain": 4.0}
 
+# The sky -- daylight and this hour's clouds -- belongs to the planet
+# and to a view wide enough to hold a continent.  Zoomed in past that a
+# cloud pixel is a blot across a valley, and the night side is a dark
+# map with no terminator in frame to say why.  So the sky fades out
+# between these two zooms, in degrees of latitude down the screen, and
+# comes back on the way out; S and c keep their state meanwhile.
+SKY_FADE = (10.0, 20.0)
+
+
+def sky_weight(zoom):
+    """How much of the sky a view this many degrees tall shows: 1 at
+    SKY_FADE's far end and wider, 0 at its near end and closer."""
+    lo, hi = SKY_FADE
+    return max(0.0, min(1.0, (zoom - lo) / (hi - lo)))
+
 # What one + or - press does to the zoom. Prefetch guesses the next
 # view with the same step, so the two share it here rather than each
 # caller keeping its own.

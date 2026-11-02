@@ -348,6 +348,8 @@ MAPS = {
     "help_view": "Karte · Gelände",
     "help_labels": "Beschriftungen & Linien",
     "help_sky": "Tageslicht · Wolken",
+    "sky_daylight": "Tageslicht",
+    "sky_clouds": "Wolken",
     "help_spin": "Globus drehen",
     "help_directions": "Route",
     "help_origin": "Start festlegen",

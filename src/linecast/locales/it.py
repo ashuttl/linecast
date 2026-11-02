@@ -348,6 +348,8 @@ MAPS = {
     "help_view": "stradale · rilievo",
     "help_labels": "etichette & linee",
     "help_sky": "giorno · nuvole",
+    "sky_daylight": "giorno",
+    "sky_clouds": "nuvole",
     "help_spin": "ruota il globo",
     "help_directions": "percorso",
     "help_origin": "scegli la partenza",

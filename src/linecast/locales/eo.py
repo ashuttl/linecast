@@ -356,6 +356,8 @@ MAPS = {
     "help_view": "stratoj · tereno",
     "help_labels": "etikedoj kaj linioj",
     "help_sky": "taglumo · nuboj",
+    "sky_daylight": "taglumo",
+    "sky_clouds": "nuboj",
     "help_spin": "turni la globon",
     "help_directions": "itinero",
     "help_origin": "fiksi deirpunkton",

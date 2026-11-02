@@ -342,6 +342,8 @@ MAPS = {
     "help_view": "街道 · 地形",
     "help_labels": "標籤與線條",
     "help_sky": "晝夜與雲",
+    "sky_daylight": "晝夜",
+    "sky_clouds": "雲",
     "help_spin": "旋轉地球儀",
     "help_directions": "路線",
     "help_origin": "設定出發地",

@@ -395,6 +395,8 @@ MAPS = {
     "help_view": "ulice · teren",
     "help_labels": "etykiety & linie",
     "help_sky": "dzień · chmury",
+    "sky_daylight": "dzień",
+    "sky_clouds": "chmury",
     "help_spin": "obracaj globusem",
     "help_directions": "trasa",
     "help_origin": "ustaw start",

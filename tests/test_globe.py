@@ -642,8 +642,12 @@ class TestStreetRegister:
         real = maps._shade_now
         monkeypatch.setattr(maps, "_shade_now", lambda *a, **k:
                             shaded.append((a, k)) or real(*a, **k))
-        maps._render_street(maps._Window.of((-71.0, 43.0, -70.0, 44.0), gw, hc),
-                            False, (0, 0), None, maps._Marks(), "en", None,
+        # a window wide enough for the sky to paint (style.SKY_FADE),
+        # and still drawn from the tiles
+        bbox = (-80.0, 32.0, -60.0, 52.0)
+        win = maps._Window.of(bbox, gw, hc)
+        assert not win.wide
+        maps._render_street(win, False, (0, 0), None, maps._Marks(), "en", None,
                             sun=True)
         assert asked == []
         assert shaded[0][0][4] == {}           # the lights argument

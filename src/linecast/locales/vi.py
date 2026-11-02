@@ -344,6 +344,8 @@ MAPS = {
     "help_view": "đường phố · địa hình",
     "help_labels": "nhãn và đường nét",
     "help_sky": "ánh sáng ban ngày · mây",
+    "sky_daylight": "ánh sáng ban ngày",
+    "sky_clouds": "mây",
     "help_spin": "xoay quả địa cầu",
     "help_directions": "chỉ đường",
     "help_origin": "đặt điểm đi",

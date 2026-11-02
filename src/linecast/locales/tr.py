@@ -381,6 +381,8 @@ MAPS = {
     "help_view": "sokak · arazi",
     "help_labels": "etiketler ve çizgiler",
     "help_sky": "gün ışığı · bulutlar",
+    "sky_daylight": "gün ışığı",
+    "sky_clouds": "bulutlar",
     "help_spin": "küreyi döndür",
     "help_directions": "yol tarifi",
     "help_origin": "başlangıcı ayarla",

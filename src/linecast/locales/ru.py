@@ -398,6 +398,8 @@ MAPS = {
     "help_view": "улицы · рельеф",
     "help_labels": "подписи и линии",
     "help_sky": "дневной свет · облака",
+    "sky_daylight": "дневной свет",
+    "sky_clouds": "облака",
     "help_spin": "вращать глобус",
     "help_directions": "маршрут",
     "help_origin": "задать точку отправления",

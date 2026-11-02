@@ -401,6 +401,8 @@ MAPS = {
     "help_view": "ulice · terén",
     "help_labels": "popisky a čáry",
     "help_sky": "denní světlo · oblačnost",
+    "sky_daylight": "denní světlo",
+    "sky_clouds": "oblačnost",
     "help_spin": "otáčet glóbem",
     "help_directions": "trasa",
     "help_origin": "nastavit výchozí bod",

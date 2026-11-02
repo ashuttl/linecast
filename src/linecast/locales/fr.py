@@ -380,6 +380,8 @@ MAPS = {
     "help_view": "plan · relief",
     "help_labels": "étiquettes & lignes",
     "help_sky": "jour · nuages",
+    "sky_daylight": "jour",
+    "sky_clouds": "nuages",
     "help_spin": "rotation du globe",
     "help_directions": "itinéraire",
     "help_origin": "choisir le départ",

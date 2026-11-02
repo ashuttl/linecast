@@ -24,7 +24,10 @@ from linecast.maps import style
 from linecast.maps import ui
 from linecast.maps import loaders as _loaders
 from linecast._geo import angle_delta, wrap_lon
-from linecast.terminal.live import LiveApp, Ticker, nudge as _nudge_repaint, print_frame
+from linecast.terminal.live import (
+    LiveApp, Ticker, nudge as _nudge_repaint, overlay, print_frame,
+)
+from linecast.terminal.framebuffer import get_terminal_size
 from linecast.maps.i18n import ms
 from linecast.maps.motion import Flight, ease_in_out, lon_span
 from linecast.maps.search import (
@@ -464,6 +467,11 @@ class MapApp(LiveApp):
         self._rotation_labels = None
         self.sun = sky          # S: daylight shading + night city lights
         self.clouds = sky       # c: this hour's cloud cover
+        # --view now hid the text and the labels for the planet; the
+        # first frame on the ground gives them back, unless the reader
+        # has taken them in hand with t or l meanwhile
+        self._sky_sugar = sky and not show_text
+        self._hinted = False    # the hint for a view with its text hidden
         self.search = ui.SearchState()
         self.routes = ui.RouteState(profile=profile, home=(lat, lon))
         if origin is not None:
@@ -566,6 +574,8 @@ class MapApp(LiveApp):
         return True
 
     def on_action(self, key):
+        if key not in ('t', 'q'):
+            self.hint_hidden()
         if key in ('w', 'a', 's', 'd'):
             gw, hc = self._fit()
             dcol, drow = {'w': (0, hc * PAN_STEP), 'a': (gw * PAN_STEP, 0),
@@ -584,10 +594,12 @@ class MapApp(LiveApp):
             return True
         if key == 't':
             self.text = not self.text
+            self._sky_sugar = False
             self._fit()
             return True
         if key == 'l':
             self.show_labels = not self.show_labels
+            self._sky_sugar = False
             return True
         if key == 'S':
             self.sun = not self.sun
@@ -616,7 +628,21 @@ class MapApp(LiveApp):
             return False  # the first tick is the repaint
         return False
 
+    def hint_hidden(self):
+        """With the header and footer put away there is nothing on
+        screen to say how to get them back, so the first thing the
+        reader does to the map floats the two keys that matter for a
+        moment: t for the text, ? for the rest."""
+        if self.text or self._hinted:
+            return
+        self._hinted = True
+        from linecast.terminal import help as _help
+        cols, _rows = get_terminal_size()
+        self.flash([_help.hint(self.runtime.lang, cols,
+                               controls=(("t", "hide_text"),))], seconds=4.0)
+
     def on_wheel(self, direction, col, row):
+        self.hint_hidden()
         heading = self.camera.zoom_heading()
         return self.zoom_to(heading * (ZOOM_STEP if direction < 0
                                        else 1.0 / ZOOM_STEP),
@@ -800,6 +826,7 @@ class MapApp(LiveApp):
         gw, hc = self._fit()
         cam = self.camera
         if not cam.dragging():
+            self.hint_hidden()
             shift = not recentres(cam.lat, cam.zoom, gw, hc,
                                   self.view == "street")
             warm = not shift and _globe.is_globe(cam.zoom, cam.lat)
@@ -852,6 +879,12 @@ class MapApp(LiveApp):
         # left it.
         gw, hc = self._fit()
         self.camera.view()
+        if self._sky_sugar and not wide_source(self.lat, self.zoom, gw, hc):
+            # off the planet and onto the ground: the launch sugar is
+            # spent, and the header, the footer and the names come back
+            self._sky_sugar = False
+            self.text = self.show_labels = True
+            gw, hc = self._fit()
         if self._spin_pending:
             if not _globe.is_globe(self.zoom, self.lat):
                 self._spin_pending = False
@@ -920,7 +953,7 @@ class MapApp(LiveApp):
                 self._rotation_labels = places.RotationLabels(-SPIN_RATE)
         else:
             self._rotation_labels = None
-        return render_map(
+        frame = render_map(
             lat, lon, self.location_name, zoom,
             marker=self.home, runtime=self.runtime, block=sync,
             pan_offset=self.pan_preview,
@@ -933,6 +966,8 @@ class MapApp(LiveApp):
             sun=self.sun, clouds=self.clouds,
             motion=self.camera.heading(), moving=moving,
             rotation_labels=self._rotation_labels)
+        note = self.flash_overlay(*get_terminal_size())
+        return overlay(frame, note) if note else frame
 
     def run(self):
         if self.routes.dest is not None:

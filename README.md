@@ -176,7 +176,7 @@ The last hour and the next, with US warnings on top. `S` switches to satellite, 
 
 Streets or terrain; press `v` to switch, `/` to search, `D` for directions. Zoom out to the globe, and press `S` for daylight and `c` for clouds. Press `t` to hide the header, footer, and crosshairs and fill the terminal with the map; `--no-text` starts that way. `l` toggles map labels independently.
 
-`linecast maps --view now` opens a full-terminal globe with daylight and clouds, text and labels hidden, slowly rotating. Press `t` to restore the header and footer, `l` for labels, or `r` to stop or resume rotation.
+`linecast maps --view now` opens a full-terminal globe with daylight and clouds, text and labels hidden, slowly rotating. Press `t` to restore the header and footer, `l` for labels, or `r` to stop or resume rotation. Zoom in to the ground and the text and labels come back on their own; the daylight and clouds belong to the planet and fade out as you zoom in past continental scale.
 
 <p align="center">
   <img src="screenshots/maps-street.png" width="49%" alt="street map of Portland, Maine">

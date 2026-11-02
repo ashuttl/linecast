@@ -494,6 +494,8 @@ MAPS = {
     "help_view": "street · terrain",
     "help_labels": "labels & lines",
     "help_sky": "daylight · clouds",
+    "sky_daylight": "daylight",
+    "sky_clouds": "clouds",
     "help_spin": "spin the globe",
     "help_directions": "directions",
     "help_origin": "set origin",

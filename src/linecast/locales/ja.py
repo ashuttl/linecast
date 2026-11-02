@@ -352,6 +352,8 @@ MAPS = {
     "help_view": "街路 · 地形",
     "help_labels": "ラベルと線",
     "help_sky": "昼夜と雲",
+    "sky_daylight": "昼夜",
+    "sky_clouds": "雲",
     "help_spin": "地球儀を回す",
     "help_directions": "経路",
     "help_origin": "出発地を設定",

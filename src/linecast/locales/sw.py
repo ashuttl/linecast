@@ -397,6 +397,8 @@ MAPS = {
     "help_view": "mitaa · mandhari",
     "help_labels": "majina na mistari",
     "help_sky": "mwanga wa mchana · mawingu",
+    "sky_daylight": "mwanga wa mchana",
+    "sky_clouds": "mawingu",
     "help_spin": "zungusha dunia",
     "help_directions": "maelekezo",
     "help_origin": "weka mwanzo",

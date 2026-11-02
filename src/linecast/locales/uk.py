@@ -389,6 +389,8 @@ MAPS = {
     "help_view": "вулиці · рельєф",
     "help_labels": "підписи й лінії",
     "help_sky": "денне світло · хмари",
+    "sky_daylight": "денне світло",
+    "sky_clouds": "хмари",
     "help_spin": "обертати глобус",
     "help_directions": "маршрут",
     "help_origin": "задати відправну точку",

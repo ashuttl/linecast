@@ -501,6 +501,8 @@ MAPS = {
     "help_view": "utca · domborzat",
     "help_labels": "feliratok és vonalak",
     "help_sky": "napfény · felhők",
+    "sky_daylight": "napfény",
+    "sky_clouds": "felhők",
     "help_spin": "a földgömb forgatása",
     "help_directions": "útvonal",
     "help_origin": "kiindulási pont megadása",

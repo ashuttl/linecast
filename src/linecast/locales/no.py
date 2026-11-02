@@ -346,6 +346,8 @@ MAPS = {
     "help_view": "gatekart · terreng",
     "help_labels": "etiketter & linjer",
     "help_sky": "dagslys · skyer",
+    "sky_daylight": "dagslys",
+    "sky_clouds": "skyer",
     "help_spin": "snurr globusen",
     "help_directions": "rute",
     "help_origin": "velg start",

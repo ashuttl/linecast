@@ -346,6 +346,8 @@ MAPS = {
     "help_view": "stratenplan · terrein",
     "help_labels": "labels & lijnen",
     "help_sky": "daglicht · wolken",
+    "sky_daylight": "daglicht",
+    "sky_clouds": "wolken",
     "help_spin": "wereldbol draaien",
     "help_directions": "route",
     "help_origin": "vertrekpunt kiezen",

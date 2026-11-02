@@ -352,6 +352,8 @@ MAPS = {
     "help_view": "calles · relieve",
     "help_labels": "etiquetas & líneas",
     "help_sky": "día · nubes",
+    "sky_daylight": "día",
+    "sky_clouds": "nubes",
     "help_spin": "girar el globo",
     "help_directions": "ruta",
     "help_origin": "elegir origen",

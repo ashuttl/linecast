@@ -972,11 +972,13 @@ def _render_terrain(win, block, pan_offset, mouse_pos, marks, lang,
             rotation=rotation_labels)
     if terrain is None:
         terrain = [[BG_PRIMARY] * graph_w for _ in range(height_cells * 2)]
-    if sun or clouds:
+    sky = style.sky_weight(win.zoom) if (sun or clouds) else 0.0
+    if sky > 0.0:
         # the ground as it is: same sun, same clouds, same city lights,
         # shaded through the same functions at every zoom, because
         # there is only one geometry left to shade.  The stand-in is
-        # shaded where it now is, not where it was drawn.
+        # shaded where it now is, not where it was drawn.  Zoomed in
+        # past the sky's fade there is no sky to shade it with.
         lat0, lon0, zoom = win.lat0, win.lon0, win.zoom
         atmo = glow_lls = None
         if not win.wide:
@@ -995,7 +997,8 @@ def _render_terrain(win, block, pan_offset, mouse_pos, marks, lang,
             (_get_clouds(zoom, height_cells, block) if clouds else None),
             globe_now.city_lights_globe(lat0, lon0, zoom, graph_w,
                                         height_cells * 2) if sun else {},
-            glow=(atmo, glow_lls) if glow_lls is not None else None)
+            glow=(atmo, glow_lls) if glow_lls is not None else None,
+            weight=sky)
     if not show_labels:
         coast = rivers = borders = None
 
@@ -1012,7 +1015,7 @@ def _render_terrain(win, block, pan_offset, mouse_pos, marks, lang,
     overlays = _place_marks(overlays, marks, dx, dy, graph_w, height_cells,
                             False, show_crosshairs)
     readout = _elev_readout(elev, mouse_pos, dx, dy, graph_w, height_cells,
-                            lang, centre=not (sun or win.wide))
+                            lang, centre=not (sky > 0.0 or win.wide))
 
     # rivers under the route, which is the order the strokes list means:
     # a route along a river valley owns the cells it shares.
@@ -1072,7 +1075,8 @@ def _ink_dusk(lls, sun, graph_w, height_cells):
                                height_cells)
 
 
-def _shade_now(buf, lls, sun, canvas, lights, glow=None, night=None):
+def _shade_now(buf, lls, sun, canvas, lights, glow=None, night=None,
+               weight=1.0):
     """A copy of `buf` shaded into the present moment.
 
     The cached buffer stays pristine — daylight moves with the clock,
@@ -1080,7 +1084,13 @@ def _shade_now(buf, lls, sun, canvas, lights, glow=None, night=None):
     the globe's (atmo, limb lls) pair: the rim glow is scattered
     sunlight, so the terminator gates it too.  `night` is the caller's
     own night floor, where the default would leave nothing to see.
+    `weight` is how much of the sky this view shows (style.sky_weight):
+    below 1 the shaded picture is blended back toward the ground as it
+    is, so a zoom through the fade dims and clears by degrees.
     """
+    if weight <= 0.0:
+        return buf
+    pristine = buf
     buf = [row[:] for row in buf]
     sub = globe_now.subsolar() if sun else None
     day = globe_now.daylight(lls, sub) if sun else None
@@ -1090,7 +1100,24 @@ def _shade_now(buf, lls, sun, canvas, lights, glow=None, night=None):
         atmo, glow_lls = glow
         _globe.gate_glow(buf, atmo, globe_now.daylight(glow_lls, sub),
                          BG_PRIMARY)
+    if weight < 1.0:
+        w = weight
+        for prow, row in zip(pristine, buf):
+            for x, (p, c) in enumerate(zip(prow, row)):
+                if c is not p and p is not None and c is not None:
+                    row[x] = (int(p[0] + (c[0] - p[0]) * w),
+                              int(p[1] + (c[1] - p[1]) * w),
+                              int(p[2] + (c[2] - p[2]) * w))
     return buf
+
+
+def _fade_dusk(dusk, weight):
+    """The ink dimming faded with the sky: at weight 1 as it is, at 0
+    none, between them each factor drawn toward 1."""
+    if dusk is None or weight >= 1.0:
+        return dusk
+    return [[None if f is None else tuple(1.0 + (n - 1.0) * weight for n in f)
+             for f in row] for row in dusk]
 
 
 def _hover_at(layer, mouse_pos, pan_offset, lang):
@@ -1197,7 +1224,8 @@ def _render_street(win, block, pan_offset, mouse_pos, marks, lang,
                 [[None] * graph_w for _ in range(height_cells)])
         labels = {}
     dusk = None
-    if sun or clouds:
+    sky = style.sky_weight(win.zoom) if (sun or clouds) else 0.0
+    if sky > 0.0:
         # the sky over the streets: the fills darken and cloud over,
         # the strokes dim with them and the glyphs stay ink.  No city
         # lights — they are terrain's, a picture of where the ground is
@@ -1219,8 +1247,8 @@ def _render_street(win, block, pan_offset, mouse_pos, marks, lang,
             fills, lls, sun,
             (_get_clouds(zoom, height_cells, block) if clouds else None),
             {}, glow=(atmo, glow_lls) if glow_lls is not None else None,
-            night=globe_now.NIGHT_STREET)
-        dusk = _ink_dusk(lls, sun, graph_w, height_cells)
+            night=globe_now.NIGHT_STREET, weight=sky)
+        dusk = _fade_dusk(_ink_dusk(lls, sun, graph_w, height_cells), sky)
 
     hover, hot, hot_glyphs = _hover_at(layer, mouse_pos, pan_offset, lang)
 
@@ -1454,6 +1482,10 @@ def render_map(lat, lon, location_name, zoom, marker=None, runtime=None,
     bbox = bbox_for(lat, lon, zoom, graph_w, height_cells)
     m_lat, m_lon = marker if marker else (lat, lon)
     globe = wide_source(lat, zoom, graph_w, height_cells)
+    # the sky as this view shows it: a toggle left on past the fade is
+    # on, and paints nothing, and nothing here speaks of it
+    sky = style.sky_weight(zoom) > 0.0
+    sun, clouds = sun and sky, clouds and sky
     # A mark is placed by whichever projection the ground under it was
     # drawn by.  Both registers are on the camera at every zoom, so it
     # is the camera's forward projection — except where the box
@@ -1550,8 +1582,13 @@ def render_map(lat, lon, location_name, zoom, marker=None, runtime=None,
              else location_name or f"{lat:.2f}, {lon:.2f}")
     tag = f" · {rs('loading', lang)}" if loading else ""
     # The mode word is the affordance that tells the reader modes exist;
-    # the footer hint supplies the key.
+    # the footer hint supplies the key.  The sky's words follow it while
+    # the sky paints, so a darkened or clouded map says what is over it.
     mode = f" · {ms('mode_' + view, lang)}"
+    if sun:
+        mode += f" · {ms('sky_daylight', lang)}"
+    if clouds:
+        mode += f" · {ms('sky_clouds', lang)}"
 
     def _header(place_str):
         return (f"{fg(*MUTED)}{place_str}{RESET}"

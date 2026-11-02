@@ -1476,3 +1476,106 @@ def test_launch_text_and_now_defaults(monkeypatch, live, flags, text, labels, sk
         assert seen["height"] == (HC if text else ROWS)
     if sky:
         assert seen["zoom"] == maps.max_zoom(COLS, ROWS)
+
+
+class TestNowSugar:
+    """`--view now` hides the text and the labels for the planet; they
+    come back on the ground, unless the reader took them in hand."""
+
+    def _now(self, zoom=120):
+        runtime = types.SimpleNamespace(lang="en", live=True)
+        app = MapApp(runtime, 43.68, -70.37, "Westbrook", zoom, "terrain", True,
+                     "car", show_text=False, show_labels=False, spin=True)
+        app.camera.clock = Clock()
+        return app
+
+    def test_the_planet_keeps_the_text_hidden(self, frames):
+        app = self._now()
+        app.render()
+        assert app.text is False and app.show_labels is False
+
+    def test_the_ground_brings_the_text_and_the_labels_back(self, frames):
+        app = self._now()
+        app.render()
+        app.camera.jump_to(43.68, -70.37, 1.0)
+        app.render()
+        assert app.text is True and app.show_labels is True
+        assert frames[-1]["show_text"] is True
+        assert frames[-1]["show_labels"] is True
+
+    def test_t_pressed_first_keeps_the_readers_choice(self, frames):
+        app = self._now()
+        app.on_action("t")   # shows the text
+        app.on_action("t")   # and hides it again, by hand
+        app.camera.jump_to(43.68, -70.37, 1.0)
+        app.render()
+        assert app.text is False and app.show_labels is False
+
+    def test_l_pressed_first_keeps_the_readers_choice(self, frames):
+        app = self._now()
+        app.on_action("l")
+        app.on_action("l")
+        app.camera.jump_to(43.68, -70.37, 1.0)
+        app.render()
+        assert app.show_labels is False
+
+    def test_no_text_alone_is_not_the_sugar(self, frames):
+        runtime = types.SimpleNamespace(lang="en", live=True)
+        app = MapApp(runtime, 43.68, -70.37, "Westbrook", 120, "terrain", False,
+                     "car", show_text=False)
+        app.camera.clock = Clock()
+        app.camera.jump_to(43.68, -70.37, 1.0)
+        app.render()
+        assert app.text is False
+
+
+class TestHiddenTextHint:
+    """With the text put away, the first gesture floats the keys that
+    bring it back, once."""
+
+    def _hidden(self):
+        runtime = types.SimpleNamespace(lang="en", live=True)
+        app = MapApp(runtime, 43.68, -70.37, "Westbrook", 1.0, "terrain", False,
+                     "car", show_text=False)
+        app.camera.clock = Clock()
+        return app
+
+    def test_the_first_wheel_floats_the_hint(self, frames):
+        app = self._hidden()
+        assert app._flash is None
+        app.on_wheel(1, 40, 10)
+        assert app._flash is not None
+        text = " ".join(app._flash[0])
+        assert "t " in text and "?" in text
+        app.clear_flash()
+
+    def test_the_hint_rides_the_frame(self, frames):
+        app = self._hidden()
+        app.on_wheel(1, 40, 10)
+        out = app.render()
+        assert "\x00" in out and "?" in out.partition("\x00")[2]
+        app.clear_flash()
+
+    def test_only_once(self, frames):
+        app = self._hidden()
+        app.on_wheel(1, 40, 10)
+        app.clear_flash()
+        app.on_action("d")
+        app.on_drag(3, 0, False)
+        assert app._flash is None
+
+    def test_a_drag_or_a_key_counts_too(self, frames):
+        app = self._hidden()
+        app.on_drag(3, 0, False)
+        assert app._flash is not None
+        app.clear_flash()
+
+    def test_with_the_text_shown_there_is_no_hint(self, frames):
+        app = make(zoom=1.0)
+        app.on_wheel(1, 40, 10)
+        assert app._flash is None
+
+    def test_t_itself_needs_no_hint(self, frames):
+        app = self._hidden()
+        app.on_action("t")
+        assert app._flash is None

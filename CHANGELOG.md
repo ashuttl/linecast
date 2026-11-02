@@ -4,6 +4,9 @@ Notable changes, by release. Notes for the next release collect under **Unreleas
 
 ## Unreleased
 
+- Maps: Daylight and clouds show on the globe and at continental scale and fade out as you zoom in, so a close-in map is never dark or clouded over without a terminator in frame to say why. Press `S` or `c` as before; the header names them while they show.
+- Maps: `--view now` brings the header, footer, and labels back when you zoom in to the ground. With the text hidden, the first thing you do to the map shows the keys that bring it back.
+- Live views: Each frame sends the terminal only the rows that changed, so moving the pointer over a map or watching a toast costs a fraction of what it did.
 - Maps: The globe and zoomed-out terrain maps show more of the world's glaciers, such as the icefields along Alaska's southern coast and in the Himalaya, Andes, and Alps, and show them offline.
 - Maps: Terrain maps draw tundra, such as Alaska's North Slope, Canada's Barren Grounds, and the Scandinavian mountains, in tundra colors instead of the green of the forest.
 - Weather: The month view opens on the current month instead of the previous one. Press space or `n` to return to it.

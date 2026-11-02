@@ -393,6 +393,8 @@ MAPS = {
     "help_view": "katukartta · maasto",
     "help_labels": "nimiöt & viivat",
     "help_sky": "päivänvalo · pilvet",
+    "sky_daylight": "päivänvalo",
+    "sky_clouds": "pilvet",
     "help_spin": "pyöritä maapalloa",
     "help_directions": "reitti",
     "help_origin": "valitse lähtöpaikka",

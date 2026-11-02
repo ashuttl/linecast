@@ -363,6 +363,8 @@ MAPS = {
     "help_view": "ruas · relevo",
     "help_labels": "rótulos & linhas",
     "help_sky": "dia · nuvens",
+    "sky_daylight": "dia",
+    "sky_clouds": "nuvens",
     "help_spin": "girar o globo",
     "help_directions": "rota",
     "help_origin": "definir origem",

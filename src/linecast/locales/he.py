@@ -374,6 +374,8 @@ MAPS = {
     "help_view": "רחובות · תבליט",
     "help_labels": "תוויות וקווים",
     "help_sky": "אור יום · עננים",
+    "sky_daylight": "אור יום",
+    "sky_clouds": "עננים",
     "help_spin": "סיבוב הגלובוס",
     "help_directions": "מסלול",
     "help_origin": "הגדרת מוצא",

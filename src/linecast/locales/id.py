@@ -342,6 +342,8 @@ MAPS = {
     "help_view": "jalan · medan",
     "help_labels": "label & garis",
     "help_sky": "siang · awan",
+    "sky_daylight": "siang",
+    "sky_clouds": "awan",
     "help_spin": "putar bola dunia",
     "help_directions": "rute",
     "help_origin": "atur titik awal",

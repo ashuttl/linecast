@@ -737,3 +737,20 @@ def test_module_touches_neither_disk_nor_network():
                       "_vtiles", "_http"):
         assert forbidden not in source, forbidden
     assert math is not None      # stdlib only, and only what it needs
+
+
+class TestSkyWeight:
+    """The sky fades out between the two zooms of SKY_FADE."""
+
+    def test_wide_views_show_the_whole_sky(self):
+        assert ms.sky_weight(ms.SKY_FADE[1]) == 1.0
+        assert ms.sky_weight(130.0) == 1.0
+
+    def test_close_views_show_none(self):
+        assert ms.sky_weight(ms.SKY_FADE[0]) == 0.0
+        assert ms.sky_weight(ms.DEFAULT_ZOOM["terrain"]) == 0.0
+        assert ms.sky_weight(ms.DEFAULT_ZOOM["street"]) == 0.0
+
+    def test_the_fade_is_linear_between(self):
+        lo, hi = ms.SKY_FADE
+        assert ms.sky_weight((lo + hi) / 2) == pytest.approx(0.5)
