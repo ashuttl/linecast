@@ -51,6 +51,7 @@ MOON_PHASES = ["Újhold", "Növő sarló", "Első negyed", "Növő hold",
 HELP = {
     "hint_colors": "színek",
     "hint_mode": "mód",
+    "hint_view": "nézetváltás",
     "weather_views": "előrejelzés / hónap / év",
     "month_colors": "hőmérséklet / eltérés az átlagtól",
     "history_refresh": "óránkénti előzmények frissítése",

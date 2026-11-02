@@ -30,6 +30,7 @@ MOON_PHASES = ["Nymåne", "Voksende månesigd", "Første kvarter", "Voksende må
 HELP = {
     "hint_colors": "farger",
     "hint_mode": "modus",
+    "hint_view": "bytt visning",
     "weather_views": "varsel / måned / år",
     "month_colors": "temperatur / avvik fra gjennomsnitt",
     "history_refresh": "oppdater timehistorikk",

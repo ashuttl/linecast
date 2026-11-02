@@ -32,6 +32,7 @@ MOON_PHASES = ["Nýtt tungl", "Vaxandi hálfmáni", "Fyrsti fjórðungur", "Vaxa
 HELP = {
     "hint_colors": "litir",
     "hint_mode": "hamur",
+    "hint_view": "skipta um sýn",
     "weather_views": "spá / mánuður / ár",
     "month_colors": "hitastig / frávik frá meðaltali",
     "history_refresh": "uppfæra tímagögn",

@@ -46,6 +46,7 @@ MOON_PHASES = ["Nov", "Dorastajúci kosák", "Prvá štvrť", "Dorastajúci Mesi
 HELP = {
     "hint_colors": "farby",
     "hint_mode": "režim",
+    "hint_view": "prepnúť zobrazenie",
     "weather_views": "predpoveď / mesiac / rok",
     "month_colors": "teplota / odchýlka od priemeru",
     "history_refresh": "obnoviť hodinovú históriu",

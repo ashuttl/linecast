@@ -30,6 +30,7 @@ MOON_PHASES = ["Lună nouă", "Semilună crescătoare", "Primul pătrar", "Lună
 HELP = {
     "hint_colors": "culori",
     "hint_mode": "mod",
+    "hint_view": "schimbă vederea",
     "weather_views": "vedere prognoză / lună / an",
     "month_colors": "temperatură / abatere de la medie",
     "history_refresh": "actualizează istoricul orar",

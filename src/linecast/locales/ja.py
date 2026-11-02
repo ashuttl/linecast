@@ -33,6 +33,7 @@ MOON_PHASES = ["新月", "三日月", "上弦", "十三夜",
 HELP = {
     "hint_colors": "配色",
     "hint_mode": "モード",
+    "hint_view": "表示を切り替え",
     "weather_views": "予報 / 月表示 / 年表示",
     "month_colors": "気温 / 平均からの偏差",
     "history_refresh": "時間別の履歴を更新",

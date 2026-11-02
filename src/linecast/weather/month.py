@@ -356,7 +356,7 @@ def render_month(series, first, runtime, lat, lng, label, *, difference=False,
     lines += [""] * layout.footer_gap
     credit = fit(notice, cols - 10) if notice else "Open-Meteo"
     lines.append(footer(f"{fg(*style.DIM_RGB)}{credit}{RESET}", cols, runtime.lang,
-                        controls=(("m", "hint_mode"), ("←→", "months"))))
+                        controls=(("v", "hint_view"), ("m", "hint_mode"), ("←→", "months"))))
     output = "\n".join(lines)
     if hover:
         r, x = hover

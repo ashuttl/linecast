@@ -194,6 +194,9 @@ class TestLiveView:
         assert lines[-1].startswith('Open-Meteo  ')
         assert 'Alerts' not in lines[-1]
 
+    def test_a_wide_window_names_the_view_key(self):
+        assert _render(100, 24)[-1].endswith('v switch view  ? help')
+
     def test_a_narrow_window_keeps_the_forecast_name(self):
         lines = _render(30, 24)
         assert lines[-1].startswith('Open-Meteo  ') and 'Éireann' not in lines[-1]

@@ -31,6 +31,7 @@ MOON_PHASES = ["Nouvelle lune", "Premier croissant", "Premier quartier", "Gibbeu
 HELP = {
     "hint_colors": "couleurs",
     "hint_mode": "mode",
+    "hint_view": "changer de vue",
     "weather_views": "vue prévisions / mois / année",
     "month_colors": "température / écart à la moyenne",
     "history_refresh": "actualiser l’historique horaire",

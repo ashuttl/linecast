@@ -29,6 +29,7 @@ MOON_PHASES = ["Luna nuova", "Falce crescente", "Primo quarto", "Gibbosa crescen
 HELP = {
     "hint_colors": "colori",
     "hint_mode": "modalità",
+    "hint_view": "cambia vista",
     "weather_views": "vista previsioni / mese / anno",
     "month_colors": "temperatura / scarto dalla media",
     "history_refresh": "aggiorna lo storico orario",

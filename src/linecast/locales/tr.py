@@ -30,6 +30,7 @@ MOON_PHASES = ["Yeni Ay", "Büyüyen hilal", "İlk dördün", "Büyüyen şişki
 HELP = {
     "hint_colors": "renkler",
     "hint_mode": "mod",
+    "hint_view": "görünüm değiştir",
     "weather_views": "tahmin / ay / yıl görünümü",
     "month_colors": "sıcaklık / ortalamadan sapma",
     "history_refresh": "saatlik geçmişi yenile",

@@ -116,6 +116,8 @@ HELP = {
     # between hourly temperatures and their departures from the average:
     # a short word for the display mode, not a means of travel
     "hint_mode": "mode",
+    # The footer hint for v, which moves on to the app's next view
+    "hint_view": "switch view",
     "weather_views": "forecast / month / year view",
     "month_colors": "temperature / departure from average",
     "history_refresh": "refresh hourly history",

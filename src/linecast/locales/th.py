@@ -32,6 +32,7 @@ MOON_PHASES = ["จันทร์ดับ", "จันทร์เสี้ย
 HELP = {
     "hint_colors": "สี",
     "hint_mode": "โหมด",
+    "hint_view": "สลับมุมมอง",
     "weather_views": "มุมมองพยากรณ์ / เดือน / ปี",
     "month_colors": "อุณหภูมิ / ส่วนต่างจากค่าเฉลี่ย",
     "history_refresh": "รีเฟรชประวัติรายชั่วโมง",

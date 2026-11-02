@@ -36,6 +36,7 @@ MOON_PHASES = ["Nov", "Dorůstající srpek", "První čtvrť", "Dorůstající 
 HELP = {
     "hint_colors": "barvy",
     "hint_mode": "režim",
+    "hint_view": "přepnout pohled",
     "weather_views": "předpověď / měsíc / rok",
     "month_colors": "teplota / odchylka od průměru",
     "history_refresh": "obnovit hodinovou historii",

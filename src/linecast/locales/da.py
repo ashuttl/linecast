@@ -30,6 +30,7 @@ MOON_PHASES = ["Nymåne", "Tiltagende månesigd", "Første kvarter", "Tiltagende
 HELP = {
     "hint_colors": "farver",
     "hint_mode": "tilstand",
+    "hint_view": "skift visning",
     "weather_views": "udsigt / måned / år",
     "month_colors": "temperatur / afvigelse fra gennemsnit",
     "history_refresh": "opdater timehistorik",

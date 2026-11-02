@@ -32,6 +32,7 @@ MOON_PHASES = ["Neumond", "Zunehmende Sichel", "Erstes Viertel", "Zunehmender Mo
 HELP = {
     "hint_colors": "Farben",
     "hint_mode": "Modus",
+    "hint_view": "Ansicht wechseln",
     "weather_views": "Vorhersage / Monat / Jahr",
     "month_colors": "Temperatur / Abweichung vom Mittel",
     "history_refresh": "stündliche Wetterhistorie aktualisieren",

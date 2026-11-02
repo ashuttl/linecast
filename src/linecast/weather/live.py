@@ -268,7 +268,7 @@ class WeatherApp(LocationMenu, _live.LiveApp):
             location_name=self.location_name, location_menu=True,
             mouse_pos=mouse_pos, live=True, hint=install_banner(),
             footer=credit_row(cols, self.runtime.lang, runtime=self.runtime,
-                              controls=(("c", "hint_colors"),)),
+                              controls=(("v", "hint_view"), ("c", "hint_colors"))),
             colors=COLORS[self.year_colors])
 
     def _fetch_month(self, generation, lat, lng, today):

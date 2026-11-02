@@ -93,11 +93,12 @@ def credit_row(cols, lang, country_code="", observed=None, runtime=None, tz_name
                controls=()):
     """The live view's last row: the data credit at the left, in ink
     fainter than the prose above it, and the help hint at the right.
-    The longest credit that leaves the whole hint its room wins; a
-    window too narrow for any shows the hint alone."""
+    The longest credit that leaves the help hint its room wins, and the
+    controls take what is left; a window too narrow for any shows the
+    hint alone."""
     from linecast.terminal import help as _help
     from linecast.terminal.textwidth import visible_len
-    hint = _help.hint(lang, cols, controls=controls)
+    hint = _help.hint(lang, cols)
     for credit in data_credits(country_code, lang, observed, runtime, tz_name):
         if visible_len(credit) + 2 + visible_len(hint) <= cols:
             return _help.footer(f"{DIM}{credit}{RESET}", cols, lang, controls=controls)
@@ -667,7 +668,8 @@ def render_from_data(data, alerts, runtime, location_name="", offset_minutes=0, 
             lines.append("")
         observed = (data.get("current") or {}).get("observed")
         lines.append(credit_row(cols, runtime.lang, country_code, observed, runtime,
-                                    data.get("timezone", "")))
+                                    data.get("timezone", ""),
+                                    controls=(("v", "hint_view"),)))
 
     # Shorter still than the trimming above could reach: cut the bottom
     # rather than let the terminal scroll the header away.

@@ -29,6 +29,7 @@ MOON_PHASES = ["Novluno", "Kreskanta lunarko", "Unua kvarono", "Kreskanta ĝiba 
 HELP = {
     "hint_colors": "koloroj",
     "hint_mode": "reĝimo",
+    "hint_view": "ŝanĝi vidon",
     "weather_views": "prognozo / monato / jaro",
     "month_colors": "temperaturo / devio de la mezumo",
     "history_refresh": "ĝisdatigi horan historion",

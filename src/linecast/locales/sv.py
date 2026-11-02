@@ -30,6 +30,7 @@ MOON_PHASES = ["Nymåne", "Tilltagande skära", "Första kvarteret", "Tilltagand
 HELP = {
     "hint_colors": "färger",
     "hint_mode": "läge",
+    "hint_view": "byt vy",
     "weather_views": "prognos / månad / år",
     "month_colors": "temperatur / avvikelse från medelvärde",
     "history_refresh": "uppdatera timhistorik",

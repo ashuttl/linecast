@@ -30,6 +30,7 @@ MOON_PHASES = ["Nów", "Sierp rosnący", "Pierwsza kwadra", "Garb rosnący",
 HELP = {
     "hint_colors": "kolory",
     "hint_mode": "tryb",
+    "hint_view": "zmień widok",
     "weather_views": "prognoza / miesiąc / rok",
     "month_colors": "temperatura / odchylenie od średniej",
     "history_refresh": "odśwież historię godzinową",

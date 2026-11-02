@@ -577,7 +577,8 @@ def render(station_id, station_name, station_meta=None, runtime=None,
     else:
         lines.append(f"{dim}{source}{RESET}")
     if fullscreen:
-        lines[-1] = _help.footer(lines[-1], cols, lang_of(runtime))
+        lines[-1] = _help.footer(lines[-1], cols, lang_of(runtime),
+                                 controls=(("v", "hint_view"),))
 
     hint = install_banner()
     if hint:

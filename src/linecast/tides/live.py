@@ -387,7 +387,8 @@ class TidesApp(LocationMenu, _live.LiveApp):
             header = _render_header_line(
                 cols, self.station_name, self.runtime, offset_minutes=self.months,
                 location_menu=True, right="")
-            footer = _help.footer(source, cols, lang, controls=(("←→", "months"),))
+            footer = _help.footer(source, cols, lang,
+                                  controls=(("v", "hint_view"), ("←→", "months")))
             return render_month(first, data[0] if data else None, data[1] if data else None,
                                 self.runtime, header=header, footer=footer,
                                 station_meta=self.station_meta, station_tz=self.station_tz,
@@ -401,7 +402,7 @@ class TidesApp(LocationMenu, _live.LiveApp):
                                            right=right)
 
             return render_makeup(key[2], data, self.runtime, header=header,
-                                 footer=_help.footer(source, cols, lang),
+                                 footer=_help.footer(source, cols, lang, controls=(("v", "hint_view"),)),
                                  station_tz=self.station_tz, now_local=now_local,
                                  mouse_pos=mouse_pos)
         from linecast.tides import year as _year
@@ -417,7 +418,7 @@ class TidesApp(LocationMenu, _live.LiveApp):
             pen, band = fg(*_year.PEN_RGB), fg(*_year.BAND_RGB)
             legend += (f"   {pen}⠤⠒⠉{RESET} {dim}{ts(pen_name, self.runtime)}{RESET}"
                        f"   {band}██{RESET} {dim}{ts('predicted', self.runtime)}{RESET}")
-        footer = _help.footer(legend, cols, lang)
+        footer = _help.footer(legend, cols, lang, controls=(("v", "hint_view"),))
         return _year.render_year(year, predicted, observed, flood, self.runtime,
                                  header=header, footer=footer, today=now_local.date(),
                                  tzinfo=self.station_tz, mouse_pos=mouse_pos,

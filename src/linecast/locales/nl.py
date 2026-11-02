@@ -29,6 +29,7 @@ MOON_PHASES = ["Nieuwe maan", "Wassende sikkel", "Eerste kwartier", "Wassende ma
 HELP = {
     "hint_colors": "kleuren",
     "hint_mode": "modus",
+    "hint_view": "weergave wisselen",
     "weather_views": "verwachting / maand / jaar",
     "month_colors": "temperatuur / afwijking van gemiddelde",
     "history_refresh": "uurhistorie vernieuwen",

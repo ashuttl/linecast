@@ -31,6 +31,7 @@ MOON_PHASES = ["삭", "초승달", "상현달", "차오르는 달",
 HELP = {
     "hint_colors": "색상",
     "hint_mode": "모드",
+    "hint_view": "보기 전환",
     "weather_views": "예보 / 월 / 연 보기",
     "month_colors": "기온 / 평균과의 편차",
     "history_refresh": "시간별 기록 새로 고침",

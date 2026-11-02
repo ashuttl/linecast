@@ -201,6 +201,7 @@ def test_month_fits_and_preserves_the_last_day_and_complete_color_escapes(size, 
     assert "Fri 31" in rendered
     assert "Open-Meteo" in lines[-1]
     assert "←→ move by one month" in lines[-1]
+    assert ("v switch view" in lines[-1]) == (size[0] >= 63)
     assert "\x1b" not in re.sub(r"\x1b\[[0-9;]*m", "", rendered)
 
 

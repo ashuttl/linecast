@@ -29,6 +29,7 @@ MOON_PHASES = ["Lua nova", "Crescente côncava", "Quarto crescente", "Crescente 
 HELP = {
     "hint_colors": "cores",
     "hint_mode": "modo",
+    "hint_view": "mudar visualização",
     "weather_views": "visualização previsão / mês / ano",
     "month_colors": "temperatura / desvio da média",
     "history_refresh": "atualizar histórico horário",

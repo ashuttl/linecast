@@ -48,6 +48,7 @@ MOON_PHASES = ["ماه نو", "هلال افزاینده", "تربیع اول", 
 HELP = {
     "hint_colors": "رنگ‌ها",
     "hint_mode": "حالت",
+    "hint_view": "تغییر نما",
     "weather_views": "نمای پیش‌بینی / ماه / سال",
     "month_colors": "دما / اختلاف با میانگین",
     "history_refresh": "تازه‌سازی تاریخچهٔ ساعتی",

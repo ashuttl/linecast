@@ -29,6 +29,7 @@ MOON_PHASES = ["Bulan baru", "Sabit awal", "Kuarter pertama", "Cembung awal",
 HELP = {
     "hint_colors": "warna",
     "hint_mode": "mode",
+    "hint_view": "ganti tampilan",
     "weather_views": "prakiraan / bulan / tahun",
     "month_colors": "suhu / selisih dari rata-rata",
     "history_refresh": "perbarui riwayat per jam",

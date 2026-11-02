@@ -30,6 +30,7 @@ MOON_PHASES = ["Mwezi mpya", "Hilali inayoongezeka", "Robo ya kwanza", "Mwezi un
 HELP = {
     "hint_colors": "rangi",
     "hint_mode": "hali",
+    "hint_view": "badili mwonekano",
     "weather_views": "utabiri / mwezi / mwaka",
     "month_colors": "halijoto / tofauti na wastani",
     "history_refresh": "sasisha historia ya kila saa",

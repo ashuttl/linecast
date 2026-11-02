@@ -43,6 +43,7 @@ MOON_PHASES = ["Trăng non", "Trăng lưỡi liềm đầu tháng", "Trăng thư
 HELP = {
     "hint_colors": "màu",
     "hint_mode": "chế độ",
+    "hint_view": "đổi chế độ xem",
     "weather_views": "dự báo / tháng / năm",
     "month_colors": "nhiệt độ / độ lệch so với trung bình",
     "history_refresh": "làm mới lịch sử theo giờ",

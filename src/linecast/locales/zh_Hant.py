@@ -31,6 +31,7 @@ MOON_PHASES = ["新月", "眉月", "上弦月", "盈凸月",
 HELP = {
     "hint_colors": "配色",
     "hint_mode": "模式",
+    "hint_view": "切換檢視",
     "weather_views": "預報 / 月檢視 / 年檢視",
     "month_colors": "氣溫 / 與平均值的偏差",
     "history_refresh": "重新整理逐小時歷史資料",
