@@ -27,11 +27,12 @@ the hover index read through the offset.
 """
 
 from collections import namedtuple
-from operator import itemgetter, or_
+from itertools import chain, compress
+from operator import itemgetter
 
 from linecast.maps import globe as _globe
 from linecast.maps.hover import HoverIndex
-from linecast.terminal.braille import DOT_BITS
+from linecast.terminal.braille import CODE_FIRST, DOT_BITS, cells_of, dot_rows, pack_planes
 from linecast.terminal.scenes import Memo
 
 # The margin is a MARGIN'th of the window on each side.  Measured at
@@ -287,19 +288,8 @@ def crop_layer(layer, dx, dy, w, h, hover=None):
                         crop_grid(layer.color, dx, dy, w, h), ribbon, hover)
 
 
-# A braille cell's eight dots, one byte each, by sub-row: unpacking a
-# grid is then a table lookup a cell and a join a dot row.
-_DOT_TABLE = tuple(
-    tuple(bytes(1 if v & DOT_BITS[sx][sy] else 0 for sx in (0, 1))
-          for v in range(256))
-    for sy in range(4))
-
-
-# 1 -> the braille bit, and a packed land/water byte -> one of its two
-# bits: a pass of C over a whole grid where a comprehension would be a
-# pass of Python.
-_WEIGHTS = {bit: bytes((0, bit)) + bytes(254)
-            for col in DOT_BITS for bit in col}
+# A packed land/water byte -> one of its two bits: a pass of C over a
+# whole grid where a comprehension would be a pass of Python.
 _MASKS = {}
 
 
@@ -311,18 +301,17 @@ def _mask_table(mask):
     return table
 
 
-def _dot_bytes(rows):
-    """A braille grid as one byte a dot, row after row, and a blank.
+def getter(index):
+    """`itemgetter` over a whole index, answering a tuple even for one.
 
-    The blank is the last byte, so index -1 — what `crop_index` gives
-    for a sample the built view does not hold — reads as no dot.
+    One gather of the whole grid, sliced into rows after, rather than
+    a gather a row: an `itemgetter` is built from its arguments, and
+    building one a row a frame was most of what the rows cost.
     """
-    out = bytearray()
-    for row in rows:
-        for table in _DOT_TABLE:
-            out += b"".join([table[v] for v in row])
-    out.append(0)
-    return bytes(out)
+    if len(index) == 1:
+        one = itemgetter(index[0])
+        return lambda seq: (one(seq),)
+    return itemgetter(*index)
 
 
 class Resample:
@@ -353,17 +342,18 @@ class Resample:
     """
 
     __slots__ = ("frame", "gw", "hc", "src", "dst", "_sub", "_dot", "_cell",
-                 "_planes", "_bits", "_ink")
+                 "_planes", "_subget", "_dotget", "_codes", "_ink")
 
     def __init__(self, frame, bbox, gw, hc):
         self.frame, self.gw, self.hc = frame, gw, hc
         self.src = _globe.Camera.for_bbox(frame.bbox, frame.gw, frame.hc)
         self.dst = _globe.Camera.for_bbox(bbox, gw, hc)
         self._sub = self._dot = self._cell = self._planes = None
-        # unpacked dot grids and the ink maps taken from them, held by
-        # the grid they came from so the identity they are keyed on
-        # cannot be reused under them
-        self._bits = {}
+        self._subget = self._dotget = None
+        # the braille grids gathered into the window and the ink maps
+        # taken from them, held by the grid they came from so the
+        # identity they are keyed on cannot be reused under them
+        self._codes = {}
         self._ink = {}
 
     # -- the index maps, each built on the first ask ---------------------
@@ -389,8 +379,19 @@ class Resample:
                 self.frame.gw * 2, self.frame.hc * 4)
         return self._dot
 
+    def _sub_getter(self):
+        if self._subget is None:
+            self._subget = getter(self._sub_index())
+        return self._subget
+
+    def _dot_getter(self):
+        if self._dotget is None:
+            self._dotget = getter(self._dot_index())
+        return self._dotget
+
     def _dot_planes(self):
-        """[(bit, [source dot per window cell])] — a cell's eight dots.
+        """[(bit, [source dot per window cell], its gather)] — a cell's
+        eight dots.
 
         The dot index regrouped by where a dot sits inside its cell, so
         a whole plane of the window comes back from one gather and the
@@ -408,22 +409,22 @@ class Resample:
                     for cy in range(hc):
                         base = (4 * cy + sy) * dw
                         idx.extend(flat[base + sx:base + dw:2])
-                    planes.append((DOT_BITS[sx][sy], idx))
+                    planes.append((DOT_BITS[sx][sy], idx, getter(idx)))
             self._planes = planes
         return self._planes
 
     # -- the gathers -----------------------------------------------------
-    def _gather(self, rows, index, w, fill):
-        flat = [v for row in rows for v in row]
+    def _gather(self, rows, get, w, fill):
+        flat = list(chain.from_iterable(rows))
         flat.append(fill)
-        return [list(itemgetter(*index[i:i + w])(flat))
-                for i in range(0, len(index), w)]
+        got = get(flat)
+        return [list(got[i:i + w]) for i in range(0, len(got), w)]
 
     def grid(self, rows, fill):
         """A sub-pixel grid — the shaded fill, the elevation — or None."""
         if rows is None:
             return None
-        return self._gather(rows, self._sub_index(), self.gw, fill)
+        return self._gather(rows, self._sub_getter(), self.gw, fill)
 
     def bits(self, rows, mask):
         """One mask of a dot-pitch packed grid, gathered into the window.
@@ -433,24 +434,41 @@ class Resample:
         moves an area only at its own edge, and cutting the stroke
         again from what comes back gives the shore the window would
         have drawn.
+
+        One bytes a dot row, 1 where the bit is set: the form
+        `braille.edge_dots` takes without a pass over the dots.
         """
         if rows is None:
             return None
         flat = b"".join(rows).translate(_mask_table(mask)) + b"\x00"
-        index, dw = self._dot_index(), self.gw * 2
-        return [list(itemgetter(*index[i:i + dw])(flat))
-                for i in range(0, len(index), dw)]
+        got = bytes(self._dot_getter()(flat))
+        dw = self.gw * 2
+        return [got[i:i + dw] for i in range(0, len(got), dw)]
 
-    def _dot_acc(self, rows):
-        """The window's braille, a byte a cell, flat: the eight planes
-        gathered and or-ed together."""
-        raw = self._raw(rows)
-        acc = None
-        for bit, index in self._dot_planes():
-            # 0 or the bit, in one pass of C over the whole grid
-            plane = itemgetter(*index)(raw.translate(_WEIGHTS[bit]))
-            acc = plane if acc is None else bytes(map(or_, acc, plane))
-        return acc
+    def _code(self, rows):
+        """The window's braille, flat, a code a cell (`braille.CODE_CELL`):
+        the built grid unpacked to a byte a dot, its eight planes each
+        gathered in one pass and or-ed together as one wide int.
+
+        Kept while the grid it was taken from is: a window at rest
+        repaints without moving, and a layer is asked for its dots and
+        its ink in the same frame.
+        """
+        held = self._codes.get(id(rows))
+        if held is None:
+            if len(self._codes) > 8:
+                # a view that landed replaced every grid at once; the
+                # old ones are held only to keep their ids from coming
+                # back under this dict, and that is over
+                self._codes.clear()
+            # the blank is the last byte, so index -1 — what `crop_index`
+            # gives for a sample the built view does not hold — reads as
+            # no dot
+            raw = b"".join(dot_rows(rows, self.frame.gw, self.frame.hc)) + b"\x00"
+            planes = [bytes(get(raw)) for _bit, _idx, get in self._dot_planes()]
+            held = (rows, pack_planes(planes, self.gw * self.hc))
+            self._codes[id(rows)] = held
+        return held[1]
 
     def ink_source(self, rows):
         """Per window cell, the built cell whose ink its braille is.
@@ -466,7 +484,7 @@ class Resample:
         and only a cell with nothing drawn in it falls back to the
         index.
 
-        Kept while the grid it was taken from is, as the unpacked
+        Kept while the grid it was taken from is, as the gathered
         dots are: a window at rest repaints without moving.
         """
         held = self._ink.get(id(rows))
@@ -478,19 +496,14 @@ class Resample:
         return held[1]
 
     def _ink_source(self, rows):
-        acc = self._dot_acc(rows)
+        first = self._code(rows).translate(CODE_FIRST)
         planes = self._dot_planes()
         sgw = self.frame.gw
         sdw = sgw * 2
         src = list(self._cell_index())
-        for i, bits in enumerate(acc):
-            if not bits:
-                continue
-            for bit, index in planes:
-                if bits & bit:
-                    at = index[i]
-                    src[i] = (at // sdw) // 4 * sgw + (at % sdw) // 2
-                    break
+        for i in compress(range(len(first)), first):
+            at = planes[first[i] - 1][1][i]
+            src[i] = (at // sdw) // 4 * sgw + (at % sdw) // 2
         return src
 
     def dots(self, rows):
@@ -515,22 +528,7 @@ class Resample:
         """
         if rows is None:
             return None
-        acc = self._dot_acc(rows)
-        gw = self.gw
-        return [list(acc[y * gw:(y + 1) * gw]) for y in range(self.hc)]
-
-    def _raw(self, rows):
-        """A braille grid unpacked to a byte a dot, kept while it is used."""
-        held = self._bits.get(id(rows))
-        if held is None:
-            if len(self._bits) > 8:
-                # a view that landed replaced every grid at once; the
-                # old ones are held only to keep their ids from coming
-                # back under this dict, and that is over
-                self._bits.clear()
-            held = (rows, _dot_bytes(rows))
-            self._bits[id(rows)] = held
-        return held[1]
+        return cells_of(self._code(rows), self.gw, self.hc)
 
     def layer(self, layer, hover=None):
         """A ranked braille layer through the resample, or None.
@@ -551,10 +549,7 @@ class Resample:
             want = {r * sgw + c for c, r in source}
             ribbon = {(i % gw, i // gw) for i, at in enumerate(src)
                       if at in want}
-        flat = [v for row in layer.color for v in row]
-        flat.append(None)
-        color = [list(itemgetter(*src[i:i + gw])(flat))
-                 for i in range(0, len(src), gw)]
+        color = self._gather(layer.color, getter(src), gw, None)
         return CroppedLayer(self.dots(layer.dots), color, ribbon, hover)
 
     # -- the placements ---------------------------------------------------

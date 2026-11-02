@@ -6,7 +6,15 @@ its bit; line_dots, edge_dots and fill_spans walk lines, shape edges
 and shape interiors at dot resolution for the maps and radar layers;
 build_braille_curve draws the
 multi-row curve graphs of the weather hourly chart and the tides chart.
+
+The second half is a grid a byte a dot: `dot_rows` unpacks a braille
+grid into one bytes a dot row, `pack_dots` packs such rows back into
+cells, and both are passes of C over the whole grid — translate, join,
+slice and the int operators — for the map code that moves whole grids
+at thirty frames a second (`maps.reproject`, `maps.overscan`).
 """
+
+from itertools import chain
 
 # The bit for the dot at (column 0-1, row 0-3) within a cell.
 DOT_BITS = ((0x01, 0x02, 0x04, 0x40), (0x08, 0x10, 0x20, 0x80))
@@ -74,23 +82,103 @@ def edge_dots(is_land, is_water, gw, hc):
     stroke and the colour boundary can never disagree, at any zoom, from
     any data source, and *unknown* samples (in neither mask) are never
     stroked from either side.
+
+    Each dot row is one int with a byte a dot, so a row's four
+    neighbourhoods are two shifts and two ors rather than a test a dot:
+    the whole stroke is a few dozen passes of C over the grid where it
+    was a pass of Python over every dot.
     """
     dh, dw = hc * 4, gw * 2
-    dots = [[0] * gw for _ in range(hc)]
+    land = [int.from_bytes(bit_row(row[:dw]), "big") for row in is_land[:dh]]
+    water = [int.from_bytes(bit_row(row[:dw]), "big") for row in is_water[:dh]]
+    inside = (1 << (8 * dw)) - 1
+    rows = []
     for dy in range(dh):
-        land = is_land[dy]
-        here = is_water[dy]
-        up = is_water[dy - 1] if dy > 0 else None
-        down = is_water[dy + 1] if dy < dh - 1 else None
-        for dx in range(dw):
-            if not land[dx]:
-                continue
-            if ((dx > 0 and here[dx - 1])
-                    or (dx < dw - 1 and here[dx + 1])
-                    or (up is not None and up[dx])
-                    or (down is not None and down[dx])):
-                dots[dy // 4][dx // 2] |= DOT_BITS[dx % 2][dy % 4]
-    return dots
+        here = water[dy]
+        # a byte a dot: a shift of eight bits is a step of one dot, and
+        # the one shifted in from past the east edge is masked off
+        near = (here >> 8) | ((here << 8) & inside)
+        if dy > 0:
+            near |= water[dy - 1]
+        if dy < dh - 1:
+            near |= water[dy + 1]
+        rows.append((land[dy] & near).to_bytes(dw, "big"))
+    return cells_of(pack_dots(rows, gw, hc), gw, hc)
+
+
+# ---------------------------------------------------------------------------
+# A braille grid a byte a dot
+# ---------------------------------------------------------------------------
+# A cell's eight dots are numbered by plane, k = row * 2 + column: the
+# order a grid is scanned in, row by row and left to right within a
+# cell.  A packed grid here is a bytes a cell whose bit k is plane k —
+# the "code" — and CODE_CELL turns a code into the braille cell with the
+# same dots raised.  CODE_LAST and CODE_FIRST name the last and the first
+# plane set in a code, one-based, with 0 for an empty cell: what a
+# caller carrying ink with its dots asks of a cell.
+
+PLANE_BITS = tuple(DOT_BITS[k % 2][k // 2] for k in range(8))
+CODE_CELL = bytes(sum(PLANE_BITS[k] for k in range(8) if code >> k & 1)
+                  for code in range(256))
+CODE_LAST = bytes(code.bit_length() for code in range(256))
+CODE_FIRST = bytes((code & -code).bit_length() for code in range(256))
+
+# a truthy byte -> 1; a cell -> 1 where plane k is set; 1 -> 1 << k
+_ANY = bytes(1 if v else 0 for v in range(256))
+_PLANE = tuple(bytes(1 if v & bit else 0 for v in range(256)) for bit in PLANE_BITS)
+_WEIGHT = tuple(bytes((0, 1 << k)) + bytes(254) for k in range(8))
+
+
+def bit_row(row):
+    """A truthy/falsy row as bytes of 0 and 1.
+
+    Ints and bools pass through `bytes` in C; anything else — None for
+    an unknown sample, a float — goes the long way round.
+    """
+    try:
+        return bytes(row).translate(_ANY)
+    except (TypeError, ValueError):
+        return bytes(1 if v else 0 for v in row)
+
+
+def dot_rows(cells, gw, hc):
+    """A braille grid unpacked: hc*4 bytes, one a dot row, a byte a dot."""
+    flat = bytes(chain.from_iterable(cells))
+    dw = gw * 2
+    out = []
+    for sy in range(4):
+        # the two columns of this dot row across every cell, interleaved
+        row = bytearray(hc * dw)
+        row[0::2] = flat.translate(_PLANE[sy * 2])
+        row[1::2] = flat.translate(_PLANE[sy * 2 + 1])
+        out.append(bytes(row))
+    return [out[sy][cy * dw:(cy + 1) * dw] for cy in range(hc) for sy in range(4)]
+
+
+def pack_dots(rows, gw, hc):
+    """Dot rows (hc*4 bytes of gw*2, a byte a dot, 1 where set) packed
+    to a code a cell: the planes or-ed together as one wide int."""
+    acc = 0
+    for sy in range(4):
+        plane = b"".join(rows[sy::4])
+        for sx in (0, 1):
+            k = sy * 2 + sx
+            acc |= int.from_bytes(plane[sx::2].translate(_WEIGHT[k]), "big")
+    return acc.to_bytes(gw * hc, "big")
+
+
+def pack_planes(planes, n):
+    """Eight planes (bytes of n, 0/1, in plane order) packed to a code a cell."""
+    acc = 0
+    for k, plane in enumerate(planes):
+        acc |= int.from_bytes(plane.translate(_WEIGHT[k]), "big")
+    return acc.to_bytes(n, "big")
+
+
+def cells_of(code, gw, hc):
+    """A code a cell, flat, as the braille grid: hc rows of gw ints."""
+    cells = code.translate(CODE_CELL)
+    return [list(cells[y * gw:(y + 1) * gw]) for y in range(hc)]
 
 
 def interpolate(values, n):

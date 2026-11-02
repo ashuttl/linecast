@@ -63,7 +63,7 @@ from linecast.maps.loaders import (
     fetch_destination, take_street, take_terrain,
 )
 from linecast.radar.basemap import DotLayer
-from linecast.terminal.braille import DOT_BITS, edge_dots
+from linecast.terminal.braille import edge_dots
 from linecast.terminal import theme as _theme
 from linecast.radar.i18n import rs
 from linecast._xyz import bbox_for
@@ -294,143 +294,14 @@ class _ShiftedLayer:
 _last_street = [None]
 _last_terrain = [None]
 
-def _axis_map(n, lo, span, plo, pspan, sub, flip):
-    """For each of n sub-cells along one axis of the new view, which old
-    sub-cell sits under its centre, or -1 for none. `flip` counts from
-    the top, the way rows run."""
-    out = []
-    for i in range(n):
-        f = (i + 0.5) / n
-        v = (lo + span * (1.0 - f)) if flip else (lo + span * f)
-        g = ((plo + pspan - v) if flip else (v - plo)) / pspan
-        j = int(math.floor(g * sub))
-        out.append(j if 0 <= j < sub else -1)
-    return out
+# The axis maps and the carriage itself live in maps.reproject, built
+# for the frame budget; these are the names the rest of this module and
+# the tests have always used for them.
+from linecast.maps import reproject as _reproject  # noqa: E402
 
-
-class _Reprojection:
-    """One flat window resampled into another, axis by axis.
-
-    The view is linear in lon/lat, so each axis maps on its own and a
-    pan, a zoom or any mixture of the two is two lists of indices
-    rather than a per-cell projection. Fills sample the old grid under
-    each new sub-cell. Dots go the other way, old to new, when the view
-    grew: sampling a zoom-out thins a road to specks, where carrying
-    each dot across keeps the line. Zooming in samples, which keeps it
-    solid.
-
-    The two windows need not be the same size in cells: the source is
-    an overscan now, a quarter wider and taller than the frame it was
-    asked for, so every map here counts the source's own sub-cells
-    rather than assuming the target's.
-    """
-    __slots__ = ("gw", "hc", "pgw", "phc", "cols", "rows", "grow", "xs", "ys")
-
-    def __init__(self, gw, hc, pgw, phc, cols, rows, grow, xs, ys):
-        self.gw, self.hc = gw, hc
-        self.pgw, self.phc = pgw, phc
-        self.cols, self.rows = cols, rows
-        self.grow = grow      # the new window is the wider one
-        self.xs, self.ys = xs, ys   # dot maps, whichever way they run
-
-    def fills(self, pfills, ground):
-        """The old sub-pixel colour grid under the new one's cells."""
-        cols, gw = self.cols, self.gw
-        blank = [ground] * gw
-        out = []
-        for r in self.rows:
-            if r < 0:
-                out.append(blank[:])
-                continue
-            src = pfills[r]
-            out.append([ground if c < 0 else src[c] for c in cols])
-        return out
-
-    def dots(self, pdots, pcolor=None):
-        """(dots, color) braille grids carried into the new window.
-
-        `pcolor` is None for a layer that has no ink of its own — the
-        coastline, whose colour the composer decides.
-        """
-        gw, hc = self.gw, self.hc
-        dots = [[0] * gw for _ in range(hc)]
-        color = [[None] * gw for _ in range(hc)]
-        if self.grow:
-            # old dot -> new dot
-            fwd_x, fwd_y = self.xs, self.ys
-            for cy in range(self.phc):
-                prow = pdots[cy]
-                pcrow = pcolor[cy] if pcolor is not None else None
-                for cx in range(self.pgw):
-                    bits = prow[cx]
-                    if not bits:
-                        continue
-                    for sx in (0, 1):
-                        nx = fwd_x[cx * 2 + sx]
-                        if nx < 0:
-                            continue
-                        for sy in range(4):
-                            if not bits & DOT_BITS[sx][sy]:
-                                continue
-                            ny = fwd_y[cy * 4 + sy]
-                            if ny < 0:
-                                continue
-                            ncx, ncy = nx // 2, ny // 4
-                            dots[ncy][ncx] |= DOT_BITS[nx % 2][ny % 4]
-                            if pcrow is not None:
-                                color[ncy][ncx] = pcrow[cx]
-            return dots, color
-        # new dot <- old dot
-        back_x, back_y = self.xs, self.ys
-        for ny, oy in enumerate(back_y):
-            if oy < 0:
-                continue
-            prow = pdots[oy // 4]
-            pcrow = pcolor[oy // 4] if pcolor is not None else None
-            row, crow = dots[ny // 4], color[ny // 4]
-            for nx, ox in enumerate(back_x):
-                if ox < 0:
-                    continue
-                if prow[ox // 2] & DOT_BITS[ox % 2][oy % 4]:
-                    row[nx // 2] |= DOT_BITS[nx % 2][ny % 4]
-                    if pcrow is not None:
-                        crow[nx // 2] = pcrow[ox // 2]
-        return dots, color
-
-
-def _reprojection(prev, bbox, graph_w, height_cells):
-    """The map from `prev`'s window into `bbox`, or None when there is
-    none to make: the very same window, or a degenerate one.
-
-    A source of another size is not one of those any more — an overscan
-    is exactly that, and a terminal that has just been resized still has
-    the ground its last view covered.
-    """
-    pbbox, pgw, phc = prev[0], prev[1], prev[2]
-    if tuple(pbbox) == tuple(bbox) and (pgw, phc) == (graph_w, height_cells):
-        return None
-    if min(pgw, phc, graph_w, height_cells) <= 0:
-        return None
-    minlon, minlat, maxlon, maxlat = _overscan.unwrap(bbox, pbbox)
-    pminlon, pminlat, pmaxlon, pmaxlat = pbbox
-    span_x, span_y = maxlon - minlon, maxlat - minlat
-    pspan_x, pspan_y = pmaxlon - pminlon, pmaxlat - pminlat
-    if min(span_x, span_y, pspan_x, pspan_y) <= 0:
-        return None
-    fh, pfh = height_cells * 2, phc * 2
-    cols = _axis_map(graph_w, minlon, span_x, pminlon, pspan_x, pgw, False)
-    rows = _axis_map(fh, minlat, span_y, pminlat, pspan_y, pfh, True)
-    dw, dh = graph_w * 2, height_cells * 4
-    pdw, pdh = pgw * 2, phc * 4
-    grow = span_x >= pspan_x
-    if grow:
-        xs = _axis_map(pdw, pminlon, pspan_x, minlon, span_x, dw, False)
-        ys = _axis_map(pdh, pminlat, pspan_y, minlat, span_y, dh, True)
-    else:
-        xs = _axis_map(dw, minlon, span_x, pminlon, pspan_x, pdw, False)
-        ys = _axis_map(dh, minlat, span_y, pminlat, pspan_y, pdh, True)
-    return _Reprojection(graph_w, height_cells, pgw, phc, cols, rows, grow,
-                         xs, ys)
+_axis_map = _reproject.axis_map
+_Reprojection = _reproject.Reprojection
+_reprojection = _reproject.reprojection
 
 
 def _translation(prev, bbox, graph_w, height_cells):
