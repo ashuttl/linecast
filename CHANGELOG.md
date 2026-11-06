@@ -4,6 +4,8 @@ Notable changes, by release. Notes for the next release collect under **Unreleas
 
 ## Unreleased
 
+## 2.12.0 — 2026-11-06
+
 Most of this release is the map. Panning, zooming, and turning the globe are smoother, the first frame appears sooner, and the map keeps building while you drag it, so the ground arrives under your hand rather than after you let go. A map that comes to rest after a pan stays put, with its names where they were. Zoomed in to a town, the terrain map carries the street map's roads and names over the relief. The globe's ice and tundra come from better data.
 
 Changes you may notice:
