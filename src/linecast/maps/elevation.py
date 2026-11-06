@@ -136,7 +136,7 @@ def _resample(bbox, w, h, z, timeout, camera=None, missing=None):
     coverage = bbox if camera is None else camera.bounds
     stitched = stitch_xyz(fetch, coverage, z)
     if camera is not None:
-        return _resample_camera(stitched, camera.base(w, h), camera.lon,
+        return _resample_camera(stitched, camera.base(w, h), camera.lon0,
                                 coverage)
     canvas, cw, ch, org_x, org_y, world = stitched
     minlon, minlat, maxlon, maxlat = bbox

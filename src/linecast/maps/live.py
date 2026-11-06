@@ -57,6 +57,14 @@ COAST_CEILING = 4.0       # screens a second a flick may start at
 COAST_GRACE = 0.12        # how stale the last motion may be and still coast
 TRAIL = 0.25              # seconds of drag the flick's speed is read from
 SPIN_RATE = 1.0           # degrees of longitude a second, r
+# How far a plane may be panned over before it is put down and a new
+# one taken up where the window now is (Camera.eye): the degrees north
+# may lean off the vertical at the window's centre, and the degrees of
+# arc the centre may stand from the point under the eye.  Either limit
+# reached, the resting view is drawn looking straight down again — one
+# re-seat, where every drag used to be one.
+LEAN_MAX = 5.0
+ARC_MAX = 12.0
 # How far toward a pole the centre may go.  The tiles end at 85.05°,
 # so a street view centred here is still drawn from them, and a window
 # that reaches past it is drawn from the planet.  The northernmost land
@@ -91,6 +99,15 @@ class Camera:
         self.gw, self.hc = 80, 22         # the map's cells, from the app
         self.zoom_min, self.zoom_max = MIN_ZOOM_DEG, MAX_ZOOM_DEG
         self.spinning = False
+        # The point the view is projected about while a hand, a flick
+        # or the keys pan it: where the window was when the panning
+        # began.  The plane is hung there and the window slides over
+        # it, so every frame of the pan and the view it comes to rest
+        # on are one picture at different offsets (globe.Camera.eye).
+        # None is a window looking straight down at its own centre:
+        # the opening view, a flight's landing, a view that has panned
+        # past LEAN_MAX or ARC_MAX and been put down.
+        self.eye = None
         self._drag_base = None            # (lat, lon) at the press
         self._trail = []                  # (time, lat, lon) through the drag
         self._coast = None                # (vlat, vlon, last time)
@@ -111,6 +128,11 @@ class Camera:
     def coast_destination(self):
         """(lat, lon) a running coast will come to rest at, or None.
 
+        On a plane hung from an eye the resting centre is snapped to a
+        whole cell of it (`_snap`), so the view the coast lands on is a
+        crop of what was built along the way rather than a fraction of
+        a cell off it.
+
         The speed halves on a fixed clock, so the ground still to cover
         is the integral of that decay — a finite distance, known the
         moment the flick leaves the hand.  _advance_coast takes exactly
@@ -122,8 +144,81 @@ class Camera:
         if self._coast is None:
             return None
         vlat, vlon, _last = self._coast
-        return (self._clamp_lat(self.lat + vlat * COAST_REACH),
-                wrap_lon(self.lon + vlon * COAST_REACH))
+        lat, lon = self._snap(self.lat + vlat * COAST_REACH,
+                              wrap_lon(self.lon + vlon * COAST_REACH))
+        return self._clamp_lat(lat), lon
+
+    # -- the plane under a pan -------------------------------------------
+    def _cells_per_unit(self):
+        """(columns, rows) of this window per unit of the eye's plane."""
+        rad = math.radians(self.zoom)
+        r = self.hc / rad
+        return r * 2.0 * _globe._aspect(), r
+
+    def _plane_step(self, lat, lon, dcol, drow):
+        """(lat, lon) `dcol, drow` cells over from (lat, lon) on the eye's
+        plane, or None off its disk or over the latitude limit.
+
+        A drag moves the window by whole cells, and on a plane hung
+        from an eye a whole cell is a whole cell of every view built
+        on it — which is what lets the frame at rest be a crop of the
+        frames before it.
+        """
+        if self.eye is None:
+            return None
+        if not dcol and not drow:
+            return lat, lon     # not a step; and not a round trip's noise
+        elat, elon = self.eye
+        ux, uy, cos_c = _globe.forward(lat, lon, elat, elon)
+        if cos_c <= 0.0:
+            return None
+        rx, r = self._cells_per_unit()
+        at = _globe._unproject(ux - dcol / rx, uy + drow / r,
+                               math.sin(math.radians(elat)),
+                               math.cos(math.radians(elat)))
+        if at is None or abs(at[0]) > LAT_LIMIT:
+            return None
+        return at[0], wrap_lon(elon + at[1])
+
+    def _snap(self, lat, lon):
+        """(lat, lon) moved to the nearest whole cell of the eye's plane,
+        or as given when there is no eye or the point is off its disk."""
+        if self.eye is None:
+            return lat, lon
+        elat, elon = self.eye
+        ux, uy, cos_c = _globe.forward(lat, lon, elat, elon)
+        if cos_c <= 0.0:
+            return lat, lon
+        rx, r = self._cells_per_unit()
+        at = _globe._unproject(round(ux * rx) / rx, round(uy * r) / r,
+                               math.sin(math.radians(elat)),
+                               math.cos(math.radians(elat)))
+        if at is None or abs(at[0]) > LAT_LIMIT:
+            return lat, lon
+        return at[0], wrap_lon(elon + at[1])
+
+    def take_eye(self):
+        """Hang the plane where the window now is, if none is hung.
+
+        Not over the planet: there the geography turns under the hand
+        (`drag`), and the texture it is drawn from is warm at every
+        centre, so nothing is gained by holding one.
+        """
+        if self.eye is None and _globe.local_tiles(self.lat, self.zoom,
+                                                   self.gw, self.hc):
+            self.eye = (self.lat, self.lon)
+
+    def put_down_eye(self):
+        """Look straight down again: a flight, a jump, the planet."""
+        self.eye = None
+
+    def eye_overdrawn(self):
+        """Whether the window has panned past what one plane may carry
+        (LEAN_MAX, ARC_MAX), and the eye should be put down at rest."""
+        if self.eye is None:
+            return False
+        lean, arc = _globe.lean(self.eye[0], self.eye[1], self.lat, self.lon)
+        return lean > LEAN_MAX or arc > ARC_MAX
 
     def heading(self):
         """(east, south) the view is travelling, each -1, 0 or 1.
@@ -239,8 +334,8 @@ class Camera:
             # view already fetched for it, rather than a hair short of
             # it — which at street zoom is another window, and another
             # fetch, for a stop the reader cannot see.
-            self.lat = self._clamp_lat(self.lat + vlat * COAST_REACH)
-            self.lon = wrap_lon(self.lon + vlon * COAST_REACH)
+            self._coast = (vlat, vlon, now)
+            self.lat, self.lon = self.coast_destination()
             self._coast = None
         elif abs(self.lat) >= LAT_LIMIT:
             self._coast = None   # ashore
@@ -263,9 +358,13 @@ class Camera:
         self._drag_base = (self.lat, self.lon)
         self._trail = []
         self._coast = self._zoom = self._pan = self._flight = None
+        self.take_eye()
 
     def _centre_at(self, dcol, drow):
         base_lat, base_lon = self._drag_base
+        on_plane = self._plane_step(base_lat, base_lon, dcol, drow)
+        if on_plane is not None:
+            return on_plane
         lat = self._clamp_lat(base_lat + drow * self.zoom / self.hc)
         lon = wrap_lon(base_lon
                        - dcol * self._span(self.zoom, base_lat) / self.gw)
@@ -368,9 +467,14 @@ class Camera:
         from_lat, from_lon = self.lat, self.lon
         base_lat, base_lon = (self._pan[1] if self._pan is not None
                               else (from_lat, from_lon))
-        to_lat = self._clamp_lat(base_lat + drow * self.zoom / self.hc)
-        to_lon = wrap_lon(base_lon
-                          - dcol * self._span(self.zoom, base_lat) / self.gw)
+        self.take_eye()
+        on_plane = self._plane_step(base_lat, base_lon, dcol, drow)
+        if on_plane is not None:
+            to_lat, to_lon = on_plane
+        else:
+            to_lat = self._clamp_lat(base_lat + drow * self.zoom / self.hc)
+            to_lon = wrap_lon(base_lon
+                              - dcol * self._span(self.zoom, base_lat) / self.gw)
         self._pan = ((from_lat, from_lon), (to_lat, to_lon), self.clock())
         return True
 
@@ -384,6 +488,7 @@ class Camera:
         if (abs(lat - self.lat) < 1e-9 and abs(angle_delta(self.lon, lon)) < 1e-9
                 and abs(zoom - self.zoom) < 1e-12):
             return False
+        self.put_down_eye()
         self._flight = (Flight(self.lat, self.lon, self.zoom, lat, lon, zoom),
                         self.clock())
         return True
@@ -409,6 +514,7 @@ class Camera:
         """Be there now, no motion: an opening frame has nowhere to
         come from."""
         self.halt()
+        self.put_down_eye()
         self.lat = self._clamp_lat(lat)
         self.lon = wrap_lon(lon)
         self.zoom = self._clamp_zoom(zoom)
@@ -726,7 +832,8 @@ class MapApp(LiveApp):
         if dest is None or wide_source(dest[0], self.zoom, gw, hc):
             return   # the planet paints every frame from a warm texture
         prefetch_view(dest[0], dest[1], self.zoom, self.view, gw, hc,
-                      self.runtime.lang, marker=self.home)
+                      self.runtime.lang, marker=self.home,
+                      eye=self.camera.eye)
 
     def help_panel(self):
         from linecast.terminal.help import HelpPanel
@@ -927,6 +1034,14 @@ class MapApp(LiveApp):
         lat, lon, zoom = self.camera.lat, self.camera.lon, self.camera.zoom
         self._prefetch_if_descending()
         moving = self.camera.moving() or self.camera.dragging()
+        # The plane the pan is drawn on.  The planet turns under the
+        # hand and has no use for one; a window at rest that has panned
+        # its plane too far puts it down, and this frame is drawn
+        # looking straight down — the one re-seat a pan pays now.
+        if wide_source(lat, zoom, gw, hc) or (
+                not moving and self.camera.eye_overdrawn()):
+            self.camera.put_down_eye()
+        eye = self.camera.eye
         # The loaders' own path is closed while the view is passing
         # through; the frames in between are cut from the newest real
         # one (maps._reproject_street, maps._reproject_terrain), and
@@ -973,7 +1088,7 @@ class MapApp(LiveApp):
             show_labels=self.show_labels, show_text=self.text,
             sun=self.sun, clouds=self.clouds,
             motion=self.camera.heading(), moving=moving,
-            rotation_labels=self._rotation_labels)
+            rotation_labels=self._rotation_labels, eye=eye)
         note = self.flash_overlay(*get_terminal_size())
         return overlay(frame, note) if note else frame
 

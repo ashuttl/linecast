@@ -146,7 +146,7 @@ def layout(cam, band, lang="en", upper_pop=None, window=None):
     Memoised per view: the list is shared between calls, so read it.
     """
     cities = load_data()["cities"]
-    key = (cam.lat, cam.lon, cam.zoom, cam.gw, cam.hc, cam.aspect,
+    key = (cam.lat, cam.lon, cam.zoom, cam.gw, cam.hc, cam.aspect, cam.eye,
            band, lang, upper_pop, window, id(cities))
     with _layout_lock:
         hit = _layout_cache.get(key)
@@ -171,7 +171,7 @@ def _layout(cities, cam, band, lang, upper_pop, window=None):
         wgw, whc = window
         dx, dy = (cam.gw - wgw) // 2, (cam.hc - whc) // 2
         wcam = _globe.Camera(cam.lat, cam.lon, cam.zoom * whc / cam.hc,
-                             wgw, whc)
+                             wgw, whc, cam.eye)
         for col, row, text, entry in _layout(cities, wcam, band, lang,
                                              upper_pop):
             col, row = col + dx, row + dy
@@ -222,17 +222,21 @@ def _candidates(cities, cam):
     gw, hc = cam.gw, cam.hc
     r = _globe._radius(cam.zoom, hc * 2)
     rx = r * cam.aspect
-    phi0, lam0 = math.radians(cam.lat), math.radians(cam.lon)
+    # the plane is hung from the eye, and the window sits at its own
+    # offset on it (Camera.eye); for a window looking down the eye is
+    # the centre and the offset nothing
+    phi0, lam0 = math.radians(cam.lat0), math.radians(cam.lon0)
     sin0, cos0 = math.sin(phi0), math.cos(phi0)
     vx, vy, vz = cos0 * math.cos(lam0), cos0 * math.sin(lam0), sin0
-    # The farthest from the view centre a placed city can lie: the
-    # screen's own corner, or the visibility gate below, whichever
-    # binds first.  A cell over-generous on purpose — the cap only has
-    # to pass a city on, never to decide about one.
-    rho2 = ((gw / 2.0 + 1.0) / rx) ** 2 + ((hc + 2.0) / r) ** 2
+    # The farthest from the eye a placed city can lie: the screen's
+    # own corner, past the window's place on the plane, or the
+    # visibility gate below, whichever binds first.  A cell
+    # over-generous on purpose — the cap only has to pass a city on,
+    # never to decide about one.
+    rho2 = ((gw / 2.0 + 1.0) / rx + abs(cam.ox)) ** 2 + ((hc + 2.0) / r + abs(cam.oy)) ** 2
     cap = (math.sqrt(1.0 - rho2) if rho2 < 0.96 else 0.2) - 1e-9
     sin, cos = math.sin, math.cos
-    half_w, half_h = gw / 2.0, hc * 2 / 2.0
+    half_w, half_h = gw / 2.0 - cam.ox * rx, hc * 2 / 2.0 + cam.oy * r
 
     for entry, sin_phi, cos_phi, lam, px, py in _city_trig(cities):
         if px * vx + py * vy + sin_phi * vz < cap:
@@ -345,7 +349,7 @@ class RotationLabels:
     @staticmethod
     def _cell(cam, entry, width):
         lon, lat = entry[:2]
-        if _globe.forward(lat, lon, cam.lat, cam.lon)[2] < 0.2:
+        if _globe.forward(lat, lon, cam.lat0, cam.lon0)[2] < 0.2:
             return None
         col, row = map(int, cam.cell(lon, lat))
         if 0 <= col and col + 1 + width <= cam.gw and 0 <= row < cam.hc:

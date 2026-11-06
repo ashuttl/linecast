@@ -274,7 +274,7 @@ def projector(z: int, tx: int, ty: int, extent: int, bbox: tuple[float, float, f
     n = float(1 << z)
     if camera is not None:
         rx, r, sin0, cos0, half_w, half_h = camera.plane(dw, dh)
-        lam0 = math.radians(camera.lon)
+        lam0 = math.radians(camera.lon0)   # the eye's, not the centre's
         turns: dict[float, tuple[float, float]] = {}
         lats: dict[float, tuple[float, float, float]] = {}
 

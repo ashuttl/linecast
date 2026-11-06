@@ -282,24 +282,76 @@ def _project(lat0, zoom, w, h, aspect=1.0):
     return Turned(rows, disk.zs, disk.rhos)
 
 
-def _memo_project(lat0, zoom, w, h):
+def _project_offset(lat0, zoom, w, h, aspect, ox, oy):
+    """`_project` for a grid whose centre sits `(ox, oy)` plane units
+    off the point under the eye.
+
+    A window panning over a plane fixed at an earlier centre (Camera's
+    `eye`) is this: the same sphere, the same turn, and a grid cut from
+    the plane somewhere other than its middle.  Nothing mirrors any
+    more — the samples are not symmetric about the disk's centre — so
+    every visible sample pays its own trig, which a build can afford
+    and a frame never asks for.  The run of visible samples in a row is
+    still one run, the disk being convex.
+    """
+    r = _radius(zoom, h)
+    rx = r * aspect
+    sin0, cos0 = (math.sin(math.radians(lat0)),
+                  math.cos(math.radians(lat0)))
+    sqrt, hypot, atan2, degrees = math.sqrt, math.hypot, math.atan2, math.degrees
+    uxs = [(x + 0.5 - w / 2.0) / rx + ox for x in range(w)]
+    ux2 = [ux * ux for ux in uxs]
+    rows, zs, rhos = [], [], []
+    for y in range(h):
+        uy = (h / 2.0 - y - 0.5) / r + oy
+        uy2 = uy * uy
+        rho2 = [u2 + uy2 for u2 in ux2]
+        rhos.append(list(map(sqrt, rho2)))
+        x0 = 0
+        while x0 < w and rho2[x0] > 1.0:
+            x0 += 1
+        x1 = w
+        while x1 > x0 and rho2[x1 - 1] > 1.0:
+            x1 -= 1
+        n = x1 - x0
+        if n <= 0:
+            rows.append((0, [], []))
+            zs.append([None] * w)
+            continue
+        z = [sqrt(1.0 - q) for q in rho2[x0:x1]]
+        zs.append([None] * x0 + z + [None] * (w - x1))
+        ux = uxs[x0:x1]
+        uyc, uys = uy * cos0, uy * sin0
+        north = [uyc + zz * sin0 for zz in z]
+        equator = [zz * cos0 - uys for zz in z]
+        lats = list(map(degrees, map(atan2, north, map(hypot, ux, equator))))
+        dlons = list(map(degrees, map(atan2, ux, equator)))
+        rows.append((x0, lats, dlons))
+    return Turned(rows, zs, rhos)
+
+
+def _memo_project(lat0, zoom, w, h, offset=(0.0, 0.0)):
     aspect = _aspect()
-    key = (lat0, zoom, w, h, aspect)
+    ox, oy = offset
+    key = (lat0, zoom, w, h, aspect, ox, oy)
     with _memo_lock:
         hit = _geometry_cache.get(key)
     if hit is None:
-        hit = _project(lat0, zoom, w, h, aspect)
+        if ox or oy:
+            hit = _project_offset(lat0, zoom, w, h, aspect, ox, oy)
+        else:
+            hit = _project(lat0, zoom, w, h, aspect)
         with _memo_lock:
             _geometry_cache.put(key, hit)
     return hit
 
 
-def turned(lat0, zoom, w, h):
+def turned(lat0, zoom, w, h, offset=(0.0, 0.0)):
     """The grid at this centre latitude, as a Turned.  Shared; read it."""
-    return _memo_project(lat0, zoom, w, h)
+    return _memo_project(lat0, zoom, w, h, offset)
 
 
-def relative(lat0, zoom, w, h):
+def relative(lat0, zoom, w, h, offset=(0.0, 0.0)):
     """Each sample's (lat, longitude east of the view centre), or None.
 
     geometry() without its one moving part.  What a spin or a sideways
@@ -308,10 +360,10 @@ def relative(lat0, zoom, w, h):
     be worked out once and kept.  Shared between callers: read it,
     don't write it.
     """
-    return _memo_project(lat0, zoom, w, h).base
+    return _memo_project(lat0, zoom, w, h, offset).base
 
 
-def geometry(lat0, lon0, zoom, w, h):
+def geometry(lat0, lon0, zoom, w, h, offset=(0.0, 0.0)):
     """Inverse projection for every sample of a w×h grid over the screen.
 
     Returns (lls, zs, rhos): per sample the (lat, lon) under it (None in
@@ -319,11 +371,17 @@ def geometry(lat0, lon0, zoom, w, h):
     disk, 0 at the limb), and the distance from the disk centre in disk
     radii (space included — the atmosphere needs the near-misses).
 
+    `offset` is where the grid's centre sits on the plane, in plane
+    units off the point under the eye at (lat0, lon0): zero for a
+    window looking straight down, and a window's own plane position
+    for one panning over a plane fixed at an earlier centre
+    (Camera.eye).
+
     lls is fresh per call; zs and rhos do not depend on lon0 and are
     shared with other calls for the same view — read them, don't
     write them.
     """
-    hit = _memo_project(lat0, zoom, w, h)
+    hit = _memo_project(lat0, zoom, w, h, offset)
     lls = []
     for x0, lats, dlons in hit.rows:
         after = w - x0 - len(lats)
@@ -405,7 +463,7 @@ def scale_bbox(lat0, lon0, zoom, gw, hc):
     return (lon0 - span / 2, lat0 - half_lat, lon0 + span / 2, lat0 + half_lat)
 
 
-def bounds(lat0, lon0, zoom, gw, hc, steps=32, pad=True):
+def bounds(lat0, lon0, zoom, gw, hc, steps=32, pad=True, offset=(0.0, 0.0)):
     """A source bbox holding every sample of the window, and a margin.
 
     Longitude is unwrapped about the centre rather than wrapped into
@@ -431,10 +489,14 @@ def bounds(lat0, lon0, zoom, gw, hc, steps=32, pad=True):
     rad = math.radians(zoom)
     ux_max = rad * gw / (4.0 * hc * _aspect())
     uy_max = rad / 2.0
+    ox, oy = offset
     sin0 = math.sin(math.radians(lat0))
     cos0 = math.cos(math.radians(lat0))
-    # the visible pole sits at |uy| = cos lat0, whichever it is
-    if math.hypot(ux_max, uy_max) > 1.0 or cos0 <= uy_max:
+    # the visible pole sits at |uy| = cos lat0, whichever it is; a
+    # window off the point under the eye reaches as far as its own
+    # corner does from there
+    if (math.hypot(abs(ox) + ux_max, abs(oy) + uy_max) > 1.0
+            or cos0 <= abs(oy) + uy_max):
         arc = math.degrees(cap(zoom, gw, hc))
         lo, hi = max(-90.0, lat0 - arc), min(90.0, lat0 + arc)
         sin_cap = math.sin(math.radians(arc))
@@ -447,7 +509,7 @@ def bounds(lat0, lon0, zoom, gw, hc, steps=32, pad=True):
         t = -1.0 + 2.0 * i / steps
         for ux, uy in ((t * ux_max, uy_max), (t * ux_max, -uy_max),
                        (ux_max, t * uy_max), (-ux_max, t * uy_max)):
-            lat, dlon = _unproject(ux, uy, sin0, cos0)
+            lat, dlon = _unproject(ux + ox, uy + oy, sin0, cos0)
             lats.append(lat)
             lons.append(dlon)
     if not pad:
@@ -650,6 +712,23 @@ def turn(src_lat, src_lon, dst_lat, dst_lon):
             (dot(n_s, e_d), dot(n_s, n_d), dot(n_s, o_d)))
 
 
+def lean(eye_lat, eye_lon, lat, lon):
+    """(degrees north at (lat, lon) leans off the plane's vertical, arc
+    from the eye in degrees), on the plane projected about the eye.
+
+    What a window panning over a fixed plane (Camera.eye) pays for not
+    re-centring: at the point under the eye north is up, and a window
+    centred δ east of it on latitude φ sees its meridian turned by
+    about δ·sin φ.  The two numbers are what the live map's camera
+    reads to decide when a plane has been panned far enough to be put
+    down and a new one taken up where the window now is.
+    """
+    (a, _b, _c), (e, _f, _g) = turn(eye_lat, eye_lon, lat, lon)
+    _ux, _uy, cos_c = forward(lat, lon, eye_lat, eye_lon)
+    return (abs(math.degrees(math.atan2(e, a))),
+            math.degrees(math.acos(max(-1.0, min(1.0, cos_c)))))
+
+
 def _grid_plane(cam, dw, dh):
     """(columns, rows) per plane unit for a dw x dh grid over `cam`.
 
@@ -678,22 +757,26 @@ def crop_index(src, dst, dw, dh, sdw, sdh):
     these are the samples the *window* would have taken, found in the
     built view by the rotation between the two (`turn`).
     """
-    key = (src.lat, src.lon, src.zoom, src.gw, src.hc,
-           dst.lat, dst.lon, dst.zoom, dst.gw, dst.hc,
+    key = (src.lat0, src.lon0, src.ox, src.oy, src.zoom, src.gw, src.hc,
+           dst.lat0, dst.lon0, dst.ox, dst.oy, dst.zoom, dst.gw, dst.hc,
            dw, dh, sdw, sdh, _aspect())
     with _memo_lock:
         hit = _crop_index_cache.get(key)
     if hit is not None:
         return hit
-    (a, b, c), (e, f, g) = turn(src.lat, src.lon, dst.lat, dst.lon)
+    # each camera's plane is hung from the point under its eye, and a
+    # window's grid sits at its own offset on that plane
+    (a, b, c), (e, f, g) = turn(src.lat0, src.lon0, dst.lat0, dst.lon0)
     rx, r = _grid_plane(dst, dw, dh)
     srx, sr = _grid_plane(src, sdw, sdh)
     sqrt = math.sqrt
-    uxs = [(x + 0.5 - dw / 2.0) / rx for x in range(dw)]
+    uxs = [(x + 0.5 - dw / 2.0) / rx + dst.ox for x in range(dw)]
     ux2 = [v * v for v in uxs]
+    sx0 = sdw / 2.0 - src.ox * srx
+    sy0 = sdh / 2.0 + src.oy * sr
     out = []
     for y in range(dh):
-        uy = (dh / 2.0 - y - 0.5) / r
+        uy = (dh / 2.0 - y - 0.5) / r + dst.oy
         # the depth is sqrt(1 - ux^2 - uy^2); the row's share of it is
         # constant, so only the column's is taken per sample
         top = 1.0 - uy * uy
@@ -709,8 +792,8 @@ def crop_index(src, dst, dw, dh, sdw, sdh):
             # the bounds are tested before the floor, because int()
             # rounds toward zero and would pull a sample half a cell
             # off the west or north edge back onto it
-            fx = sdw / 2.0 + (a * ux + b_uy + c * z) * srx
-            fy = sdh / 2.0 - (e * ux + f_uy + g * z) * sr
+            fx = sx0 + (a * ux + b_uy + c * z) * srx
+            fy = sy0 - (e * ux + f_uy + g * z) * sr
             if 0.0 <= fx < sdw and 0.0 <= fy < sdh:
                 add(int(fy) * sdw + int(fx))
             else:
@@ -721,6 +804,11 @@ def crop_index(src, dst, dw, dh, sdw, sdh):
     return out
 
 
+# Two centres this close are one: the lat/lon a bbox hands back for
+# its centre is the lat/lon it was made from to the last few bits.
+_SAME_EYE = 1e-9
+
+
 class Camera:
     """One window, as the sources see it.
 
@@ -729,19 +817,42 @@ class Camera:
     it is drawn at, whether the Mercator sources may be asked at all —
     is worked out on the first ask and kept.  A loader takes one of
     these instead of five numbers, and reads the grid it wants off it.
+
+    `eye` is the point the view is projected about.  It is the centre,
+    and None, for a window looking straight down — every window used
+    to.  Under a drag it is where the window was when the hand came
+    down: the plane is hung from that point and stays, and the window
+    slides over it, so two windows that share an eye and a zoom are
+    the same picture at two offsets, and a pan is a translation of
+    what is already drawn rather than a planet re-centred and turned
+    (`crop_dots`).  `lat0`, `lon0` are the eye's coordinates and
+    `(ox, oy)` the window centre's place on its plane; with no eye
+    they are the centre and zero, and every method below is what it
+    was.
     """
 
     __slots__ = ("lat", "lon", "zoom", "gw", "hc", "aspect",
+                 "eye", "lat0", "lon0", "ox", "oy",
                  "_bounds", "_footprint", "_scale", "_local")
 
-    def __init__(self, lat, lon, zoom, gw, hc):
+    def __init__(self, lat, lon, zoom, gw, hc, eye=None):
         self.lat, self.lon, self.zoom = lat, lon, zoom
         self.gw, self.hc = gw, hc
         self.aspect = _aspect()
+        self.eye = None
+        self.lat0, self.lon0, self.ox, self.oy = lat, lon, 0.0, 0.0
+        if eye is not None:
+            elat, elon = eye
+            if (abs(elat - lat) > _SAME_EYE
+                    or abs(wrap_lon(elon - lon)) > _SAME_EYE):
+                ux, uy, cos_c = forward(lat, lon, elat, elon)
+                if cos_c > 0.0:
+                    self.eye = (elat, elon)
+                    self.lat0, self.lon0, self.ox, self.oy = elat, elon, ux, uy
         self._bounds = self._footprint = self._scale = self._local = None
 
     @classmethod
-    def for_bbox(cls, bbox, gw, hc):
+    def for_bbox(cls, bbox, gw, hc, eye=None):
         """The camera a flat view's bbox stands for.
 
         Every caller downstream of `bbox_for` still speaks in bboxes —
@@ -750,13 +861,36 @@ class Camera:
         languages meet here rather than in thirty signatures.
         """
         return cls((bbox[1] + bbox[3]) / 2.0, (bbox[0] + bbox[2]) / 2.0,
-                   bbox[3] - bbox[1], gw, hc)
+                   bbox[3] - bbox[1], gw, hc, eye)
+
+    @property
+    def offset(self):
+        """The window centre's place on the plane, in plane units off
+        the point under the eye; (0, 0) for a window looking down."""
+        return (self.ox, self.oy)
+
+    @property
+    def affine(self):
+        """Whether the flat box rasteriser is this camera's own picture:
+        a window looking straight down, close enough in (`affine_ok`).
+        A window off its eye is never the box, whatever its zoom."""
+        return self.eye is None and affine_ok(self.lat, self.zoom,
+                                              self.gw, self.hc)
+
+    def geometry(self, w, h):
+        """`geometry` for a w×h grid over this window."""
+        return geometry(self.lat0, self.lon0, self.zoom, w, h, self.offset)
+
+    def border_layer(self, color):
+        """`border_layer` over this window."""
+        return border_layer(self.lat0, self.lon0, self.zoom, self.gw,
+                            self.hc, color, self.offset)
 
     @property
     def bounds(self):
         if self._bounds is None:
-            self._bounds = bounds(self.lat, self.lon, self.zoom,
-                                  self.gw, self.hc)
+            self._bounds = bounds(self.lat0, self.lon0, self.zoom,
+                                  self.gw, self.hc, offset=self.offset)
         return self._bounds
 
     @property
@@ -773,8 +907,9 @@ class Camera:
         York asks twelve tiles with it and eight without.
         """
         if self._footprint is None:
-            self._footprint = bounds(self.lat, self.lon, self.zoom,
-                                     self.gw, self.hc, pad=False)
+            self._footprint = bounds(self.lat0, self.lon0, self.zoom,
+                                     self.gw, self.hc, pad=False,
+                                     offset=self.offset)
         return self._footprint
 
     @property
@@ -787,18 +922,30 @@ class Camera:
     @property
     def local_tiles(self):
         if self._local is None:
-            self._local = local_tiles(self.lat, self.zoom, self.gw, self.hc)
+            local = local_tiles(self.lat, self.zoom, self.gw, self.hc)
+            if local and self.eye is not None:
+                # a window off its eye has to stay on the eye's disk
+                # as well: its far corner is the window's own reach
+                # past its place on the plane
+                rad = math.radians(self.zoom)
+                reach = math.hypot(abs(self.ox) + rad * self.gw
+                                   / (4.0 * self.hc * self.aspect),
+                                   abs(self.oy) + rad / 2.0)
+                local = reach < 1.0
+            self._local = local
         return self._local
 
     def base(self, w, h):
-        """The same grid with longitude east of the centre, shared.
+        """The same grid with longitude east of the eye, shared.
 
         `relative`'s memo, which a sampler wants for two reasons: it is
         built once for a view and read by every source, and a longitude
-        measured from the centre is already unwrapped for a footprint
-        that crosses the antimeridian.  Read it, do not write it.
+        measured from the eye is already unwrapped for a footprint
+        that crosses the antimeridian.  Read it, do not write it.  A
+        longitude here is east of `lon0`, which is the centre's only
+        for a window looking straight down.
         """
-        return relative(self.lat, self.zoom, w, h)
+        return relative(self.lat0, self.zoom, w, h, self.offset)
 
     def project(self, lon, lat, dw, dh):
         """(lon, lat) to grid edges on a dw×dh grid over the window.
@@ -810,13 +957,14 @@ class Camera:
         polygon cannot be filled from a ring with holes in it.
         """
         r = _radius(self.zoom, dh)
-        phi, delta = math.radians(lat), math.radians(lon - self.lon)
-        phi0 = math.radians(self.lat)
+        phi, delta = math.radians(lat), math.radians(lon - self.lon0)
+        phi0 = math.radians(self.lat0)
         cos_p = math.cos(phi)
         ux = cos_p * math.sin(delta)
         uy = (math.cos(phi0) * math.sin(phi)
               - math.sin(phi0) * cos_p * math.cos(delta))
-        return (dw / 2.0 + ux * r * self.aspect, dh / 2.0 - uy * r)
+        return (dw / 2.0 + (ux - self.ox) * r * self.aspect,
+                dh / 2.0 - (uy - self.oy) * r)
 
     def cell(self, lon, lat):
         """(column, row) of a point on the window, in cells, as floats.
@@ -837,8 +985,8 @@ class Camera:
         hemisphere, which no window reaches, and the cells outside the
         window, which the flat rasteriser rejects by its bbox.
         """
-        return marker_cell(self.lat, self.lon, self.zoom, self.gw, self.hc,
-                           lat, lon)
+        return marker_cell(self.lat0, self.lon0, self.zoom, self.gw, self.hc,
+                           lat, lon, self.offset)
 
     def ground(self, col, row):
         """(lat, lon) under the middle of a cell, or None off the disk.
@@ -851,13 +999,13 @@ class Camera:
         which is where `cell` puts a point it rounds into that cell.
         """
         r = _radius(self.zoom, self.hc * 2)
-        ux = (col + 0.5 - self.gw / 2.0) / (r * self.aspect)
-        uy = (self.hc - (row + 0.5) * 2.0) / r
-        at = _unproject(ux, uy, math.sin(math.radians(self.lat)),
-                        math.cos(math.radians(self.lat)))
+        ux = (col + 0.5 - self.gw / 2.0) / (r * self.aspect) + self.ox
+        uy = (self.hc - (row + 0.5) * 2.0) / r + self.oy
+        at = _unproject(ux, uy, math.sin(math.radians(self.lat0)),
+                        math.cos(math.radians(self.lat0)))
         if at is None:
             return None
-        return (at[0], wrap_lon(self.lon + at[1]))
+        return (at[0], wrap_lon(self.lon0 + at[1]))
 
     def plane(self, dw, dh):
         """(rx, r, sin lat0, cos lat0, half width, half height) for a grid.
@@ -875,13 +1023,18 @@ class Camera:
         camera affordable on a quarter of a million polygon vertices.
         """
         r = _radius(self.zoom, dh)
-        phi0 = math.radians(self.lat)
+        phi0 = math.radians(self.lat0)
+        # the window's offset on the plane folds into where the grid's
+        # centre is, so a rasteriser places a vertex as it always has
         return (r * self.aspect, r, math.sin(phi0), math.cos(phi0),
-                dw / 2.0, dh / 2.0)
+                dw / 2.0 - self.ox * r * self.aspect,
+                dh / 2.0 + self.oy * r)
 
     def __repr__(self):
+        eye = (f", eye=({self.lat0:.4f}, {self.lon0:.4f})"
+               if self.eye is not None else "")
         return (f"Camera({self.lat:.4f}, {self.lon:.4f}, {self.zoom:.4g}, "
-                f"{self.gw}x{self.hc})")
+                f"{self.gw}x{self.hc}{eye})")
 
 
 _canvas_cache = Memo(keep=2)  # this zoom's canvas and the last one's
@@ -1306,7 +1459,7 @@ def _border_trig():
     return _BORDER_TRIG[1]
 
 
-def border_layer(lat0, lon0, zoom, gw, hc, color):
+def border_layer(lat0, lon0, zoom, gw, hc, color, offset=(0.0, 0.0)):
     """Natural Earth borders stroked onto the sphere as a braille layer.
 
     Both endpoints of a segment must face the viewer, and a segment
@@ -1338,12 +1491,16 @@ def border_layer(lat0, lon0, zoom, gw, hc, color):
     dw, dh = gw * 2, hc * 4
     r = _radius(zoom, dh)
     rx = r * _aspect()
-    cx, cy = dw / 2.0, dh / 2.0
+    ox, oy = offset
+    cx, cy = dw / 2.0 - ox * rx, dh / 2.0 + oy * r
     phi0, lam0 = math.radians(lat0), math.radians(lon0)
     sin0, cos0 = math.sin(phi0), math.cos(phi0)
     vx, vy, vz = cos0 * math.cos(lam0), cos0 * math.sin(lam0), sin0
     sin, cos, sqrt = math.sin, math.cos, math.sqrt
-    view = math.asin(min(1.0, sin(cap(zoom, gw, hc)) / _CHORD_DIP))
+    # the cap is about the eye; a window off it reaches its own cap
+    # further, by its place on the plane
+    view = math.asin(min(1.0, (sin(cap(zoom, gw, hc)) + math.hypot(ox, oy))
+                         / _CHORD_DIP))
     sin_v, cos_v = sin(view), cos(view)
     for pts, bx, by, bz, cos_r in _border_trig():
         if cos_r >= 0.0:
@@ -1496,14 +1653,14 @@ def lake_mask(lat0, lon0, zoom, dw, dh):
     return rows if any_water else None
 
 
-def marker_cell(lat0, lon0, zoom, gw, hc, m_lat, m_lon):
+def marker_cell(lat0, lon0, zoom, gw, hc, m_lat, m_lon, offset=(0.0, 0.0)):
     """Terminal (col, row) under a lat/lon, or None if hidden or off-screen."""
     ux, uy, cos_c = forward(m_lat, m_lon, lat0, lon0)
     if cos_c <= 0.0:
         return None  # the far hemisphere
     r = _radius(zoom, hc * 2)
-    col = int(gw / 2.0 + ux * r * _aspect())
-    row = int((hc * 2 / 2.0 - uy * r) / 2.0)
+    col = int(gw / 2.0 + (ux - offset[0]) * r * _aspect())
+    row = int((hc * 2 / 2.0 - (uy - offset[1]) * r) / 2.0)
     if 0 <= col < gw and 0 <= row < hc:
         return (col, row)
     return None

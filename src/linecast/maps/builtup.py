@@ -125,7 +125,7 @@ def builtup_grid(bbox: tuple[float, float, float, float], w: int, h: int,
         lo, inv, vals = _mercator_table(coverage[1], coverage[3])
         last = len(vals) - 2
         kx = world / 360.0
-        x_off = (camera.lon + 180.0) * kx - org_x
+        x_off = (camera.lon0 + 180.0) * kx - org_x
         base = camera.base(w, h)
         grid = []
         for b_row in base:

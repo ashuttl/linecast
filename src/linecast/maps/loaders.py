@@ -273,7 +273,7 @@ def _mend(cache, key, load, newest, short, before=None):
                      name=f"{cache.name} load").start()
 
 
-def _view_key(bbox, gw, hc):
+def _view_key(bbox, gw, hc, eye=None):
     """Cache key for a view, at a precision that scales with the zoom.
 
     A flat 4 dp is ~11 m: ample at a degree or more, but street mode
@@ -288,7 +288,13 @@ def _view_key(bbox, gw, hc):
     nd = 4 if span <= 0 else max(4, 3 + math.ceil(-math.log10(span)))
     # the theme generation rides along: a terminal theme change must
     # miss every buffer that baked the old colours in
-    return (tuple(round(v, nd) for v in bbox), gw, hc, _theme.generation)
+    key = (tuple(round(v, nd) for v in bbox), gw, hc, _theme.generation)
+    if eye is not None:
+        # the eye too (globe.Camera.eye): the same bbox projected about
+        # two eyes is two pictures.  A key with no eye is the key it
+        # has always been.
+        key += ((round(eye[0], 6), round(eye[1], 6)),)
+    return key
 
 
 def _coast_dots(fine, gw, hc, water=None, min_dots=None):
@@ -491,10 +497,12 @@ _globe_cache = SceneCache(held=_held,
                           name="globe")   # (lat, lon, zoom, w, h) -> GlobeView
 
 
-def build_terrain(bbox, gw, hc, window=None):
-    """(TerrainView, short) for the view, from its sources: the pure half.
+def build_terrain(bbox, gw, hc, window=None, eye=None):
+    """(TerrainView, short, shaded buffer) for the view, from its
+    sources: the pure half.
 
     `short` is whether any tile the view asked for is missing from it.
+    `eye` is the point the view is projected about (globe.Camera.eye).
     No cache, no landing, no repaint — those are _get_elevation's, on
     the parent's side of maps.worker; this is what runs on either side.
 
@@ -506,8 +514,8 @@ def build_terrain(bbox, gw, hc, window=None):
     the camera samples every source: the elevation through its inverse
     projection, the vector polygons through its forward one.
     """
-    cam = _globe.Camera.for_bbox(bbox, gw, hc)
-    camera = None if _globe.affine_ok(cam.lat, cam.zoom, gw, hc) else cam
+    cam = _globe.Camera.for_bbox(bbox, gw, hc, eye)
+    camera = None if cam.affine else cam
     # Below GLACIER_TILE_ZOOM the vendored grid is the view's ice
     # and the tiles' is left out — decided once, here, from the
     # source zoom the style asks for, so exactly one of them draws.
@@ -558,9 +566,7 @@ def build_terrain(bbox, gw, hc, window=None):
         if camera is None:
             ice = _glaciers.grid_for_bbox(bbox, gw, hc * 2, ice_id)
         else:
-            ice = _glaciers.grid_for_lls(
-                _globe.geometry(cam.lat, cam.lon, cam.zoom,
-                                gw, hc * 2)[0], ice_id)
+            ice = _glaciers.grid_for_lls(cam.geometry(gw, hc * 2)[0], ice_id)
         if ice is not None and cover is None:
             cover = ice
         elif ice is not None:
@@ -589,18 +595,16 @@ def build_terrain(bbox, gw, hc, window=None):
         _box_average(fine, gw, hc), shore_edges(shore, gw, hc),
         _water_subpixels(water, gw, hc) if water is not None else None,
         rivers, cover, shore=shore,
-        borders=_globe.border_layer(cam.lat, cam.lon, cam.zoom, gw, hc,
-                                    BORDER_STROKE),
-        shade=(_globe.geometry(cam.lat, cam.lon, cam.zoom,
-                               gw, hc * 2)[1]
+        borders=cam.border_layer(BORDER_STROKE),
+        shade=(cam.geometry(gw, hc * 2)[1]
                if _globe.limb_shading(cam.zoom, gw, hc) else None))
     # the shaded colour too, while this interpreter has the view in hand:
     # on the parent's side a landed view would otherwise be shaded by the
     # frame that first draws it, mid-drag, for thirty milliseconds and more
-    return view, bool(missing), _terrain_buffer(view, bbox, gw, hc)
+    return view, bool(missing), _terrain_buffer(view, bbox, gw, hc, eye=eye)
 
 
-def _get_elevation(bbox, gw, hc, block, window=None):
+def _get_elevation(bbox, gw, hc, block, window=None, eye=None):
     """A TerrainView for the view; live mode fetches in the background.
 
     The build itself is `build_terrain`, run through maps.worker when
@@ -608,29 +612,30 @@ def _get_elevation(bbox, gw, hc, block, window=None):
     the cache, the landing and the mend.
     """
     def load():
-        view, short, buf = _build("terrain", bbox, gw, hc, window)
+        view, short, buf = _build("terrain", bbox, gw, hc, window, eye)
         if buf is not None:
-            _terrain_cache.put(_buffer_key(view, bbox, gw, hc), buf)
+            _terrain_cache.put(_buffer_key(view, bbox, gw, hc, eye=eye), buf)
         with _motion_lock:
-            _terrain_landed[0] = (tuple(bbox), gw, hc, view)
+            _terrain_landed[0] = (tuple(bbox), gw, hc, view, eye)
         # the shaded buffer is kept by the view's bbox, so a rebuild of
         # the same bbox has to clear the one drawn with the gap in it
         _mend(_elev_cache, key, load, _terrain_built, short,
               _terrain_cache.clear)
         return view
 
-    key = _view_key(bbox, gw, hc)
+    key = _view_key(bbox, gw, hc, eye)
     view = _elev_cache.get(key, block, load)
     if not block and view is _elev_cache.empty:
         _motion_build(_elev_cache, key, load)
     return view
 
 def build_street(bbox, gw, hc, window=None, lang="en", reserved=(),
-                 live=True):
+                 live=True, eye=None):
     """((fills, ranked layer, label overlays), short) for the view: the
     pure half, `build_terrain`'s twin.  `live` is whether the tiles
     around the view may be fetched ahead as well — a printed frame has
-    no next pan to be ready for.
+    no next pan to be ready for.  `eye` is the point the view is
+    projected about (globe.Camera.eye).
 
     The window is a patch of the sphere at every zoom now.  Where the
     box rasteriser is still the camera's own picture — a twentieth of a
@@ -640,8 +645,8 @@ def build_street(bbox, gw, hc, window=None, lang="en", reserved=(),
     the tiles by its own footprint and every layer of the build is
     rasterised through its forward projection.
     """
-    cam = _globe.Camera.for_bbox(bbox, gw, hc)
-    camera = None if _globe.affine_ok(cam.lat, cam.zoom, gw, hc) else cam
+    cam = _globe.Camera.for_bbox(bbox, gw, hc, eye)
+    camera = None if cam.affine else cam
     # the settlement raster fetches alongside the vector tiles, as
     # the terrain path overlaps its sources; below its debut band
     # the layer is never asked for, so a deep view pays nothing
@@ -678,7 +683,7 @@ def build_street(bbox, gw, hc, window=None, lang="en", reserved=(),
 
 
 def _get_street_tiles(bbox, gw, hc, block, lang="en", reserved=(),
-                      window=None):
+                      window=None, eye=None):
     """(fills, ranked layer, label overlays) for the view; live mode
     fetches in the background, exactly as the elevation path does.
 
@@ -687,17 +692,18 @@ def _get_street_tiles(bbox, gw, hc, block, lang="en", reserved=(),
     """
     def load():
         view, short = _build("street", bbox, gw, hc, window, lang,
-                             tuple(reserved), not block)
+                             tuple(reserved), not block, eye)
         # the whole view, labels and all: a window inside this one's
         # margin is an exact crop of it, which is a picture with its
         # names on.  A window outside it is reprojected instead, and
         # that path leaves the labels behind as it always has.
         with _motion_lock:
-            _street_landed[0] = (tuple(bbox), gw, hc, view[0], view[1], view[2])
+            _street_landed[0] = (tuple(bbox), gw, hc, view[0], view[1],
+                                 view[2], eye)
         _mend(_street_cache, key, load, _street_built, short)
         return view
 
-    key = _view_key(bbox, gw, hc) + (lang, tuple(sorted(reserved)))
+    key = _view_key(bbox, gw, hc, eye) + (lang, tuple(sorted(reserved)))
     view = _street_cache.get(key, block, load)
     if not block and view is _street_cache.empty:
         _motion_build(_street_cache, key, load)
@@ -731,7 +737,7 @@ def builds_off_thread():
 
 
 
-def _buffer_key(view, bbox, gw, hc, wide=False):
+def _buffer_key(view, bbox, gw, hc, wide=False, eye=None):
     """The shaded buffer's key: the view's, plus which sources it had.
 
     The tile flags are part of it because the same view rendered once
@@ -739,12 +745,12 @@ def _buffer_key(view, bbox, gw, hc, wide=False):
     function, so a buffer shaded on the worker's side is put under the
     key the frame will ask by.
     """
-    return _view_key(bbox, gw, hc) + (view.water is not None,
-                                      view.cover is not None,
-                                      view.fill is not None, wide)
+    return _view_key(bbox, gw, hc, eye) + (view.water is not None,
+                                           view.cover is not None,
+                                           view.fill is not None, wide)
 
 
-def _terrain_buffer(view, bbox, gw, hc, wide=False):
+def _terrain_buffer(view, bbox, gw, hc, wide=False, eye=None):
     """The view's sub-pixel colour: hillshade, then the limb, memoised.
 
     One builder for the whole register.  A view filled from the baked
@@ -759,7 +765,7 @@ def _terrain_buffer(view, bbox, gw, hc, wide=False):
     That is exact: a crop is the same plane points at another offset,
     and the viewing cosine is a property of the point.
     """
-    key = _buffer_key(view, bbox, gw, hc, wide)
+    key = _buffer_key(view, bbox, gw, hc, wide, eye)
 
     def build():
         if view.fill is not None:
@@ -783,12 +789,10 @@ def _terrain_buffer(view, bbox, gw, hc, wide=False):
             # the elevation came through the camera the bbox's rows are
             # not its latitudes: a boundary read off the bbox would sit
             # rows from the ground it colours at the window's edges
-            cam = _globe.Camera.for_bbox(bbox, gw, hc)
+            cam = _globe.Camera.for_bbox(bbox, gw, hc, eye)
             climate = None
-            if not _globe.affine_ok(cam.lat, cam.zoom, gw, hc):
-                climate = _climate.grid_for_lls(
-                    _globe.geometry(cam.lat, cam.lon, cam.zoom,
-                                    gw, hc * 2)[0]) or ()
+            if not cam.affine:
+                climate = _climate.grid_for_lls(cam.geometry(gw, hc * 2)[0]) or ()
             buf = build_terrain_buffer(view.elev, bbox, gw, hc * 2,
                                        view.water, view.cover,
                                        climate=climate)

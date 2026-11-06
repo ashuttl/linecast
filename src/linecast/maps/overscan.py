@@ -26,10 +26,12 @@ layers with their ribbons, label runs kept whole or dropped whole, and
 the hover index read through the offset.
 """
 
+import math
 from collections import namedtuple
 from itertools import chain, compress
 from operator import itemgetter
 
+from linecast._geo import wrap_lon as _wrap_lon
 from linecast.maps import globe as _globe
 from linecast.maps.hover import HoverIndex
 from linecast.terminal.braille import CODE_FIRST, DOT_BITS, cells_of, dot_rows, pack_planes
@@ -68,13 +70,23 @@ def padding(gw, hc):
             max(1, (hc + MARGIN - 1) // MARGIN))
 
 
-class Frame(namedtuple("Frame", "bbox gw hc")):
-    """One built view: the bbox it was built for and its size in cells.
+class Frame(namedtuple("Frame", "bbox gw hc eye", defaults=(None,))):
+    """One built view: the bbox it was built for, its size in cells, and
+    the eye it was projected about (`globe.Camera.eye`; None for a view
+    looking straight down at its own centre).
 
     A window is a crop of a Frame, never the other way round, so every
     Frame a renderer is handed contains the window it is drawing.
     """
     __slots__ = ()
+
+    @property
+    def eye_point(self):
+        """The point the view is projected about, eye or centre."""
+        if self.eye is not None:
+            return self.eye
+        minlon, minlat, maxlon, maxlat = self.bbox
+        return ((minlat + maxlat) / 2.0, (minlon + maxlon) / 2.0)
 
     @property
     def cell(self):
@@ -100,16 +112,22 @@ def unwrap(bbox, about):
     return (bbox[0] - shift, bbox[1], bbox[2] - shift, bbox[3])
 
 
-def window_frame(bbox, gw, hc):
+def window_frame(bbox, gw, hc, eye=None):
     """The Frame that is the window itself — no margin at all.
 
     `--print` builds this and nothing else, so a printed frame is the
     same bytes it has always been.
     """
-    return Frame(tuple(bbox), gw, hc)
+    return Frame(tuple(bbox), gw, hc, eye)
 
 
-def plan(bbox, gw, hc, ahead=(0, 0), pad=None):
+def same_eye(a, b):
+    """Whether two eye points are one (`globe._SAME_EYE`)."""
+    return (abs(a[0] - b[0]) <= _globe._SAME_EYE
+            and abs(_wrap_lon(a[1] - b[1])) <= _globe._SAME_EYE)
+
+
+def plan(bbox, gw, hc, ahead=(0, 0), pad=None, eye=None):
     """(the Frame to build for a gw by hc window, where the window sits).
 
     `ahead` is (east, south), each between -1 and 1: which way the
@@ -132,13 +150,30 @@ def plan(bbox, gw, hc, ahead=(0, 0), pad=None):
     left = int(round(pw * (1.0 - ax)))
     top = int(round(ph * (1.0 - ay)))
     right, bottom = 2 * pw - left, 2 * ph - top
+    fgw, fhc = gw + left + right, hc + top + bottom
+    if eye is not None and (left != right or top != bottom):
+        # a margin off centre, on a plane hung from the eye: the frame's
+        # centre is the window's moved by whole cells *on the plane*,
+        # so the window is a whole-cell crop of the frame there — the
+        # box's own arithmetic would put it a fraction of a cell out
+        cam = _globe.Camera.for_bbox(bbox, gw, hc, eye)
+        rx, r = _globe._grid_plane(cam, gw, hc)
+        at = _globe._unproject(cam.ox + (right - left) / 2.0 / rx,
+                               cam.oy + (top - bottom) / 2.0 / r,
+                               math.sin(math.radians(cam.lat0)),
+                               math.cos(math.radians(cam.lat0)))
+        if at is not None:
+            flat, flon = at[0], cam.lon0 + at[1]
+            fbbox = _globe.scale_bbox(flat, flon, (maxlat - minlat) * fhc / hc,
+                                      fgw, fhc)
+            return Frame(fbbox, fgw, fhc, eye), (left, top)
     return (Frame((minlon - left * colw, minlat - bottom * rowh,
                    maxlon + right * colw, maxlat + top * rowh),
-                  gw + left + right, hc + top + bottom),
+                  fgw, fhc, eye),
             (left, top))
 
 
-def locate(frame, bbox, gw, hc, inside=True, cap=None):
+def locate(frame, bbox, gw, hc, inside=True, cap=None, eye=None):
     """Where a gw by hc window at `bbox` sits in `frame`, or None.
 
     (column, row) of the window's top-left cell, and None whenever the
@@ -175,18 +210,44 @@ def locate(frame, bbox, gw, hc, inside=True, cap=None):
     What is decided here is only the far end of that: a window so far
     off the built view's centre that the slice a moving frame takes
     would visibly swim is left to be built for itself.
+
+    `eye` is the window's (`globe.Camera.eye`).  A frame and a window
+    projected about one eye are two crops of one plane, and the offset
+    between them is measured on that plane: whole cells, to within
+    SLACK, is a crop exactly, whatever the window's distance from the
+    built view's centre, and `cap` has nothing to say.  A frame about
+    another eye is another picture, and a window that asks for an
+    exact crop of it gets none.
     """
     fminlon, fminlat, fmaxlon, fmaxlat = frame.bbox
     minlon, minlat, maxlon, maxlat = unwrap(bbox, frame.bbox)
     colw, rowh = frame.cell
     if colw <= 0 or rowh <= 0 or gw <= 0 or hc <= 0:
         return None
-    wcolw, wrowh = (maxlon - minlon) / gw, (maxlat - minlat) / hc
-    if (abs(wcolw - colw) * gw / 2 > SLACK * colw
-            or abs(wrowh - rowh) * hc / 2 > SLACK * rowh):
-        return None
-    fx = ((minlon + maxlon) / 2 - fminlon) / colw - gw / 2
-    fy = (fmaxlat - (minlat + maxlat) / 2) / rowh - hc / 2
+    weye = eye if eye is not None else ((minlat + maxlat) / 2.0,
+                                        (minlon + maxlon) / 2.0)
+    one_eye = same_eye(frame.eye_point, weye)
+    if (frame.eye is not None or eye is not None) and one_eye:
+        if abs((maxlat - minlat) * frame.hc / hc
+               - (fmaxlat - fminlat)) > SLACK * rowh:
+            return None     # another zoom
+        fcam = _globe.Camera.for_bbox(frame.bbox, frame.gw, frame.hc,
+                                      frame.eye_point)
+        wcam = _globe.Camera.for_bbox(bbox, gw, hc, weye)
+        rx, r = _globe._grid_plane(wcam, gw, hc)
+        fx = (wcam.ox - fcam.ox) * rx + (frame.gw - gw) / 2.0
+        fy = (fcam.oy - wcam.oy) * r + (frame.hc - hc) / 2.0
+        cap = None
+    else:
+        if cap is not None and not one_eye and (frame.eye is not None
+                                                or eye is not None):
+            return None
+        wcolw, wrowh = (maxlon - minlon) / gw, (maxlat - minlat) / hc
+        if (abs(wcolw - colw) * gw / 2 > SLACK * colw
+                or abs(wrowh - rowh) * hc / 2 > SLACK * rowh):
+            return None
+        fx = ((minlon + maxlon) / 2 - fminlon) / colw - gw / 2
+        fy = (fmaxlat - (minlat + maxlat) / 2) / rowh - hc / 2
     dx, dy = int(round(fx)), int(round(fy))
     if abs(fx - dx) > SLACK or abs(fy - dy) > SLACK:
         return None
@@ -344,10 +405,11 @@ class Resample:
     __slots__ = ("frame", "gw", "hc", "src", "dst", "_sub", "_dot", "_cell",
                  "_planes", "_subget", "_dotget", "_codes", "_ink")
 
-    def __init__(self, frame, bbox, gw, hc):
+    def __init__(self, frame, bbox, gw, hc, eye=None):
         self.frame, self.gw, self.hc = frame, gw, hc
-        self.src = _globe.Camera.for_bbox(frame.bbox, frame.gw, frame.hc)
-        self.dst = _globe.Camera.for_bbox(bbox, gw, hc)
+        self.src = _globe.Camera.for_bbox(frame.bbox, frame.gw, frame.hc,
+                                          frame.eye)
+        self.dst = _globe.Camera.for_bbox(bbox, gw, hc, eye)
         self._sub = self._dot = self._cell = self._planes = None
         self._subget = self._dotget = None
         # the braille grids gathered into the window and the ink maps
@@ -605,7 +667,7 @@ class Resample:
 _resample_cache = Memo(keep=2)
 
 
-def resample(frame, bbox, gw, hc):
+def resample(frame, bbox, gw, hc, eye=None):
     """The Resample for a window in a built view, kept between frames.
 
     A view at rest repaints for a pointer, a clock or a cloud without
@@ -613,8 +675,9 @@ def resample(frame, bbox, gw, hc):
     the first resting frame pays for them and the ones after it do
     not.
     """
-    key = (frame, tuple(bbox), gw, hc)
-    return _resample_cache.get(key, lambda: Resample(frame, bbox, gw, hc))
+    key = (frame, tuple(bbox), gw, hc, eye)
+    return _resample_cache.get(key,
+                               lambda: Resample(frame, bbox, gw, hc, eye))
 
 
 def label_runs(overlays):

@@ -338,9 +338,13 @@ class TestKeys:
         assert app.on_action(key)
         assert app.camera.moving()
         settle(app)
-        assert app.lat == pytest.approx(dlat * app.zoom * 0.1)
+        # a keyed pan is a whole-cell step on the eye's plane
+        # (Camera.eye), and the lat/lon it lands on follows the sphere
+        # rather than the box, to within the curvature of a tenth of
+        # a window
+        assert app.lat == pytest.approx(dlat * app.zoom * 0.1, abs=1e-5)
         assert app.lon == pytest.approx(
-            dlon * lon_span(0.0, app.zoom, GW, HC) * 0.1)
+            dlon * lon_span(0.0, app.zoom, GW, HC) * 0.1, abs=1e-5)
         assert app.home == (0, 0) and not app.sun and not app.routes.panel
         assert app.pan_preview == (0, 0) and not app.camera.dragging()
         assert not app.camera.spinning
@@ -352,7 +356,7 @@ class TestKeys:
         app.on_action('d')
         settle(app)
         assert app.lon == pytest.approx(
-            2 * lon_span(0.0, 2.0, GW, HC) * 0.1)
+            2 * lon_span(0.0, 2.0, GW, HC) * 0.1, abs=1e-4)
 
     def test_keyboard_pan_wraps_and_clamps(self):
         app = make(zoom=60, lat=79, lon=179)
@@ -455,14 +459,20 @@ class TestDrag:
         app = make(zoom=2.0)
         assert app.on_drag(10, 5, False)
         assert app.pan_preview == (0, 0)
+        # the hand moves the window by whole cells on the plane hung
+        # where it came down (Camera.eye); the lat/lon under the new
+        # centre is the sphere's, which the box's arithmetic misses by
+        # the convergence of the meridians over five rows north
+        assert app.camera.eye == (43.68, -70.37)
         span = lon_span(43.68, 2.0, GW, HC)
-        assert app.lat == pytest.approx(43.68 + 5 * 2.0 / HC)
-        assert app.lon == pytest.approx(-70.37 - 10 * span / GW)
+        assert app.lat == pytest.approx(43.68 + 5 * 2.0 / HC, abs=1e-3)
+        assert app.lon == pytest.approx(-70.37 - 10 * span / GW, abs=3e-3)
         assert app.on_drag(10, 5, False) is False  # nothing new
         assert app.on_drag(10, 5, True)
         assert app.pan_preview == (0, 0) and not app.camera.dragging()
-        assert app.lat == pytest.approx(43.68 + 5 * 2.0 / HC)
-        assert app.lon == pytest.approx(-70.37 - 10 * span / GW)
+        assert app.lat == pytest.approx(43.68 + 5 * 2.0 / HC, abs=1e-3)
+        assert app.lon == pytest.approx(-70.37 - 10 * span / GW, abs=3e-3)
+        assert app.camera.eye == (43.68, -70.37)   # kept through the release
 
     def test_a_flat_drag_says_which_way_it_is_going(self):
         # the margin is built deep where the reader is heading: a hand
@@ -487,7 +497,8 @@ class TestDrag:
         assert app.on_drag(0, 0, True) is False
         app.on_drag(3, 0, False)
         assert app.on_drag(0, 0, True) is True
-        assert (app.lat, app.lon) == (43.68, -70.37)
+        assert app.lat == pytest.approx(43.68, abs=1e-9)
+        assert app.lon == pytest.approx(-70.37, abs=1e-9)
 
     def test_a_cold_globe_shifts_its_last_frame(self):
         # the one idiom left that cannot follow the hand: a sphere has
@@ -571,7 +582,8 @@ class TestDrag:
         assert app.camera.moving() and len(asked) == 1
         (lat, lon, zoom, view, gw, hc, lang), kw = asked[0]
         assert (zoom, view, gw, hc, lang) == (2.0, "street", GW, HC, "en")
-        assert kw == {"marker": (43.68, -70.37)}
+        # the view asked for is on the plane the drag was drawn on
+        assert kw == {"marker": (43.68, -70.37), "eye": (43.68, -70.37)}
         assert lon > app.lon                     # east, where the flick went
         # and it is where the coast actually comes to rest, so the
         # frame at rest draws what is already on its way
