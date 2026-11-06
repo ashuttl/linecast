@@ -96,6 +96,25 @@ def snapshot():
     }
 
 
+def child_env():
+    """The environment the child is started in: this one, plus what the
+    terminal told this interpreter and cannot tell the child.
+
+    The child's stdout is a pipe, so asked itself it would find no
+    colour at all and bake the street fills in the no-colour palette;
+    and its size in pixels is nobody's, so it would take the fallback
+    cell shape and draw every view a sixth wider than the terminal's
+    font does.  Both have overrides the program already honours, and
+    the child is given the parent's answers through them.
+    """
+    from linecast.terminal.color import color_mode
+    from linecast.terminal.framebuffer import cell_aspect
+    env = dict(os.environ)
+    env["LINECAST_COLOR"] = color_mode()
+    env["LINECAST_CELL_ASPECT"] = f"{cell_aspect():.6f}"
+    return env
+
+
 class Builder:
     """One child interpreter and the requests out to it."""
 
@@ -118,7 +137,7 @@ class Builder:
                     [sys.executable, "-c", _BOOT.format(paths=paths)],
                     stdin=subprocess.PIPE, stdout=subprocess.PIPE,
                     stderr=None if debug_enabled() else subprocess.DEVNULL,
-                    close_fds=True)
+                    close_fds=True, env=child_env())
             except (OSError, ValueError) as exc:
                 self._dead = True
                 log_failure("maps/worker", "start", exc,
@@ -258,7 +277,16 @@ def _builds():
     from linecast.maps import loaders
     kinds = dict(loaders._BUILDS)
     kinds["echo"] = lambda *args: args
+    kinds["echo_env"] = _echo_env
     return kinds
+
+
+def _echo_env():
+    """What this interpreter took from its environment: for a check that
+    the parent handed over what its terminal told it."""
+    from linecast.terminal.color import color_mode
+    from linecast.terminal.framebuffer import cell_aspect
+    return {"color": color_mode(), "aspect": cell_aspect()}
 
 
 def serve(inp=None, out=None):

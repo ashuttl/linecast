@@ -103,6 +103,21 @@ class TestTheChild:
         with pytest.raises(worker.Unavailable):
             b.run("echo")
 
+    def test_the_child_is_told_what_the_terminal_said(self, monkeypatch):
+        # the child's stdout is a pipe and its size in pixels nobody's:
+        # asked itself it would bake the no-colour palette into fills a
+        # sixth too wide.  It is given the parent's answers instead.
+        from linecast.terminal import color, framebuffer
+        monkeypatch.delenv("LINECAST_COLOR", raising=False)
+        monkeypatch.delenv("LINECAST_CELL_ASPECT", raising=False)
+        monkeypatch.setattr(color, "_COLOR_MODE", "256")
+        monkeypatch.setattr(framebuffer, "cell_aspect",
+                            lambda fallback=2.0: 1.6)
+        env = worker.child_env()
+        assert env["LINECAST_COLOR"] == "256"
+        assert float(env["LINECAST_CELL_ASPECT"]) == pytest.approx(1.6)
+        assert env["PATH"] == os.environ["PATH"]    # the rest is inherited
+
     def test_the_snapshot_pickles(self):
         snap = worker.snapshot()
         back = pickle.loads(pickle.dumps(snap, protocol=pickle.HIGHEST_PROTOCOL))
