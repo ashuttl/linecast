@@ -31,6 +31,7 @@ from linecast.maps import globe_now
 from linecast.maps import globe_texture
 from linecast.maps import streets
 from linecast.maps import style as _style
+from linecast.maps import worker as _worker
 from linecast.maps.elevation import elevation_grid
 from linecast.terminal import live as _live
 from linecast.terminal.live import nudge as _nudge_repaint
@@ -490,8 +491,12 @@ _globe_cache = SceneCache(held=_held,
                           name="globe")   # (lat, lon, zoom, w, h) -> GlobeView
 
 
-def _get_elevation(bbox, gw, hc, block, window=None):
-    """A TerrainView for the view; live mode fetches in the background.
+def build_terrain(bbox, gw, hc, window=None):
+    """(TerrainView, short) for the view, from its sources: the pure half.
+
+    `short` is whether any tile the view asked for is missing from it.
+    No cache, no landing, no repaint — those are _get_elevation's, on
+    the parent's side of maps.worker; this is what runs on either side.
 
     The window is a patch of the sphere at every zoom now.  Where the
     box rasteriser is still the camera's own picture — a twentieth of a
@@ -503,99 +508,114 @@ def _get_elevation(bbox, gw, hc, block, window=None):
     """
     cam = _globe.Camera.for_bbox(bbox, gw, hc)
     camera = None if _globe.affine_ok(cam.lat, cam.zoom, gw, hc) else cam
+    # Below GLACIER_TILE_ZOOM the vendored grid is the view's ice
+    # and the tiles' is left out — decided once, here, from the
+    # source zoom the style asks for, so exactly one of them draws.
+    wbbox, whc = window if window is not None else (bbox, hc)
+    z = _style.z_eff(wbbox, whc)
+    grid_ice = (_style.z_src(z, _style.band_for(z))
+                < _style.GLACIER_TILE_ZOOM and _glaciers.available())
+    # fetch at 2x and box-average down: point-sampled elevation makes
+    # the hillshade step visibly at cell edges; averaging anti-aliases
+    # tone transitions and blends shorelines. The fine grid also yields
+    # the braille coastline before it is averaged away.
+    # The three sources are independent, so their fetches overlap:
+    # the wait is the slowest of them, not the sum.  Only the
+    # elevation may fail the view; the other two degrade to None.
+    missing = []
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        water_job = pool.submit(_tile_water, bbox, gw, hc, window, camera,
+                                missing, not grid_ice)
+        builtup_job = pool.submit(_builtup_layer, bbox, gw, hc, camera)
+        fine = elevation_grid(bbox, gw * 2, hc * 4, camera=camera,
+                              missing=missing)
+    water, rivers, cover, ocean = water_job.result()
+    bu = builtup_job.result()
+    if bu is not None:
+        # measured settlement fills wherever the vector story left
+        # bare ground; the street-density proxy still runs, so the
+        # two agree where both know and cover for each other's gaps
+        if cover is None:
+            cover = [bytearray(gw) for _ in range(hc * 2)]
+        grades = [(lo, _style.COVER_ORDER.index(k) + 1)
+                  for lo, k in _style.COVER_BUILTUP_GRADES]
+        # every grade's id, so a cell the vector story already
+        # marked urban is re-graded with the rest and never sits
+        # beside the raster's tone in another violet
+        settlement = {gid for _, gid in grades}
+        if _style.band_for(z) >= _style.BUILTUP_FLAT_BAND:
+            # one tone: the lightest grade from the lowest floor
+            grades = [(grades[-1][0], grades[-1][1])]
+        floor = grades[-1][0]
+        for crow, brow in zip(cover, bu):
+            for x, f in enumerate(brow):
+                if f >= floor and (not crow[x]
+                                   or crow[x] in settlement):
+                    crow[x] = next(gid for lo, gid in grades
+                                   if f >= lo)
+    if grid_ice:
+        ice_id = _style.COVER_ORDER.index("ice") + 1
+        if camera is None:
+            ice = _glaciers.grid_for_bbox(bbox, gw, hc * 2, ice_id)
+        else:
+            ice = _glaciers.grid_for_lls(
+                _globe.geometry(cam.lat, cam.lon, cam.zoom,
+                                gw, hc * 2)[0], ice_id)
+        if ice is not None and cover is None:
+            cover = ice
+        elif ice is not None:
+            # over the natural classes and under settlement, the
+            # order COVER_ORDER paints the tiles' own ice in
+            for crow, irow in zip(cover, ice):
+                for x, v in enumerate(irow):
+                    if v and crow[x] < v:
+                        crow[x] = v
+    if ocean is not None:
+        # The OSM coastline outranks the elevation data over the
+        # sea, without appeal: coastal DEMs report tidal water as a
+        # mudflat's metre, a pier's five, a bridge deck's forty —
+        # thresholding on "clearly dry land" leaves every harbor
+        # green-flecked.  Where the tiles say sea, the sample is
+        # sea; real bathymetry (already merged in) stays, anything
+        # else drops just under the waterline — and the fill, the
+        # derived coastline and the readout all follow.
+        for frow, orow in zip(fine, ocean):
+            for dx, o in enumerate(orow):
+                if o:
+                    e = frow[dx]
+                    frow[dx] = -0.5 if e is None else min(e, -0.5)
+    shore = shore_bits(fine, water)
+    view = TerrainView(
+        _box_average(fine, gw, hc), shore_edges(shore, gw, hc),
+        _water_subpixels(water, gw, hc) if water is not None else None,
+        rivers, cover, shore=shore,
+        borders=_globe.border_layer(cam.lat, cam.lon, cam.zoom, gw, hc,
+                                    BORDER_STROKE),
+        shade=(_globe.geometry(cam.lat, cam.lon, cam.zoom,
+                               gw, hc * 2)[1]
+               if _globe.limb_shading(cam.zoom, gw, hc) else None))
+    # the shaded colour too, while this interpreter has the view in hand:
+    # on the parent's side a landed view would otherwise be shaded by the
+    # frame that first draws it, mid-drag, for thirty milliseconds and more
+    return view, bool(missing), _terrain_buffer(view, bbox, gw, hc)
 
+
+def _get_elevation(bbox, gw, hc, block, window=None):
+    """A TerrainView for the view; live mode fetches in the background.
+
+    The build itself is `build_terrain`, run through maps.worker when
+    the live map has a child interpreter for it; what is left here is
+    the cache, the landing and the mend.
+    """
     def load():
-        # Below GLACIER_TILE_ZOOM the vendored grid is the view's ice
-        # and the tiles' is left out — decided once, here, from the
-        # source zoom the style asks for, so exactly one of them draws.
-        wbbox, whc = window if window is not None else (bbox, hc)
-        z = _style.z_eff(wbbox, whc)
-        grid_ice = (_style.z_src(z, _style.band_for(z))
-                    < _style.GLACIER_TILE_ZOOM and _glaciers.available())
-        # fetch at 2x and box-average down: point-sampled elevation makes
-        # the hillshade step visibly at cell edges; averaging anti-aliases
-        # tone transitions and blends shorelines. The fine grid also yields
-        # the braille coastline before it is averaged away.
-        # The three sources are independent, so their fetches overlap:
-        # the wait is the slowest of them, not the sum.  Only the
-        # elevation may fail the view; the other two degrade to None.
-        missing = []
-        with ThreadPoolExecutor(max_workers=2) as pool:
-            water_job = pool.submit(_tile_water, bbox, gw, hc, window, camera,
-                                    missing, not grid_ice)
-            builtup_job = pool.submit(_builtup_layer, bbox, gw, hc, camera)
-            fine = elevation_grid(bbox, gw * 2, hc * 4, camera=camera,
-                                  missing=missing)
-        water, rivers, cover, ocean = water_job.result()
-        bu = builtup_job.result()
-        if bu is not None:
-            # measured settlement fills wherever the vector story left
-            # bare ground; the street-density proxy still runs, so the
-            # two agree where both know and cover for each other's gaps
-            if cover is None:
-                cover = [bytearray(gw) for _ in range(hc * 2)]
-            grades = [(lo, _style.COVER_ORDER.index(k) + 1)
-                      for lo, k in _style.COVER_BUILTUP_GRADES]
-            # every grade's id, so a cell the vector story already
-            # marked urban is re-graded with the rest and never sits
-            # beside the raster's tone in another violet
-            settlement = {gid for _, gid in grades}
-            if _style.band_for(z) >= _style.BUILTUP_FLAT_BAND:
-                # one tone: the lightest grade from the lowest floor
-                grades = [(grades[-1][0], grades[-1][1])]
-            floor = grades[-1][0]
-            for crow, brow in zip(cover, bu):
-                for x, f in enumerate(brow):
-                    if f >= floor and (not crow[x]
-                                       or crow[x] in settlement):
-                        crow[x] = next(gid for lo, gid in grades
-                                       if f >= lo)
-        if grid_ice:
-            ice_id = _style.COVER_ORDER.index("ice") + 1
-            if camera is None:
-                ice = _glaciers.grid_for_bbox(bbox, gw, hc * 2, ice_id)
-            else:
-                ice = _glaciers.grid_for_lls(
-                    _globe.geometry(cam.lat, cam.lon, cam.zoom,
-                                    gw, hc * 2)[0], ice_id)
-            if ice is not None and cover is None:
-                cover = ice
-            elif ice is not None:
-                # over the natural classes and under settlement, the
-                # order COVER_ORDER paints the tiles' own ice in
-                for crow, irow in zip(cover, ice):
-                    for x, v in enumerate(irow):
-                        if v and crow[x] < v:
-                            crow[x] = v
-        if ocean is not None:
-            # The OSM coastline outranks the elevation data over the
-            # sea, without appeal: coastal DEMs report tidal water as a
-            # mudflat's metre, a pier's five, a bridge deck's forty —
-            # thresholding on "clearly dry land" leaves every harbor
-            # green-flecked.  Where the tiles say sea, the sample is
-            # sea; real bathymetry (already merged in) stays, anything
-            # else drops just under the waterline — and the fill, the
-            # derived coastline and the readout all follow.
-            for frow, orow in zip(fine, ocean):
-                for dx, o in enumerate(orow):
-                    if o:
-                        e = frow[dx]
-                        frow[dx] = -0.5 if e is None else min(e, -0.5)
-        shore = shore_bits(fine, water)
-        view = TerrainView(
-            _box_average(fine, gw, hc), shore_edges(shore, gw, hc),
-            _water_subpixels(water, gw, hc) if water is not None else None,
-            rivers, cover, shore=shore,
-            borders=_globe.border_layer(cam.lat, cam.lon, cam.zoom, gw, hc,
-                                        BORDER_STROKE),
-            shade=(_globe.geometry(cam.lat, cam.lon, cam.zoom,
-                                   gw, hc * 2)[1]
-                   if _globe.limb_shading(cam.zoom, gw, hc) else None))
+        view, short, buf = _build("terrain", bbox, gw, hc, window)
+        if buf is not None:
+            _terrain_cache.put(_buffer_key(view, bbox, gw, hc), buf)
         with _motion_lock:
             _terrain_landed[0] = (tuple(bbox), gw, hc, view)
         # the shaded buffer is kept by the view's bbox, so a rebuild of
         # the same bbox has to clear the one drawn with the gap in it
-        _mend(_elev_cache, key, load, _terrain_built, bool(missing),
+        _mend(_elev_cache, key, load, _terrain_built, short,
               _terrain_cache.clear)
         return view
 
@@ -605,11 +625,12 @@ def _get_elevation(bbox, gw, hc, block, window=None):
         _motion_build(_elev_cache, key, load)
     return view
 
-
-def _get_street_tiles(bbox, gw, hc, block, lang="en", reserved=(),
-                      window=None):
-    """(fills, ranked layer, label overlays) for the view; live mode
-    fetches in the background, exactly as the elevation path does.
+def build_street(bbox, gw, hc, window=None, lang="en", reserved=(),
+                 live=True):
+    """((fills, ranked layer, label overlays), short) for the view: the
+    pure half, `build_terrain`'s twin.  `live` is whether the tiles
+    around the view may be fetched ahead as well — a printed frame has
+    no next pan to be ready for.
 
     The window is a patch of the sphere at every zoom now.  Where the
     box rasteriser is still the camera's own picture — a twentieth of a
@@ -621,48 +642,59 @@ def _get_street_tiles(bbox, gw, hc, block, lang="en", reserved=(),
     """
     cam = _globe.Camera.for_bbox(bbox, gw, hc)
     camera = None if _globe.affine_ok(cam.lat, cam.zoom, gw, hc) else cam
+    # the settlement raster fetches alongside the vector tiles, as
+    # the terrain path overlaps its sources; below its debut band
+    # the layer is never asked for, so a deep view pays nothing
+    band, _z_src, keys = streets.view_tiles(
+        bbox, hc, window, None if camera is None else camera.footprint)
+    # With no TileJSON from any source, nor one kept, there is no
+    # tile to fetch and the view fails below whatever the raster
+    # says: on a network that has stopped answering, it is not
+    # kept waiting on as well.
+    builtup = band >= _style.FILL_DEBUT["builtup"] and streets.tile_info() is not None
+    with ThreadPoolExecutor(max_workers=1) as pool:
+        bu_job = (pool.submit(_builtup_layer, bbox, gw, hc, camera)
+                  if builtup else None)
+        tiles = streets.fetch_tiles(keys)
+    if not any(tiles.values()):
+        raise RuntimeError(ms('offline', 'en'))
+    if live:
+        # live: give the next pan or zoom a head start
+        try:
+            streets.prefetch_around(bbox, hc, keys, window)
+        except Exception as exc:
+            log_failure("maps/vtiles", "prefetch", exc, fallback="none")
+    # the window's size in cells, off the hint's bbox: the hint is
+    # the frame's own middle, whole cells in from every edge
+    cells = None
+    if window is not None:
+        wbbox, whc = window
+        cells = (round((wbbox[2] - wbbox[0]) / ((bbox[2] - bbox[0]) / gw)),
+                 whc)
+    view = streets.build_street_view(
+        bbox, gw, hc, tiles, band, lang, reserved,
+        bu_job.result() if bu_job is not None else None, camera, cells)
+    return view, None in tiles.values()
 
+
+def _get_street_tiles(bbox, gw, hc, block, lang="en", reserved=(),
+                      window=None):
+    """(fills, ranked layer, label overlays) for the view; live mode
+    fetches in the background, exactly as the elevation path does.
+
+    The build itself is `build_street`, run through maps.worker when
+    the live map has a child interpreter for it.
+    """
     def load():
-        # the settlement raster fetches alongside the vector tiles, as
-        # the terrain path overlaps its sources; below its debut band
-        # the layer is never asked for, so a deep view pays nothing
-        band, _z_src, keys = streets.view_tiles(
-            bbox, hc, window, None if camera is None else camera.footprint)
-        # With no TileJSON from any source, nor one kept, there is no
-        # tile to fetch and the view fails below whatever the raster
-        # says: on a network that has stopped answering, it is not
-        # kept waiting on as well.
-        builtup = band >= _style.FILL_DEBUT["builtup"] and streets.tile_info() is not None
-        with ThreadPoolExecutor(max_workers=1) as pool:
-            bu_job = (pool.submit(_builtup_layer, bbox, gw, hc, camera)
-                      if builtup else None)
-            tiles = streets.fetch_tiles(keys)
-        if not any(tiles.values()):
-            raise RuntimeError(ms('offline', 'en'))
-        if not block:
-            # live: give the next pan or zoom a head start
-            try:
-                streets.prefetch_around(bbox, hc, keys, window)
-            except Exception as exc:
-                log_failure("maps/vtiles", "prefetch", exc, fallback="none")
-        # the window's size in cells, off the hint's bbox: the hint is
-        # the frame's own middle, whole cells in from every edge
-        cells = None
-        if window is not None:
-            wbbox, whc = window
-            cells = (round((wbbox[2] - wbbox[0]) / ((bbox[2] - bbox[0]) / gw)),
-                     whc)
-        view = streets.build_street_view(
-            bbox, gw, hc, tiles, band, lang, reserved,
-            bu_job.result() if bu_job is not None else None, camera, cells)
+        view, short = _build("street", bbox, gw, hc, window, lang,
+                             tuple(reserved), not block)
         # the whole view, labels and all: a window inside this one's
         # margin is an exact crop of it, which is a picture with its
         # names on.  A window outside it is reprojected instead, and
         # that path leaves the labels behind as it always has.
         with _motion_lock:
             _street_landed[0] = (tuple(bbox), gw, hc, view[0], view[1], view[2])
-        _mend(_street_cache, key, load, _street_built,
-              None in tiles.values())
+        _mend(_street_cache, key, load, _street_built, short)
         return view
 
     key = _view_key(bbox, gw, hc) + (lang, tuple(sorted(reserved)))
@@ -672,6 +704,44 @@ def _get_street_tiles(bbox, gw, hc, block, lang="en", reserved=(),
     return view
 
 
+# The pure builds by name, for maps.worker's child to look up, and the
+# one door every flat build goes through on the parent's side.
+_BUILDS = {"terrain": build_terrain, "street": build_street}
+
+
+def _build(kind, *args):
+    """Run one pure build — in the child interpreter when there is one.
+
+    A child that is not there, or that goes while this build is out,
+    is not an error: the build runs here, as every build did before
+    there was a child, and the frames pay for it.
+    """
+    if _worker.alive():
+        try:
+            return _worker.run(kind, *args)
+        except _worker.Unavailable:
+            pass
+    return _BUILDS[kind](*args)
+
+
+def builds_off_thread():
+    """Whether flat builds leave this interpreter (maps.worker is up)."""
+    return _worker.alive()
+
+
+
+
+def _buffer_key(view, bbox, gw, hc, wide=False):
+    """The shaded buffer's key: the view's, plus which sources it had.
+
+    The tile flags are part of it because the same view rendered once
+    offline and once with tiles is two different pictures.  One
+    function, so a buffer shaded on the worker's side is put under the
+    key the frame will ask by.
+    """
+    return _view_key(bbox, gw, hc) + (view.water is not None,
+                                      view.cover is not None,
+                                      view.fill is not None, wide)
 
 
 def _terrain_buffer(view, bbox, gw, hc, wide=False):
@@ -689,11 +759,7 @@ def _terrain_buffer(view, bbox, gw, hc, wide=False):
     That is exact: a crop is the same plane points at another offset,
     and the viewing cosine is a property of the point.
     """
-    # the tile flags are part of the key: the same view rendered once
-    # offline and once with tiles is two different pictures
-    key = _view_key(bbox, gw, hc) + (view.water is not None,
-                                     view.cover is not None,
-                                     view.fill is not None, wide)
+    key = _buffer_key(view, bbox, gw, hc, wide)
 
     def build():
         if view.fill is not None:

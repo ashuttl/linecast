@@ -512,6 +512,37 @@ def _apply(fg_value, bg_value, ansi_value):
         hook()
 
 
+def state():
+    """The theme as it stands, for another interpreter to take up."""
+    return (theme_fg, theme_bg, theme_ansi, theme_available,
+            theme_legacy_mode)
+
+
+def adopt(settled):
+    """Take up a theme another interpreter has settled (maps.worker).
+
+    The child that builds the map views has no terminal to ask and
+    bakes the parent's colours into what it builds, so it is handed
+    `state()` and installs it here, hooks and all.  Returns whether
+    anything changed; a state already in force is a no-op, which is
+    what lets every request carry it.
+    """
+    global _theme_loaded, theme_fg, theme_bg, theme_ansi, theme_available
+    global theme_legacy_mode, generation
+    fg_value, bg_value, ansi_value, available, legacy = settled
+    ansi_value = tuple(ansi_value)
+    if (_theme_loaded and (fg_value, bg_value, ansi_value, available,
+                           legacy) == state()):
+        return False
+    _theme_loaded = True
+    theme_fg, theme_bg, theme_ansi = fg_value, bg_value, ansi_value
+    theme_available, theme_legacy_mode = bool(available), bool(legacy)
+    generation += 1
+    for hook in list(_reload_hooks):
+        hook()
+    return True
+
+
 def _is_current(fg_value, bg_value, ansi_value):
     return (clamp_rgb(fg_value) == theme_fg and clamp_rgb(bg_value) == theme_bg
             and tuple(clamp_rgb(c) for c in ansi_value) == theme_ansi)

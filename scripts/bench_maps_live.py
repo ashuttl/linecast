@@ -278,7 +278,9 @@ def scenario_globe(s):
 def scenario_flat(s):
     out = {}
     s.pump(0.5)
-    k = s.wait_settled(90)
+    # from the first frame: a view that lands inside the pump above
+    # would otherwise never be seen to settle
+    k = s.wait_settled(90, since=0)
     out["first_frame_s"] = round(s.frames[0][1], 2) if s.frames else None
     out["settled_s"] = round(s.frames[k][1], 2) if k is not None else None
     s.pump(1.0)
@@ -295,6 +297,13 @@ def scenario_flat(s):
                                          if t_settle else None)
     after = [f for f in s.frames[n0:] if f[1] > t_release]
     out["pan_ink_after_release"] = [round(ink_density(f[2]), 3) for f in after[:4]]
+    # ink through the drag itself: how bare the ground got as the window
+    # outran the margin, and whether a build landed under the hand
+    during = [ink_density(f[2]) for f in s.frames[n0:] if f[1] <= t_release]
+    if during:
+        out["pan_ink_during_min"] = round(min(during), 3)
+        out["pan_ink_during_last"] = round(during[-1], 3)
+        out["pan_ink_before"] = round(ink_density(s.frames[n0 - 1][2]), 3)
     # zoom in two taps, wait; then out two taps, wait
     for label, key in (("zoom_in2", b"+"), ("zoom_out2", b"-")):
         n = len(s.frames)

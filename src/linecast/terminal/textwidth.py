@@ -340,6 +340,22 @@ def _cpr_widths(buf):
     return [int(col) - 1 for _row, col in _CPR.findall(buf)]
 
 
+def state():
+    """What the calibration settled, for another interpreter to take up."""
+    return dict(_MEASURED), _CLUSTER_CAPPED
+
+
+def adopt(settled):
+    """Take up a calibration another interpreter made (maps.worker): the
+    child that lays out the map's labels has no terminal to ask."""
+    global _CALIBRATED
+    measured, capped = settled
+    _MEASURED.clear()
+    _MEASURED.update(measured)
+    set_cluster_capped(capped)
+    _CALIBRATED = True
+
+
 def calibrate_from_terminal(timeout_s=None):
     """Ask the terminal how wide it draws the glyphs linecast draws.
 

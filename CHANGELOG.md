@@ -8,6 +8,7 @@ Notable changes, by release. Notes for the next release collect under **Unreleas
 - Maps: Zoomed in to a town, the terrain map carries the street map's roads, railways, and names over the shaded ground, and the pointer names a road as it does on the street map. The built-up tint is one tone there.
 - Maps: `--view now` brings the header, footer, and labels back when you zoom in to the ground. With the text hidden, the first thing you do to the map shows the keys that bring it back.
 - Maps: Panning, zooming, and dragging the globe are smoother, and a view that moved settles sooner. The first frame appears sooner too.
+- Maps: Street and terrain views are built on a second interpreter, so a drag keeps building the ground ahead of the hand and the frames stay smooth while it does. Set `LINECAST_MAPS_WORKER=0` to build in-process as before.
 - Live views: Each frame sends the terminal only the rows that changed, so moving the pointer over a map or watching a toast costs a fraction of what it did.
 - Maps: The globe and zoomed-out terrain maps show more of the world's glaciers, such as the icefields along Alaska's southern coast and in the Himalaya, Andes, and Alps, and show them offline.
 - Maps: Terrain maps draw tundra, such as Alaska's North Slope, Canada's Barren Grounds, and the Scandinavian mountains, in tundra colors instead of the green of the forest.

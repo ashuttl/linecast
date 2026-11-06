@@ -23,6 +23,7 @@ from linecast.maps import route as _route
 from linecast.maps import style
 from linecast.maps import ui
 from linecast.maps import loaders as _loaders
+from linecast.maps import worker as _worker
 from linecast._geo import angle_delta, wrap_lon
 from linecast.terminal.live import (
     LiveApp, Ticker, nudge as _nudge_repaint, overlay, print_frame,
@@ -494,6 +495,9 @@ class MapApp(LiveApp):
             self.camera.jump_to(*fit_view(
                 [(origin.lat, origin.lon), (dest.lat, dest.lon)], *map_cells(show_text=self.text)))
             self.fit_view = (self.lat, self.lon, self.zoom)
+        # the flat views build on a second interpreter from here on
+        # (maps.worker); started now so it is warm by the first build
+        _worker.start()
 
     # -- the view centre and zoom, on the camera -------------------------
     @property
@@ -930,16 +934,17 @@ class MapApp(LiveApp):
         # under a flight, whose frames are the picture and whose
         # destination is already on its way, and under a hand.
         #
-        # A hand for the same reason as a flight, and a better one: the
+        # A hand too, while the builds share this interpreter: the
         # frames are what the reader is steering, and a build is a
         # second of pure Python holding the interpreter lock, which
         # measured at 160x45 takes a drag from thirty frames a second
-        # to three.  A drag has the margin to pan inside and nothing to
-        # wait for — it ends either at a stop, which fetches its own
-        # view, or in a coast, whose destination goes to the network at
-        # the release.
-        _loaders.hold_motion(moving, passing=not (self.camera.flying()
-                                                or self.camera.dragging()))
+        # to three.  With the builds on the worker's own interpreter
+        # (maps.worker) a drag builds the ground ahead of it like any
+        # other motion, and the margin it has outrun fills in under
+        # the hand rather than at the release.
+        _loaders.hold_motion(moving, passing=not (
+            self.camera.flying()
+            or (self.camera.dragging() and not _loaders.builds_off_thread())))
         # A view drawn from the world's own sources repaints
         # synchronously once they are warm: the frame is a few
         # hundredths of a second of arithmetic, and the alternative is
@@ -982,6 +987,7 @@ class MapApp(LiveApp):
         self._ticker.stop()   # the loop is over; let the ticker park
         self.camera.halt()
         _loaders.hold_motion(False)
+        _worker.stop()
         # tile workers are not daemons, so a queue of prefetched tiles
         # would be a wait between q and the shell
         _vtiles.shutdown()
