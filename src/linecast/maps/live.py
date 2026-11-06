@@ -601,9 +601,6 @@ class MapApp(LiveApp):
             self.camera.jump_to(*fit_view(
                 [(origin.lat, origin.lon), (dest.lat, dest.lon)], *map_cells(show_text=self.text)))
             self.fit_view = (self.lat, self.lon, self.zoom)
-        # the flat views build on a second interpreter from here on
-        # (maps.worker); started now so it is warm by the first build
-        _worker.start()
 
     # -- the view centre and zoom, on the camera -------------------------
     @property
@@ -1093,6 +1090,11 @@ class MapApp(LiveApp):
         return overlay(frame, note) if note else frame
 
     def run(self):
+        # the flat views build on a second interpreter from here on
+        # (maps.worker): started here with the other threads, so a
+        # constructed app has spawned nothing, and in time to be warm by
+        # the first build
+        _worker.start()
         if self.routes.dest is not None:
             self.routes.request()
         threading.Thread(target=self.cloud_tick, daemon=True).start()

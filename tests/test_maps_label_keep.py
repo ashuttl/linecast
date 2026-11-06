@@ -89,7 +89,5 @@ class TestNamesAreCarried:
         again = []
         _overlays(_shifted(3), keep=placed, placed=again)
         assert [p[:4] for p in again] == [p[:4] for p in placed]
-        # three columns further east on the ground
-        colw = (WORLD[2] - WORLD[0]) / GW
-        assert again[0][5] == placed[0][5]       # same ground, same lon
-        assert again[0][4] == placed[0][4]
+        # on the same ground: the record is the ground's, not the page's
+        assert again[0][4:6] == placed[0][4:6]
