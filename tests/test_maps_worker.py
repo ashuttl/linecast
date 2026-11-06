@@ -79,9 +79,8 @@ class TestTheProtocol:
 
 
 class TestTheChild:
-    def test_the_real_child_builds_and_stops(self):
-        if not worker.enabled():
-            pytest.skip("LINECAST_MAPS_WORKER is off")
+    def test_the_real_child_builds_and_stops(self, monkeypatch):
+        monkeypatch.setenv("LINECAST_MAPS_WORKER", "1")   # off for the suite
         b = worker.Builder()
         b.start()
         try:

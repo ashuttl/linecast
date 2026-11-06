@@ -51,6 +51,11 @@ SESSION_ENV = {
     "XDG_CONFIG_HOME": str(CONFIG_HOME),
     "LINECAST_CACHE_DIR": str(CACHE_HOME / "linecast"),
     "LINECAST_CONFIG_DIR": str(CONFIG_HOME / "linecast"),
+    # No test spawns the live map's build interpreter (maps.worker) by
+    # the way: a child left behind by one test would take the builds a
+    # later test in the same process had patched to run here.  The
+    # worker's own tests turn it on for themselves.
+    "LINECAST_MAPS_WORKER": "0",
 }
 if sys.platform == "win32":
     # expanduser reads USERPROFILE here, never HOME.
