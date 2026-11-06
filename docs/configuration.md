@@ -54,6 +54,7 @@ The dimensions describe the viewport offered to the renderer, rather than an exa
 | `LINECAST_CELL_ASPECT` | The font's cell shape, as height over width (`2.1`) or `WxH` in pixels (`10x21`), when the terminal can't report it or reports it wrong |
 | `LINECAST_BIDI` | `terminal` leaves the ordering of right-to-left text to the terminal; `linecast` orders it in linecast. See [languages.md](languages.md#persian-and-right-to-left-text) |
 | `LINECAST_FRAME_SYNC` | `0` stops live views waiting for the terminal to finish drawing one frame before sending the next (default `1`) |
+| `LINECAST_MAPS_WORKER` | `0` builds the map's street and terrain views in the main process instead of on a second interpreter (default `1`) |
 
 ### Views and data sources
 

@@ -4,18 +4,20 @@ Notable changes, by release. Notes for the next release collect under **Unreleas
 
 ## Unreleased
 
-- Maps: Daylight and clouds show on the globe and at continental scale and fade out as you zoom in. Press `S` or `c` as before; the header names them while they show.
-- Maps: Zoomed in to a town, the terrain map carries the street map's roads, railways, and names over the shaded ground, and the pointer names a road as it does on the street map. The built-up tint is one tone there.
-- Maps: `--view now` brings the header, footer, and labels back when you zoom in to the ground. With the text hidden, the first thing you do to the map shows the keys that bring it back.
-- Maps: Panning, zooming, and dragging the globe are smoother, and a view that moved settles sooner. The first frame appears sooner too.
-- Maps: Street and terrain views are built on a second interpreter, so a drag keeps building the ground ahead of the hand and the frames stay smooth while it does. Set `LINECAST_MAPS_WORKER=0` to build in-process as before.
-- Maps: Dragging or panning a street or terrain map no longer redraws it slightly when it comes to rest. The map slides instead of turning, and is redrawn only after a long pan or a jump to another place.
-- Maps: Street names, shields, and place names keep their positions as you pan. A name is placed afresh only when the ground it stood on has left the view.
-- Live views: Each frame sends the terminal only the rows that changed, so moving the pointer over a map or watching a toast costs a fraction of what it did.
-- Maps: The globe and zoomed-out terrain maps show more of the world's glaciers, such as the icefields along Alaska's southern coast and in the Himalaya, Andes, and Alps, and show them offline.
+Most of this release is the map. Panning, zooming, and turning the globe are smoother, the first frame appears sooner, and the map keeps building while you drag it, so the ground arrives under your hand rather than after you let go. A map that comes to rest after a pan stays put, with its names where they were. Zoomed in to a town, the terrain map carries the street map's roads and names over the relief. The globe's ice and tundra come from better data.
+
+Changes you may notice:
+
+- Maps: Street and terrain views are built on a second interpreter, which leaves the first free to draw. A drag builds the ground ahead of the hand, the frames stay smooth while it does, and the first frame comes up sooner. Set `LINECAST_MAPS_WORKER=0` to build in one process as before.
+- Maps: A street or terrain map slides as you pan it and stays where you leave it, instead of being redrawn about its new center when it comes to rest. Street names, shields, and place names keep their positions too; a name is placed afresh only when the ground it stood on has left the view. The map is rebuilt only after a long pan or a jump to another place.
+- Maps: Zoomed in to a town, the terrain map carries the street map's roads, railways, and names over the shaded ground, and the pointer names a road as it does on the street map. The built-up tint there is one tone.
+- Maps: Daylight and clouds show on the globe and at continental scale, and fade out as you zoom in. Press `S` or `c` as before; the header names them while they show.
+- Maps: `--view now` brings the header, footer, and labels back when you zoom in to the ground, unless you also gave `--no-text`. With the text hidden, the first thing you do to the map shows the keys that bring it back.
+- Maps: The globe and zoomed-out terrain maps draw the world's glaciers from data bundled with linecast, so the icefields along Alaska's southern coast and in the Himalaya, Andes, and Alps show, and show offline.
 - Maps: Terrain maps draw tundra, such as Alaska's North Slope, Canada's Barren Grounds, and the Scandinavian mountains, in tundra colors instead of the green of the forest.
+- Live views: Each frame sends the terminal only the rows that changed, so moving the pointer over a map, or watching a toast or the clock, costs a fraction of what it did.
 - Weather: The month view opens on the current month instead of the previous one. Press space or `n` to return to it.
-- Weather, tides: The bottom row shows `v switch view` when there is room for it.
+- Weather, tides: The bottom row says `v switch view` when there is room for it.
 
 ## 2.11.0 — 2026-10-24
 
