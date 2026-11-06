@@ -41,6 +41,7 @@ see rather than the point the data hands you.
 """
 
 import heapq
+import math
 
 from linecast.maps import globe as _globe
 from linecast.maps import places, style
@@ -48,6 +49,7 @@ from linecast.radar.basemap import marine_region
 from linecast.terminal.braille import line_dots
 from linecast.terminal.textwidth import cells as text_cells, visible_len
 from linecast.maps.vtiles import iter_layer
+from linecast._geo import angle_delta
 from linecast._i18n import base_language, setting
 
 # The tile place classes that are a settlement rather than an area: the
@@ -925,7 +927,7 @@ _ANCHORS = (0.50, 0.25, 0.75, 0.12, 0.62, 0.38, 0.88)
 
 
 def _place_beside(overlays, occ, cells, text, ink, bold, repeat, limit,
-                  mark=None):
+                  mark=None, placed=None):
     """Write a road's name horizontally, centred on the road itself.
 
     Text has to sit on one row, and a road almost never does: measured
@@ -942,7 +944,13 @@ def _place_beside(overlays, occ, cells, text, ink, bold, repeat, limit,
     a repeated name is one label written twice, not two labels.
     """
     n = visible_len(text)
-    placed = []
+    # `placed` may arrive holding the instances of this name a previous
+    # view kept on the page (`label_overlays`'s `keep`): they count
+    # toward the limit and keep the repeats at their distance, and the
+    # instances written here are appended to it for the caller
+    if placed is None:
+        placed = []
+    kept = len(placed)
     for fraction in _ANCHORS:
         if len(placed) >= limit:
             break
@@ -957,7 +965,53 @@ def _place_beside(overlays, occ, cells, text, ink, bold, repeat, limit,
             continue
         _emit(overlays, occ, row, col, text, ink, bold, mark)
         placed.append((col, row))
-    return len(placed)
+    return len(placed) - kept
+
+
+# Which budget a label's kind spends from, for the ones a view in hand
+# kept on the page (`label_overlays`'s `keep`): the kinds
+# place_candidates, water_park_candidates and road_candidates name.
+_PLACE_KINDS = ("city_major", "city", "town", "village", "hamlet", "suburb",
+                "neighbourhood", "state", "country", "island")
+_WATER_PARK_KINDS = ("water", "park")
+
+
+def _budget_of(kind):
+    if kind in _PLACE_KINDS:
+        return "place"
+    if kind in _WATER_PARK_KINDS:
+        return "water_park"
+    if kind.startswith("shield"):
+        return "shield"
+    if kind == "exit":
+        return "exit"
+    return "street"
+
+
+def _ground_maps(bbox, graph_w, height_cells, camera):
+    """(cell -> (lat, lon) under its middle, (lat, lon) -> cell or None),
+    by the camera where there is one and by the bbox's box otherwise:
+    what lets a label be carried from one view to the next by the
+    ground it stood on."""
+    if camera is not None:
+        return (lambda cell: camera.ground(cell[0], cell[1]),
+                lambda lat, lon: camera.screen_cell(lon, lat))
+    minlon, minlat, maxlon, maxlat = bbox
+    colw = (maxlon - minlon) / graph_w
+    rowh = (maxlat - minlat) / height_cells
+
+    def ground(cell):
+        return (maxlat - (cell[1] + 0.5) * rowh,
+                minlon + (cell[0] + 0.5) * colw)
+
+    def cell_of(lat, lon):
+        lon = minlon + angle_delta(minlon, lon)
+        col = int(math.floor((lon - minlon) / colw))
+        row = int(math.floor((maxlat - lat) / rowh))
+        if 0 <= col < graph_w and 0 <= row < height_cells:
+            return col, row
+        return None
+    return ground, cell_of
 
 
 def _style_for(kind, palette):
@@ -975,7 +1029,8 @@ def _cased(text, case, lang="en"):
 
 def label_overlays(view, bbox, graph_w, height_cells, band, palette,
                    lang="en", reserved=(), water_mask=None, marks=None,
-                   texts=None, waters=None, camera=None, window=None):
+                   texts=None, waters=None, camera=None, window=None,
+                   keep=(), placed=None):
     """{(col, row): (char, ink, bold)} for one view.
 
     Walked in strict priority order — places, water and park names,
@@ -1006,9 +1061,29 @@ def label_overlays(view, bbox, graph_w, height_cells, band, palette,
     `window` is (gw, hc) of the window this view is the overscan of,
     at its middle, and only the gazetteer's cities read it: the window
     has to crop the set it would carry built alone (`places.layout`).
+
+    `keep` is what a view in hand had written, as `placed` collected
+    it: one record per label, (how, kind, name, text, lat, lon, anchor),
+    where `how` says whether it sat at a point or beside a road, and
+    the ground is the anchor's or the writing's first cell's.  Those
+    are written first, on the ground they were on, wherever they still
+    fit and still show — so a view built one pan over carries its names
+    with its streets rather than placing them afresh, and a name only
+    moves when the ground under it has left the page or something that
+    outranks it has arrived.  They count toward every budget they
+    would have.  A list handed in as `placed` collects this view's own
+    records for the next.
     """
     occ = Occupancy(graph_w, height_cells)
     overlays = {}
+    ground, cell_of = _ground_maps(bbox, graph_w, height_cells, camera)
+    if placed is None:
+        placed = []
+
+    def note(how, kind, name, text, cell, anchor=None):
+        at = ground(cell)
+        if at is not None:
+            placed.append((how, kind, name, text, at[0], at[1], anchor))
 
     # 1 — the gazetteer's cities, where they are this register's
     # settlements (`style.GAZETTEER_BAND`).  First, against nothing,
@@ -1033,15 +1108,50 @@ def label_overlays(view, bbox, graph_w, height_cells, band, palette,
             occ.claim(row, col, 1)
 
     total = style.label_budget(graph_w, height_cells)
-    placed = 0
+    count = 0
+
+    # 1½ — what the view in hand had written, on the ground it was on.
+    # Each kept label spends from the budget its kind spends from, and
+    # a road name kept is an instance its own pass counts.
+    spent = {}                      # budget kind -> labels kept
+    kept_beside = {}                # (kind, name) -> [(col, row)]
+    kept_point = set()              # (kind, name) of the points kept
+    for how, kind, name, text, lat, lon, anchor in keep:
+        if count >= total:
+            break
+        cell = cell_of(lat, lon)
+        if not _in_view(cell, graph_w, height_cells):
+            continue
+        ink, _case, bold = _style_for(kind, palette)
+        if anchor is not None:
+            anchor = (anchor[0], ink, bold)
+        if how == "beside":
+            col, row = cell
+            n = visible_len(text)
+            if not occ.free(row, col, n):
+                continue
+            _emit(overlays, occ, row, col, text, ink, bold,
+                  _text_mark(texts, name))
+            kept_beside.setdefault((kind, name), []).append(cell)
+        else:
+            if (kind, name) in kept_point or not _place_point(
+                    overlays, occ, cell, text, ink, bold, anchor,
+                    _text_mark(texts, name)):
+                continue
+            kept_point.add((kind, name))
+        note(how, kind, name, text, cell, anchor)
+        spent[_budget_of(kind)] = spent.get(_budget_of(kind), 0) + 1
+        count += 1
 
     # 2 — places, with the anchor mark the map uses for settlements:
     # the everyday dot, or the capital's star
-    budget = style.place_budget(total)
+    budget = style.place_budget(total) - spent.get("place", 0)
     for _key, kind, name, cell, star in place_candidates(
             view, bbox, graph_w, height_cells, band, lang, camera):
-        if budget <= 0 or placed >= total:
+        if budget <= 0 or count >= total:
             break
+        if (kind, name) in kept_point:
+            continue
         ink, case, bold = _style_for(kind, palette)
         settlement = kind in ("city_major", "city", "town", "village",
                               "hamlet")
@@ -1056,16 +1166,19 @@ def label_overlays(view, bbox, graph_w, height_cells, band, palette,
             continue
         if _place_point(overlays, occ, cell, text, ink, bold,
                         anchor, _text_mark(texts, name)):
+            note("point", kind, name, text, cell, anchor)
             budget -= 1
-            placed += 1
+            count += 1
 
     # 3 — water bodies and park names, sharing one ceiling
-    budget = style.water_park_budget(total)
+    budget = style.water_park_budget(total) - spent.get("water_park", 0)
     for _key, kind, name, cell, span in water_park_candidates(
             view, bbox, graph_w, height_cells, band, lang, water_mask,
             waters, camera):
-        if budget <= 0 or placed >= total:
+        if budget <= 0 or count >= total:
             break
+        if (kind, name) in kept_point:
+            continue
         ink, case, bold = _style_for(kind, palette)
         text = _cased(name, case, lang)
         # An area label belongs inside the area it names. A forest
@@ -1076,55 +1189,69 @@ def label_overlays(view, bbox, graph_w, height_cells, band, palette,
             continue
         if _place_point(overlays, occ, cell, text, ink, bold,
                         mark=_text_mark(texts, name)):
+            note("point", kind, name, text, cell)
             budget -= 1
-            placed += 1
+            count += 1
 
     shields, streets, exits = road_candidates(view, bbox, graph_w,
                                               height_cells, band, lang,
                                               camera)
 
+    def beside(kind, name, cells, text, ink, bold, repeat, limit):
+        """A name written beside its road, the kept instances first."""
+        before = kept_beside.get((kind, name), [])
+        runs = list(before)
+        n = _place_beside(overlays, occ, cells, text, ink, bold, repeat,
+                          limit, _text_mark(texts, name), runs)
+        for cell in runs[len(before):]:
+            note("beside", kind, name, text, cell)
+        return n
+
     # 4 — route shields: the network's colour and the bold *are* the
     # shield
-    budget = style.shield_budget(total)
+    budget = style.shield_budget(total) - spent.get("shield", 0)
     for _key, kind, text, cells in shields:
-        if budget <= 0 or placed >= total:
+        if budget <= 0 or count >= total:
             break
         ink, case, bold = _style_for(kind, palette)
-        n = _place_beside(overlays, occ, cells, _cased(text, case, lang), ink,
-                          bold, style.SHIELD_REPEAT_CELLS,
-                          min(budget, style.SHIELD_MAX_INSTANCES),
-                          _text_mark(texts, text))
+        shown = _cased(text, case, lang)
+        n = beside(kind, text, cells, shown, ink, bold,
+                   style.SHIELD_REPEAT_CELLS,
+                   min(budget, style.SHIELD_MAX_INSTANCES)
+                   + len(kept_beside.get((kind, text), [])))
         budget -= n
-        placed += n
+        count += n
 
     # 5 — exit numbers, bracketed so they can never read as a route.
     # An exit is a point: it goes on its own cell or nowhere, though a
     # junction split across carriageways may offer more than one cell.
-    budget = style.exit_budget(total)
+    budget = style.exit_budget(total) - spent.get("exit", 0)
     for _key, kind, ref, cells in exits:
-        if budget <= 0 or placed >= total:
+        if budget <= 0 or count >= total:
             break
+        if (kind, ref) in kept_point:
+            continue
         ink, case, bold = _style_for(kind, palette)
         text = f"[{_cased(ref, case, lang)}]"
         for cell in cells:
             if _place_point(overlays, occ, cell, text, ink, bold):
+                note("point", kind, ref, text, cell)
                 budget -= 1
-                placed += 1
+                count += 1
                 break
 
     # 6 — street names, major to minor
-    budget = style.street_budget(total)
+    budget = style.street_budget(total) - spent.get("street", 0)
     for _key, kind, name, cells in streets:
-        if budget <= 0 or placed >= total:
+        if budget <= 0 or count >= total:
             break
         ink, case, bold = _style_for(kind, palette)
-        n = _place_beside(overlays, occ, cells, _cased(name, case, lang), ink,
-                          bold, style.ROAD_REPEAT_CELLS,
-                          min(budget, style.max_instances(
-                              graph_w * height_cells)),
-                          _text_mark(texts, name))
+        n = beside(kind, name, cells, _cased(name, case, lang), ink, bold,
+                   style.ROAD_REPEAT_CELLS,
+                   min(budget, style.max_instances(graph_w * height_cells))
+                   + len(kept_beside.get((kind, name), [])))
         budget -= n
-        placed += n
+        count += n
 
     # 7 and 8 — POI glyphs, and names for the tier-1 few at the bottom
     glyphs = style.poi_glyph_budget(graph_w, height_cells)

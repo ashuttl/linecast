@@ -630,12 +630,14 @@ def _get_elevation(bbox, gw, hc, block, window=None, eye=None):
     return view
 
 def build_street(bbox, gw, hc, window=None, lang="en", reserved=(),
-                 live=True, eye=None):
+                 live=True, eye=None, keep=()):
     """((fills, ranked layer, label overlays), short) for the view: the
     pure half, `build_terrain`'s twin.  `live` is whether the tiles
     around the view may be fetched ahead as well — a printed frame has
     no next pan to be ready for.  `eye` is the point the view is
-    projected about (globe.Camera.eye).
+    projected about (globe.Camera.eye), and `keep` the names a view in
+    hand had written, to keep where they still fit
+    (streets.build_street_view).
 
     The window is a patch of the sphere at every zoom now.  Where the
     box rasteriser is still the camera's own picture — a twentieth of a
@@ -676,14 +678,17 @@ def build_street(bbox, gw, hc, window=None, lang="en", reserved=(),
         wbbox, whc = window
         cells = (round((wbbox[2] - wbbox[0]) / ((bbox[2] - bbox[0]) / gw)),
                  whc)
+    # the names to keep ride along only when there are any: a view with
+    # none asks as it always has
     view = streets.build_street_view(
         bbox, gw, hc, tiles, band, lang, reserved,
-        bu_job.result() if bu_job is not None else None, camera, cells)
+        bu_job.result() if bu_job is not None else None, camera, cells,
+        **({"keep": keep} if keep else {}))
     return view, None in tiles.values()
 
 
 def _get_street_tiles(bbox, gw, hc, block, lang="en", reserved=(),
-                      window=None, eye=None):
+                      window=None, eye=None, keep=()):
     """(fills, ranked layer, label overlays) for the view; live mode
     fetches in the background, exactly as the elevation path does.
 
@@ -692,7 +697,7 @@ def _get_street_tiles(bbox, gw, hc, block, lang="en", reserved=(),
     """
     def load():
         view, short = _build("street", bbox, gw, hc, window, lang,
-                             tuple(reserved), not block, eye)
+                             tuple(reserved), not block, eye, tuple(keep))
         # the whole view, labels and all: a window inside this one's
         # margin is an exact crop of it, which is a picture with its
         # names on.  A window outside it is reprojected instead, and

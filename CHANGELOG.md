@@ -10,6 +10,7 @@ Notable changes, by release. Notes for the next release collect under **Unreleas
 - Maps: Panning, zooming, and dragging the globe are smoother, and a view that moved settles sooner. The first frame appears sooner too.
 - Maps: Street and terrain views are built on a second interpreter, so a drag keeps building the ground ahead of the hand and the frames stay smooth while it does. Set `LINECAST_MAPS_WORKER=0` to build in-process as before.
 - Maps: Dragging or panning a street or terrain map no longer redraws it slightly when it comes to rest. The map slides instead of turning, and is redrawn only after a long pan or a jump to another place.
+- Maps: Street names, shields, and place names keep their positions as you pan. A name is placed afresh only when the ground it stood on has left the view.
 - Live views: Each frame sends the terminal only the rows that changed, so moving the pointer over a map or watching a toast costs a fraction of what it did.
 - Maps: The globe and zoomed-out terrain maps show more of the world's glaciers, such as the icefields along Alaska's southern coast and in the Himalaya, Andes, and Alps, and show them offline.
 - Maps: Terrain maps draw tundra, such as Alaska's North Slope, Canada's Barren Grounds, and the Scandinavian mountains, in tundra colors instead of the green of the forest.

@@ -1129,7 +1129,8 @@ def water_owners(coast, wet, waters, feats, graph_w, height_cells):
 
 
 def build_street_view(bbox, graph_w, height_cells, tiles, band, lang="en",
-                      reserved=(), builtup=None, camera=None, window=None):
+                      reserved=(), builtup=None, camera=None, window=None,
+                      keep=()):
     """(fills, layer, overlays) for one view — the pure half, no network.
 
     `tiles` maps (z, x, y) to raw MVT bytes, or to None for a tile that
@@ -1160,7 +1161,9 @@ def build_street_view(bbox, graph_w, height_cells, tiles, band, lang="en",
     it is a property of the view, and the view is what gets cached: a
     pointer crossing a static map must cost a lookup, not a rebuild.
     The index is a map of the cells the raster drew, so it follows the
-    camera for free.
+    camera for free.  It carries `.labels_placed` too: what this view
+    wrote and where on the ground, for the next view to keep
+    (`labels.label_overlays`'s `keep`, which is where `keep` goes).
     """
     palette = style.palette()
     view = decode_view(tiles)
@@ -1173,9 +1176,10 @@ def build_street_view(bbox, graph_w, height_cells, tiles, band, lang="en",
     # naming the water is what tells the shore which shore it is.
     wet = water_cells(water, graph_w, height_cells)
     marks, texts, waters = {}, {}, {}
+    placed = []
     overlays = _labels.label_overlays(
         view, bbox, graph_w, height_cells, band, palette, lang, reserved,
-        wet, marks, texts, waters, camera, window)
+        wet, marks, texts, waters, camera, window, keep, placed)
 
     layer = DotLayer(bbox, graph_w, height_cells)
     # the fill is every pond; the stroke is the water big enough on
@@ -1197,4 +1201,5 @@ def build_street_view(bbox, graph_w, height_cells, tiles, band, lang="en",
         _hover.road_names(view, bbox, graph_w, height_cells, band,
                           lang, camera),
         marks, fill_cells(grid, graph_w, height_cells), texts, shore)
+    layer.labels_placed = tuple(placed)
     return fills, layer, overlays

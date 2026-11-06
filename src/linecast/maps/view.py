@@ -491,6 +491,26 @@ def _eyed(eye):
     return {} if eye is None else {"eye": eye}
 
 
+def _kept(keep):
+    """The keyword a street loader is handed for the names to keep:
+    nothing when there are none."""
+    return {"keep": keep} if keep else {}
+
+
+def _names_in_hand(view):
+    """The names the register's view in hand had written, with the
+    ground each stood on (`streets.build_street_view`), for the next
+    build to keep where they still fit — a street view's own, or the
+    street lines a terrain view carries."""
+    if view == "street":
+        last = _last_street[0]
+        layer = last[4] if last is not None and len(last) > 4 else None
+    else:
+        last = _last_terrain[0]
+        layer = last[9] if last is not None and len(last) > 9 else None
+    return getattr(layer, "labels_placed", ()) or ()
+
+
 def _flat_frame(view, bbox, graph_w, height_cells, block, motion, cap=None,
                 eye=None):
     """(the view to build, where the window sits in it, what is in hand).
@@ -581,7 +601,7 @@ def _get_terrain(bbox, gw, hc, block, window=None, eye=None):
 
 
 def _get_street(bbox, gw, hc, block, lang="en", reserved=(), window=None,
-                eye=None):
+                eye=None, keep=()):
     """The street register's one loader, whatever the zoom.
 
     `_get_terrain`'s twin.  The footprint picks the source and nothing
@@ -603,7 +623,7 @@ def _get_street(bbox, gw, hc, block, lang="en", reserved=(), window=None,
         local = cam.local_tiles
     if local:
         return _get_street_tiles(bbox, gw, hc, block, lang, reserved, window,
-                                 **_eyed(eye))
+                                 **_eyed(eye), **_kept(keep))
     view = _get_globe(cam.lat, cam.lon, cam.zoom, gw, hc, block, street=True)
     if view is None or view.elev is None:
         return None, None, None
@@ -815,7 +835,8 @@ def _street_lines(win, block, lang, reserved, source):
     try:
         _fills, layer, labels = _get_street(frame.bbox, frame.gw, frame.hc, block,
                                             lang, reserved or (), window=hint,
-                                            **_eyed(frame.eye))
+                                            **_eyed(frame.eye),
+                                            **_kept(_names_in_hand("terrain")))
     except Exception as exc:
         log_failure("maps/vtiles", "street lines over terrain", exc,
                     fallback="the ground alone")
@@ -1208,7 +1229,8 @@ def _render_street(win, block, pan_offset, mouse_pos, marks, lang,
         reserved = (marks.marker, centre) if marks.marker else (centre,)
         if not show_crosshairs:
             reserved = ()
-    loader = functools.partial(_get_street, lang=lang, reserved=reserved)
+    loader = functools.partial(_get_street, lang=lang, reserved=reserved,
+                               **_kept(_names_in_hand("street")))
     view, loading, err = _load_register(loader, win, block, source,
                                         _STREET_LOAD)
     fills, layer, labels = view if source is None else source[3:6]
@@ -1482,7 +1504,7 @@ def prefetch_view(lat, lon, zoom, view, graph_w, height_cells, lang,
             if view == "street":
                 _get_street(frame.bbox, frame.gw, frame.hc, True, lang,
                             _street_reserved(frame, m_lat, m_lon), hint,
-                            **_eyed(eye))
+                            **_eyed(eye), **_kept(_names_in_hand("street")))
             else:
                 _get_terrain(frame.bbox, frame.gw, frame.hc, True, hint,
                              **_eyed(eye))
@@ -1490,7 +1512,8 @@ def prefetch_view(lat, lon, zoom, view, graph_w, height_cells, lang,
                                      eye)):
                     _get_street(frame.bbox, frame.gw, frame.hc, True, lang,
                                 _street_reserved(frame, m_lat, m_lon), hint,
-                                **_eyed(eye))
+                                **_eyed(eye),
+                                **_kept(_names_in_hand("terrain")))
         except Exception as exc:
             log_failure("maps/prefetch", "destination", exc,
                         fallback="the view loads on arrival")
