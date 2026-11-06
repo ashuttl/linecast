@@ -15,7 +15,7 @@ English | [日本語](README.ja.md)
 
 </div>
 
-![linecast tiled on an Omarchy desktop: the weather in Westbrook, Maine, and its year so far, the radar over Portland, the Moon in Japanese, and a year of daylight in Reykjavík in Icelandic](screenshots/hero.png)
+![linecast tiled on an Omarchy desktop: the weather in Westbrook, Maine, and its year so far, the radar over Portland, the tide at Portland, and a year of daylight in Reykjavík in Icelandic](screenshots/hero.png)
 
 Seven live terminal apps built on free public data. Pure Python, no accounts or API keys required. Colors come from your terminal theme, and the mouse works. Runs on macOS, Linux, and Windows, over SSH, and in tmux.
 

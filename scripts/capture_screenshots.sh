@@ -90,7 +90,8 @@ Targets:
   tours      globe-spin.gif and sky-pan.gif in screenshots/gallery, each
              a recording driven by a mouse script in scripts/tours
   hero       hero.png — five apps tiled on a 1920x1200 desktop, drawn at 2x,
-             in the arrangement of Andrew's desktop 2
+             in the arrangement of Andrew's desktop 2 (capture_hero_screen.sh
+             takes the same desktop as a real whole-screen screenshot)
   languages  languages.png — a second desktop, the apps in Canadian French,
              Hawaiian, Japanese, and Icelandic
   themes     themes.gif (and .mp4) — the hero desktop through a run of
@@ -350,9 +351,11 @@ radar() {
     resolve_radar_place
     local radar_lang=("${RADAR_LANG_ARGS[@]}")
     printf 'Capturing radar still…\n'
-    # No window padding: the radar frame is shot without the border.
+    # No window padding: the radar frame is shot without the border. The
+    # loop runs five frames a second, so a still would land anywhere in the
+    # last two hours; space pauses it on the present.
     "$CAPTURE_TOOL" -s 120x36 -w 15 --pad 0 --font "$CAPTURE_FONT" \
-        -o "$SHOT_DIR/radar.png" \
+        --press space -o "$SHOT_DIR/radar.png" \
         uv --directory "$REPO_DIR" run linecast radar --location "$RADAR_PLACE" "${radar_lang[@]}"
 
     printf 'Capturing radar animation…\n'
@@ -473,24 +476,25 @@ print(f"20,{lon:.0f}")')
 
 gallery() {
     # The states the README leaves out. Smaller windows than the README
-    # frames: these sit three abreast on the gallery page.
+    # frames: these sit three abreast on the gallery page. The radar stills
+    # are paused on the present, as radar.png is.
     resolve_radar_place
     local theme
     for theme in dusk ember ink marangai; do
         printf 'Capturing radar in %s…\n' "$theme"
         "$CAPTURE_TOOL" -s 100x30 -w 15 --pad 0 --font "$CAPTURE_FONT" \
-            -o "$GALLERY_DIR/radar-$theme.png" \
+            --press space -o "$GALLERY_DIR/radar-$theme.png" \
             uv --directory "$REPO_DIR" run linecast radar --location "$RADAR_PLACE" \
             --theme "$theme" "${RADAR_LANG_ARGS[@]}"
     done
     printf 'Capturing radar satellite layer…\n'
     "$CAPTURE_TOOL" -s 100x30 -w 20 --pad 0 --font "$CAPTURE_FONT" \
-        -o "$GALLERY_DIR/radar-satellite.png" \
+        --press space -o "$GALLERY_DIR/radar-satellite.png" \
         uv --directory "$REPO_DIR" run linecast radar --location "$RADAR_PLACE" \
         --layer satellite "${RADAR_LANG_ARGS[@]}"
     printf 'Capturing radar with temperature and wind…\n'
     "$CAPTURE_TOOL" -s 100x30 -w 20 --pad 0 --font "$CAPTURE_FONT" \
-        -o "$GALLERY_DIR/radar-layers.png" \
+        --press space -o "$GALLERY_DIR/radar-layers.png" \
         uv --directory "$REPO_DIR" run linecast radar --location "$RADAR_PLACE" \
         --layers temp,wind "${RADAR_LANG_ARGS[@]}"
 
