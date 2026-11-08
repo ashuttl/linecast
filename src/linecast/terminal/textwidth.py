@@ -33,33 +33,36 @@ def char_width(ch, next_ch=""):
     """
     if ch == _VS16:
         return 0
-    if unicodedata.category(ch) == 'Co':
+    category = unicodedata.category(ch)
+    if category == 'Co':
         # Private Use Area (Nerd Font icons) — single-width
         return _MEASURED.get("pua", 1)
     # Nonspacing marks ride their base's cell: a Devanagari matra above
     # or below, a virama, an anusvara, a Thai or Arabic vowel sign.
     # Spacing marks (Mc — ा, ि) keep their own cell, as wcwidth has it.
-    if unicodedata.category(ch) in ('Mn', 'Me'):
+    if category in ('Mn', 'Me'):
         return 0
     if ch in '\u200b\u200c\u200d\u2060\ufeff':
         return 0        # zero-width space and joiners (ZWNJ/ZWJ in Indic text)
-    if unicodedata.category(ch) == 'Cf' and ch not in _VISIBLE_FORMAT:
+    if category == 'Cf' and ch not in _VISIBLE_FORMAT:
         # Format characters draw nothing: the bidi marks and isolates
         # (LRM, RLM, ALM, U+2066-2069) that OSM names carry, and that the
         # right-to-left pass (_bidi) places and then removes.
         return 0
+    code = ord(ch)
+    in_emoji_plane = _EMOJI_PLANE[0] <= code <= _EMOJI_PLANE[1]
     if next_ch == _VS16:
         # base + VS16 → emoji presentation → double-width.  Asked before
         # the East Asian width: the selector is what settles how the
         # terminal draws the pair, whatever the base is on its own.
-        if _EMOJI_PLANE[0] <= ord(ch) <= _EMOJI_PLANE[1]:
+        if in_emoji_plane:
             return _MEASURED.get("smp_vs16", 2)
         return _MEASURED.get("bmp_vs16", 2)
-    if _EMOJI_PLANE[0] <= ord(ch) <= _EMOJI_PLANE[1]:
+    if in_emoji_plane:
         return _MEASURED.get("smp_bare", 2)
     if unicodedata.east_asian_width(ch) in ('W', 'F'):
         return 2
-    if ord(ch) >= 0x1F000:
+    if code >= 0x1F000:
         return 2
     return 1
 
@@ -94,21 +97,38 @@ def char_widths(text):
     a mark, or a consonant joined by a virama — never grows the cluster
     past two columns.
     """
-    widths = []
+    if isinstance(text, str) and text.isascii():
+        # No VS16 and nothing that extends a cluster: one column each,
+        # in either model.
+        return [1] * len(text)
+    width = char_width
+    vs16 = _VS16
+    # ASCII is one column; anything else is measured alone.  Only a
+    # VS16 changes the width of the character before it, so those few
+    # are measured again with the selector after them.
+    widths = [1 if ch < '\x80' else width(ch) for ch in text]
+    if isinstance(text, str):
+        i = text.find(vs16, 1)
+        while i > 0:
+            widths[i - 1] = width(text[i - 1], vs16)
+            i = text.find(vs16, i + 1)
+    if not _CLUSTER_CAPPED:
+        return widths
+    category = unicodedata.category
+    linkers = _LINKERS
     cluster = 0
     prev = ""
     for i, ch in enumerate(text):
-        w = char_width(ch, text[i + 1:i + 2])
-        if _CLUSTER_CAPPED:
-            extends = (prev in _LINKERS
-                       or ch == _VS16
-                       or unicodedata.category(ch) in ('Mn', 'Mc', 'Me'))
-            if extends:
-                w = min(w, max(0, 2 - cluster))
-                cluster += w
-            else:
-                cluster = w
-        widths.append(w)
+        w = widths[i]
+        # No ASCII character is a mark.
+        extends = (prev in linkers
+                   or ch == vs16
+                   or ch >= '\x80' and category(ch) in ('Mn', 'Mc', 'Me'))
+        if extends:
+            w = widths[i] = min(w, max(0, 2 - cluster))
+            cluster += w
+        else:
+            cluster = w
         prev = ch
     return widths
 
