@@ -576,24 +576,28 @@ def _find_temperature_extrema(col_temps, graph_w):
         if is_peak:
             lo = v
             j = i - 1
-            while j >= 0 and col_temps[j] <= v:
-                lo = min(lo, col_temps[j])
+            while j >= 0 and (t := col_temps[j]) <= v:
+                if t < lo:
+                    lo = t
                 j -= 1
             hi = v
             j = i + 1
-            while j < n and col_temps[j] <= v:
-                hi = min(hi, col_temps[j])
+            while j < n and (t := col_temps[j]) <= v:
+                if t < hi:
+                    hi = t
                 j += 1
             return v - max(lo, hi)
         lo = v
         j = i - 1
-        while j >= 0 and col_temps[j] >= v:
-            lo = max(lo, col_temps[j])
+        while j >= 0 and (t := col_temps[j]) >= v:
+            if t > lo:
+                lo = t
             j -= 1
         hi = v
         j = i + 1
-        while j < n and col_temps[j] >= v:
-            hi = max(hi, col_temps[j])
+        while j < n and (t := col_temps[j]) >= v:
+            if t > hi:
+                hi = t
             j += 1
         return min(lo, hi) - v
 
@@ -602,18 +606,20 @@ def _find_temperature_extrema(col_temps, graph_w):
 
     # --- Peaks and valleys (scored by topographic prominence in degrees) ---
     for i in range(2, n - 2):
+        c, prev, nxt = col_temps[i], col_temps[i - 1], col_temps[i + 1]
+        rises = c > prev or c > nxt
+        falls = c < prev or c < nxt
+        # A point both above and below a neighbour is a slope, not an extremum
+        if rises == falls:
+            continue
         local = col_temps[max(0, i - 3):i + 4]
-        is_peak = col_temps[i] >= max(local) and (
-            col_temps[i] > col_temps[i - 1] or col_temps[i] > col_temps[i + 1]
-        )
-        is_valley = col_temps[i] <= min(local) and (
-            col_temps[i] < col_temps[i - 1] or col_temps[i] < col_temps[i + 1]
-        )
+        is_peak = rises and c >= max(local)
+        is_valley = falls and c <= min(local)
         if not is_peak and not is_valley:
             continue
         prom = prominence(i, is_peak)
         if prom >= 1:
-            scored.append((i, col_temps[i], is_peak, prom, False))
+            scored.append((i, c, is_peak, prom, False))
 
     # --- Global max/min (always placed first) ---
     global_max_x = max(range(n), key=lambda i: col_temps[i])
@@ -633,19 +639,19 @@ def _find_temperature_extrema(col_temps, graph_w):
             continue
         sagittas[i] = col_temps[i] - (col_temps[i - hw] + col_temps[i + hw]) / 2
 
+    abs_sags = [abs(s) for s in sagittas]
     for i in range(detect_r, n - detect_r):
-        abs_sag = abs(sagittas[i])
+        abs_sag = abs_sags[i]
         if abs_sag < 1:
+            continue
+        # Must be a local maximum of |sagitta|
+        if max(abs_sags[i - detect_r:i + detect_r + 1]) > abs_sag:
             continue
         # Only label slope bends — skip near local temperature extrema
         local_slice = col_temps[max(0, i - min_gap):min(n, i + min_gap + 1)]
         local_hi, local_lo = max(local_slice), min(local_slice)
         band = (local_hi - local_lo) * 0.15
         if col_temps[i] > local_hi - band or col_temps[i] < local_lo + band:
-            continue
-        # Must be a local maximum of |sagitta|
-        if any(abs(sagittas[j]) > abs_sag
-               for j in range(i - detect_r, i + detect_r + 1)):
             continue
         # Concave up (sag<0, elbow) → label above; concave down (sag>0) → below
         is_peak = sagittas[i] < 0
@@ -658,16 +664,19 @@ def _find_temperature_extrema(col_temps, graph_w):
     # collide even when adjacent.  A day's morning valley and afternoon peak sit
     # closer than min_gap, and gating across kinds would let one silently evict
     # the other (topographic prominence makes the pair score almost equally).
+    placed = {True: [], False: []}  # is_peak -> [(x, rounded temp)]
     for x, temp, is_peak, _score, _is_curve in sorted(
         scored, key=lambda c: (c[4], -c[3])
     ):
-        if any(abs(x - ex) < min_gap for ex, _, ep in extrema if ep == is_peak):
+        same_kind = placed[is_peak]
+        if any(abs(x - ex) < min_gap for ex, _ in same_kind):
             continue
         # Skip if a nearby same-kind label already shows the same rounded temp.
         label_int = int(round(temp))
-        if any(abs(x - ex) < min_gap * 3 and int(round(t)) == label_int
-               for ex, t, ep in extrema if ep == is_peak):
+        if any(abs(x - ex) < min_gap * 3 and t == label_int
+               for ex, t in same_kind):
             continue
+        same_kind.append((x, label_int))
         extrema.append((x, temp, is_peak))
 
     return extrema
