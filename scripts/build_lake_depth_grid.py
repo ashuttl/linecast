@@ -25,7 +25,8 @@ where DIR holds the sources unpacked ({lake}_lld/{lake}_lld.flt beside
 its .hdr, and the ETOPO tiles as named on the server), or let it
 download what is missing — about 300 MB, kept in DIR for a rerun:
 
-    uv run --with numpy --with tifffile --with imagecodecs scripts/build_lake_depth_grid.py --fetch DIR
+    uv run --with numpy --with tifffile --with imagecodecs \
+        scripts/build_lake_depth_grid.py --fetch DIR
 
 The grids land in src/linecast/data and are committed; this script
 reruns only when a source does.
