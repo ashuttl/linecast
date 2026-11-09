@@ -29,6 +29,7 @@ from linecast.maps import glaciers as _glaciers
 from linecast.maps import globe as _globe
 from linecast.maps import globe_now
 from linecast.maps import globe_texture
+from linecast.maps import lake_depth as _lake_depth
 from linecast.maps import streets
 from linecast.maps import style as _style
 from linecast.maps import worker as _worker
@@ -788,19 +789,26 @@ def _terrain_buffer(view, bbox, gw, hc, wide=False, eye=None):
             buf = build_terrain_buffer(
                 view.elev, sbbox, gw, spy_h, water=view.water,
                 cover=view.cover,
-                climate=_climate.grid_for_lls(view.lls) or ())
+                climate=_climate.grid_for_lls(view.lls) or (),
+                depth=_lake_depth.grid_for_lls(view.lls))
         else:
             # the climate families are looked up by latitude, and where
             # the elevation came through the camera the bbox's rows are
             # not its latitudes: a boundary read off the bbox would sit
-            # rows from the ground it colours at the window's edges
+            # rows from the ground it colours at the window's edges.
+            # The lake depths are read at the same points, for the
+            # same reason
             cam = _globe.Camera.for_bbox(bbox, gw, hc, eye)
-            climate = None
-            if not cam.affine:
-                climate = _climate.grid_for_lls(cam.geometry(gw, hc * 2)[0]) or ()
+            if cam.affine:
+                climate = None
+                depth = _lake_depth.grid_for_bbox(bbox, gw, hc * 2)
+            else:
+                lls = cam.geometry(gw, hc * 2)[0]
+                climate = _climate.grid_for_lls(lls) or ()
+                depth = _lake_depth.grid_for_lls(lls)
             buf = build_terrain_buffer(view.elev, bbox, gw, hc * 2,
                                        view.water, view.cover,
-                                       climate=climate)
+                                       climate=climate, depth=depth)
         if view.shade is not None:
             _globe.shade_buffer(buf, view.shade, view.atmo, BG_PRIMARY)
         return buf

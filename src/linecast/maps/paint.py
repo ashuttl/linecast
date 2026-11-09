@@ -194,6 +194,14 @@ _BATHY_RAW = [
     (0, (120, 170, 194)),
 ]
 
+# Inland water's one flat tint.  A lake whose bed has been sounded
+# (maps/lake_depth.py) is not painted from it but from the sea's ramp
+# at its depth: depth is one scale on the map, and Superior at four
+# hundred metres should read as the Gulf of Maine does at four
+# hundred, not as the abyss or as a pond.  Only a lake of whose bed
+# nothing is known keeps the flat tint.
+_LAKE_FILL_RAW = (74, 118, 156)
+
 
 def _rebuild():
     """Ink the terrain for the theme now in force.
@@ -220,8 +228,10 @@ def _rebuild():
     # terrarium sample reports the elevation of the water's surface, so a
     # lake is indistinguishable from the meadow beside it — the polygons
     # come from the same vector tiles street mode uses, and the ramps never
-    # have to guess.  One flat tint, because a lake surface is flat.
-    LAKE_FILL = themed((74, 118, 156))
+    # have to guess.  One flat tint, because a lake surface is flat —
+    # except where the bed has been sounded (maps/lake_depth.py), which
+    # takes the sea's ramp at its depth.
+    LAKE_FILL = themed(_LAKE_FILL_RAW)
     RIVER_STROKE = themed((108, 152, 190))
 
     HYPSO_FAMILIES = [[(m, themed(c)) for m, c in fam]
@@ -264,7 +274,7 @@ _SUNS = tuple((wgt, math.cos(math.radians(az)), math.sin(math.radians(az)))
 
 
 def build_terrain_buffer(elev, bbox, w, h, water=None, cover=None,
-                         climate=None):
+                         climate=None, depth=None):
     """Hillshaded hypsometric/bathymetric colours per sub-pixel.
 
     `elev` is meters at w×h (h = 2 rows per cell); None renders as plain
@@ -277,6 +287,13 @@ def build_terrain_buffer(elev, bbox, w, h, water=None, cover=None,
     inland water in both cases and the bathymetric ramp would read as
     open ocean.  Its shading is nearly flat — a lake surface is flat,
     and the land slope underneath it is not its slope.
+
+    `depth` is the optional sub-pixel grid of lake depth in metres
+    (maps/lake_depth.py), 0 where unsounded.  A wet sub-pixel with a
+    depth is painted as the sea is at that depth: the bathymetric
+    ramp for its tone and the bed's own slope, read off the depth
+    grid, for its shade.  Dry sub-pixels never read it — the polygons
+    still say where the water is.
 
     `cover` is the optional sub-pixel land-cover grid (indices into
     style.COVER_ORDER, 0 = none).  A covered land sub-pixel blends the
@@ -308,24 +325,37 @@ def build_terrain_buffer(elev, bbox, w, h, water=None, cover=None,
         up = elev[y - 1] if y > 0 else row
         down = elev[y + 1] if y < h - 1 else row
         wet_row = water[y] if water is not None else None
+        dep_row = depth[y] if depth is not None else None
+        dep_up = depth[y - 1] if depth is not None and y > 0 else dep_row
+        dep_down = (depth[y + 1] if depth is not None and y < h - 1
+                    else dep_row)
         cov_row = cover[y] if cover is not None else None
         cli_row = climate[y] if climate else None
         out = []
         for x in range(w):
             e = row[x]
             wet = wet_row is not None and wet_row[x]
+            d = dep_row[x] if wet and dep_row is not None else 0.0
             if e is None:
                 # known water over unknown ground still reads as water
-                out.append(LAKE_FILL if wet else BG_PRIMARY)
+                out.append((interp_stops(BATHY_STOPS, -d) if d > 0.0
+                            else LAKE_FILL) if wet else BG_PRIMARY)
                 continue
-            left = row[x - 1] if x > 0 else e
-            right = row[x + 1] if x < w - 1 else e
-            above = up[x]
-            below = down[x]
-            dzdx = ((right if right is not None else e)
-                    - (left if left is not None else e)) / (2 * px_m)
-            dzdy = ((below if below is not None else e)
-                    - (above if above is not None else e)) / (2 * py_m)
+            if d > 0.0:
+                # the bed falls as the depth grows: its slope is the
+                # depth grid's with the sign turned
+                dzdx = ((dep_row[x - 1] if x > 0 else d)
+                        - (dep_row[x + 1] if x < w - 1 else d)) / (2 * px_m)
+                dzdy = (dep_up[x] - dep_down[x]) / (2 * py_m)
+            else:
+                left = row[x - 1] if x > 0 else e
+                right = row[x + 1] if x < w - 1 else e
+                above = up[x]
+                below = down[x]
+                dzdx = ((right if right is not None else e)
+                        - (left if left is not None else e)) / (2 * px_m)
+                dzdy = ((below if below is not None else e)
+                        - (above if above is not None else e)) / (2 * py_m)
             slope = math.atan(zf * math.hypot(dzdx, dzdy))
             aspect = math.atan2(dzdy, -dzdx)
             cos_sl, sin_sl = math.cos(slope), math.sin(slope)
@@ -337,7 +367,10 @@ def build_terrain_buffer(elev, bbox, w, h, water=None, cover=None,
                 if s_ > 0.0:
                     shade += wgt * s_
             shade = min(1.0, shade)
-            if wet:
+            if d > 0.0:
+                base = interp_stops(BATHY_STOPS, -d)
+                m = 0.82 + 0.18 * shade  # a floor, shaded as the sea's
+            elif wet:
                 base = LAKE_FILL
                 m = 0.92 + 0.08 * shade
             elif e <= 0:

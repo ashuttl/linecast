@@ -46,6 +46,7 @@ from linecast.maps import night_lights as _night_lights
 from linecast.maps import globe as _globe
 from linecast.maps import globe_now
 from linecast.maps import hover as _hover
+from linecast.maps import lake_depth as _lake_depth
 from linecast.maps import overscan as _overscan
 from linecast.maps import places as _places
 from linecast.maps import style
@@ -198,11 +199,12 @@ def _scale_bar(bbox, graph_w):
             f"{fg(*MUTED)}{label}{RESET}  ")
 
 
-def _credits(view, globe, sun, clouds):
+def _credits(view, globe, sun, clouds, lakes=False):
     """Who the ground on screen is drawn from, as the footer's rungs.
 
     The longest comes first, and each after it is what a narrower
-    footer keeps; the last is the least that is owed.
+    footer keeps; the last is the least that is owed.  `lakes` is
+    whether a lake with sounded depths is on screen.
     """
     # the Köppen credit is owed only where the climate grid is
     # colouring the ground: the terrain register, flat or globe
@@ -243,6 +245,11 @@ def _credits(view, globe, sun, clouds):
     # them and every shorter rung stays as it was
     if sun and view != "street" and _night_lights.load():
         attribs = (f"{attribs[0]} · {_night_lights.ATTRIBUTION}",
+                   *attribs)
+    # the lake beds are terrain's too, and owed only where one is on
+    # screen; the same rung above the ladder
+    if lakes and view != "street":
+        attribs = (f"{attribs[0]} · {_lake_depth.ATTRIBUTION}",
                    *attribs)
     return attribs
 
@@ -1690,7 +1697,9 @@ def render_map(lat, lon, location_name, zoom, marker=None, runtime=None,
         foot = f"{fg(*DIM)}{ms(key, lang, err=err[:40])}{RESET}"
     else:
         # once a route stands, the footer teaches the route keys instead
-        foot = _footer(_credits(view, globe, sun, clouds),
+        foot = _footer(_credits(view, globe, sun, clouds,
+                                view != "street"
+                                and _lake_depth.in_view(bbox)),
                        (_scale_bar(bbox, graph_w)
                         if view == "street" and not globe else ""),
                        'hint_route' if route is not None else 'hint',

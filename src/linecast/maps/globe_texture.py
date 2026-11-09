@@ -50,6 +50,7 @@ from linecast.terminal import theme as _theme
 from linecast.maps import climate as _climate
 from linecast.maps import glaciers as _glaciers
 from linecast.maps import globe as _globe
+from linecast.maps import lake_depth as _lake_depth
 from linecast.maps import paint
 from linecast.maps import style
 from linecast.terminal.color import BG_PRIMARY, color_mode
@@ -623,7 +624,8 @@ def _shade(elev, lakes, w, h):
             band, (0.0, -(hi - lo) * 90.0 / h, 360.0, (hi - lo) * 90.0 / h),
             w, hi - lo, water=lakes[lo:hi],
             cover=_glaciers.grid_for_lls(lls, ice_id),
-            climate=_climate.grid_for_lls(lls) or ())
+            climate=_climate.grid_for_lls(lls) or (),
+            depth=_lake_depth.grid_for_lls(lls))
         for row in buf[y0 - lo:y1 - lo]:
             for i in range(3):
                 planes[i].append(bytes([px[i] for px in row]))
@@ -684,6 +686,8 @@ def _digest(z, register):
              _stat_key(data_path("basemap.json.gz")),
              _stat_key(data_path("climate.png")),
              _stat_key(data_path("glaciers.png"))]
+    parts += [_stat_key(data_path(f"{stem}.png"))
+              for stem, _bbox in _lake_depth.REGIONS]
     if register != "street":
         parts += [color_mode(), paint.HYPSO_FAMILIES,
                   paint.BATHY_STOPS, paint.LAKE_FILL,
