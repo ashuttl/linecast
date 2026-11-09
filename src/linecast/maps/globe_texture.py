@@ -687,7 +687,7 @@ def _digest(z, register):
              _stat_key(data_path("climate.png")),
              _stat_key(data_path("glaciers.png"))]
     parts += [_stat_key(data_path(f"{stem}.png"))
-              for stem, _bbox in _lake_depth.REGIONS]
+              for stem, *_rest in _lake_depth.REGIONS]
     if register != "street":
         parts += [color_mode(), paint.HYPSO_FAMILIES,
                   paint.BATHY_STOPS, paint.LAKE_FILL,

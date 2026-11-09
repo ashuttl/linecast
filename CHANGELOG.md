@@ -15,7 +15,7 @@ Changes you may notice:
 - Maps: `--view now` brings the header, footer, and labels back when you zoom in to the ground, unless you also gave `--no-text`. With the text hidden, the first thing you do to the map shows the keys that bring it back.
 - Maps: The globe and zoomed-out terrain maps draw the world's glaciers from data bundled with linecast, so the icefields along Alaska's southern coast and in the Himalaya, Andes, and Alps show, and show offline.
 - Maps: Terrain maps draw tundra, such as Alaska's North Slope, Canada's Barren Grounds, and the Scandinavian mountains, in tundra colors instead of the green of the forest.
-- Maps: Terrain maps and the globe show the depths of the Great Lakes, from NOAA's soundings, so the lake beds read as the sea floor does instead of one flat blue.
+- Maps: Terrain maps and the globe show the depths of the Great Lakes and Lake Baikal, from NOAA's soundings, so the lake beds read as the sea floor does instead of one flat blue.
 - Live views: Each frame sends the terminal only the rows that changed, so moving the pointer over a map, or watching a toast or the clock, costs a fraction of what it did.
 - Weather: The month view opens on the current month instead of the previous one. Press space or `n` to return to it.
 - Weather, tides: The bottom row says `v switch view` when there is room for it.

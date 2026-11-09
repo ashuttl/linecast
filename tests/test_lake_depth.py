@@ -26,6 +26,17 @@ class TestGrid:
         assert superior > 200.0
         assert 10.0 < erie < 40.0
 
+    def test_baikal_is_its_own_region_and_a_mile_deep(self):
+        rows = _lake_depth.grid_for_lls([[(53.25, 108.1),   # the deep
+                                          (51.7, 104.6),    # the south basin
+                                          (53.15, 107.4),   # Olkhon Island
+                                          (52.29, 104.3),   # Irkutsk, below
+                                          (55.63, 109.33)]])  # Severobaikalsk
+        deep, south, olkhon, irkutsk, severobaikalsk = rows[0]
+        assert deep > 1500.0
+        assert 500.0 < south < deep
+        assert olkhon == irkutsk == severobaikalsk == 0.0
+
     def test_no_sounded_lake_in_view_means_no_grid(self):
         assert _lake_depth.grid_for_lls([[(25.0, 10.0), None]]) is None
         assert _lake_depth.grid_for_bbox((0.0, 20.0, 20.0, 30.0), 8, 4) is None
@@ -45,6 +56,7 @@ class TestGrid:
     def test_in_view_is_the_regions_box(self):
         assert _lake_depth.in_view((-90.0, 44.0, -80.0, 48.0))
         assert _lake_depth.in_view((-100.0, 30.0, -60.0, 60.0))
+        assert _lake_depth.in_view((100.0, 50.0, 112.0, 58.0))
         assert not _lake_depth.in_view((-10.0, 44.0, 10.0, 48.0))
         assert not _lake_depth.in_view((-90.0, 20.0, -80.0, 30.0))
 

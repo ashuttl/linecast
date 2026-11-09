@@ -10,11 +10,14 @@ low water datum, are reduced to a hundredth of a degree by
 scripts/build_lake_depth_grid.py: a cell holds the mean depth of the
 water in it, in two-metre steps, and a cell with no water holds 0.
 
-One region for now, the five Great Lakes in one PNG.  Another lake
-with a surveyed grid is another entry in REGIONS and another file,
-baked by the same script; the samplers walk the regions a point can
-fall in.  A sample is read bilinearly, so the cells never show and
-the bed shelves to nothing at the shore the polygons draw.
+A region is one lake or one group of them in one PNG, with its own
+metres per grey level, since Erie is sixty-four metres deep and
+Baikal sixteen hundred; the samplers walk the regions a point can
+fall in.  Baikal's floor comes from ETOPO 2022, which carries the
+GEBCO soundings of the largest lakes.  Another lake with a surveyed
+grid is another entry in REGIONS and a recipe in the build script.
+A sample is read bilinearly, so the cells never show and the bed
+shelves to nothing at the shore the polygons draw.
 """
 
 import math
@@ -26,12 +29,13 @@ from linecast._log import log_failure
 ATTRIBUTION = "Lake depths: NOAA NCEI"
 
 PITCH = 0.01         # degrees per cell
-STEP = 2.0           # metres per grey level: 0..255 is 0..510 m
-# (file stem, (minlon, minlat, maxlon, maxlat)) — the box each file
-# covers, which the build script bakes to and the samplers read from
-REGIONS = (("lake_depth_great_lakes", (-92.2, 41.0, -76.0, 49.5)),)
+# (file stem, (minlon, minlat, maxlon, maxlat), metres per grey level):
+# the box each file covers, which the build script bakes to and the
+# samplers read from, and the depth its 255 levels span
+REGIONS = (("lake_depth_great_lakes", (-92.2, 41.0, -76.0, 49.5), 2.0),
+           ("lake_depth_baikal", (103.6, 51.4, 110.0, 55.9), 7.0))
 
-_loaded = None       # [(bbox, w, h, cells)] once loaded; [] when none read
+_loaded = None       # [(bbox, w, h, cells, step)] once loaded; [] if none read
 _tried = False
 
 
@@ -42,12 +46,12 @@ def _load():
         return _loaded or []
     _tried = True
     out = []
-    for stem, bbox in REGIONS:
+    for stem, bbox, step in REGIONS:
         try:
             from linecast._png import decode_rgba
             w, h, rgba = decode_rgba(data_path(f"{stem}.png").read_bytes())
             # grayscale decodes to RGBA; the depth is the R channel
-            out.append((bbox, w, h, bytes(rgba[::4])))
+            out.append((bbox, w, h, bytes(rgba[::4]), step))
         except Exception as exc:
             log_failure("png", f"lake depth grid {stem} load", exc,
                         fallback="a flat lake tint")
@@ -64,12 +68,12 @@ def in_view(bbox: tuple[float, float, float, float]) -> bool:
     """Whether the view's bbox overlaps a region with depths."""
     minlon, minlat, maxlon, maxlat = bbox
     return any(minlon < r[2] and maxlon > r[0] and minlat < r[3]
-               and maxlat > r[1] for r, _w, _h, _c in _load())
+               and maxlat > r[1] for r, *_rest in _load())
 
 
 def _sampler(region):
     """depth_m(lat, lon) over one region: 0.0 outside it or on land."""
-    (minlon, minlat, maxlon, maxlat), w, h, cells = region
+    (minlon, minlat, maxlon, maxlat), w, h, cells, step = region
     floor = math.floor
     scale = 1.0 / PITCH
 
@@ -85,7 +89,7 @@ def _sampler(region):
         i, j = y0 * w + x0, (y0 + 1) * w + x0
         top = cells[i] + (cells[i + 1] - cells[i]) * tx
         bot = cells[j] + (cells[j + 1] - cells[j]) * tx
-        return (top + (bot - top) * ty) * STEP
+        return (top + (bot - top) * ty) * step
 
     return depth
 
