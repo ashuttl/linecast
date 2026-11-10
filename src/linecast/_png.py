@@ -187,10 +187,16 @@ def _unfilter_paeth(row, prev, bpp):
     The left neighbour is the byte just reconstructed, which rules
     out a slice operation; what can be done is to walk each channel's
     stream with that byte, and the upper-left one, carried in locals
-    rather than read back out of the rows, and to take the predictor's
-    three distances as b - c, a - c and their sum, which is what the
-    spec's |p - a|, |p - b| and |p - c| come to.  Terrarium tiles are
-    nearly all Paeth rows, and this is most of their decode.
+    rather than read back out of the rows, and to choose the predictor
+    by where the upper-left byte lies.  The two neighbours are put in
+    order first.  At or beyond both, the upper-left byte picks the one
+    farther from it, with no distance taken; between them, it still
+    picks the farther one when that is at least twice as far as the
+    nearer, which is what the spec's |p - a|, |p - b| and |p - c| come
+    to there, and otherwise it is its own best guess.  The whole
+    choice is one flat chain of tests, most often settled by the
+    first two.  Terrarium tiles are nearly all Paeth rows, and this
+    is most of their decode.
     """
     out = bytearray(row)
     for ch in range(bpp):
@@ -198,21 +204,21 @@ def _unfilter_paeth(row, prev, bpp):
         app = res.append
         a = c = 0
         for v, b in zip(row[ch::bpp], prev[ch::bpp]):
-            pa = b - c
-            pb = a - c
-            pc = pa + pb
-            if pa < 0:
-                pa = -pa
-            if pb < 0:
-                pb = -pb
-            if pc < 0:
-                pc = -pc
-            if pa <= pb and pa <= pc:
-                a = (v + a) & 0xFF
-            elif pb <= pc:
-                a = (v + b) & 0xFF
+            if a <= b:
+                lo, hi = a, b
             else:
-                a = (v + c) & 0xFF
+                lo, hi = b, a
+            if c <= lo:
+                p = hi
+            elif c >= hi:
+                p = lo
+            elif 2 * (hi - c) <= c - lo:
+                p = lo
+            elif 2 * (c - lo) <= hi - c:
+                p = hi
+            else:
+                p = c
+            a = (v + p) & 0xFF
             app(a)
             c = b
         out[ch::bpp] = res
