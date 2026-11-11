@@ -17,6 +17,8 @@ Changes you may notice:
 - Maps: Terrain maps draw tundra, such as Alaska's North Slope, Canada's Barren Grounds, and the Scandinavian mountains, in tundra colors instead of the green of the forest.
 - Maps: Terrain maps and the globe show the depths of the Great Lakes and Lake Baikal, from NOAA's soundings, so the lake beds read as the sea floor does instead of one flat blue.
 - Live views: Each frame sends the terminal only the rows that changed, so moving the pointer over a map, or watching a toast or the clock, costs a fraction of what it did.
+- Moon: The month calendar redraws in under half the time as the pointer moves over it, and moonrise, moonset, and the phases are found three to six times faster, which every view that shows the Moon gains from.
+- Persian, Hebrew, Arabic: Live views repaint faster, because a row that has not changed is no longer put in reading order again.
 - Weather: The month view opens on the current month instead of the previous one. Press space or `n` to return to it.
 - Weather, tides: The bottom row says `v switch view` when there is room for it.
 
