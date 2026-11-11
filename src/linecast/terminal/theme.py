@@ -93,7 +93,7 @@ def _clamp_channel(v):
         n = int(round(v))
     except Exception:
         n = 0
-    return max(0, min(255, n))
+    return 0 if n < 0 else 255 if n > 255 else n
 
 
 def clamp_rgb(color: RGB) -> RGB:
@@ -104,12 +104,23 @@ def lerp_rgb(c1: RGB, c2: RGB, t: float) -> RGB:
     """Linear interpolate between two RGB tuples, rounding and clamping
     each channel.  terminal.color.lerp truncates instead; the two are not
     interchangeable (see its docstring)."""
-    t = max(0.0, min(1.0, float(t)))
-    return (
-        _clamp_channel(c1[0] + (c2[0] - c1[0]) * t),
-        _clamp_channel(c1[1] + (c2[1] - c1[1]) * t),
-        _clamp_channel(c1[2] + (c2[2] - c1[2]) * t),
-    )
+    t = float(t)
+    if not t < 1.0:
+        t = 1.0
+    elif t < 0.0:
+        t = 0.0
+    r, g, b = c1[0], c1[1], c1[2]
+    r += (c2[0] - r) * t
+    g += (c2[1] - g) * t
+    b += (c2[2] - b) * t
+    # The clamp written out: pictures shade a colour for every sub-pixel.
+    try:
+        r, g, b = round(r), round(g), round(b)
+    except (ValueError, OverflowError):   # a channel that is not a number
+        return (_clamp_channel(r), _clamp_channel(g), _clamp_channel(b))
+    return (0 if r < 0 else 255 if r > 255 else r,
+            0 if g < 0 else 255 if g > 255 else g,
+            0 if b < 0 else 255 if b > 255 else b)
 
 
 def hue_distance(color: RGB, center: float) -> float:
@@ -182,11 +193,11 @@ def shift_to_pole(color: RGB, amount: float, lighter: bool) -> RGB:
 
 
 def lighten(color: RGB, amount: float) -> RGB:
-    return shift_to_pole(color, amount, lighter=True)
+    return lerp_rgb(color, (255, 255, 255), amount)
 
 
 def darken(color: RGB, amount: float) -> RGB:
-    return shift_to_pole(color, amount, lighter=False)
+    return lerp_rgb(color, (0, 0, 0), amount)
 
 
 def ensure_contrast(color: RGB, background: RGB | None = None, minimum: float = 2.0) -> RGB:
