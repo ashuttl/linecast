@@ -4,7 +4,7 @@
 
 Source: [NASA Earth at Night / Black Marble flat maps](https://science.nasa.gov/earth/earth-observatory/earth-at-night/maps/), 2016 Grayscale, global 3600 × 1800 (0.1 degrees), [GeoTIFF](https://assets.science.nasa.gov/content/dam/science/esd/eo/images/imagerecords/144000/144897/BlackMarble_2016_01deg_gray_geo.tif).
 
-Credit: NASA Earth Observatory images by Joshua Stevens, using Suomi NPP VIIRS data from Miguel Román, NASA GSFC. NASA imagery is generally available for reuse; see [NASA image and media usage guidelines](https://www.nasa.gov/nasa-brand-center/images-and-media/). These credits apply to the source imagery; the derived display treatment is Linecast's.
+Credit: NASA Earth Observatory images by Joshua Stevens, using Suomi NPP VIIRS data from Miguel Román, NASA GSFC. NASA imagery is generally available for reuse; see [NASA image and media usage guidelines](https://www.nasa.gov/nasa-brand-center/images-and-media/). These credits apply to the source imagery; the derived display treatment is linecast's.
 
 Source SHA-256: `35fd04c07eb69605e037ecca8f7ce43442a4a109bcac3a84df713661455c1ec8`.
 

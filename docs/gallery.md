@@ -1,6 +1,6 @@
 # Gallery
 
-The README shows each app once or twice. This page shows them in more of their states: other languages, other traditions, other layers, smaller windows. Every frame is linecast's own output, captured by `scripts/capture_screenshots.sh`, which runs each app in a pseudo-terminal and draws what it writes the way foot would; the ones that depend on the weather or the hour are whatever the weather and the hour were.
+Every frame is linecast's own output, captured by `scripts/capture_screenshots.sh`, which runs each app in a pseudo-terminal and draws what it writes the way foot would; the ones that depend on the weather or the hour are whatever the weather and the hour were.
 
 ## Desktops
 
