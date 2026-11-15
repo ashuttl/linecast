@@ -259,11 +259,11 @@ def render_calendar(now_local, lat, lng, runtime, month_offset=0,
     from linecast.terminal import bidi as _bidi
     mirrored = _bidi.mirrored()
 
-    T, D, A, P = (moon_palette.PANEL_TEXT_RGB, moon_palette.PANEL_DIM_RGB,
-                  moon_palette.PANEL_AMBER_RGB, moon_palette.PANEL_PURPLE_RGB)
-    F = moon_palette.PANEL_FAINT_RGB
+    T, D, A, P = (moon_palette.MONTH_TEXT_RGB, moon_palette.MONTH_DIM_RGB,
+                  moon_palette.MONTH_AMBER_RGB, moon_palette.MONTH_PURPLE_RGB)
+    F = moon_palette.MONTH_FAINT_RGB
 
-    fb = Framebuffer(graph_w, graph_h, bg_color=moon_palette.SKY_RGB)
+    fb = Framebuffer(graph_w, graph_h, bg_color=moon_palette.MONTH_BG_RGB)
     overlays = {}
 
     # Title, at the left, over the first weekday. A calendar with months
@@ -312,9 +312,9 @@ def render_calendar(now_local, lat, lng, runtime, month_offset=0,
         # Today's whole cell sits on a faintly moonlit field — the way a
         # printed calendar rings the day — since a glow behind a disc
         # this small has no room to show.
-        cell_bg = moon_palette.SKY_RGB
+        cell_bg = moon_palette.MONTH_BG_RGB
         if d == today:
-            cell_bg = _theme.lerp_rgb(cell_bg, moon_palette.MOON_GLOW_RGB, 0.16)
+            cell_bg = moon_palette.MONTH_TODAY_RGB
             for spy in range(y0 * 2, (y0 + cell_h) * 2):
                 for x in range(x0, x0 + cell_w):
                     fb.set_pixel(x, spy, cell_bg)
@@ -330,7 +330,8 @@ def render_calendar(now_local, lat, lng, runtime, month_offset=0,
             if lat is not None and lat < 0:
                 limb = 360.0 - limb
             disc.draw_moon_disc(fb, cx, cy, radius, illum, limb, 0.0,
-                                night=moon_palette.MOON_NIGHT_RGB, aspect=aspect)
+                                night=moon_palette.MONTH_NIGHT_RGB,
+                                lit=moon_palette.MONTH_LIT_RGB, aspect=aspect)
             if mirrored:
                 # The grid reads from the right; the Moon is still the
                 # Moon, so it is drawn flipped for the row's flip to undo

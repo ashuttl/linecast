@@ -1,4 +1,5 @@
-"""The moon's inks: the disc, its halo, the stars, and the panel.
+"""The moon's inks: the disc, its halo, the stars, the panel, and the
+month calendar's page.
 
 Rebuilt when the theme changes.  The month calendar and the sky view
 draw the same Moon, so they take its inks from here.
@@ -27,6 +28,9 @@ def _rebuild():
     global STAR_BRIGHT_RGB, STAR_RGB, STAR_DIM_RGB
     global PANEL_TEXT_RGB, PANEL_DIM_RGB, PANEL_AMBER_RGB, PANEL_PURPLE_RGB
     global PANEL_FAINT_RGB, PANEL_MUTED_RGB
+    global MONTH_BG_RGB, MONTH_LIT_RGB, MONTH_NIGHT_RGB, MONTH_TODAY_RGB
+    global MONTH_TEXT_RGB, MONTH_DIM_RGB, MONTH_FAINT_RGB
+    global MONTH_AMBER_RGB, MONTH_PURPLE_RGB
     SKY_RGB = _theme.theme_bg
     if theme_legacy_mode:
         MOON_LIT_RGB = (228, 230, 238)
@@ -73,6 +77,31 @@ def _rebuild():
     PANEL_FAINT_RGB = lerp_rgb(SKY_RGB, PANEL_DIM_RGB, 0.62)
     PANEL_AMBER_RGB = ensure_contrast(INFO_AMBER_RGB, SKY_RGB, minimum=2.3)
     PANEL_PURPLE_RGB = ensure_contrast(INFO_PURPLE_RGB, SKY_RGB, minimum=2.3)
+    # The month calendar is a page of Moons, not a sky, so on a light
+    # terminal it keeps the terminal's own background, as a printed
+    # calendar keeps its paper: the night side of each disc is the navy
+    # the moon view's sky is, and the sunlit side is the paper a shade
+    # down, so a full Moon still has an edge.  Everywhere else the page
+    # is the sky, and the calendar's inks are the panel's.
+    if is_light_theme() and not theme_legacy_mode:
+        MONTH_BG_RGB = _theme.theme_bg
+        MONTH_LIT_RGB = darken(_theme.theme_bg, 0.06)
+        MONTH_NIGHT_RGB = SKY_RGB
+        MONTH_TODAY_RGB = surface_bg(0.09)
+        MONTH_TEXT_RGB = INFO_TEXT_RGB
+        MONTH_DIM_RGB = INFO_DIM_RGB
+        MONTH_AMBER_RGB = INFO_AMBER_RGB
+        MONTH_PURPLE_RGB = INFO_PURPLE_RGB
+    else:
+        MONTH_BG_RGB = SKY_RGB
+        MONTH_LIT_RGB = MOON_LIT_RGB
+        MONTH_NIGHT_RGB = MOON_NIGHT_RGB
+        MONTH_TODAY_RGB = lerp_rgb(SKY_RGB, MOON_GLOW_RGB, 0.16)
+        MONTH_TEXT_RGB = PANEL_TEXT_RGB
+        MONTH_DIM_RGB = PANEL_DIM_RGB
+        MONTH_AMBER_RGB = PANEL_AMBER_RGB
+        MONTH_PURPLE_RGB = PANEL_PURPLE_RGB
+    MONTH_FAINT_RGB = lerp_rgb(MONTH_BG_RGB, MONTH_DIM_RGB, 0.62)
 
 
 _rebuild()
