@@ -211,7 +211,8 @@ class TestMoonGlyphs:
             assert f"{expected} {name}" in line
             assert moon_phase(now, runtime) == (index, name, canonical)
 
-    def test_moon_panel_keeps_the_dark_sky_and_the_calendar_the_page(self, restore_theme, monkeypatch):
+    def test_moon_panel_keeps_the_dark_sky_and_the_calendar_the_page(
+            self, restore_theme, monkeypatch):
         import re
         from linecast._runtime import RuntimeConfig
         from linecast.moon import calendar
