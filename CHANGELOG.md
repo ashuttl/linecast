@@ -22,6 +22,7 @@ Changes you may notice:
 - Persian, Hebrew, Arabic: Live views repaint faster, because a row that has not changed is no longer put in reading order again.
 - Weather: The month view opens on the current month instead of the previous one. Press space or `n` to return to it.
 - Weather, tides: The bottom row says `v switch view` when there is room for it.
+- Language: linecast speaks Welsh. `linecast language cy`, or a terminal locale in Welsh, puts every view in Welsh. The translation has not yet been read by a Welsh speaker.
 
 ## 2.11.0 — 2026-10-24
 

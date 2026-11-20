@@ -40,7 +40,7 @@ def fmt_hour(h, use_24h=False):
 # 15:00", "gegen 15 Uhr", "omkring kl. 15", "noin klo 15", "verso le 15",
 # "15시경", "15时左右".  French, Portuguese and Vietnamese write "15h".
 _HOUR_24 = {
-    "en": "{h:02d}:00", "nl": "{h}\u00a0uur", "eo": "{h:02d}:00",
+    "en": "{h:02d}:00", "cy": "{h:02d}:00", "nl": "{h}\u00a0uur", "eo": "{h:02d}:00",
     "tr": "{h:02d}:00", "sw": "{h:02d}:00",
     # Without the leading zero in running text: "около 9:00", "kolem 9:00"
     "pl": "{h}:00", "cs": "{h}:00", "sk": "{h}:00", "ru": "{h}:00", "uk": "{h}:00",

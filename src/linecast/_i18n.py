@@ -12,12 +12,13 @@ import unicodedata
 from collections.abc import MutableMapping
 
 # The display order shared by help, `linecast language`, and completions;
-# keep both READMEs in step. English first, then loose regional clusters:
+# keep both READMEs in step. English first, with Welsh beside it, then
+# loose regional clusters:
 # Romance, German/Dutch, Nordic, Central European, East Slavic, Greek,
 # Turkish, Persian, Hebrew, Arabic, Swahili, East Asian, Southeast Asian, and Esperanto
 # last. Keep both Chinese scripts together.
 LANGUAGES = (
-    ("en", "English"),
+    ("en", "English"), ("cy", "Welsh"),
     ("fr", "French"), ("es", "Spanish"), ("pt", "Portuguese"),
     ("it", "Italian"), ("ro", "Romanian"),
     ("de", "German"), ("nl", "Dutch"),
@@ -342,9 +343,12 @@ def plural_category(lang, n):
     every whole number ending in 1 but 11 ("21 dagur"). A fraction is
     many in the Slavic languages and Icelandic and few in Romanian.
     Every other language has one and many, except Hebrew (one, two,
-    other) and Arabic (zero, one, two, few, many, other). A language
+    other) and Arabic (zero, one, two, few, many, other). Welsh has a
+    form each for 0, 1, 2, 3, and 6, and one for the rest; what it
+    writes differently is mostly the two, whose noun takes the soft
+    mutation ("2 ddiwrnod"). A language
     names its rule in its "plural" setting: east_slavic, polish, czech,
-    romanian, icelandic, or the default one_many."""
+    romanian, icelandic, welsh, or the default one_many."""
     whole = float(n) == int(n)
     n = abs(int(n)) if whole else n
     rule = setting(lang, "plural")
@@ -361,6 +365,9 @@ def plural_category(lang, n):
         if whole and 11 <= n % 100 <= 99:
             return "many"
         return "other"
+    if rule == "welsh":
+        return {0: "zero", 1: "one", 2: "two", 3: "few", 6: "many"}.get(
+            n if whole else None, "other")
     if rule == "hebrew":
         n = abs(n)
         if (whole and n == 1) or (not whole and 0 < n < 1):

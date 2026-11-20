@@ -24,7 +24,7 @@ linecast speaks your terminal's language if it knows it, and English otherwise. 
 | `fi` | Finnish | `id` | Indonesian |
 | `cs` | Czech | `eo` | Esperanto |
 | `sk` | Slovak | `he` | Hebrew (experimental) |
-| `ar` | Arabic (experimental) | | |
+| `ar` | Arabic (experimental) | `cy` | Welsh |
 
 A regional variant changes only the words that differ in its country, and Hong Kong Chinese also uses the Hong Kong Observatory's words for the weather. The terminal's locale chooses the variant, so `fr_CA` reads Canadian French and `pt_BR` reads Portuguese. Macau's `zh_MO` reads Hong Kong Chinese, Singapore's `zh_SG` reads simplified Chinese, and Norway's `nb_NO` and `nn_NO` both read Norwegian.
 
@@ -32,7 +32,7 @@ A regional variant changes only the words that differ in its country, and Hong K
 
 - **Units.** With metric units, wind speeds are in meters per second in Japanese, Korean, Danish, Norwegian, Swedish, Icelandic, Finnish, Russian, Ukrainian, Czech, and Slovak, as those countries' forecasts give them, and in km/h elsewhere. `linecast wind` chooses km/h, m/s, mph, or knots (`kn`) in any language, and `--wind-units` chooses one for a single run.
 - **The moon's calendar.** In Chinese, Japanese, Korean, Vietnamese, and Thai, `moon` shows that language's traditional calendar; in Persian and Arabic, the Islamic; in Hebrew, the Hebrew calendar; and in Icelandic, the old Icelandic calendar. See [calendars.md](calendars.md).
-- **The sky.** In Chinese, `sky` draws the Chinese sky; in every other language, the IAU constellations. Star and constellation names come from Wikidata where the language has them. Swahili names Crux and Scorpius; other stars and constellations keep their catalogue names.
+- **The sky.** In Chinese, `sky` draws the Chinese sky; in every other language, the IAU constellations. Star and constellation names come from Wikidata where the language has them. Swahili names Crux and Scorpius; other stars and constellations keep their catalogue names. Welsh names the eleven constellations Welsh Wikipedia gives a Welsh name, such as Yr Arth Fawr and Llys Dôn, and keeps the Latin for the rest.
 - **The hours.** In Swahili, `sunshine` reads the day in Swahili time. See [hours.md](hours.md).
 
 In India, many weather alerts are published in the state language. `weather --lang hi`, `--lang te`, `--lang mr`, or another Indian language code shows them in that language where it exists; the rest of the app stays in English.
