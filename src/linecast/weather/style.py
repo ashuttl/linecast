@@ -170,6 +170,15 @@ def _colored_temp(temp, runtime, suffix=""):
     return f"{fg(r, g, b)}{round(temp)}{suffix}"
 
 
+def notable_wind(wind, gusts, runtime):
+    """Whether the wind is worth a mention, and whether its gusts are
+    worth a figure of their own: the wind above 15 km/h or the gusts
+    above 30, and the gusts above 30.  Both speeds are in the runtime's
+    wind unit.  The header and the hourly chart's hover chip share it."""
+    gusty = runtime.wind_kmh(gusts) > 30
+    return runtime.wind_kmh(wind) > 15 or gusty, gusty
+
+
 def notable_moisture(humidity, dew_point, runtime, deg):
     """The air's moisture when it is worth a mention, as (string key,
     reading drawn in its ink): the dew point when it is uncomfortably

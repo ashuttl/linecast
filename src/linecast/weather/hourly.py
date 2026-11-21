@@ -329,6 +329,7 @@ def _prepare_hourly_window(hourly, now, graph_w, offset_minutes=0):
     weather_codes = _filled(hourly.get("weather_code", []), fill=0)
     wind_speeds = _filled(hourly.get("wind_speed_10m", []), fill=0)
     wind_directions = _filled(hourly.get("wind_direction_10m", []))
+    wind_gusts = _filled(hourly.get("wind_gusts_10m", []), fill=0)
     apparent_temps = _filled(hourly.get("apparent_temperature", []))
     humidity = _filled(hourly.get("relative_humidity_2m", []))
     dew_points = _filled(hourly.get("dew_point_2m", []))
@@ -381,6 +382,7 @@ def _prepare_hourly_window(hourly, now, graph_w, offset_minutes=0):
     window_codes = weather_codes[start_idx:end_idx + 1] if weather_codes else []
     window_winds = wind_speeds[start_idx:end_idx + 1] if wind_speeds else []
     window_wind_dirs = wind_directions[start_idx:end_idx + 1] if wind_directions else []
+    window_gusts = wind_gusts[start_idx:end_idx + 1] if wind_gusts else []
     window_apparent = apparent_temps[start_idx:end_idx + 1] if apparent_temps else []
     window_humidity = humidity[start_idx:end_idx + 1] if humidity else []
     window_dew = dew_points[start_idx:end_idx + 1] if dew_points else []
@@ -410,6 +412,7 @@ def _prepare_hourly_window(hourly, now, graph_w, offset_minutes=0):
         "codes": window_codes,
         "winds": window_winds,
         "wind_dirs": window_wind_dirs,
+        "gusts": window_gusts,
         "apparent_temps": window_apparent,
         # Canada's indices, where the forecast carries them (weather.humidex)
         **{key: hourly[key][start_idx:end_idx + 1]

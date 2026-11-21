@@ -322,6 +322,34 @@ def test_hourly_chip_gives_a_snowy_hours_snow_not_its_water():
     assert "0.12″" in text
 
 
+def _hourly_chip_with_wind(wind, gusts):
+    data = _hourly_data(wind=wind)
+    data["hourly"]["wind_gusts_10m"] = [gusts] * len(data["hourly"]["time"])
+    with patch.object(_color, "_COLOR_MODE", "truecolor"):
+        return _plain(_build_hover_tooltip(data, 30, 5, 2, 12, 100, 40, _runtime()))
+
+
+def test_hourly_chip_gives_the_wind_above_a_light_breeze():
+    # The runtime's wind is in mph: 15 km/h is 9.3 of them, 30 is 18.6
+    assert "mph" not in _hourly_chip_with_wind(9.0, 15.0)
+    text = _hourly_chip_with_wind(12.0, 15.0)
+    assert "12mph" in text
+    assert "gusts" not in text
+
+
+def test_hourly_chip_gives_the_gusts_of_a_gusty_hour():
+    assert "8mph  gusts 25mph" in _hourly_chip_with_wind(8.0, 25.0)
+    assert "20mph  gusts 30mph" in _hourly_chip_with_wind(20.0, 30.0)
+
+
+def test_hourly_chip_gives_the_wind_of_a_forecast_without_gusts():
+    data = _hourly_data(wind=12.0)
+    with patch.object(_color, "_COLOR_MODE", "truecolor"):
+        text = _plain(_build_hover_tooltip(data, 30, 5, 2, 12, 100, 40, _runtime()))
+    assert "12mph" in text
+    assert "gusts" not in text
+
+
 def test_prose_lines_are_in_the_text_color():
     assert _prose("Rain later.").startswith(TEXT)
     assert _prose("") == ""
