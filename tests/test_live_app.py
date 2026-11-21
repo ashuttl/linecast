@@ -187,6 +187,22 @@ class TestRun:
         assert "on_wheel" not in seen and "on_drag" not in seen
         assert app.stopped
 
+    def test_an_app_with_a_title_hands_it_to_the_loop(self, monkeypatch):
+        seen = {}
+        monkeypatch.setattr(_live, "live_loop", lambda render_fn, **kw: seen.update(kw))
+
+        class App(LiveApp):
+            def render(self, **frame):
+                return ""
+
+            def title(self):
+                return _live.window_title("weather", "Portland, Maine")
+
+        App().run()
+        assert seen["title"]() == "weather — Portland, Maine"
+        LiveApp().run()
+        assert seen["title"] is None
+
     def test_stop_runs_even_when_the_loop_raises(self, monkeypatch):
         def fake_loop(render_fn, **kw):
             raise SystemExit(130)
@@ -311,3 +327,40 @@ class TestTicker:
         ticker.thread.alive = False
         ticker.start()
         assert started == [ticker.run, ticker.run]
+
+
+class TestWindowTitle:
+    def test_the_command_and_the_place(self):
+        assert _live.window_title("weather", "Portland, Maine") == "weather — Portland, Maine"
+        assert _live.window_title("moon") == "moon"
+
+    def test_a_place_name_cannot_end_the_title(self):
+        escape = _live.title_escape("tides — Park\x07\x1b]0;OWNED\x07\nStreet")
+        assert escape == "\x1b]0;tides — Park Street\x07"
+
+    def test_the_title_is_saved_and_put_back(self):
+        take, give_back = _live._screen_escapes(False, title=True)
+        assert take.startswith("\x1b[22;0t")
+        assert give_back.endswith("\x1b[?1049l\x1b]0;\x07\x1b[23;0t")
+        take, give_back = _live._screen_escapes(False)
+        assert "\x1b[22;0t" not in take and "\x1b[23;0t" not in give_back
+
+    @pytest.mark.parametrize("term, expected", [
+        ("xterm-256color", True), ("tmux-256color", True), ("linux", False),
+        ("dumb", False), ("vt220", False), ("wsvt25", False),
+    ])
+    def test_consoles_without_a_title_get_none(self, monkeypatch, term, expected):
+        monkeypatch.setenv("TERM", term)
+        assert _live.titles() is expected
+
+    def test_the_loop_sends_a_title_only_when_it_changes(self, monkeypatch):
+        monkeypatch.setenv("TERM", "xterm-256color")
+        names = iter(["weather", "weather", "weather — Kyoto"])
+        loop = _live._LiveLoop(
+            None, interval=60, mouse=False, scroll_step=15, clamp_offset=None,
+            auto_play=False, play_interval=0.6, play_gate=None, help_panel=None,
+            on_open=None, on_action=None, on_drag=None, on_click=None,
+            on_wheel=None, intercept=None, text_mode=None, title=lambda: next(names))
+        assert loop._title_change() == "\x1b]0;weather\x07"
+        assert loop._title_change() == ""
+        assert loop._title_change() == "\x1b]0;weather — Kyoto\x07"

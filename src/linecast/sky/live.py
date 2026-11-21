@@ -23,7 +23,7 @@ from linecast._geo import angle_delta
 from linecast.maps.motion import ease_in_out
 from linecast.moon.disc import ease_out_back
 from linecast.terminal import live as _live
-from linecast.terminal.live import LiveApp
+from linecast.terminal.live import LiveApp, window_title
 from linecast.sky.scene import (
     FIGURES_DEFAULT, FOV_DEFAULT, FOV_MAX, FOV_MIN, Scene, View, default_view,
     focal_length,
@@ -269,6 +269,9 @@ class SkyApp(LiveApp):
                             facing, fov, aim=aim)
         self.camera = Camera(view.az, view.alt, view.fov)
         self.scene = None
+
+    def title(self):
+        return window_title('sky', self.location_label)
 
     # -- time ------------------------------------------------------------
     def moment(self):

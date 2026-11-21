@@ -27,6 +27,7 @@ from linecast.maps import worker as _worker
 from linecast._geo import angle_delta, wrap_lon
 from linecast.terminal.live import (
     LiveApp, Ticker, nudge as _nudge_repaint, overlay, print_frame,
+    window_title,
 )
 from linecast.terminal.framebuffer import get_terminal_size
 from linecast.maps.i18n import ms
@@ -601,6 +602,9 @@ class MapApp(LiveApp):
             self.camera.jump_to(*fit_view(
                 [(origin.lat, origin.lon), (dest.lat, dest.lon)], *map_cells(show_text=self.text)))
             self.fit_view = (self.lat, self.lon, self.zoom)
+
+    def title(self):
+        return window_title('maps', self.location_name)
 
     # -- the view centre and zoom, on the camera -------------------------
     @property
