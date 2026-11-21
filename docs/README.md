@@ -1,7 +1,5 @@
 # The pages
 
-The README says what linecast does. These pages go further, one subject each.
-
 - [gallery.md](gallery.md) — more views of the apps, in other languages, traditions, themes, and window sizes.
 - [languages.md](languages.md) — supported languages and regional variants, including experimental Persian, Hebrew, and Arabic.
 - [configuration.md](configuration.md) — where settings and caches live, and the environment variables.
@@ -14,6 +12,6 @@ The README says what linecast does. These pages go further, one subject each.
 
 For anyone changing linecast:
 
-- [architecture.md](architecture.md) — where the code for each part lives and how the parts talk to each other.
+- [architecture.md](architecture.md) — where the code for each part lives, and the rules that hold across it.
 
 The star catalogues' own notes stay beside the data they describe, in [src/linecast/data/STARS.md](../src/linecast/data/STARS.md).

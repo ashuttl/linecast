@@ -1,6 +1,6 @@
 # The moon's calendars
 
-`linecast moon` can show the date in a traditional calendar beside the phase. This page says what each calendar shows, how linecast computes it, and what it was checked against.
+`linecast moon` can show the date in a traditional calendar beside the phase.
 
 ## Choosing one
 
@@ -36,7 +36,7 @@ Each is checked against every month the Council has printed since 2021. In a few
 
 `islamic` follows the Umm al-Qura calendar, Saudi Arabia's civil calendar and the one Islamic calendar a program can compute. Since 1423 AH its rule has been geometric: a month begins the day after the first sunset at Mecca that follows the new moon with the Moon still above the horizon. linecast applies that rule with the same ephemeris the rest of the app uses. Checked against the published calendar for 1423 through 1500 AH, it matches every month but one, in 2006, where the new moon fell five minutes before Mecca's sunset by one reckoning and after it by the other.
 
-The Hijri date is shown beside the phase (23 Ramadan 1447 AH) and changes at sunset where you are, since the Hijri day begins in the evening. The coming month and the next observance follow with their civil dates: Islamic New Year, Ashura, Mawlid, the start of Ramadan, Laylat al-Qadr, Eid al-Fitr, the Day of Arafah, and Eid al-Adha. On the day before one, the countdown says it begins at sunset. The months are transliterated in every language, and Indonesian gets its own spellings: Ramadan, Syawal, Zulhijah.
+The Hijri date is shown beside the phase (23 Ramadan 1447 AH) and changes at sunset where you are, since the Hijri day begins in the evening. The coming month and the next observance follow with their civil dates: Islamic New Year, Ashura, Mawlid, the start of Ramadan, Laylat al-Qadr, Eid al-Fitr, the Day of Arafah, and Eid al-Adha. On the day before one, the countdown says it begins at sunset. The months are in Arabic script in Arabic and Persian, Indonesian has its own spellings (Ramadan, Syawal, Zulhijah), and other languages transliterate them.
 
 Most countries begin Ramadan and the Eids on a sighting of the crescent, so a country's announced dates may differ from these by a day. Saudi Arabia's own announcements sometimes do.
 
@@ -50,7 +50,7 @@ The date is shown beside the phase (20 Elul 5786) and changes at sunset where yo
 
 The holidays follow the place shown, the way a calendar printed in Jerusalem differs from one printed in Brooklyn. Outside Israel there is a second day of Sukkot and Shavuot and of Pesach's first and last days, and Simchat Torah falls the day after Shemini Atzeret. In Israel each is one day, with Simchat Torah on Shemini Atzeret itself.
 
-Hebrew is not one of the app's languages, so the months and holidays are transliterated in every language. The month grid names each holiday's days, and the hover chip notes each Rosh Chodesh. `--json` adds the date in Hebrew letters as well, כ׳ אלול תשפ״ו, for a program that can display Hebrew.
+In Hebrew the date is written in Hebrew letters, כ׳ אלול תשפ״ו, and the months and holidays in Hebrew. Other languages transliterate them. The month grid names each holiday's days, and the hover chip notes each Rosh Chodesh. `--json` gives the date in Hebrew letters in every language.
 
 ## Icelandic
 

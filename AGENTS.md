@@ -14,4 +14,6 @@ Andrew runs `./release.sh [major|minor|patch]` himself — it opens his editor. 
 
 ## Markdown
 
+Say the thing; don't announce it. "These pages go further, one subject each" promises what the pages should simply do. No sentence about the page itself, no lead-in that tells the reader what the next sentence will tell them, no recap of what was just said. E.B. White is the model for the docs as for the commit messages.
+
 Don't hard-wrap prose in the markdown docs. One paragraph is one line; let the editor and GitHub soft-wrap it. Hard breaks make Andrew's manual edits reflow badly and make diffs noisier than the change.

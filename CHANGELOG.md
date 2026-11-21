@@ -4,13 +4,25 @@ Notable changes, by release. Notes for the next release collect under **Unreleas
 
 ## Unreleased
 
-linecast speaks Welsh.
-
-Most of the rest of this release is the map. Panning, zooming, and turning the globe are smoother, the first frame appears sooner, and the map keeps building while you drag it, so the ground arrives under your hand rather than after you let go. A map that comes to rest after a pan stays put, with its names where they were. Zoomed in to a town, the terrain map carries the street map's roads and names over the relief. The globe's ice and tundra come from better data.
+linecast speaks Welsh. The rest of this release is smaller: the map shows the beds of the Great Lakes and Lake Baikal, each live view titles its window, and the Moon's views are faster.
 
 Changes you may notice:
 
-- Language: linecast speaks Welsh. `linecast language cy`, or a terminal locale in Welsh, puts every view in Welsh, and the sky gives eleven constellations their Welsh names, such as Yr Arth Fawr and Llys Dôn. If it reads oddly, please open an [issue](https://github.com/ashuttl/linecast/issues).
+- Language: Welsh. `linecast language cy`, or a terminal locale in Welsh, puts every view in Welsh, and the sky gives eleven constellations their Welsh names, such as Yr Arth Fawr and Llys Dôn. If it reads oddly, please open an [issue](https://github.com/ashuttl/linecast/issues).
+- Maps: Terrain maps and the globe show the depths of the Great Lakes and Lake Baikal instead of one flat blue.
+- Maps: Map tiles decode faster. Contributed by [@dexhunter](https://github.com/dexhunter) in [#150](https://github.com/ashuttl/linecast/pull/150).
+- Live views: Each view sets the title of its window, tab, or pane to its command, its place, and linecast's name, such as "weather — Portland, Maine — linecast", and puts the terminal's own title back when it quits.
+- Live views: Text is measured faster, so every frame is drawn a little sooner. Contributed by [@dexhunter](https://github.com/dexhunter) in [#148](https://github.com/ashuttl/linecast/pull/148).
+- Moon: The month calendar redraws faster as the pointer moves over it, and moonrise, moonset, and the phases are found faster in every view that shows the Moon.
+- Moon: On a light theme, the month view is drawn on the terminal's own background instead of a dark one.
+- Persian, Hebrew, Arabic: Live views repaint faster.
+
+## 2.12.0 — 2026-11-06
+
+Most of this release is the map. Panning, zooming, and turning the globe are smoother, the first frame appears sooner, and the map keeps building while you drag it, so the ground arrives under your hand rather than after you let go. A map that comes to rest after a pan stays put, with its names where they were. Zoomed in to a town, the terrain map carries the street map's roads and names over the relief. The globe's ice and tundra come from better data.
+
+Changes you may notice:
+
 - Maps: Street and terrain views are built on a second interpreter, which leaves the first free to draw. A drag builds the ground ahead of the hand, the frames stay smooth while it does, and the first frame comes up sooner. Set `LINECAST_MAPS_WORKER=0` to build in one process as before.
 - Maps: A street or terrain map slides as you pan it and stays where you leave it, instead of being redrawn about its new center when it comes to rest. Street names, shields, and place names keep their positions too; a name is placed afresh only when the ground it stood on has left the view. The map is rebuilt only after a long pan or a jump to another place.
 - Maps: Zoomed in to a town, the terrain map carries the street map's roads, railways, and names over the shaded ground, and the pointer names a road as it does on the street map. The built-up tint there is one tone.
@@ -18,12 +30,7 @@ Changes you may notice:
 - Maps: `--view now` brings the header, footer, and labels back when you zoom in to the ground, unless you also gave `--no-text`. With the text hidden, the first thing you do to the map shows the keys that bring it back.
 - Maps: The globe and zoomed-out terrain maps draw the world's glaciers from data bundled with linecast, so the icefields along Alaska's southern coast and in the Himalaya, Andes, and Alps show, and show offline.
 - Maps: Terrain maps draw tundra, such as Alaska's North Slope, Canada's Barren Grounds, and the Scandinavian mountains, in tundra colors instead of the green of the forest.
-- Maps: Terrain maps and the globe show the depths of the Great Lakes and Lake Baikal, from NOAA's soundings, so the lake beds read as the sea floor does instead of one flat blue.
-- Live views: Each view sets the title of its window, tab, or pane to its command, its place, and linecast's name, such as "weather — Portland, Maine — linecast", and puts the terminal's own title back when it quits.
 - Live views: Each frame sends the terminal only the rows that changed, so moving the pointer over a map, or watching a toast or the clock, costs a fraction of what it did.
-- Moon: The month calendar redraws in under half the time as the pointer moves over it, and moonrise, moonset, and the phases are found three to six times faster, which every view that shows the Moon gains from.
-- Moon: On a light theme, the month view is drawn on the terminal's own background instead of a dark one.
-- Persian, Hebrew, Arabic: Live views repaint faster, because a row that has not changed is no longer put in reading order again.
 - Weather: The month view opens on the current month instead of the previous one. Press space or `n` to return to it.
 - Weather, tides: The bottom row says `v switch view` when there is room for it.
 

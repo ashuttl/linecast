@@ -1,6 +1,6 @@
 # The sun's hours
 
-`linecast sunshine` can read the day in a tradition's hours beside the civil clock. This page says what each system shows, how linecast computes it, and what it was checked against.
+`linecast sunshine` can read the day in a tradition's hours beside the civil clock.
 
 ## Choosing one
 

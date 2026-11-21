@@ -39,12 +39,6 @@ In India, many weather alerts are published in the state language. `weather --la
 
 ## Persian and right-to-left text
 
-Hebrew (`he`) and Modern Standard Arabic (`ar`) are experimental too, using the same RTL layout and output pass. Try `linecast weather --lang he` or `linecast weather --lang ar`. Neither translation has had native-speaker review. The terminal results below are from the Persian experiment; Hebrew and Arabic still need hands-on testing across terminals.
-
-Arabic uses shared formal written Arabic, with January as يناير and Arabic-Indic digits (٠١٢٣٤٥٦٧٨٩). Regional month names and digit preferences differ; this first pass does not provide regional Arabic variants. `linecast digits latin` selects 0–9. Hebrew uses 0–9 by default, and the older locale code `iw` also selects Hebrew. Both keep Gregorian civil dates; the Moon adds the Islamic calendar in Arabic and the Hebrew calendar in Hebrew.
-
-Review is particularly welcome for forecast sentences assembled from several phrases, astronomical and tidal terminology, and narrow labels. The Arabic translation follows the written variety described by [W3C’s Arabic layout requirements](https://www.w3.org/TR/alreq/), which also discuss regional digit conventions.
-
 Persian support is experimental. A native reader has not yet checked the translation, and right-to-left text does not work in every terminal. If something reads oddly, please open an [issue](https://github.com/ashuttl/linecast/issues).
 
 It has been tested in [Ghostty](https://ghostty.org/), [Alacritty](https://alacritty.org/), and [foot](https://codeberg.org/dnkl/foot). It does not work well in the Mac's Terminal or in iTerm2, which reorder the text themselves and draw it out of place. On a Mac, use Ghostty or Alacritty for Persian.
@@ -62,3 +56,9 @@ Most terminals draw right-to-left text backwards and leave Arabic letters unjoin
 Some terminals order the text themselves and ignore that request. linecast recognizes Konsole and the Mac's Terminal, lays out each row, and leaves the ordering and joining to them. `LINECAST_BIDI=terminal` does the same in another terminal that orders text itself, and `LINECAST_BIDI=linecast` goes back to linecast's own ordering, for a Konsole with its bidi rendering turned off. `linecast doctor` shows which is in use, with a line of Persian and Hebrew to show whether your font has the letters.
 
 Names in Hebrew, Arabic, Persian, and Urdu on maps and in the sky are ordered and joined the same way in every language.
+
+Hebrew (`he`) and Modern Standard Arabic (`ar`) are experimental too, with the same right-to-left layout. Try `linecast weather --lang he` or `linecast weather --lang ar`. Neither translation has had native-speaker review, and neither has been tested across terminals as Persian has.
+
+Arabic uses shared formal written Arabic, with January as يناير and Arabic-Indic digits (٠١٢٣٤٥٦٧٨٩). Regional month names and digit preferences differ, and linecast has no regional Arabic variants. `linecast digits latin` selects 0–9. Hebrew uses 0–9 by default, and the older locale code `iw` also selects Hebrew. Both keep Gregorian civil dates; the Moon adds the Islamic calendar in Arabic and the Hebrew calendar in Hebrew.
+
+Review is particularly welcome for forecast sentences assembled from several phrases, astronomical and tidal terminology, and narrow labels. The Arabic translation follows the written variety described by [W3C’s Arabic layout requirements](https://www.w3.org/TR/alreq/), which also discuss regional digit conventions.

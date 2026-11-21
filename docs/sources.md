@@ -1,6 +1,6 @@
 # Where the numbers come from
 
-linecast draws on many providers, and where a country has its own scale or its own published figure, linecast prefers that to a global model. This page lists them by view: what is fetched, what is bundled, the formulas behind what linecast computes itself, and what each computation was checked against. Licenses and required credits are given with each entry.
+linecast draws on many providers, and where a country has its own scale or its own published figure, linecast prefers that to a global model.
 
 Every request goes out with a User-Agent that names linecast and its version. Nothing here needs a key except TideCheck, which is optional; [configuration.md](configuration.md#the-tidecheck-key) says where the key goes.
 
