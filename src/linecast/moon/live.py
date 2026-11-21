@@ -17,7 +17,7 @@ from linecast.astro.calendars.civil import SOLAR_HIJRI, civil_calendar
 from linecast.moon.disc import Turn
 from linecast.moon.view import next_year_turn, place_credit, render
 from linecast.terminal import bidi as _bidi
-from linecast.terminal.live import LiveApp
+from linecast.terminal.live import LiveApp, window_title
 
 
 class MoonApp(LiveApp):
@@ -50,6 +50,9 @@ class MoonApp(LiveApp):
             if next_year_turn(now)[1] - now.astimezone(timezone.utc) < timedelta(days=1):
                 return 1
         return 60
+
+    def title(self):
+        return window_title('moon', self.place)
 
     def name_the_place(self):
         """Ask the (cached) reverse geocoder what the place is called:

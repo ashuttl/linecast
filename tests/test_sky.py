@@ -634,6 +634,9 @@ class TestCatalogue:
         assert sky.star_names("sk")[0] == ("Sírius", "α CMa")
         diphda = next(i for i, (n, _d) in sky.star_names().items() if n == "Diphda")
         assert sky.star_names("sk")[diphda] == ("Diphda", "β Cet")
+        # Welsh names the pole star and keeps the IAU names otherwise.
+        assert sky.star_names("cy")[polaris] == ("Seren y Gogledd", "α UMi")
+        assert sky.star_names("cy")[0] == ("Sirius", "α CMa")
         # Persian names the stars as fa.wikipedia titles them, and writes
         # the zero-width non-joiner the query service drops.
         assert sky.star_names("fa")[0] == ("شباهنگ", "α CMa")
@@ -678,6 +681,7 @@ class TestCatalogue:
             if code not in ("en", "id", "sw"):
                 assert sky.record_name(ursa, code) != ursa["name"], code
         assert sky.record_name(ursa, "pl") == "Wielka Niedźwiedzica"
+        assert sky.record_name(ursa, "cy") == "Yr Arth Fawr"
         assert sky.record_name(ursa, "uk") == "Велика Ведмедиця"
         assert sky.record_name(ursa, "vi") == "Đại Hùng"
         assert sky.record_name(ursa, "eo") == "Granda Ursino"

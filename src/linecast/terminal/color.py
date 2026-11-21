@@ -343,8 +343,17 @@ def lerp(c1, c2, t):
     much as four in the sunshine sky, so swapping one for the other
     moves rendered pixels.  Inputs are trusted: channels are not clamped.
     """
-    t = max(0.0, min(1.0, t))
-    return tuple(int(a + (b - a) * t) for a, b in zip(c1, c2))
+    # Written out for the three channels: every blended sub-pixel of
+    # every picture comes through here.
+    if not t < 1.0:
+        t = 1.0
+    elif t < 0.0:
+        t = 0.0
+    try:
+        (r1, g1, b1), (r2, g2, b2) = c1, c2
+    except ValueError:
+        return tuple(int(a + (b - a) * t) for a, b in zip(c1, c2))
+    return (int(r1 + (r2 - r1) * t), int(g1 + (g2 - g1) * t), int(b1 + (b2 - b1) * t))
 
 
 def interp_stops(stops, value):

@@ -42,7 +42,7 @@ SETTINGS = {
     # Which counts take which plural form, as CLDR draws the lines, for
     # the keys with _one, _few, and _many forms: "east_slavic" (Russian,
     # Ukrainian), "polish", "czech", "romanian", "icelandic", "hebrew",
-    # "arabic". Arabic also uses
+    # "arabic", "welsh". Arabic and Welsh also use
     # zero, two, and other; Hebrew uses two and other. A language that needs
     # a rule of its own can ask for one.  Default "one_many": 1 is one,
     # everything else many.

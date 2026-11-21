@@ -130,6 +130,9 @@ class TidesApp(LocationMenu, _live.LiveApp):
         except (TypeError, ValueError):
             return 0.0, 0.0
 
+    def title(self):
+        return _live.window_title('tides', self.station_name)
+
     def _label(self):
         lat, lng = self._here()
         return self.place_label or self.station_name or f"{lat:.2f}, {lng:.2f}"

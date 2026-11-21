@@ -10,6 +10,7 @@ import time
 from linecast.terminal import live as _live
 from linecast.terminal import theme as _theme
 from linecast.terminal.color import lerp
+from linecast.terminal.scenes import Memo
 from linecast._log import log_failure
 from linecast.astro.ephemeris import mat_apply, mat_mul, mat_transpose
 from linecast.terminal.theme import darken
@@ -319,6 +320,29 @@ def draw_moon_disc(fb, cx, cy, radius, illum, limb_deg, axis_deg,
         night = MOON_SHADOW_RGB
     if lit is None:
         lit = MOON_LIT_RGB
+    shape = (radius, illum, limb_deg, axis_deg, turn, night, lit, contrast,
+             earthshine, dusk, aspect)
+    if radius <= _ICON_RADIUS:
+        pixels = _icons.get(shape, lambda: _disc_pixels(*shape))
+    else:
+        pixels = _disc_pixels(*shape)
+    for dx, dy, color, cover in pixels:
+        fb.set_pixel(cx + dx, cy + dy, color, cover)
+
+
+# A disc this small is a calendar's icon for a day, and a month of them
+# is drawn again, each the same as before, every time the pointer moves
+# over the grid; their pixels are kept. The large disc is one of a kind
+# from minute to minute and is worked out each time.
+_ICON_RADIUS = 16.0
+_icons = Memo(keep=96)
+
+
+def _disc_pixels(radius, illum, limb_deg, axis_deg, turn, night, lit, contrast,
+                 earthshine, dusk, aspect):
+    """The disc draw_moon_disc paints, as [(dx, dy, colour, coverage)]
+    from its centre."""
+    pixels = []
     edge = max(1.0 / radius, 0.04)   # anti-aliasing band, in unit radii
     # Pixels this close to the limb see the ground edge-on, where the
     # Sun's elevation changes too fast across a pixel for a straight-line
@@ -399,4 +423,5 @@ def draw_moon_disc(fb, cx, cy, radius, illum, limb_deg, axis_deg,
             glow = earthshine * (ux * earth_x + uy * earth_y + uz * earth_z)
             night_px = lerp(night, lit_px, glow) if glow > 0.0 else night
             color = lerp(night_px, lit_px, lit_alpha)
-            fb.set_pixel(cx + dx, cy + dy, color, cover)
+            pixels.append((dx, dy, color, cover))
+    return pixels

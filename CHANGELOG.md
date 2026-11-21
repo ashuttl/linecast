@@ -4,6 +4,19 @@ Notable changes, by release. Notes for the next release collect under **Unreleas
 
 ## Unreleased
 
+linecast speaks Welsh. The rest of this release is smaller: the map shows the beds of the Great Lakes and Lake Baikal, each live view titles its window, and the Moon's views are faster.
+
+Changes you may notice:
+
+- Language: Welsh. `linecast language cy`, or a terminal locale in Welsh, puts every view in Welsh, and the sky gives eleven constellations their Welsh names, such as Yr Arth Fawr and Llys Dôn. If it reads oddly, please open an [issue](https://github.com/ashuttl/linecast/issues).
+- Maps: Terrain maps and the globe show the depths of the Great Lakes and Lake Baikal instead of one flat blue.
+- Maps: Map tiles decode faster. Contributed by [@dexhunter](https://github.com/dexhunter) in [#150](https://github.com/ashuttl/linecast/pull/150).
+- Live views: Each view sets the title of its window, tab, or pane to its command, its place, and linecast's name, such as "weather — Portland, Maine — linecast", and puts the terminal's own title back when it quits.
+- Live views: Text is measured faster, so every frame is drawn a little sooner. Contributed by [@dexhunter](https://github.com/dexhunter) in [#148](https://github.com/ashuttl/linecast/pull/148).
+- Moon: The month calendar redraws faster as the pointer moves over it, and moonrise, moonset, and the phases are found faster in every view that shows the Moon.
+- Moon: On a light theme, the month view is drawn on the terminal's own background instead of a dark one.
+- Persian, Hebrew, Arabic: Live views repaint faster.
+
 ## 2.12.0 — 2026-11-06
 
 Most of this release is the map. Panning, zooming, and turning the globe are smoother, the first frame appears sooner, and the map keeps building while you drag it, so the ground arrives under your hand rather than after you let go. A map that comes to rest after a pan stays put, with its names where they were. Zoomed in to a town, the terrain map carries the street map's roads and names over the relief. The globe's ice and tundra come from better data.

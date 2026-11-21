@@ -11,7 +11,7 @@ view, t hides the supporting text but keeps the location and clock.
 
 from datetime import timedelta
 
-from linecast.terminal.live import LiveApp
+from linecast.terminal.live import LiveApp, window_title
 from linecast.sunshine.solar import day_offset
 from linecast.sunshine.view import render
 
@@ -37,6 +37,9 @@ class SunshineApp(LiveApp):
     def help_view(self):
         # The controls follow the view on screen
         return 'sunshine_year' if self.year else 'sunshine'
+
+    def title(self):
+        return window_title('sunshine', self.location_label)
 
     def render(self, mouse_pos=None, **_):
         # The loop's offset_minutes goes unused: the day view keeps its

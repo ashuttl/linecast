@@ -360,6 +360,25 @@ def display(text, width=None):
             return _digits_only(text)
     if "\n" in text:
         return "\n".join(display(line, width) for line in text.split("\n"))
+    # A live view sends most of its rows again, unchanged, on every
+    # repaint, and ordering a row is the slowest thing done to it: the
+    # rows already ordered under these settings are kept.
+    key = (text, mirror, _ui_rtl, _digits, _to_latin, _reorder, _visual)
+    row = _rows.get(key)
+    if row is None:
+        if len(_rows) >= _ROWS_KEPT:
+            _rows.clear()
+        row = _rows[key] = _display_row(text, mirror)
+    return row
+
+
+_ROWS_KEPT = 600
+_rows = {}
+
+
+def _display_row(text, mirror):
+    """display() for one row that needs ordering: `mirror` is the width
+    to lay it out from the right in, or None."""
     # Cut at the escapes that move the cursor: each piece is ordered on
     # its own, starting in the SGR state the piece before left.  A row
     # is a piece that starts at the first column; a piece of an overlay

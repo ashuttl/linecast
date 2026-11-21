@@ -461,6 +461,65 @@ class TestSlovakWeather:
         assert DAY_NAMES["sk"] == ["po", "ut", "st", "št", "pi", "so", "ne"]
 
 
+class TestWelshWeather:
+    def test_comparative_sentences_are_idiomatic(self):
+        runtime = SimpleNamespace(lang="cy", celsius=True)
+        now = datetime(2026, 8, 24, 15)
+        warmer = comparative_sentence({"temperature_2m_max": [20, 21, 25]}, now, runtime)
+        same = comparative_sentence({"temperature_2m_max": [20, 21, 22]}, now, runtime)
+        assert warmer == "Bydd tymheredd uchaf yfory 4° yn uwch na heddiw"
+        assert same == "Bydd tymheredd uchaf yfory tua'r un fath â heddiw"
+
+    def test_the_noun_mutates_after_o_and_keeps_its_form_first(self):
+        runtime = SimpleNamespace(lang="cy", use_24h=True)
+        now = datetime(2026, 8, 24, 12, 10)
+
+        def hourly(code, chance):
+            return {"time": [f"2026-08-24T{h:02d}:00" for h in range(12, 18)],
+                    "precipitation_probability": [0, 0, 0, 0, 0, chance],
+                    "weather_code": [0, 0, 0, 0, 0, code]}
+        assert "Glaw yn debygol o ddechrau tua 17:00" in (
+            _precipitation_line(hourly(63, 70), now, runtime))
+        assert "Siawns o law tua 17:00" in _precipitation_line(hourly(63, 40), now, runtime)
+        assert "Siawns o gawodydd tua 17:00" in _precipitation_line(hourly(81, 40), now, runtime)
+        assert "Siawns o eira tua 17:00" in _precipitation_line(hourly(73, 40), now, runtime)
+
+    def test_days_take_the_mutation_of_their_place(self):
+        from linecast.weather.narrative import _day_span
+        from linecast.weather.i18n import ON_DAY_FORMS
+        runtime = SimpleNamespace(lang="cy")
+        assert ON_DAY_FORMS["cy"][0] == "ddydd Llun"
+        now = datetime(2026, 8, 24, 12)     # a Monday
+        tuesday, wednesday, thursday, friday, saturday = (now.date().replace(day=d)
+                                                          for d in (25, 26, 27, 28, 29))
+        assert _day_span([wednesday, thursday], now, runtime) == "ddydd Mercher a dydd Iau"
+        assert _day_span([thursday, friday, saturday], now, runtime) == (
+            "rhwng dydd Iau a dydd Sadwrn")
+        assert _day_span([tuesday, wednesday], now, runtime) == "yfory a dydd Mercher"
+
+    def test_past_precipitation_mutates_the_rain(self):
+        runtime = SimpleNamespace(lang="cy", metric=True, precip_unit="mm")
+        now = datetime(2026, 8, 24, 12)
+        hourly = {"time": ["2026-08-24T11:00"], "precipitation": [4.0],
+                  "snowfall": [0], "weather_code": [63]}
+        assert "4.0\u00a0mm o law yn y 24 awr ddiwethaf" in _past_precip_line(hourly, now, runtime)
+
+    def test_two_days_take_the_soft_mutation(self):
+        from linecast._i18n import plural_category
+        from linecast.sunshine.i18n import relative_day
+        runtime = SimpleNamespace(lang="cy")
+        assert [plural_category("cy", n) for n in (0, 1, 2, 3, 4, 6, 7, 2.5)] == [
+            "zero", "one", "two", "few", "other", "many", "other", "other"]
+        assert relative_day(1, runtime) == "ymhen 1 diwrnod"
+        assert relative_day(2, runtime) == "ymhen 2 ddiwrnod"
+        assert relative_day(3, runtime) == "ymhen 3 diwrnod"
+        assert relative_day(-2, runtime) == "2 ddiwrnod yn ôl"
+        assert relative_day(-6, runtime) == "6 diwrnod yn ôl"
+
+    def test_weekdays_use_standard_abbreviations(self):
+        assert DAY_NAMES["cy"] == ["Llun", "Maw", "Mer", "Iau", "Gwe", "Sad", "Sul"]
+
+
 class TestMixedDays:
     def test_a_freezing_day_s_chance_is_named_in_words(self):
         """The hover names the kind as the past day's total does, not by

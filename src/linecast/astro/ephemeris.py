@@ -25,8 +25,6 @@ def julian_day(dt_utc):
     """
     if dt_utc.tzinfo is None:
         dt_utc = dt_utc.replace(tzinfo=timezone.utc)
-    else:
-        dt_utc = dt_utc.astimezone(timezone.utc)
     return dt_utc.timestamp() / 86400.0 + 2440587.5
 
 
@@ -192,41 +190,12 @@ def sun_declination(dt_utc):
     return sun_ra_dec(dt_utc)[1]
 
 
-# Schlyter's perturbation terms for the Moon, in degrees. Each is an
-# amplitude and the integer multiples of (Ms, Mm, D, F) making up its
-# argument: the Sun's mean anomaly, the Moon's, the mean elongation, and
-# the argument of latitude. The first three longitude terms are the named
-# classical inequalities -- evection, variation, and the yearly equation --
-# and between them they move the Moon by up to two degrees, which is four
-# lunar diameters.
-_MOON_LON_TERMS = (
-    (-1.274, (0, 1, -2, 0)),    # evection
-    (+0.658, (0, 0, 2, 0)),     # variation
-    (-0.186, (1, 0, 0, 0)),     # yearly equation
-    (-0.059, (0, 2, -2, 0)),
-    (-0.057, (1, 1, -2, 0)),
-    (+0.053, (0, 1, 2, 0)),
-    (+0.046, (-1, 0, 2, 0)),
-    (+0.041, (-1, 1, 0, 0)),
-    (-0.035, (0, 0, 1, 0)),     # parallactic equation
-    (-0.031, (1, 1, 0, 0)),
-    (-0.015, (0, 0, -2, 2)),
-    (+0.011, (0, 1, -4, 0)),
-)
-_MOON_LAT_TERMS = (
-    (-0.173, (0, 0, -2, 1)),
-    (-0.055, (0, 1, -2, -1)),
-    (-0.046, (0, 1, -2, 1)),
-    (+0.033, (0, 0, 2, 1)),
-    (+0.017, (0, 2, 0, 1)),
-)
-
 def _moon_ecliptic(dt_utc):
     """Geocentric Moon ecliptic longitude and latitude, in radians.
 
     Paul Schlyter's lunar ephemeris, a simplification of the method in
     Meeus, "Astronomical Algorithms" (2nd ed.), ch. 47: two-body orbital
-    elements, then the perturbation terms above, which are what the Sun's
+    elements, then the perturbation terms below, which are what the Sun's
     pull does to the orbit. With them the position is good to about six
     arcminutes; without them it strays by up to a couple of degrees, and
     the Moon's age with it.
@@ -273,20 +242,42 @@ def _moon_ecliptic(dt_utc):
     lon = math.atan2(y_h, x_h)
     lat = math.atan2(z_h, math.hypot(x_h, y_h))
 
-    # Arguments the perturbation terms are built from.
-    sun_w, sun_m = _sun_mean_elements(d)
-    sun_lon = sun_w + sun_m               # Sun's mean longitude
+    # Schlyter's perturbation terms, in degrees, each an amplitude and
+    # the sine of a sum of four arguments: the Sun's mean anomaly, the
+    # Moon's, the mean elongation, and the argument of latitude. They
+    # are written out rather than summed from a table because every
+    # moonrise and every phase is found by calling this a hundred times.
+    sun_w, ms = _sun_mean_elements(d)
     moon_lon = n + w + m                  # Moon's mean longitude
-    elong = moon_lon - sun_lon            # mean elongation
-    arg_lat = moon_lon - n                # argument of latitude
-    args = (sun_m, m, elong, arg_lat)
+    dd = moon_lon - (sun_w + ms)          # mean elongation
+    ff = moon_lon - n                     # argument of latitude
+    dd2 = 2 * dd
+    sin = math.sin
 
-    def total(terms):
-        return sum(amp * math.sin(sum(k * v for k, v in zip(mult, args)))
-                   for amp, mult in terms)
-
-    lon += math.radians(total(_MOON_LON_TERMS))
-    lat += math.radians(total(_MOON_LAT_TERMS))
+    # The first three longitude terms are the named classical
+    # inequalities, and between them they move the Moon by up to two
+    # degrees, which is four lunar diameters.
+    lon += math.radians(
+        - 1.274 * sin(m - dd2)            # evection
+        + 0.658 * sin(dd2)                # variation
+        - 0.186 * sin(ms)                 # yearly equation
+        - 0.059 * sin(2 * m - dd2)
+        - 0.057 * sin(ms + m - dd2)
+        + 0.053 * sin(m + dd2)
+        + 0.046 * sin(dd2 - ms)
+        + 0.041 * sin(m - ms)
+        - 0.035 * sin(dd)                 # parallactic equation
+        - 0.031 * sin(ms + m)
+        - 0.015 * sin(2 * ff - dd2)
+        + 0.011 * sin(m - 4 * dd)
+    )
+    lat += math.radians(
+        - 0.173 * sin(ff - dd2)
+        - 0.055 * sin(m - dd2 - ff)
+        - 0.046 * sin(m - dd2 + ff)
+        + 0.033 * sin(ff + dd2)
+        + 0.017 * sin(2 * m + ff)
+    )
     # Schlyter perturbs the distance too, but direction is what the
     # callers here want, and the two-body radius is already within a
     # percent — good enough for the parallax and crescent width the
@@ -659,9 +650,19 @@ def next_moon_phase_utc(after_utc, target_frac, backwards=False):
     crossing turns up within a cycle, which should not happen.
     """
     step = timedelta(hours=6) * (-1 if backwards else 1)
+    steps = int(31 * 24 / 6) + 1
     t_prev = after_utc
     g_prev = _phase_offset(t_prev, target_frac)
-    for _ in range(int(31 * 24 / 6) + 1):
+    # The phase only ever advances, and never more than a day and a
+    # half ahead of or behind its mean rate, so the steps that cannot
+    # hold the crossing are skipped: all but the last three days of the
+    # mean wait. The search stays on the grid it would have walked.
+    wait = ((g_prev if backwards else -g_prev) % 1.0) * 29.53058867
+    skip = max(0, min(steps - 1, int((wait - 3.0) * 4)))
+    if skip:
+        t_prev += step * skip
+        g_prev = _phase_offset(t_prev, target_frac)
+    for _ in range(steps - skip):
         t_cur = t_prev + step
         g_cur = _phase_offset(t_cur, target_frac)
         # A crossing is a small step over zero; the half-cycle jump

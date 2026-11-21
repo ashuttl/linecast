@@ -122,6 +122,9 @@ class WeatherApp(LocationMenu, _live.LiveApp):
         self._start_year()
         self._start_month()
 
+    def title(self):
+        return _live.window_title('weather', self.location_name)
+
     def _refresh(self, generation, lat, lng, country):
         """Refresh a snapshot of the location; discard it if the user moved."""
         data, alerts, aqi = None, self.alerts, self.aqi

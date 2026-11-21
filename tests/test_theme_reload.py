@@ -211,7 +211,8 @@ class TestMoonGlyphs:
             assert f"{expected} {name}" in line
             assert moon_phase(now, runtime) == (index, name, canonical)
 
-    def test_moon_panel_and_compact_calendar_keep_the_dark_sky(self, restore_theme, monkeypatch):
+    def test_moon_panel_keeps_the_dark_sky_and_the_calendar_the_page(
+            self, restore_theme, monkeypatch):
         import re
         from linecast._runtime import RuntimeConfig
         from linecast.moon import calendar
@@ -226,8 +227,28 @@ class TestMoonGlyphs:
         monkeypatch.setattr(calendar, "get_terminal_size", lambda: (80, 10))
         grid = calendar.render_calendar(now, 43.7, -70.3, runtime, fullscreen=True)
         plain = re.sub(r"\x1b\[[0-9;]*m", "", grid)
-        assert re.search("21 +\U000F0F62", plain)
-        assert re.search("6 +\U000F0F64", plain)
+        # The calendar is drawn on the light page, where the full Moon is
+        # an outline in dark ink and the new Moon the filled disc
+        assert re.search("21 +\U000F0F64", plain)
+        assert re.search("6 +\U000F0F62", plain)
+
+    def test_calendar_page_is_the_terminals_on_a_light_theme(self, restore_theme):
+        from linecast.moon import palette as inks
+
+        _theme._apply(*LIGHT)
+        assert inks.MONTH_BG_RGB == _theme.theme_bg
+        assert not _theme.is_light_theme(inks.SKY_RGB)   # the moon view's sky stays dark
+        # a full Moon has an edge on the page, and a new Moon is dark on it
+        assert inks.MONTH_LIT_RGB != inks.MONTH_BG_RGB
+        assert _theme.contrast_ratio(inks.MONTH_NIGHT_RGB, inks.MONTH_BG_RGB) >= 4.5
+        for ink in (inks.MONTH_TEXT_RGB, inks.MONTH_DIM_RGB, inks.MONTH_FAINT_RGB):
+            assert _theme.luminance(ink) < _theme.luminance(inks.MONTH_BG_RGB)
+        assert _theme.contrast_ratio(inks.MONTH_TEXT_RGB, inks.MONTH_BG_RGB) >= 4.5
+
+        _theme._apply(*DARK)
+        assert inks.MONTH_BG_RGB == inks.SKY_RGB == _theme.theme_bg
+        assert inks.MONTH_LIT_RGB == inks.MOON_LIT_RGB
+        assert inks.MONTH_TEXT_RGB == inks.PANEL_TEXT_RGB
 
     @pytest.mark.parametrize("principal", (False, True))
     def test_calendar_hover_uses_its_own_background(self, restore_theme, principal):

@@ -27,6 +27,7 @@ import sys
 import threading
 import time as _time
 
+from linecast._plaintext import plain_text
 from linecast.terminal import bidi as _bidi
 from linecast.terminal import term as _term
 
@@ -720,10 +721,49 @@ class _Pacing:
         self.owed = 0
 
 
-def _screen_escapes(mouse):
+# The window title.  OSC 0 names the window and its tab or pane; the
+# title that was there is pushed on the terminal's stack first (XTWINOPS
+# 22) and popped at the end (23).  A terminal without the stack ignores
+# both, so the title is emptied before the pop: an empty title is the
+# shell's to fill again, and the view's own would be wrong once it had
+# gone.
+_TITLE_PUSH = "\033[22;0t"
+_TITLE_POP = "\033]0;\007\033[23;0t"
+_TITLE_MAX = 200
+# Consoles that have no title and may print an OSC they do not know as
+# text: the Linux and BSD consoles and the hardware terminals.
+_NO_TITLE = ("linux", "dumb", "vt", "wsvt", "cons", "sun", "ansi")
+
+
+def titles():
+    """Whether the terminal can be handed a window title."""
+    term = os.environ.get("TERM", "").strip().lower()
+    if not term:
+        return os.name == "nt"   # Windows consoles set no TERM and take titles
+    return not term.startswith(_NO_TITLE)
+
+
+def window_title(command, place=""):
+    """A view's window title: its command, the place it shows, and
+    linecast's name.  The name comes last, so a tab too narrow for the
+    whole title loses it before the place."""
+    return " — ".join(part for part in (command, place, "linecast") if part)
+
+
+def title_escape(text):
+    """The escape that sets the window title to *text*.  The text is
+    often a place name from outside, and one control character in it
+    would end the title and start a command, so none get through."""
+    text = " ".join(plain_text(str(text or "")).split())[:_TITLE_MAX]
+    return f"\033]0;{text}\007"
+
+
+def _screen_escapes(mouse, title=False):
     """What a live loop writes to take the terminal -- the alternate
     screen, the cursor hidden, mouse reporting -- and what it writes to
-    give it back, at its end and at ctrl-Z before it stops.
+    give it back, at its end and at ctrl-Z before it stops.  With
+    *title*, the window title is saved on the way in and put back on the
+    way out.
 
     The giving back begins with the end of a synchronized update: a
     frame cut short by a signal never sent its own _SYNC_END, and a
@@ -744,13 +784,16 @@ def _screen_escapes(mouse):
             take += "\033[?1007h"
             give_back += "\033[?1007l"
     give_back += f"{_AUTOWRAP_ON}{bidi_off}\033[?25h\033[?1049l"
+    if title:
+        take = _TITLE_PUSH + take
+        give_back += _TITLE_POP
     return take, give_back
 
 
 def live_loop(render_fn, interval=60, mouse=False, on_open=None, scroll_step=15,
               auto_play=False, play_interval=0.6, on_action=None, on_drag=None,
               intercept=None, play_gate=None, on_wheel=None, text_mode=None,
-              on_click=None, help_panel=None, clamp_offset=None):
+              on_click=None, help_panel=None, clamp_offset=None, title=None):
     """Run render_fn() in a loop on the alternate screen buffer.
 
     render_fn: callable(offset_minutes=0) returning display_string, or
@@ -818,6 +861,9 @@ def live_loop(render_fn, interval=60, mouse=False, on_open=None, scroll_step=15,
                 It owns `?` and input while open, without changing the
                 view's state. Text fields still receive a literal
                 question mark.
+    title: optional callable() returning the window title, asked after
+           each render and sent to the terminal when it has changed.
+           The terminal's own title is put back when the loop ends.
     Re-renders immediately on terminal resize or input.  A mouse_pos
     with no mouse input for _HOVER_IDLE_S seconds goes back to None.
 
@@ -830,7 +876,7 @@ def live_loop(render_fn, interval=60, mouse=False, on_open=None, scroll_step=15,
               play_interval=play_interval, play_gate=play_gate,
               help_panel=help_panel, on_open=on_open, on_action=on_action,
               on_drag=on_drag, on_click=on_click, on_wheel=on_wheel,
-              intercept=intercept, text_mode=text_mode).run()
+              intercept=intercept, text_mode=text_mode, title=title).run()
 
 
 class _LiveLoop:
@@ -849,7 +895,8 @@ class _LiveLoop:
 
     def __init__(self, render_fn, *, interval, mouse, scroll_step, clamp_offset,
                  auto_play, play_interval, play_gate, help_panel, on_open,
-                 on_action, on_drag, on_click, on_wheel, intercept, text_mode):
+                 on_action, on_drag, on_click, on_wheel, intercept, text_mode,
+                 title=None):
         self.render_fn = render_fn
         self.interval = interval
         self.mouse = mouse
@@ -866,6 +913,8 @@ class _LiveLoop:
         self.on_wheel = on_wheel
         self.intercept = intercept
         self.text_mode = text_mode
+        self.title = title if title is not None and titles() else None
+        self.titled = None        # the title the terminal was last sent
 
         # What the frame is rendered from (render_fn's keywords)
         self.offset = 0           # minutes scrubbed from now
@@ -896,7 +945,7 @@ class _LiveLoop:
         self.term = _term.LiveTerminal(sys.stdin.fileno())
         self.term.install()
         self.pacing = _Pacing()
-        self.init, self.restore = _screen_escapes(self.mouse)
+        self.init, self.restore = _screen_escapes(self.mouse, self.title is not None)
 
         watch = WorkerWatch()
         watch.install()
@@ -932,6 +981,7 @@ class _LiveLoop:
         sys.stdout.flush()
         # a fresh alternate screen holds nothing of the last frame
         self.painter.forget()
+        self.titled = None
 
     def _hold(self):
         """Hold the next frame until the terminal has read the last one
@@ -978,6 +1028,7 @@ class _LiveLoop:
         sys.stdout.write(self.init)
         sys.stdout.flush()
         self.painter.forget()
+        self.titled = None   # the shell may have set its own meanwhile
 
     def _paint(self):
         """Render the frame from the state as it stands, and write it."""
@@ -1015,8 +1066,21 @@ class _LiveLoop:
             # restore it when the caller's overlay has not done so.
             if "\033[?1003l" not in floating:
                 floating = "\033[?1003h" + floating
-        sys.stdout.write(self.painter.paint(body, floating) + self.pacing.ask())
+        sys.stdout.write(self._title_change() + self.painter.paint(body, floating)
+                         + self.pacing.ask())
         sys.stdout.flush()
+
+    def _title_change(self):
+        """The escape for the window title, when the view's has changed
+        since the terminal was last sent one."""
+        if self.title is None:
+            return ""
+        text = self.title()
+        title = title_escape(text) if text else None
+        if title is None or title == self.titled:
+            return ""
+        self.titled = title
+        return title
 
     def _idle(self):
         """Wait for the next frame to be due: input that changes the
@@ -1365,6 +1429,12 @@ class LiveApp:
     def stop(self):
         """The loop is over; park any thread that was serving it."""
 
+    def title(self):
+        """The window title, asked after each render: window_title() of
+        the view's command and the place on screen.  None leaves the
+        terminal's title alone."""
+        return None
+
     _flash = None  # (paragraphs, deadline, busy) while a note is up
     _flash_timer = None
 
@@ -1444,6 +1514,10 @@ class LiveApp:
             hooks["on_drag"] = lambda dcol, drow, done: False
         return hooks
 
+    def _title_hook(self):
+        """title for the loop, or None for an app that sets none."""
+        return None if type(self).title is LiveApp.title else self.title
+
     # The help panel: the view's keys (terminal/help.CONTROLS[help_view]),
     # after help_rows and before help_credits.  help_view is read each
     # time the panel is drawn, so a view that switches, as weather's year
@@ -1475,7 +1549,7 @@ class LiveApp:
             live_loop(self.render, interval=self.interval, mouse=self.mouse,
                       scroll_step=self.scroll_step, auto_play=self.auto_play,
                       play_interval=self.play_interval, help_panel=self.help_panel(),
-                      **self.hooks())
+                      title=self._title_hook(), **self.hooks())
         finally:
             self.clear_flash()
             self.stop()

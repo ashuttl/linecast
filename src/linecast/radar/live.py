@@ -14,7 +14,7 @@ from linecast.radar import frames as _frames
 from linecast.radar import sources as _sources
 from linecast.terminal.framebuffer import get_terminal_size
 from linecast._geo import wrap_lon
-from linecast.terminal.live import LiveApp, nudge, print_frame
+from linecast.terminal.live import LiveApp, nudge, print_frame, window_title
 from linecast.radar.frames import N_FRAMES, _sat_timeline
 from linecast.radar.i18n import rs
 from linecast._xyz import bbox_for
@@ -71,6 +71,9 @@ class RadarApp(LiveApp):
         self.theme = theme             # active theme id (the picker updates it)
         self.pan_preview = (0, 0)      # live cell offset while a drag is in progress
         self.picker = ThemePicker()
+
+    def title(self):
+        return window_title('radar', self.location_name)
 
     def on_action(self, key):
         if key in ('w', 'a', 's', 'd'):

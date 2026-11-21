@@ -268,7 +268,7 @@ A globe frame is cheap, and every one is drawn for real. A flat view takes a sec
 - `elevation.py` — the AWS terrain tiles. `builtup.py` is the optional built-up raster.
 - `search.py`, `route.py` — Photon and Nominatim for search, OSRM for directions.
 - `globe_now.py` — daylight and clouds. `night_lights.py` is the lights on the night side.
-- `climate.py`, `glaciers.py` — the bundled grids that pick terrain's colors and paint its ice.
+- `climate.py`, `glaciers.py`, `lake_depth.py` — the bundled grids that pick terrain's colors, paint its ice, and shade the beds of the Great Lakes and Baikal.
 - `tile_cache.py` — keeps the tile cache under its size.
 
 `scripts/bench_maps_live.py` drives the whole loop in a pty, and `scripts/bench_maps_frames.py` times a single frame.

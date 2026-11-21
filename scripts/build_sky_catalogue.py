@@ -103,7 +103,7 @@ WIKIDATA_LANG = {
     "pl": "pl", "no": "nb", "sv": "sv", "is": "is", "da": "da", "fi": "fi",
     "ja": "ja", "ko": "ko", "zh": "zh-hans", "th": "th", "id": "id", "uk": "uk",
     "vi": "vi", "eo": "eo", "tr": "tr", "ru": "ru", "ro": "ro", "cs": "cs", "el": "el",
-    "fa": "fa", "hu": "hu", "sk": "sk", "he": "he", "ar": "ar",
+    "fa": "fa", "hu": "hu", "sk": "sk", "he": "he", "ar": "ar", "cy": "cy",
 }
 
 # The traditional form of each simplified character the Chinese names use,
@@ -391,6 +391,8 @@ OVERRIDES = {
         # a star in Corvus. Retain the IAU names for those mismatches.
         "he": {"Sirius": "סיריוס", "Wasat": ""},
         "ar": {"Sirius": "الشعرى اليمانية", "Vega": "النسر الواقع", "Aljanah": ""},
+        # Wikidata's Welsh labels for these two are the French spellings.
+        "cy": {"Aldebaran": "", "Merope": ""},
         "da": {
             "Diphda": "", "Marfak": "", "Pearce's Star": "",
         },
@@ -713,6 +715,17 @@ OVERRIDES = {
         # Only these attested Swahili names are included; the rest keep
         # their Latin names. This is a display language, not a sky culture.
         "sw": {"Cru": "Msalaba wa Kusini", "Sco": "Ng'e"},
+        # Welsh Wikipedia titles the constellations by their Latin names,
+        # as Wikidata's labels have them, and gives a Welsh name beside
+        # the Latin in the first sentence of these eleven articles ("Ursa
+        # Major neu'r Arth Fawr", "Cassiopeia (Cymraeg: Llys Dôn)"). The
+        # names of the zodiac it keeps for the astrological signs.
+        "cy": {
+            "Aql": "Yr Eryr", "Aur": "Y Cerbydwr", "Cas": "Llys Dôn", "CrA": "Coron y De",
+            "CrB": "Coron y Gogledd", "Cru": "Croes y De", "Cyg": "Yr Alarch",
+            "Gem": "Yr Efeilliaid", "Hya": "Y Ddyfrsarff", "UMa": "Yr Arth Fawr",
+            "UMi": "Yr Arth Fach",
+        },
         # Czech Wikipedia titles the articles "Souhvězdí Velké medvědice",
         # in the genitive, and Wikidata carries the nominative names the
         # charts print; two of its labels are the article's phrase, and
