@@ -199,7 +199,7 @@ class TestRun:
                 return _live.window_title("weather", "Portland, Maine")
 
         App().run()
-        assert seen["title"]() == "weather — Portland, Maine"
+        assert seen["title"]() == "weather — Portland, Maine — linecast"
         LiveApp().run()
         assert seen["title"] is None
 
@@ -331,8 +331,9 @@ class TestTicker:
 
 class TestWindowTitle:
     def test_the_command_and_the_place(self):
-        assert _live.window_title("weather", "Portland, Maine") == "weather — Portland, Maine"
-        assert _live.window_title("moon") == "moon"
+        title = _live.window_title("weather", "Portland, Maine")
+        assert title == "weather — Portland, Maine — linecast"
+        assert _live.window_title("moon") == "moon — linecast"
 
     def test_a_place_name_cannot_end_the_title(self):
         escape = _live.title_escape("tides — Park\x07\x1b]0;OWNED\x07\nStreet")

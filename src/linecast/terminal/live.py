@@ -744,8 +744,10 @@ def titles():
 
 
 def window_title(command, place=""):
-    """A view's window title: its command, and the place it shows."""
-    return f"{command} — {place}" if place else command
+    """A view's window title: its command, the place it shows, and
+    linecast's name.  The name comes last, so a tab too narrow for the
+    whole title loses it before the place."""
+    return " — ".join(part for part in (command, place, "linecast") if part)
 
 
 def title_escape(text):
