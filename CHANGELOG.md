@@ -4,6 +4,8 @@ Notable changes, by release. Notes for the next release collect under **Unreleas
 
 ## Unreleased
 
+## 2.13.1 — 2026-11-25
+
 - Weather: Hovering an hour shows its wind from a lighter breeze than before, and its gusts when they are strong.
 
 ## 2.13.0 — 2026-11-20
