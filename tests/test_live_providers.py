@@ -246,6 +246,11 @@ def test_meteoalarm_feed_is_placed(failures, country, slug):
 # forecast and fire weather district they name. Marine, flood and
 # tsunami warnings are filed by zone and catchment, and are not placed.
 
+# Districts the Bureau's forecast locations leave empty, so no point
+# resolves to them and a warning for one alone is never shown. Known,
+# and left alone: NT_FW016 is Simpson East, in the Simpson Desert.
+_BOM_EMPTY_DISTRICTS = {"NT_FW016"}
+
 
 def test_bom_warnings_are_placed(failures):
     from ftplib import FTP
@@ -255,6 +260,7 @@ def test_bom_warnings_are_placed(failures):
     locations = bom._locations(15)
     assert failures() == [] and locations
     known = {code for _lat, _lng, codes in locations for code in codes.split()}
+    known |= _BOM_EMPTY_DISTRICTS
     unknown = set()
     with FTP(bom._FTP_HOST, timeout=15) as ftp:
         ftp.login()
