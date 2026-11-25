@@ -1,9 +1,14 @@
 name: Live providers
 
 # Asks every data provider linecast talks to whether it still answers
-# in the shape the code expects, once a day, and keeps one issue open
-# while any does not. The ordinary test suite never touches the
-# network; this is the one place the real feeds are exercised.
+# in the shape the code expects, once a day. The ordinary test suite
+# never touches the network; this is the one place the real feeds are
+# exercised.
+#
+# Most failures are a provider's bad morning, gone by the next day. So
+# a test that fails once is a warning on the run, and the run stays
+# green. A test that fails on two runs a day apart turns the run red
+# and opens an issue, which stays open until it passes.
 
 on:
   schedule:
@@ -13,6 +18,7 @@ on:
 permissions:
   contents: read
   issues: write
+  actions: read   # to fetch the earlier run's report
 
 concurrency:
   group: live-providers
@@ -59,12 +65,42 @@ jobs:
           fi
           echo "status=$status" >> "$GITHUB_OUTPUT"
 
+      # Kept for the next day's run to compare against.
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: live-report
+          path: ${{ runner.temp }}/report.txt
+          retention-days: 14
+
+      # The newest finished run from at least 20 hours ago: yesterday's
+      # scheduled run, whether this one is scheduled or started by hand.
+      # A run started by hand an hour after a failure is not a second day.
+      - name: Fetch the report from a day before
+        id: earlier
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          cutoff=$(date -u -d '20 hours ago' +%Y-%m-%dT%H:%M:%SZ)
+          run=$(gh run list --workflow live.yml --status completed --limit 30 \
+                --json databaseId,createdAt \
+                --jq "[.[] | select(.createdAt <= \"$cutoff\")][0].databaseId // empty")
+          if [ -n "$run" ] && gh run download "$run" --name live-report --dir "$RUNNER_TEMP/earlier"; then
+              echo "url=${{ github.server_url }}/${{ github.repository }}/actions/runs/$run" >> "$GITHUB_OUTPUT"
+          else
+              echo "no earlier report; nothing can count as failing twice on this run"
+          fi
+
       - name: Open, update, or close the issue
+        id: issue
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
-        run: sh scripts/live_issue.sh "${{ steps.probe.outputs.status }}" "$RUNNER_TEMP/report.txt"
+          EARLIER_URL: ${{ steps.earlier.outputs.url }}
+        run: >-
+          sh scripts/live_issue.sh "${{ steps.probe.outputs.status }}"
+          "$RUNNER_TEMP/report.txt" "$RUNNER_TEMP/earlier/report.txt"
 
       - name: Report the result
-        run: exit "${{ steps.probe.outputs.status }}"
+        run: test "${{ steps.issue.outputs.failing }}" = 0

@@ -4,6 +4,8 @@ Notable changes, by release. Notes for the next release collect under **Unreleas
 
 ## Unreleased
 
+- Weather: Hovering an hour shows its wind from a lighter breeze than before, and its gusts when they are strong.
+
 ## 2.13.0 — 2026-11-20
 
 linecast speaks Welsh. The rest of this release is smaller: the map shows the beds of the Great Lakes and Lake Baikal, each live view titles its window, and the Moon's views are faster.

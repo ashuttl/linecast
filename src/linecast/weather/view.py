@@ -46,7 +46,7 @@ from linecast.weather.header import render_header
 from linecast.weather.narrative import narrative_lines
 from linecast.weather.style import (
     ALERT_AMBER, CLOUD_RGB, DIM, MUTED, TEXT, TOOLTIP_BG_RGB, TOOLTIP_DIM_RGB, TOOLTIP_TEXT_RGB,
-    _colored_temp, _precip_rgb, _precip_type, notable_moisture,
+    _colored_temp, _precip_rgb, _precip_type, notable_moisture, notable_wind,
 )
 from linecast.weather.alert_feeds import alert_source
 from linecast.weather.credits import observed_credit
@@ -144,6 +144,7 @@ def _build_hover_tooltip(data, mouse_col, mouse_row, hourly_start, hourly_end, c
     code = _at(window["codes"], idx, 0)
     wind = _at(window["winds"], idx, 0)
     wind_dir = _at(window["wind_dirs"], idx, 0)
+    gusts = _at(window.get("gusts"), idx, 0)
     humidity = _at(window.get("humidity"), idx)
     dew = _at(window.get("dew_points"), idx)
     amount = _at(window.get("precip_amount"), idx, 0)
@@ -208,10 +209,15 @@ def _build_hover_tooltip(data, mouse_col, mouse_row, hourly_start, hourly_end, c
         shaded = f"{_cloud_shade(cloud)}{fmt_percent(cloud, runtime)}{TFG}"
         lines.append(f"{TBG}{TFG} {_s('cloud', runtime, p=shaded)} ")
 
-    # Wind (if notable)
-    if runtime.wind_kmh(wind) > 25:
+    # Wind, by the header's rule: lower than the chart's labels need,
+    # as a line here crowds nothing
+    windy, gusty = notable_wind(wind, gusts, runtime)
+    if windy:
         arrow = arrow_toward(wind_dir + 180)
-        lines.append(f"{TBG}{TFG} {arrow} {fmt_wind(wind, runtime)} ")
+        wind_parts = [f"{arrow} {fmt_wind(wind, runtime)}"]
+        if gusty:
+            wind_parts.append(f"{_s('gusts', runtime)} {fmt_wind(gusts, runtime)}")
+        lines.append(f"{TBG}{TFG} {'  '.join(wind_parts)} ")
 
     if not lines:
         return ""

@@ -5,8 +5,8 @@ makes a real request and runs the reply through the same code the
 commands use, so an outage and a changed feed both show up as a failed
 test naming the provider.  They are marked integration, which the
 conftest network guard honours, and the ordinary suite leaves them
-out; .github/workflows/live.yml runs them on a schedule and opens an
-issue when one fails.  Run them by hand with
+out; .github/workflows/live.yml runs them once a day and opens an
+issue when one fails two days running.  Run them by hand with
 
     pytest tests/test_live_providers.py -m integration
 
@@ -246,6 +246,11 @@ def test_meteoalarm_feed_is_placed(failures, country, slug):
 # forecast and fire weather district they name. Marine, flood and
 # tsunami warnings are filed by zone and catchment, and are not placed.
 
+# Districts the Bureau's forecast locations leave empty, so no point
+# resolves to them and a warning for one alone is never shown. Known,
+# and left alone: NT_FW016 is Simpson East, in the Simpson Desert.
+_BOM_EMPTY_DISTRICTS = {"NT_FW016"}
+
 
 def test_bom_warnings_are_placed(failures):
     from ftplib import FTP
@@ -255,6 +260,7 @@ def test_bom_warnings_are_placed(failures):
     locations = bom._locations(15)
     assert failures() == [] and locations
     known = {code for _lat, _lng, codes in locations for code in codes.split()}
+    known |= _BOM_EMPTY_DISTRICTS
     unknown = set()
     with FTP(bom._FTP_HOST, timeout=15) as ftp:
         ftp.login()

@@ -11,7 +11,7 @@ from linecast.weather.cover import sky_condition
 from linecast.weather.i18n import fmt_wind, felt_index, wmo_label, _s, _wmo_icons
 from linecast.weather import style as _style
 from linecast.weather.style import (MUTED, TEXT, WIND_COLOR, _aqhi_color, _aqi_color,
-                                     _colored_temp, _india_aqi_color)
+                                     _colored_temp, _india_aqi_color, notable_wind)
 from linecast.weather.forecast import local_now
 
 
@@ -134,9 +134,10 @@ def render_header(data, width, location_name="", runtime=None, aqi_data=None, hi
 
     # Right side: wind info + location (progressively droppable)
     wind_part = ""
-    if runtime.wind_kmh(wind) > 15 or runtime.wind_kmh(gusts) > 30:
+    windy, gusty = notable_wind(wind, gusts, runtime)
+    if windy:
         parts = [f"{_s('wind', runtime)} {fmt_wind(wind, runtime)}"]
-        if runtime.wind_kmh(gusts) > 30:
+        if gusty:
             parts.append(f"{_s('gusts', runtime)} {fmt_wind(gusts, runtime)}")
         wind_part = f"{WIND_COLOR}{'  '.join(parts)}"
     loc_part = ""
