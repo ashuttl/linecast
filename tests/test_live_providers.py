@@ -5,8 +5,8 @@ makes a real request and runs the reply through the same code the
 commands use, so an outage and a changed feed both show up as a failed
 test naming the provider.  They are marked integration, which the
 conftest network guard honours, and the ordinary suite leaves them
-out; .github/workflows/live.yml runs them on a schedule and opens an
-issue when one fails.  Run them by hand with
+out; .github/workflows/live.yml runs them once a day and opens an
+issue when one fails two days running.  Run them by hand with
 
     pytest tests/test_live_providers.py -m integration
 
