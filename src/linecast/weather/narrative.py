@@ -66,7 +66,9 @@ The builders are called in this order:
     (_next_rain).
 12. What fell in the last day (past_precip_sentence).
 
-The paragraph takes at most _MAX_SENTENCES of the candidates.  They are
+The paragraph takes at most _MAX_SENTENCES of the candidates, and
+after them what fell in the last day when that was a lot (half an inch
+of water, 5 cm of snow), whatever its rank.  They are
 ranked by salience, highest first; of two with the same salience, the
 one about the sooner time is taken, and of two about the same time, the
 one added first.  Salience is what a person would be sure to mention:
@@ -352,14 +354,19 @@ def narrative_text(data, now, runtime=None, trace=None):
     # The last day is the station's gauge where it has one, else the
     # model's hours as they came: this hour's stamp holds what fell in the
     # hour before it, which the station's weather now does not name
-    add(2, float("inf"), None,
-        lambda after: past_precip_sentence(data.get("hourly", {}), now, runtime,
-                                           data.get("observed_precipitation")))
+    past, a_lot = _past_precip(data.get("hourly", {}), now, runtime,
+                               data.get("observed_precipitation"))
+    add(2, float("inf"), None, lambda after: past)
+    # A lot of rain or snow is said even when four other sentences rank
+    # above it: a fifth sentence, the footnote
+    footnote = candidates[-1] if past and a_lot else None
 
     if not candidates:
         return ""
 
     chosen = sorted(candidates, key=lambda c: (-c[0], c[1], c[4]))[:_MAX_SENTENCES]
+    if footnote is not None and footnote not in chosen:
+        chosen.append(footnote)
     chosen.sort(key=lambda c: (c[1], c[4]))
     if trace is not None:
         for _, _, _, _, rank, _ in chosen:
@@ -1558,7 +1565,14 @@ def _snow_sentence(parts, hourly, now, runtime):
 def past_precip_sentence(hourly, now, runtime, station=None):
     """Plain-text summary of precipitation in the last 24 hours: the
     model's hours, or what a nearby station's gauge caught where it has
-    one (`station`, from observed.py).
+    one (`station`, from observed.py)."""
+    return _past_precip(hourly, now, runtime, station)[0]
+
+
+def _past_precip(hourly, now, runtime, station=None):
+    """(sentence, a lot) for the precipitation in the last 24 hours: the
+    sentence past_precip_sentence gives, and whether the total is enough
+    to be said beyond the paragraph's usual length.
 
     Snow stays the model's.  A gauge gives snow as the water it melts
     to, and a heated gauge in the wind catches little of it, so the
@@ -1569,7 +1583,7 @@ def past_precip_sentence(hourly, now, runtime, station=None):
     codes = hourly.get("weather_code", [])
 
     if not times or not precip:
-        return ""
+        return "", False
 
     current_hour = now.replace(minute=0, second=0, microsecond=0)
     past_start = current_hour - timedelta(hours=24)
@@ -1623,7 +1637,10 @@ def past_precip_sentence(hourly, now, runtime, station=None):
     worth_water = total_precip >= (2.5 if runtime.metric else 0.1)
     worth_snow = total_snow_cm >= 1
     if not worth_water and not worth_snow:
-        return ""
+        return "", False
+    # Half an inch of water, 12.5 mm, or 5 cm of snow is a lot: the
+    # paragraph says it whatever else it holds
+    a_lot = total_precip >= (12.5 if runtime.metric else 0.5) or total_snow_cm >= 5
 
     # The kind that fell most hours, among those that came to enough to
     # say: a dusting before a wet evening is the rain's sentence
@@ -1652,7 +1669,7 @@ def past_precip_sentence(hourly, now, runtime, station=None):
             amt = _prose_inches(fmt_decimal(total_precip, 2, runtime), runtime)
         ptype = _s("rain", runtime)
 
-    return _s("past_precip", runtime, amt=amt, ptype=ptype)
+    return _s("past_precip", runtime, amt=amt, ptype=ptype), a_lot
 
 
 def _past_precip_line(hourly, now, runtime):

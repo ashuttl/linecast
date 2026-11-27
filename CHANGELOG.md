@@ -4,6 +4,8 @@ Notable changes, by release. Notes for the next release collect under **Unreleas
 
 ## Unreleased
 
+- Weather: After half an inch of rain or 5 cm of snow, the prose gives the last day's total even on a day with a lot else to say.
+
 ## 2.13.1 — 2026-11-25
 
 - Weather: Hovering an hour shows its wind from a lighter breeze than before, and its gusts when they are strong.

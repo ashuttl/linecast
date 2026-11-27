@@ -5,7 +5,7 @@ from datetime import datetime, timedelta
 from linecast._i18n import VARIANTS
 from linecast._runtime import WeatherRuntime
 from linecast.weather.i18n import _STRINGS, _s
-from linecast.weather.narrative import feels_sentence, narrative_lines
+from linecast.weather.narrative import feels_sentence, narrative_lines, narrative_text
 
 NOON = datetime(2026, 7, 15, 12, 0)
 
@@ -1524,6 +1524,34 @@ class TestWhatIsSaidAndInWhatOrder:
     def test_the_comparison_is_what_people_open_the_app_for(self):
         # Five things to say and room for four: "about the same" stays
         assert "about the same" in self._prose(self._busy_day())
+
+    def _crowded_day(self, inches):
+        # The busy day with fog overnight: four sentences rank above the
+        # last day's rain, which a station's gauge gives
+        data = self._busy_day()
+        data["hourly"]["weather_code"][20:26] = [45] * 6
+        data["observed_precipitation"] = {"station": "KPWM", "precip": inches,
+                                          "rain_hours": 9, "snow_hours": 0,
+                                          "mix_hours": 0}
+        return data
+
+    def test_a_lot_of_rain_is_said_as_a_fifth_sentence(self):
+        assert self._prose(self._crowded_day(1.12)) == (
+            "The wind is making it feel colder. "
+            "Today's high will be about the same as yesterday's. "
+            "Rain starting in a couple hours, with gusts to 30\u00a0mph. "
+            "Fog overnight, clearing tomorrow morning. "
+            "1.12\u00a0inches of rain in the last 24 hours.")
+
+    def test_a_little_rain_waits_for_room(self):
+        prose = self._prose(self._crowded_day(0.3))
+        assert prose.endswith("Fog overnight, clearing tomorrow morning.")
+        assert "last 24 hours" not in prose
+
+    def test_the_fifth_sentence_is_marked_chosen_in_the_trace(self):
+        trace = []
+        narrative_text(self._crowded_day(1.12), NOON, _runtime(), trace)
+        assert [c["chosen"] for c in trace] == [True] * 5
 
     def test_wind_does_not_ride_on_rain_that_is_ending(self):
         # Helsinki: drizzle stopping, a gale building through the morning
